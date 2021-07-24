@@ -50,7 +50,7 @@ private:
 		const std::string& fragFilepath,
 		const PipelineConfigInfo& configInfo);
 
-	void CreateShaderModule(const std::vector<char>& code, VkShaderModule* shaderModule);
+	void CreateShaderModule(const std::vector<char>& code, ShaderType type, std::string name, const char* codeEntry);
 
 	VulkanDevice& m_VulkanDevice;
 	VkPipeline m_GraphicsPipeline;

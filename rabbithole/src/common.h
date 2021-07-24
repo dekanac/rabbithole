@@ -15,6 +15,17 @@ private: \
     className() = default; \
     ~className() = default;
 
+#define VULKAN_API_CALL(call) \
+		{ \
+			VkResult result = call; \
+			ASSERT(result == VK_SUCCESS, "Vulkan API call fail!"); \
+		}
+
+#define VULKAN_SPIRV_CALL(call) \
+		{ \
+			SpvReflectResult result = call; \
+			ASSERT(result == SPV_REFLECT_RESULT_SUCCESS, "Vulkan Spir-V reflect call fail"); \
+		}
 
 //move this to separate math lib
 typedef glm::vec3 rabbitVec3f;

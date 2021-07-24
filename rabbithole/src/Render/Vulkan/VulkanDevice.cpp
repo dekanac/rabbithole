@@ -3,7 +3,6 @@
 #include "vk_mem_alloc.h"
 
 #include "..\Window.h"
-
 // std headers
 #include <cstring>
 #include <iostream>
@@ -682,5 +681,19 @@ VkShaderStageFlagBits GetVkShaderStageFrom(const ShaderType shaderType)
 	default:
 		ASSERT(false, "Not supported ShaderType.");
 		return VK_SHADER_STAGE_FLAG_BITS_MAX_ENUM;
+	}
+}
+
+VkDescriptorType GetVkDescriptorTypeFrom(const SpvReflectDescriptorType reflectDescriptorType)
+{
+	switch (reflectDescriptorType)
+	{
+	case SPV_REFLECT_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER:
+		return VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+	case SPV_REFLECT_DESCRIPTOR_TYPE_UNIFORM_BUFFER:
+		return VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+	default:
+		ASSERT(false, "Not supported SpvReflectDescriptorBinding.");
+		return VK_DESCRIPTOR_TYPE_MAX_ENUM;
 	}
 }

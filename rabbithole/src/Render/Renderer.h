@@ -2,11 +2,14 @@
 #include "common.h"
 #include "Logger/Logger.h"
 
+#include <unordered_map>
+#include <string>
 #include <vulkan/vulkan.h>
 #include <optional>
 
 #include "Vulkan/Include/VulkanWrapper.h"
 #include "Window.h"
+
 
 class Camera;
 class EntityManager;
@@ -14,11 +17,14 @@ struct GLFWwindow;
 struct Vertex;
 class VulkanDevice;
 class Entity;
+class Shader;
 
 class Renderer
 {
     SingletonClass(Renderer)
 
+public:
+	std::unordered_map<std::string, Shader*> g_Shaders;
 private:
 	Camera* MainCamera{};
 	

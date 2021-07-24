@@ -90,6 +90,9 @@
     <ClCompile Include="src\Render\Vulkan\VulkanDescriptors.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="src\Render\Vulkan\spirv-reflect\spirv_reflect.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\Core\Application.h">
@@ -1017,6 +1020,9 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="src\Render\Vulkan\VulkanDescriptors.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Render\Vulkan\spirv-reflect\spirv_reflect.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

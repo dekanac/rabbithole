@@ -1,6 +1,7 @@
 #pragma once
 
 #include "vk_mem_alloc.h"
+#include "spirv-reflect/spirv_reflect.h"
 
 struct QueueFamilyIndices 
 {
@@ -105,3 +106,5 @@ private:
 VkBufferUsageFlags GetVkBufferUsageFlags(const BufferUsageFlags usageFlags);
 VmaMemoryUsage GetVmaMemoryUsageFrom(const MemoryAccess memoryAccess);
 VkDescriptorType GetVkDescriptorTypeFrom(const DescriptorType descriptorSetBinding);
+VkDescriptorType GetVkDescriptorTypeFrom(const SpvReflectDescriptorType reflectDescriptorType);
+VkShaderStageFlagBits GetVkShaderStageFrom(const ShaderType shaderType);

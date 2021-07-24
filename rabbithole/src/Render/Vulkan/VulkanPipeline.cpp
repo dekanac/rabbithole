@@ -5,6 +5,9 @@
 #include <iostream>
 #include <stdexcept>
 
+#include "../Shader.h"
+#include "../Renderer.h"
+
 VulkanPipeline::VulkanPipeline(
 	VulkanDevice& device,
 	const std::string& vertFilepath,
@@ -46,18 +49,17 @@ void VulkanPipeline::CreateGraphicsPipeline(
 	const std::string& fragFilepath,
 	const PipelineConfigInfo& configInfo) 
 {
-	assert(
-		configInfo.pipelineLayout != VK_NULL_HANDLE &&
-		"Cannot create graphics pipeline: no pipelineLayout provided in configInfo");
-	assert(
-		configInfo.renderPass != VK_NULL_HANDLE &&
-		"Cannot create graphics pipeline: no renderPass provided in configInfo");
+	ASSERT(configInfo.pipelineLayout != VK_NULL_HANDLE, "Cannot create graphics pipeline: no pipelineLayout provided in configInfo");
+	ASSERT(configInfo.renderPass != VK_NULL_HANDLE,     "Cannot create graphics pipeline: no renderPass provided in configInfo");
 
 	auto vertCode = ReadFile(vertFilepath);
 	auto fragCode = ReadFile(fragFilepath);
 
-	CreateShaderModule(vertCode, &m_VertShaderModule);
-	CreateShaderModule(fragCode, &m_FragShaderModule);
+	CreateShaderModule(vertCode, ShaderType::Vertex, "mainvertex", nullptr);
+	CreateShaderModule(fragCode, ShaderType::Fragment, "mainfragment", nullptr);
+
+	m_VertShaderModule = Renderer::instance().g_Shaders["mainvertex"]->GetModule();
+	m_FragShaderModule = Renderer::instance().g_Shaders["mainfragment"]->GetModule();
 
 	VkPipelineShaderStageCreateInfo shaderStages[2];
 	shaderStages[0].sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
@@ -116,17 +118,15 @@ void VulkanPipeline::CreateGraphicsPipeline(
 	}
 }
 
-void VulkanPipeline::CreateShaderModule(const std::vector<char>& code, VkShaderModule* shaderModule) 
+void VulkanPipeline::CreateShaderModule(const std::vector<char>& code, ShaderType type, std::string name, const char* codeEntry) 
 {
-	VkShaderModuleCreateInfo createInfo{};
-	createInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
-	createInfo.codeSize = code.size();
-	createInfo.pCode = reinterpret_cast<const uint32_t*>(code.data());
+	ShaderInfo shaderInfo{};
+	shaderInfo.CodeEntry = codeEntry;
+	shaderInfo.Type = type;
 
-	if (vkCreateShaderModule(m_VulkanDevice.GetGraphicDevice(), &createInfo, nullptr, shaderModule) != VK_SUCCESS) 
-	{
-		LOG_ERROR("failed to create shader module");
-	}
+	Shader* shader = new Shader(m_VulkanDevice, code.size(), code.data(), shaderInfo);
+
+	Renderer::instance().g_Shaders[name] = shader;
 }
 
 void VulkanPipeline::Bind(VkCommandBuffer commandBuffer)

@@ -3,6 +3,7 @@
 #include "Renderer.h"
 #include "Render/Camera.h"
 #include "Render/Window.h"
+#include "Render/Shader.h"
 #include "ECS/EntityManager.h"
 #include "Core/Application.h"
 #include "Vulkan/Include/VulkanWrapper.h"
@@ -235,7 +236,7 @@ void Renderer::recordCommandBuffer(int imageIndex)
 	m_VulkanPipeline->Bind(commandBuffers[imageIndex]);
 	rabbitmodel->Bind(commandBuffers[imageIndex]);
 
-	for (int j = 1; j < 2; j++)
+	for (int j = 1; j < 6; j++)
 	{
 		SimplePushConstantData push{};
 		push.viewMatrix = MainCamera->View();

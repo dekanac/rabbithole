@@ -146,6 +146,7 @@
     <ClCompile Include="src\Render\RenderPass.cpp" />
     <ClCompile Include="src\Render\RenderSystem.cpp" />
     <ClCompile Include="src\Render\Shader.cpp" />
+    <ClCompile Include="src\Render\Vulkan\spirv-reflect\spirv_reflect.c" />
     <ClCompile Include="src\Render\Vulkan\utils.cpp" />
     <ClCompile Include="src\Render\Vulkan\Vertex.cpp" />
     <ClCompile Include="src\Render\Vulkan\VulkanBuffer.cpp" />
@@ -174,6 +175,7 @@
     <ClInclude Include="src\Render\RenderPass.h" />
     <ClInclude Include="src\Render\RenderSystem.h" />
     <ClInclude Include="src\Render\Shader.h" />
+    <ClInclude Include="src\Render\Vulkan\spirv-reflect\spirv_reflect.h" />
     <ClInclude Include="src\Render\Vulkan\utils.h" />
     <ClInclude Include="src\Render\Vulkan\Vertex.h" />
     <ClInclude Include="src\Render\Vulkan\VulkanBuffer.h" />
