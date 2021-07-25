@@ -23,6 +23,9 @@
 tmp/
 bin/
 obj/
+extern/
+logs/
+vendor/
 *.pdb
 *.exe
 *.dll

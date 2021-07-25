@@ -3,13 +3,14 @@
 #include "Shader.h"
 #include "Logger/Logger.h"
 
-#include "Vulkan/VulkanDevice.h"
-#include "Vulkan/spirv-reflect/spirv_reflect.h"
+#include "VulkanDevice.h"
+#include "spirv-reflect/spirv_reflect.h"
 
 
-Shader::Shader(VulkanDevice& device, size_t byteCodeSize, const char* byteCode, const ShaderInfo& info)
+Shader::Shader(VulkanDevice& device, size_t byteCodeSize, const char* byteCode, const ShaderInfo& info, const char* name)
 	: m_Device(device)
 	, m_Info(info)
+	, m_Name(name)
 {
 	VkShaderModuleCreateInfo shaderCreateInfo = { VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO };
 	shaderCreateInfo.codeSize = byteCodeSize;

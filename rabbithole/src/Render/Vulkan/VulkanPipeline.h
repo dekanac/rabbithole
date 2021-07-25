@@ -6,54 +6,47 @@
 #include <string>
 #include <vector>
 
+class VulkanDescriptorSetLayout;
+class Shader;
+
 struct PipelineConfigInfo 
 {
 	PipelineConfigInfo(const PipelineConfigInfo&) = delete;
 	PipelineConfigInfo& operator=(const PipelineConfigInfo&) = delete;
 
-	VkViewport viewport;
-	VkRect2D scissor;
-	VkPipelineViewportStateCreateInfo viewportInfo;
-	VkPipelineInputAssemblyStateCreateInfo inputAssemblyInfo;
-	VkPipelineRasterizationStateCreateInfo rasterizationInfo;
-	VkPipelineMultisampleStateCreateInfo multisampleInfo;
-	VkPipelineColorBlendAttachmentState colorBlendAttachment;
-	VkPipelineColorBlendStateCreateInfo colorBlendInfo;
-	VkPipelineDepthStencilStateCreateInfo depthStencilInfo;
-	VkPipelineLayout pipelineLayout = nullptr;
-	VkRenderPass renderPass = nullptr;
-	uint32_t subpass = 0;
+	VkViewport								viewport;
+	VkRect2D								scissor;
+	VkPipelineViewportStateCreateInfo		viewportInfo;
+	VkPipelineInputAssemblyStateCreateInfo	inputAssemblyInfo;
+	VkPipelineRasterizationStateCreateInfo	rasterizationInfo;
+	VkPipelineMultisampleStateCreateInfo	multisampleInfo;
+	VkPipelineColorBlendAttachmentState		colorBlendAttachment;
+	VkPipelineColorBlendStateCreateInfo		colorBlendInfo;
+	VkPipelineDepthStencilStateCreateInfo	depthStencilInfo;
+	VkPipelineLayout						pipelineLayout = nullptr;
+	VkRenderPass							renderPass = nullptr;
+	uint32_t								subpass = 0;
 };
 
-class VulkanPipeline {
+class VulkanPipeline 
+{
 public:
-	VulkanPipeline(
-		VulkanDevice& device,
-		const std::string& vertFilepath,
-		const std::string& fragFilepath,
-		const PipelineConfigInfo& configInfo);
+	VulkanPipeline(VulkanDevice& device, std::vector<Shader*>& shaders, const PipelineConfigInfo& configInfo);
 	~VulkanPipeline();
 
 	VulkanPipeline(const VulkanPipeline&) = delete;
 	VulkanPipeline operator=(const VulkanPipeline&) = delete;
 
-	void Bind(VkCommandBuffer commandBuffer);
+	void							 Bind(VkCommandBuffer commandBuffer);
 
-	static void DefaultPipelineConfigInfo(
-		PipelineConfigInfo& configInfo, uint32_t width, uint32_t height);
+	static void						 DefaultPipelineConfigInfo(PipelineConfigInfo& configInfo, uint32_t width, uint32_t height);
+	const VulkanDescriptorSetLayout* GetDescriptorSetLayout() { return m_DescriptorSetLayout; }
+	const VkPipelineLayout*			 GetPipelineLayout() const { return &m_PipelineLayout; }
 
 private:
-	static std::vector<char> ReadFile(const std::string& filepath);
 
-	void CreateGraphicsPipeline(
-		const std::string& vertFilepath,
-		const std::string& fragFilepath,
-		const PipelineConfigInfo& configInfo);
-
-	void CreateShaderModule(const std::vector<char>& code, ShaderType type, std::string name, const char* codeEntry);
-
-	VulkanDevice& m_VulkanDevice;
-	VkPipeline m_GraphicsPipeline;
-	VkShaderModule m_VertShaderModule;
-	VkShaderModule m_FragShaderModule;
+	VulkanDevice&				m_VulkanDevice;
+	VkPipeline					m_GraphicsPipeline;
+	VkPipelineLayout			m_PipelineLayout;
+	VulkanDescriptorSetLayout*	m_DescriptorSetLayout;
 };

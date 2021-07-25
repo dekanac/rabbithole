@@ -2,10 +2,17 @@
 
 #include <stddef.h>
 
-RabbitModel::RabbitModel(VulkanDevice& device, const RabbitModel::Builder& builder) : m_VulkanDevice{ device }
+#define TINYOBJLOADER_IMPLEMENTATION
+#include "tiny_obj_loader/tiny_obj_loader.h"
+
+RabbitModel::RabbitModel(VulkanDevice& device, std::string filepath, std::string name) 
+	: m_VulkanDevice{ device }
+	, m_FilePath(filepath)
+	, m_Name(name)
 {
-	CreateVertexBuffers(builder.vertices);
-	CreateIndexBuffers(builder.indices);
+	LoadFromFile();
+	CreateVertexBuffers();
+	CreateIndexBuffers();
 }
 
 RabbitModel::~RabbitModel()
@@ -17,12 +24,12 @@ RabbitModel::~RabbitModel()
 	}
 }
 
-void RabbitModel::CreateVertexBuffers(const std::vector<Vertex>& vertices)
+void RabbitModel::CreateVertexBuffers()
 {
-	m_VertexCount = static_cast<uint32_t>(vertices.size());
+	m_VertexCount = static_cast<uint32_t>(m_Vertices.size());
 	ASSERT(m_VertexCount >= 3, "Vertex count must be greater then 3!");
 
-	VkDeviceSize bufferSize = sizeof(vertices[0]) * m_VertexCount;
+	VkDeviceSize bufferSize = sizeof(m_Vertices[0]) * m_VertexCount;
 	
 	VulkanBufferInfo stagingbufferinfo{};
 
@@ -33,7 +40,7 @@ void RabbitModel::CreateVertexBuffers(const std::vector<Vertex>& vertices)
 	VulkanBuffer* stagingBuffer = new VulkanBuffer(&m_VulkanDevice, stagingbufferinfo);
 
 	stagingBuffer->Map();
-	memcpy(stagingBuffer->GetHostVisibleData(), vertices.data(), static_cast<size_t>(bufferSize));
+	memcpy(stagingBuffer->GetHostVisibleData(), m_Vertices.data(), static_cast<size_t>(bufferSize));
 	stagingBuffer->Unmap();
 
 	VulkanBufferInfo vertexbufferinfo{};
@@ -49,9 +56,9 @@ void RabbitModel::CreateVertexBuffers(const std::vector<Vertex>& vertices)
 	delete stagingBuffer;
 }
 
-void RabbitModel::CreateIndexBuffers(const std::vector<uint32_t>& indices)
+void RabbitModel::CreateIndexBuffers()
 {
-	m_IndexCount = static_cast<uint32_t>(indices.size());
+	m_IndexCount = static_cast<uint32_t>(m_Indices.size());
 	hasIndexBuffer = m_IndexCount > 0;
 
 	if (!hasIndexBuffer)
@@ -59,7 +66,7 @@ void RabbitModel::CreateIndexBuffers(const std::vector<uint32_t>& indices)
 		return;
 	}
 
-	VkDeviceSize bufferSize = sizeof(indices[0]) * m_IndexCount;
+	VkDeviceSize bufferSize = sizeof(m_Indices[0]) * m_IndexCount;
 
 	VulkanBufferInfo stagingbufferinfo{};
 
@@ -70,14 +77,14 @@ void RabbitModel::CreateIndexBuffers(const std::vector<uint32_t>& indices)
 	VulkanBuffer* stagingBuffer = new VulkanBuffer(&m_VulkanDevice, stagingbufferinfo);
 
 	stagingBuffer->Map();
-	memcpy(stagingBuffer->GetHostVisibleData(), indices.data(), static_cast<size_t>(bufferSize));
+	memcpy(stagingBuffer->GetHostVisibleData(), m_Indices.data(), static_cast<size_t>(bufferSize));
 	stagingBuffer->Unmap();
 
 	VulkanBufferInfo indexbufferinfo{};
 
 	indexbufferinfo.memoryAccess = MemoryAccess::Device;
 	indexbufferinfo.size = bufferSize;
-	indexbufferinfo.usageFlags = BufferUsageFlags::VertexBuffer | BufferUsageFlags::TransferDst;
+	indexbufferinfo.usageFlags = BufferUsageFlags::IndexBuffer | BufferUsageFlags::TransferDst;
 
 	m_IndexBuffer = new VulkanBuffer(&m_VulkanDevice, indexbufferinfo);
 
@@ -98,6 +105,54 @@ void RabbitModel::Draw(VkCommandBuffer commandBuffer)
 	}
 }
 
+void RabbitModel::LoadFromFile()
+{
+	tinyobj::attrib_t attrib;
+	std::vector<tinyobj::shape_t> shapes; // TODO: These are probably nodes???
+	std::vector<tinyobj::material_t> materials;
+	std::string warn, err;
+
+	ASSERT(tinyobj::LoadObj(&attrib, &shapes, &materials, &warn, &err, m_FilePath.c_str()), "Cannot load obj file!");
+
+	std::unordered_map<Vertex, uint32_t> uniqueVertices{};
+
+	for (const auto& shape : shapes)
+	{
+		for (const auto& index : shape.mesh.indices)
+		{
+			Vertex vertex{};
+
+			vertex.position =
+			{
+				attrib.vertices[3 * index.vertex_index + 0],
+				attrib.vertices[3 * index.vertex_index + 1],
+				attrib.vertices[3 * index.vertex_index + 2]
+			};
+
+			vertex.normal =
+			{
+				attrib.normals[3 * index.normal_index + 0],
+				attrib.normals[3 * index.normal_index + 1],
+				attrib.normals[3 * index.normal_index + 2]
+			};
+
+			vertex.uv =
+			{
+				attrib.texcoords[2 * index.texcoord_index + 0],
+				1.0f - attrib.texcoords[2 * index.texcoord_index + 1]
+			};
+
+			if (uniqueVertices.count(vertex) == 0)
+			{
+				uniqueVertices[vertex] = static_cast<uint32_t>(m_Vertices.size());
+				m_Vertices.push_back(vertex);
+			}
+
+			m_Indices.push_back(uniqueVertices[vertex]);
+		}
+	}
+}
+
 void RabbitModel::Bind(VkCommandBuffer commandBuffer)
 {
 	VkBuffer buffers[] = { m_VertexBuffer->GetBuffer() };
@@ -110,7 +165,7 @@ void RabbitModel::Bind(VkCommandBuffer commandBuffer)
 	}
 }
 
-std::vector<VkVertexInputBindingDescription> RabbitModel::Vertex::GetBindingDescriptions()
+std::vector<VkVertexInputBindingDescription> Vertex::GetBindingDescriptions()
 {
 	std::vector<VkVertexInputBindingDescription> bindingDescriptions(1);
 	bindingDescriptions[0].binding = 0;
@@ -119,9 +174,9 @@ std::vector<VkVertexInputBindingDescription> RabbitModel::Vertex::GetBindingDesc
 	return bindingDescriptions;
 }
 
-std::vector<VkVertexInputAttributeDescription> RabbitModel::Vertex::GetAttributeDescriptions()
+std::vector<VkVertexInputAttributeDescription> Vertex::GetAttributeDescriptions()
 {
-	std::vector<VkVertexInputAttributeDescription> attributeDescriptions(2);
+	std::vector<VkVertexInputAttributeDescription> attributeDescriptions(3);
 	attributeDescriptions[0].binding = 0;
 	attributeDescriptions[0].location = 0;
 	attributeDescriptions[0].format = VK_FORMAT_R32G32B32_SFLOAT;
@@ -130,7 +185,12 @@ std::vector<VkVertexInputAttributeDescription> RabbitModel::Vertex::GetAttribute
 	attributeDescriptions[1].binding = 0;
 	attributeDescriptions[1].location = 1;
 	attributeDescriptions[1].format = VK_FORMAT_R32G32B32_SFLOAT;
-	attributeDescriptions[1].offset = offsetof(Vertex, color);
+	attributeDescriptions[1].offset = offsetof(Vertex, normal);
+
+	attributeDescriptions[2].binding = 0;
+	attributeDescriptions[2].location = 2;
+	attributeDescriptions[2].format = VK_FORMAT_R32G32_SFLOAT;
+	attributeDescriptions[2].offset = offsetof(Vertex, uv);
 
 	return attributeDescriptions;
 }

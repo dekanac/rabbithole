@@ -4,7 +4,7 @@
 #include <string>
 #include <vulkan/vulkan.h>
 
-#include "Vulkan/VulkanTypes.h"
+#include "VulkanTypes.h"
 
 class VulkanDevice;
 
@@ -20,12 +20,15 @@ public:
 	Shader(VulkanDevice& device,
 		size_t byteCodeSize,
 		const char* byteCode,
-		const ShaderInfo& info);
+		const ShaderInfo& info,
+		const char* name);
 	~Shader();
 
 public:
 	inline const ShaderInfo GetInfo() const { return m_Info; }
 	inline const VkShaderModule GetModule()  { return m_ShaderModule; }
+	inline const char* GetName() const { return m_Name; }
+	inline const std::vector<VkDescriptorSetLayoutBinding>& GetDescriptorSetLayoutBindings() const { return m_DescriptorSetLayoutBindings; }
 
 private:
 	const ShaderInfo m_Info;

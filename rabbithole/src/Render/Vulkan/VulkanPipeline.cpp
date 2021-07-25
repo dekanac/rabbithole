@@ -5,80 +5,32 @@
 #include <iostream>
 #include <stdexcept>
 
-#include "../Shader.h"
+#include "Shader.h"
 #include "../Renderer.h"
 
-VulkanPipeline::VulkanPipeline(
-	VulkanDevice& device,
-	const std::string& vertFilepath,
-	const std::string& fragFilepath,
-	const PipelineConfigInfo& configInfo)
+VulkanPipeline::VulkanPipeline(VulkanDevice& device, std::vector<Shader*>& shaders, const PipelineConfigInfo& configInfo)
 	: m_VulkanDevice{ device } 
-{
-	CreateGraphicsPipeline(vertFilepath, fragFilepath, configInfo);
-}
-
-VulkanPipeline::~VulkanPipeline() 
-{
-	vkDestroyShaderModule(m_VulkanDevice.GetGraphicDevice(), m_VertShaderModule, nullptr);
-	vkDestroyShaderModule(m_VulkanDevice.GetGraphicDevice(), m_FragShaderModule, nullptr);
-	vkDestroyPipeline(m_VulkanDevice.GetGraphicDevice(), m_GraphicsPipeline, nullptr);
-}
-
-std::vector<char> VulkanPipeline::ReadFile(const std::string& filepath) 
-{
-	std::ifstream file{ filepath, std::ios::ate | std::ios::binary };
-
-	if (!file.is_open()) 
-	{
-		LOG_ERROR("failed to open file: " + filepath);
-	}
-
-	size_t fileSize = static_cast<size_t>(file.tellg());
-	std::vector<char> buffer(fileSize);
-
-	file.seekg(0);
-	file.read(buffer.data(), fileSize);
-
-	file.close();
-	return buffer;
-}
-
-void VulkanPipeline::CreateGraphicsPipeline(
-	const std::string& vertFilepath,
-	const std::string& fragFilepath,
-	const PipelineConfigInfo& configInfo) 
+	, m_PipelineLayout(configInfo.pipelineLayout)
 {
 	ASSERT(configInfo.pipelineLayout != VK_NULL_HANDLE, "Cannot create graphics pipeline: no pipelineLayout provided in configInfo");
-	ASSERT(configInfo.renderPass != VK_NULL_HANDLE,     "Cannot create graphics pipeline: no renderPass provided in configInfo");
+	ASSERT(configInfo.renderPass != VK_NULL_HANDLE, "Cannot create graphics pipeline: no renderPass provided in configInfo");
 
-	auto vertCode = ReadFile(vertFilepath);
-	auto fragCode = ReadFile(fragFilepath);
+	std::vector<VkPipelineShaderStageCreateInfo> shaderStages{};
+	for (auto& shader : shaders)
+	{
+		VkPipelineShaderStageCreateInfo shaderStage{};
+		shaderStage.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+		shaderStage.stage = GetVkShaderStageFrom(shader->GetInfo().Type);
+		shaderStage.module = shader->GetModule();
+		shaderStage.pName = "main";
+		shaderStage.flags = 0;
+		shaderStage.pNext = nullptr;
 
-	CreateShaderModule(vertCode, ShaderType::Vertex, "mainvertex", nullptr);
-	CreateShaderModule(fragCode, ShaderType::Fragment, "mainfragment", nullptr);
+		shaderStages.push_back(shaderStage);
+	}
 
-	m_VertShaderModule = Renderer::instance().g_Shaders["mainvertex"]->GetModule();
-	m_FragShaderModule = Renderer::instance().g_Shaders["mainfragment"]->GetModule();
-
-	VkPipelineShaderStageCreateInfo shaderStages[2];
-	shaderStages[0].sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-	shaderStages[0].stage = VK_SHADER_STAGE_VERTEX_BIT;
-	shaderStages[0].module = m_VertShaderModule;
-	shaderStages[0].pName = "main";
-	shaderStages[0].flags = 0;
-	shaderStages[0].pNext = nullptr;
-	shaderStages[0].pSpecializationInfo = nullptr;
-	shaderStages[1].sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-	shaderStages[1].stage = VK_SHADER_STAGE_FRAGMENT_BIT;
-	shaderStages[1].module = m_FragShaderModule;
-	shaderStages[1].pName = "main";
-	shaderStages[1].flags = 0;
-	shaderStages[1].pNext = nullptr;
-	shaderStages[1].pSpecializationInfo = nullptr;
-
-	auto bindingDescriptions = RabbitModel::Vertex::GetBindingDescriptions();
-	auto attributeDescriptions = RabbitModel::Vertex::GetAttributeDescriptions();
+	auto bindingDescriptions = Vertex::GetBindingDescriptions();		//TODO: abstract this
+	auto attributeDescriptions = Vertex::GetAttributeDescriptions();	//TODO: abstract this
 	VkPipelineVertexInputStateCreateInfo vertexInputInfo{};
 	vertexInputInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
 	vertexInputInfo.vertexAttributeDescriptionCount = static_cast<uint32_t>(attributeDescriptions.size());
@@ -88,8 +40,8 @@ void VulkanPipeline::CreateGraphicsPipeline(
 
 	VkGraphicsPipelineCreateInfo pipelineInfo{};
 	pipelineInfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
-	pipelineInfo.stageCount = 2;
-	pipelineInfo.pStages = shaderStages;
+	pipelineInfo.stageCount = shaderStages.size();
+	pipelineInfo.pStages = shaderStages.data();
 	pipelineInfo.pVertexInputState = &vertexInputInfo;
 	pipelineInfo.pInputAssemblyState = &configInfo.inputAssemblyInfo;
 	pipelineInfo.pViewportState = &configInfo.viewportInfo;
@@ -106,28 +58,14 @@ void VulkanPipeline::CreateGraphicsPipeline(
 	pipelineInfo.basePipelineIndex = -1;
 	pipelineInfo.basePipelineHandle = VK_NULL_HANDLE;
 
-	if (vkCreateGraphicsPipelines(
-		m_VulkanDevice.GetGraphicDevice(),
-		VK_NULL_HANDLE,
-		1,
-		&pipelineInfo,
-		nullptr,
-		&m_GraphicsPipeline) != VK_SUCCESS) 
-	{
-		LOG_ERROR("failed to create graphics pipeline");
-	}
+	VULKAN_API_CALL(vkCreateGraphicsPipelines(m_VulkanDevice.GetGraphicDevice(), VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &m_GraphicsPipeline));
 }
 
-void VulkanPipeline::CreateShaderModule(const std::vector<char>& code, ShaderType type, std::string name, const char* codeEntry) 
+VulkanPipeline::~VulkanPipeline() 
 {
-	ShaderInfo shaderInfo{};
-	shaderInfo.CodeEntry = codeEntry;
-	shaderInfo.Type = type;
-
-	Shader* shader = new Shader(m_VulkanDevice, code.size(), code.data(), shaderInfo);
-
-	Renderer::instance().g_Shaders[name] = shader;
+	vkDestroyPipeline(m_VulkanDevice.GetGraphicDevice(), m_GraphicsPipeline, nullptr);
 }
+
 
 void VulkanPipeline::Bind(VkCommandBuffer commandBuffer)
 {

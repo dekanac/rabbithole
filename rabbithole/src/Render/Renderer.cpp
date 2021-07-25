@@ -3,7 +3,7 @@
 #include "Renderer.h"
 #include "Render/Camera.h"
 #include "Render/Window.h"
-#include "Render/Shader.h"
+#include "Vulkan/Shader.h"
 #include "ECS/EntityManager.h"
 #include "Core/Application.h"
 #include "Vulkan/Include/VulkanWrapper.h"
@@ -18,9 +18,17 @@
 #include <sstream>
 #include <set>
 
-#include "ObjectLoader.h"
-
 float sranje = 0.f;
+
+#define MAIN_VERTEX_FILE_PATH		"res/shaders/vert.spv"
+#define MAIN_FRAGMENT_FILE_PATH		"res/shaders/frag.spv"
+
+struct UniformBufferObject
+{
+	alignas(16) rabbitMat4f model;
+	alignas(16) rabbitMat4f view;
+	alignas(16) rabbitMat4f proj;
+};
 
 bool Renderer::Init()
 {
@@ -29,6 +37,7 @@ bool Renderer::Init()
 	testEntity = new Entity();
 
 	loadModels();
+	LoadAndCreateShaders();
 	createPipelineLayout();
 	recreateSwapchain();
 	createCommandBuffers();
@@ -70,7 +79,8 @@ void Renderer::DrawFrame()
 	}
 
 	recordCommandBuffer(imageIndex);
-	result = m_VulkanSwapchain->SubmitCommandBuffers(&commandBuffers[imageIndex], &imageIndex);
+	UpdateUniformBuffer(imageIndex);
+	result = m_VulkanSwapchain->SubmitCommandBuffers(&m_CommandBuffers[imageIndex], &imageIndex);
 	if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR || m_FramebufferResized)
 	{
 		m_FramebufferResized = false;
@@ -87,73 +97,66 @@ void Renderer::DrawFrame()
 
 void Renderer::loadModels()
 {
-	RabbitModel::Builder modelBuilder{};
+	rabbitmodel = std::make_unique<RabbitModel>(m_VulkanDevice, "res/meshes/box/box.obj", "box");
+}
 
-	//modelBuilder.vertices = loadOBJ("res/meshes/girl/box.obj");
+std::vector<char> Renderer::ReadFile(const std::string& filepath)
+{
+	std::ifstream file{ filepath, std::ios::ate | std::ios::binary };
 
-	modelBuilder.vertices =
+	if (!file.is_open())
 	{
-		// left face (white)
-		{{-.5f, -.5f, -.5f}, {.9f, .9f, .9f}},
-		{{-.5f, .5f, .5f}, {.9f, .9f, .9f}},
-		{{-.5f, -.5f, .5f}, {.9f, .9f, .9f}},
-		{{-.5f, .5f, -.5f}, {.9f, .9f, .9f}},
+		LOG_ERROR("failed to open file: " + filepath);
+	}
 
-		// right face (yellow)
-		{{.5f, -.5f, -.5f}, {.8f, .8f, .1f}},
-		{{.5f, .5f, .5f}, {.8f, .8f, .1f}},
-		{{.5f, -.5f, .5f}, {.8f, .8f, .1f}},
-		{{.5f, .5f, -.5f}, {.8f, .8f, .1f}},
+	size_t fileSize = static_cast<size_t>(file.tellg());
+	std::vector<char> buffer(fileSize);
 
-		// top face (orange, remember y axis points down)
-		{{-.5f, -.5f, -.5f}, {.9f, .6f, .1f}},
-		{{.5f, -.5f, .5f}, {.9f, .6f, .1f}},
-		{{-.5f, -.5f, .5f}, {.9f, .6f, .1f}},
-		{{.5f, -.5f, -.5f}, {.9f, .6f, .1f}},
+	file.seekg(0);
+	file.read(buffer.data(), fileSize);
 
-		// bottom face (red)
-		{{-.5f, .5f, -.5f}, {.8f, .1f, .1f}},
-		{{.5f, .5f, .5f}, {.8f, .1f, .1f}},
-		{{-.5f, .5f, .5f}, {.8f, .1f, .1f}},
-		{{.5f, .5f, -.5f}, {.8f, .1f, .1f}},
+	file.close();
+	return buffer;
+}
 
-		// nose face (blue)
-		{{-.5f, -.5f, 0.5f}, {.1f, .1f, .8f}},
-		{{.5f, .5f, 0.5f}, {.1f, .1f, .8f}},
-		{{-.5f, .5f, 0.5f}, {.1f, .1f, .8f}},
-		{{.5f, -.5f, 0.5f}, {.1f, .1f, .8f}},
+void Renderer::LoadAndCreateShaders()
+{
+	auto vertCode = ReadFile(MAIN_VERTEX_FILE_PATH);
+	auto fragCode = ReadFile(MAIN_FRAGMENT_FILE_PATH);
 
-		// tail face (green)
-		{{-.5f, -.5f, -0.5f}, {.1f, .8f, .1f}},
-		{{.5f, .5f, -0.5f}, {.1f, .8f, .1f}},
-		{{-.5f, .5f, -0.5f}, {.1f, .8f, .1f}},
-		{{.5f, -.5f, -0.5f}, {.1f, .8f, .1f}},
-	};
+	CreateShaderModule(vertCode, ShaderType::Vertex, "mainvertex", nullptr);
+	CreateShaderModule(fragCode, ShaderType::Fragment, "mainfragment", nullptr);
+}
 
- 	modelBuilder.indices = { 0,  1,  2,  0,  3,  1,  4,  5,  6,  4,  7,  5,  8,  9,  10, 8,  11, 9,
- 						  12, 13, 14, 12, 15, 13, 16, 17, 18, 16, 19, 17, 20, 21, 22, 20, 23, 21 };
+void Renderer::CreateShaderModule(const std::vector<char>& code, ShaderType type, const char* name, const char* codeEntry)
+{
+	ShaderInfo shaderInfo{};
+	shaderInfo.CodeEntry = codeEntry;
+	shaderInfo.Type = type;
 
-	rabbitmodel = std::make_unique<RabbitModel>(m_VulkanDevice, modelBuilder);
+	Shader* shader = new Shader(m_VulkanDevice, code.size(), code.data(), shaderInfo, name);
+
+	m_Shaders.push_back(shader);
 }
 
 void Renderer::createPipelineLayout() 
 {
-	VkPushConstantRange pushConstantRange{};
-	pushConstantRange.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
-	pushConstantRange.offset = 0;
-	pushConstantRange.size = sizeof(SimplePushConstantData);
-
-	VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
-	pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-	pipelineLayoutInfo.setLayoutCount = 0;
-	pipelineLayoutInfo.pSetLayouts = nullptr;
-	pipelineLayoutInfo.pushConstantRangeCount = 1;
-	pipelineLayoutInfo.pPushConstantRanges = &pushConstantRange;
-	if (vkCreatePipelineLayout(m_VulkanDevice.GetGraphicDevice(), &pipelineLayoutInfo, nullptr, &pipelineLayout) !=
-		VK_SUCCESS) 
-	{
-		LOG_ERROR("failed to create pipeline layout!");
-	}
+// 	VkPushConstantRange pushConstantRange{};
+// 	pushConstantRange.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+// 	pushConstantRange.offset = 0;
+// 	pushConstantRange.size = sizeof(SimplePushConstantData);
+// 
+// 	VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
+// 	pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
+// 	pipelineLayoutInfo.setLayoutCount = 0;
+// 	pipelineLayoutInfo.pSetLayouts = nullptr;
+// 	pipelineLayoutInfo.pushConstantRangeCount = 1;
+// 	pipelineLayoutInfo.pPushConstantRanges = &pushConstantRange;
+// // 	if (vkCreatePipelineLayout(m_VulkanDevice.GetGraphicDevice(), &pipelineLayoutInfo, nullptr, &pipelineLayout) !=
+// // 		VK_SUCCESS) 
+// // 	{
+// // 		LOG_ERROR("failed to create pipeline layout!");
+// // 	}
 }
 
 void Renderer::createPipeline() 
@@ -164,25 +167,23 @@ void Renderer::createPipeline()
 		m_VulkanSwapchain->GetWidth(),
 		m_VulkanSwapchain->GetHeight());
 
-	pipelineConfig.renderPass = m_VulkanSwapchain->GetRenderPass();
-	pipelineConfig.pipelineLayout = pipelineLayout;
+	m_DescriptorSetLayout = new VulkanDescriptorSetLayout(&m_VulkanDevice, m_Shaders, "Main");
 
-	m_VulkanPipeline = std::make_unique<VulkanPipeline>(
-		m_VulkanDevice,
-		"res/shaders/vert.spv",
-		"res/shaders/frag.spv",
-		pipelineConfig);
+	pipelineConfig.renderPass = m_VulkanSwapchain->GetRenderPass();
+	pipelineConfig.pipelineLayout = *m_DescriptorSetLayout->GetPipelineLayout();
+
+	m_VulkanPipeline = std::make_unique<VulkanPipeline>(m_VulkanDevice, m_Shaders, pipelineConfig);
 }
 void Renderer::createCommandBuffers() {
-	commandBuffers.resize(m_VulkanSwapchain->GetImageCount());
+	m_CommandBuffers.resize(m_VulkanSwapchain->GetImageCount());
 
 	VkCommandBufferAllocateInfo allocInfo{};
 	allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
 	allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
 	allocInfo.commandPool = m_VulkanDevice.GetCommandPool();
-	allocInfo.commandBufferCount = static_cast<uint32_t>(commandBuffers.size());
+	allocInfo.commandBufferCount = static_cast<uint32_t>(m_CommandBuffers.size());
 
-	if (vkAllocateCommandBuffers(m_VulkanDevice.GetGraphicDevice(), &allocInfo, commandBuffers.data()) !=
+	if (vkAllocateCommandBuffers(m_VulkanDevice.GetGraphicDevice(), &allocInfo, m_CommandBuffers.data()) !=
 		VK_SUCCESS) 
 	{
 		LOG_ERROR("failed to allocate command buffers!");
@@ -213,7 +214,7 @@ void Renderer::recordCommandBuffer(int imageIndex)
 	VkCommandBufferBeginInfo beginInfo{};
 	beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
 
-	if (vkBeginCommandBuffer(commandBuffers[imageIndex], &beginInfo) != VK_SUCCESS) {
+	if (vkBeginCommandBuffer(m_CommandBuffers[imageIndex], &beginInfo) != VK_SUCCESS) {
 		LOG_ERROR("failed to begin recording command buffer!");
 	}
 
@@ -231,33 +232,59 @@ void Renderer::recordCommandBuffer(int imageIndex)
 	renderPassInfo.clearValueCount = static_cast<uint32_t>(clearValues.size());
 	renderPassInfo.pClearValues = clearValues.data();
 
-	vkCmdBeginRenderPass(commandBuffers[imageIndex], &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
+	vkCmdBeginRenderPass(m_CommandBuffers[imageIndex], &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
 
-	m_VulkanPipeline->Bind(commandBuffers[imageIndex]);
-	rabbitmodel->Bind(commandBuffers[imageIndex]);
+	m_VulkanPipeline->Bind(m_CommandBuffers[imageIndex]);
+	rabbitmodel->Bind(m_CommandBuffers[imageIndex]);
 
-	for (int j = 1; j < 6; j++)
+	vkCmdBindDescriptorSets(m_CommandBuffers[imageIndex], VK_PIPELINE_BIND_POINT_GRAPHICS, *m_VulkanPipeline->GetPipelineLayout(), 0, 1, m_DescriptorSets[imageIndex]->GetDescriptorSet(), 0, nullptr);
+
+	for (int j = 1; j < 1000; j++)
 	{
 		SimplePushConstantData push{};
-		push.viewMatrix = MainCamera->View();
-		push.projectionMatrix = MainCamera->Projection();
-		push.modelMatrix = rabbitMat4f{ 1.f };
-		push.offset = rabbitVec3f(j * 2.f, 1.f, 1.f);
-		vkCmdPushConstants(commandBuffers[imageIndex], pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(SimplePushConstantData), &push);
-		rabbitmodel->Draw(commandBuffers[imageIndex]);
+		push.MVP = MainCamera->GetMatrix();
+		push.offset = rabbitVec3f(j * 3.f, 1.f, 1.f);
+		vkCmdPushConstants(m_CommandBuffers[imageIndex], *(m_VulkanPipeline->GetPipelineLayout()), VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(SimplePushConstantData), &push);
+		rabbitmodel->Draw(m_CommandBuffers[imageIndex]);
 	}
 
-	vkCmdEndRenderPass(commandBuffers[imageIndex]);
-	if (vkEndCommandBuffer(commandBuffers[imageIndex]) != VK_SUCCESS) 
+	vkCmdEndRenderPass(m_CommandBuffers[imageIndex]);
+	if (vkEndCommandBuffer(m_CommandBuffers[imageIndex]) != VK_SUCCESS)
 	{
 		LOG_ERROR("failed to record command buffer!");
 	}
 }
 
+void Renderer::UpdateUniformBuffer(uint32_t currentImage)
+{
+	static auto startTime = std::chrono::high_resolution_clock::now();
+
+	auto currentTime = std::chrono::high_resolution_clock::now();
+	float time = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - startTime).count();
+
+	UniformBufferObject ubo{};
+	ubo.model = rabbitMat4f{ 1.f };
+	ubo.model = rabbitMat4f{ 1.f };
+	ubo.proj = MainCamera->GetMatrix();
+
+	void* data = m_UniformBuffers[currentImage]->Map();
+	memcpy(data, &ubo, sizeof(ubo));
+	m_UniformBuffers[currentImage]->Unmap();
+}
+
 
 void Renderer::CreateUniformBuffers()
 {
-
+	m_UniformBuffers.resize(m_VulkanSwapchain->GetImageCount());
+	for (size_t i = 0; i < m_VulkanSwapchain->GetImageCount(); i++)
+	{
+		// Since we plan to update uniform buffers each frame, having a staging buffer is actually a waste.
+		VulkanBufferInfo bufferInfo{};
+		bufferInfo.usageFlags = BufferUsageFlags::UniformBuffer;
+		bufferInfo.memoryAccess = MemoryAccess::Host;
+		bufferInfo.size = (uint32_t)sizeof(UniformBufferObject);
+		m_UniformBuffers[i] = new VulkanBuffer(&m_VulkanDevice, bufferInfo);
+	}
 }
 
 void Renderer::CreateDescriptorPool()
@@ -273,129 +300,21 @@ void Renderer::CreateDescriptorPool()
 
 void Renderer::CreateDescriptorSets()
 {
-	
-}
-
-static std::vector<RabbitModel::Vertex> loadOBJ(const char* file_name)
-{
-	//Vertex portions
-	std::vector<glm::fvec3> vertex_positions;
-	std::vector<glm::fvec2> vertex_texcoords;
-	std::vector<glm::fvec3> vertex_normals;
-
-	//Face vectors
-	std::vector<GLint> vertex_position_indicies;
-	std::vector<GLint> vertex_texcoord_indicies;
-	std::vector<GLint> vertex_normal_indicies;
-
-	//Vertex array
-	std::vector<RabbitModel::Vertex> vertices;
-
-	std::stringstream ss;
-	std::ifstream in_file(file_name);
-	std::string line = "";
-	std::string prefix = "";
-	glm::vec3 temp_vec3;
-	glm::vec2 temp_vec2;
-	GLint temp_glint = 0;
-
-	//File open error check
-	if (!in_file.is_open())
+	size_t backBuffersCount = m_VulkanSwapchain->GetImageCount();
+	m_DescriptorSets.resize(backBuffersCount);
+	for (size_t i = 0; i < backBuffersCount; i++)
 	{
-		throw "ERROR::OBJLOADER::Could not open file.";
+		std::vector<VulkanDescriptor*> descriptors;
+
+		VulkanDescriptorInfo uniformBufferDescriptorInfo{};
+		uniformBufferDescriptorInfo.Type = DescriptorType::UniformBuffer;
+		uniformBufferDescriptorInfo.buffer = m_UniformBuffers[i];
+		uniformBufferDescriptorInfo.Binding = 0;
+		VulkanDescriptor uniformBufferDescriptor(uniformBufferDescriptorInfo);
+
+		descriptors.push_back(&uniformBufferDescriptor);
+
+ 		m_DescriptorSets[i] = new VulkanDescriptorSet(&m_VulkanDevice, m_DescriptorPool.get(),
+ 			m_DescriptorSetLayout, descriptors, "Main");
 	}
-
-	//Read one line at a time
-	while (std::getline(in_file, line))
-	{
-		//Get the prefix of the line
-		ss.clear();
-		ss.str(line);
-		ss >> prefix;
-
-		if (prefix == "#")
-		{
-
-		}
-		else if (prefix == "o")
-		{
-
-		}
-		else if (prefix == "s")
-		{
-
-		}
-		else if (prefix == "use_mtl")
-		{
-
-		}
-		else if (prefix == "v") //Vertex position
-		{
-			ss >> temp_vec3.x >> temp_vec3.y >> temp_vec3.z;
-			vertex_positions.push_back(temp_vec3);
-		}
-		else if (prefix == "vt")
-		{
-			ss >> temp_vec2.x >> temp_vec2.y;
-			vertex_texcoords.push_back(temp_vec2);
-		}
-		else if (prefix == "vn")
-		{
-			ss >> temp_vec3.x >> temp_vec3.y >> temp_vec3.z;
-			vertex_normals.push_back(temp_vec3);
-		}
-		else if (prefix == "f")
-		{
-			int counter = 0;
-			while (ss >> temp_glint)
-			{
-				//Pushing indices into correct arrays
-				if (counter == 0)
-					vertex_position_indicies.push_back(temp_glint);
-				else if (counter == 1)
-					vertex_texcoord_indicies.push_back(temp_glint);
-				else if (counter == 2)
-					vertex_normal_indicies.push_back(temp_glint);
-
-				//Handling characters
-				if (ss.peek() == '/')
-				{
-					++counter;
-					ss.ignore(1, '/');
-				}
-				else if (ss.peek() == ' ')
-				{
-					++counter;
-					ss.ignore(1, ' ');
-				}
-
-				//Reset the counter
-				if (counter > 2)
-					counter = 0;
-			}
-		}
-		else
-		{
-
-		}
-	}
-
-	//Build final vertex array (mesh)
-	vertices.resize(vertex_position_indicies.size(), RabbitModel::Vertex());
-
-	//Load in all indices
-	for (size_t i = 0; i < vertices.size(); ++i)
-	{
-		vertices[i].position = vertex_positions[vertex_position_indicies[i] - 1];
-// 		vertices[i].texcoord = vertex_texcoords[vertex_texcoord_indicies[i] - 1];
-// 		vertices[i].normal = vertex_normals[vertex_normal_indicies[i] - 1];
-		vertices[i].color = glm::vec3(0.f, 1.f, 1.f);
-	}
-
-	//DEBUG
-	std::cout << "Numberr of vertices: " << vertices.size() << "\n";
-
-	//Loaded success
-	std::cout << "OBJ file loaded!" << "\n";
-	return vertices;
 }
