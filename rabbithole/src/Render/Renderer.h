@@ -44,7 +44,6 @@ private:
 	void loadModels();
 	void LoadAndCreateShaders();
 	void CreateShaderModule(const std::vector<char>& code, ShaderType type, const char* name, const char* codeEntry);
-	void createPipelineLayout();
 	void createPipeline();
 	void createCommandBuffers();
 	void recreateSwapchain();

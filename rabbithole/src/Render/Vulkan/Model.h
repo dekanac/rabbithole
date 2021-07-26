@@ -12,8 +12,7 @@
 
 struct SimplePushConstantData
 {
-	rabbitMat4f MVP;
-	rabbitVec3f offset;
+	rabbitMat4f model;
 };
 
 struct Vertex

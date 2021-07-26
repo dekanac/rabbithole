@@ -25,7 +25,6 @@ float sranje = 0.f;
 
 struct UniformBufferObject
 {
-	alignas(16) rabbitMat4f model;
 	alignas(16) rabbitMat4f view;
 	alignas(16) rabbitMat4f proj;
 };
@@ -38,7 +37,6 @@ bool Renderer::Init()
 
 	loadModels();
 	LoadAndCreateShaders();
-	createPipelineLayout();
 	recreateSwapchain();
 	createCommandBuffers();
 	return true;
@@ -80,6 +78,8 @@ void Renderer::DrawFrame()
 
 	recordCommandBuffer(imageIndex);
 	UpdateUniformBuffer(imageIndex);
+
+
 	result = m_VulkanSwapchain->SubmitCommandBuffers(&m_CommandBuffers[imageIndex], &imageIndex);
 	if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR || m_FramebufferResized)
 	{
@@ -93,7 +93,6 @@ void Renderer::DrawFrame()
 	}
 
 }
-
 
 void Renderer::loadModels()
 {
@@ -139,26 +138,6 @@ void Renderer::CreateShaderModule(const std::vector<char>& code, ShaderType type
 	m_Shaders.push_back(shader);
 }
 
-void Renderer::createPipelineLayout() 
-{
-// 	VkPushConstantRange pushConstantRange{};
-// 	pushConstantRange.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
-// 	pushConstantRange.offset = 0;
-// 	pushConstantRange.size = sizeof(SimplePushConstantData);
-// 
-// 	VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
-// 	pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-// 	pipelineLayoutInfo.setLayoutCount = 0;
-// 	pipelineLayoutInfo.pSetLayouts = nullptr;
-// 	pipelineLayoutInfo.pushConstantRangeCount = 1;
-// 	pipelineLayoutInfo.pPushConstantRanges = &pushConstantRange;
-// // 	if (vkCreatePipelineLayout(m_VulkanDevice.GetGraphicDevice(), &pipelineLayoutInfo, nullptr, &pipelineLayout) !=
-// // 		VK_SUCCESS) 
-// // 	{
-// // 		LOG_ERROR("failed to create pipeline layout!");
-// // 	}
-}
-
 void Renderer::createPipeline() 
 {
 	PipelineConfigInfo pipelineConfig{};
@@ -174,7 +153,8 @@ void Renderer::createPipeline()
 
 	m_VulkanPipeline = std::make_unique<VulkanPipeline>(m_VulkanDevice, m_Shaders, pipelineConfig);
 }
-void Renderer::createCommandBuffers() {
+void Renderer::createCommandBuffers() 
+{
 	m_CommandBuffers.resize(m_VulkanSwapchain->GetImageCount());
 
 	VkCommandBufferAllocateInfo allocInfo{};
@@ -242,8 +222,8 @@ void Renderer::recordCommandBuffer(int imageIndex)
 	for (int j = 1; j < 1000; j++)
 	{
 		SimplePushConstantData push{};
-		push.MVP = MainCamera->GetMatrix();
-		push.offset = rabbitVec3f(j * 3.f, 1.f, 1.f);
+
+		push.model = glm::translate(rabbitMat4f{ 1.f } , rabbitVec3f(j * 3.f, 0.f, 0.f));
 		vkCmdPushConstants(m_CommandBuffers[imageIndex], *(m_VulkanPipeline->GetPipelineLayout()), VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(SimplePushConstantData), &push);
 		rabbitmodel->Draw(m_CommandBuffers[imageIndex]);
 	}
@@ -263,9 +243,8 @@ void Renderer::UpdateUniformBuffer(uint32_t currentImage)
 	float time = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - startTime).count();
 
 	UniformBufferObject ubo{};
-	ubo.model = rabbitMat4f{ 1.f };
-	ubo.model = rabbitMat4f{ 1.f };
-	ubo.proj = MainCamera->GetMatrix();
+	ubo.view = MainCamera->View();
+	ubo.proj = MainCamera->Projection();
 
 	void* data = m_UniformBuffers[currentImage]->Map();
 	memcpy(data, &ubo, sizeof(ubo));
@@ -278,7 +257,6 @@ void Renderer::CreateUniformBuffers()
 	m_UniformBuffers.resize(m_VulkanSwapchain->GetImageCount());
 	for (size_t i = 0; i < m_VulkanSwapchain->GetImageCount(); i++)
 	{
-		// Since we plan to update uniform buffers each frame, having a staging buffer is actually a waste.
 		VulkanBufferInfo bufferInfo{};
 		bufferInfo.usageFlags = BufferUsageFlags::UniformBuffer;
 		bufferInfo.memoryAccess = MemoryAccess::Host;

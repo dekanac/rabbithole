@@ -74,9 +74,9 @@ void VulkanPipeline::Bind(VkCommandBuffer commandBuffer)
 
 void VulkanPipeline::DefaultPipelineConfigInfo(PipelineConfigInfo& configInfo, uint32_t width, uint32_t height) 
 {
+
 	configInfo.inputAssemblyInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
-	configInfo.inputAssemblyInfo.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
-	configInfo.inputAssemblyInfo.primitiveRestartEnable = VK_FALSE;
+	configInfo.SetTopology(Topology::TriangleList);
 
 	configInfo.viewport.x = 0.0f;
 	configInfo.viewport.y = 0.0f;
@@ -99,12 +99,9 @@ void VulkanPipeline::DefaultPipelineConfigInfo(PipelineConfigInfo& configInfo, u
 	configInfo.rasterizationInfo.rasterizerDiscardEnable = VK_FALSE;
 	configInfo.rasterizationInfo.polygonMode = VK_POLYGON_MODE_FILL;
 	configInfo.rasterizationInfo.lineWidth = 1.0f;
-	configInfo.rasterizationInfo.cullMode = VK_CULL_MODE_NONE;
-	configInfo.rasterizationInfo.frontFace = VK_FRONT_FACE_CLOCKWISE;
-	configInfo.rasterizationInfo.depthBiasEnable = VK_FALSE;
-	configInfo.rasterizationInfo.depthBiasConstantFactor = 0.0f;  // Optional
-	configInfo.rasterizationInfo.depthBiasClamp = 0.0f;           // Optional
-	configInfo.rasterizationInfo.depthBiasSlopeFactor = 0.0f;     // Optional
+	configInfo.SetCullMode(CullMode::Back);
+	configInfo.SetWindingOrder(WindingOrder::Clockwise);
+	configInfo.SetDepthBias(0.0f, 0.0f, 0.0f);
 
 	configInfo.multisampleInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
 	configInfo.multisampleInfo.sampleShadingEnable = VK_FALSE;
@@ -145,4 +142,164 @@ void VulkanPipeline::DefaultPipelineConfigInfo(PipelineConfigInfo& configInfo, u
 	configInfo.depthStencilInfo.stencilTestEnable = VK_FALSE;
 	configInfo.depthStencilInfo.front = {};  // Optional
 	configInfo.depthStencilInfo.back = {};   // Optional
+}
+
+// void PipelineConfigInfo::SetVertexBinding(const VertexBinding* vertexBinding)
+// {
+// 	m_VertexInputStateCreateInfo.vertexBindingDescriptionCount = 1;
+// 	m_VertexInputStateCreateInfo.pVertexBindingDescriptions = &get_st(vertexBinding)->m_VertexInputBindingDescription;
+// 	m_VertexInputStateCreateInfo.vertexAttributeDescriptionCount = static_cast<uint32_t>(get_st(vertexBinding)->m_VertexAttributeDescriptions.size());
+// 	m_VertexInputStateCreateInfo.pVertexAttributeDescriptions = get_st(vertexBinding)->m_VertexAttributeDescriptions.data();
+// }
+
+void PipelineConfigInfo::SetTopology(const Topology topology)
+{
+	inputAssemblyInfo.topology = GetVkPrimitiveTopologyFrom(topology);
+}
+
+void PipelineConfigInfo::SetMultisampleType(const MultisampleType multiSampleType)
+{
+	multisampleInfo.rasterizationSamples = GetVkSampleFlagsFrom(multiSampleType);
+	multisampleInfo.sampleShadingEnable = multiSampleType == MultisampleType::Sample_1 ? VK_FALSE : VK_TRUE;
+}
+
+void PipelineConfigInfo::SetDepthWriteEnabled(const bool enabled)
+{
+	depthStencilInfo.depthWriteEnable = enabled;
+}
+
+void PipelineConfigInfo::SetDepthTestEnabled(const bool enabled)
+{
+	depthStencilInfo.depthTestEnable = enabled;
+}
+
+void PipelineConfigInfo::SetDepthCompare(const CompareOperation compareFunction)
+{
+	depthStencilInfo.depthCompareOp = GetVkCompareOperationFrom(compareFunction);
+}
+
+void PipelineConfigInfo::SetDepthBias(const float depthBiasSlope, const float depthBias, const float depthBiasClamp)
+{
+	rasterizationInfo.depthBiasEnable = (depthBiasSlope != 0.0f) || (depthBias != 0.0f);
+	rasterizationInfo.depthBiasSlopeFactor = depthBiasSlope;
+	rasterizationInfo.depthBiasConstantFactor = depthBias;
+	rasterizationInfo.depthBiasClamp = depthBiasClamp;
+}
+
+void PipelineConfigInfo::SetStencilEnable(const bool enabled)
+{
+	depthStencilInfo.stencilTestEnable = enabled;
+}
+
+void PipelineConfigInfo::SetStencilOperation(const StencilOperation stencilFail, const StencilOperation depthFail, const StencilOperation stencilPass)
+{
+	VkStencilOp stencilFailOp = GetVkStencilOpFrom(stencilFail);
+	VkStencilOp depthFailOp = GetVkStencilOpFrom(depthFail);
+	VkStencilOp stencilPassOp = GetVkStencilOpFrom(stencilPass);
+
+	depthStencilInfo.front.failOp = stencilFailOp;
+	depthStencilInfo.front.depthFailOp = depthFailOp;
+	depthStencilInfo.front.passOp = stencilPassOp;
+
+	depthStencilInfo.back.failOp = stencilFailOp;
+	depthStencilInfo.back.depthFailOp = depthFailOp;
+	depthStencilInfo.back.passOp = stencilPassOp;
+}
+
+void PipelineConfigInfo::SetStencilFunction(const CompareOperation compareOperation, const uint8_t compareMask)
+{
+	VkCompareOp stencilCompareOp = GetVkCompareOperationFrom(compareOperation);
+
+	depthStencilInfo.front.compareOp = stencilCompareOp;
+	depthStencilInfo.back.compareOp = stencilCompareOp;
+
+	depthStencilInfo.front.compareMask = compareMask;
+	depthStencilInfo.back.compareMask = compareMask;
+}
+
+void PipelineConfigInfo::SetStencilWriteMask(const uint8_t mask)
+{
+	depthStencilInfo.front.writeMask = mask;
+	depthStencilInfo.back.writeMask = mask;
+}
+
+void PipelineConfigInfo::SetWireFrameEnabled(const bool enable)
+{
+	rasterizationInfo.polygonMode = enable ? VK_POLYGON_MODE_LINE : VK_POLYGON_MODE_FILL;
+}
+
+void PipelineConfigInfo::SetCullMode(const CullMode mode)
+{
+	rasterizationInfo.cullMode = mode == CullMode::None ? VK_CULL_MODE_NONE :
+		mode == CullMode::Front ? VK_CULL_MODE_FRONT_BIT : VK_CULL_MODE_BACK_BIT;
+}
+
+void PipelineConfigInfo::SetWindingOrder(const WindingOrder winding)
+{
+	rasterizationInfo.frontFace = winding == WindingOrder::Clockwise ? VK_FRONT_FACE_CLOCKWISE : VK_FRONT_FACE_COUNTER_CLOCKWISE;
+}
+
+// void PipelineConfigInfo::SetColorWriteMask(const uint32_t mrtIndex, const ColorWriteMaskFlags mask)
+// {
+// 	//ASSERT(mrtIndex < MaxRenderTargetCount, "Max render target count reached!");
+// 
+// 	colorBlendAttachment[mrtIndex].colorWriteMask = VkColorComponentFlags(mask);
+// }
+// 
+// void PipelineConfigInfo::SetColorWriteMask(const uint32_t mrtIndex, const uint32_t mrtCount, const ColorWriteMaskFlags masks[])
+// {
+// 	//ASSERT(mrtIndex + mrtCount <= MaxRenderTargetCount);
+// 
+// 	for (uint32_t i = 0; i < mrtCount; ++i)
+// 	{
+// 		colorBlendAttachment[mrtIndex].colorWriteMask = VkColorComponentFlags(masks[mrtIndex]);
+// 	}
+// }
+
+void PipelineConfigInfo::SetAttachmentCount(const uint32_t attachmentCount)
+{
+	//ASSERT(attachmentCount <= MaxRenderTargetCount);
+
+	colorBlendInfo.attachmentCount = attachmentCount;
+}
+
+void PipelineConfigInfo::SetAlphaBlendEnabled(const uint32_t mrtIndex, const bool enabled)
+{
+	//ASSERT(mrtIndex < MaxRenderTargetCount);
+
+	colorBlendAttachment.blendEnable = enabled;
+}
+
+void PipelineConfigInfo::SetAlphaBlendFunction(const uint32_t mrtIndex, const BlendValue srcBlend, const BlendValue dstBlend)
+{
+	//ASSERT(mrtIndex < MaxRenderTargetCount);
+
+	colorBlendAttachment.srcColorBlendFactor = GetVkBlendFactorFrom(srcBlend);
+	colorBlendAttachment.dstColorBlendFactor = GetVkBlendFactorFrom(dstBlend);
+}
+
+void PipelineConfigInfo::SetAlphaBlendFunction(const uint32_t mrtIndex, const BlendValue srcColorBlend,
+	const BlendValue dstColorBlend, const BlendValue srcAlphaBlend, const BlendValue dstAlphablend)
+{
+	//ASSERT(mrtIndex < MaxRenderTargetCount);
+
+	colorBlendAttachment.srcColorBlendFactor = GetVkBlendFactorFrom(srcColorBlend);
+	colorBlendAttachment.dstColorBlendFactor = GetVkBlendFactorFrom(dstColorBlend);
+	colorBlendAttachment.srcAlphaBlendFactor = GetVkBlendFactorFrom(srcAlphaBlend);
+	colorBlendAttachment.dstAlphaBlendFactor = GetVkBlendFactorFrom(dstAlphablend);
+}
+
+void PipelineConfigInfo::SetAlphaBlendOperation(const uint32_t mrtIndex, const BlendOperation colorOperation)
+{
+	//ASSERT(mrtIndex < MaxRenderTargetCount);
+
+	colorBlendAttachment.colorBlendOp = GetVkBlendOpFrom(colorOperation);
+}
+
+void PipelineConfigInfo::SetAlphaBlendOperation(const uint32_t mrtIndex, const BlendOperation colorOperation, const BlendOperation alphaOperation)
+{
+	//ASSERT(mrtIndex < MaxRenderTargetCount);
+
+	colorBlendAttachment.colorBlendOp = GetVkBlendOpFrom(colorOperation);
+	colorBlendAttachment.alphaBlendOp = GetVkBlendOpFrom(alphaOperation);
 }

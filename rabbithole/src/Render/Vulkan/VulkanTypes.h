@@ -78,10 +78,16 @@ enum class ColorSpace : uint8_t
 	Count
 };
 
-enum class DescriptorType : uint8_t
+enum class ResourceState : uint8_t
 {
-	CombinedSampler,
-	UniformBuffer,
+	None,
+	TransferSrc,
+	TransferDst,
+	DepthStencilRead,
+	DepthStencilWrite,
+	GenericRead,
+	RenderTarget,
+	Present,
 
 	Count
 };
@@ -98,6 +104,142 @@ enum class ShaderType : uint8_t
 	Count
 };
 
+enum class Topology : uint8_t
+{
+	PointList,
+	LineList,
+	LineStrip,
+	TriangleList,
+	TriangleStrip,
+	PatchList,
+
+	Count
+};
+
+enum class MultisampleType : uint8_t
+{
+	Sample_1,
+	Sample_2,
+	Sample_4,
+	Sample_8,
+
+	Count
+};
+
+enum class CompareOperation : uint8_t
+{
+	Never,
+	Less,
+	Equal,
+	LessEqual,
+	Greater,
+	NotEqual,
+	GreaterEqual,
+	Always,
+
+	Count
+};
+
+enum class StencilOperation : uint8_t
+{
+	Keep,
+	Zero,
+	Replace,
+	IncrementAndClamp,
+	DecrementAndClamp,
+	Invert,
+	Increment,
+	Decrement,
+
+	Count
+};
+
+enum class CullMode : uint8_t
+{
+	None,
+	Back,
+	Front,
+
+	Count
+};
+
+enum class WindingOrder : uint8_t
+{
+	Clockwise,
+	CounterClockwise,
+
+	Count
+};
+
+enum class FilterType : uint8_t
+{
+	Point,
+	Linear,
+	Anisotropic,
+
+	Count
+};
+
+enum class AddressMode : uint8_t
+{
+	Wrap,
+	Mirror,
+	Clamp,
+	Border,
+	MirrorClamp,
+
+	Count
+};
+
+enum class BlendValue : uint8_t
+{
+	Zero,
+	One,
+	SrcColor,
+	InvSrcColor,
+	SrcAlpha,
+	InvSrcAlpha,
+	DestAlpha,
+	InvDestAlpha,
+	DstColor,
+	InvDstColor,
+	BlendFactor,
+	InvBlendFactor,
+	SrcAlphaSat,
+	Src1Color,
+	InvSrc1Color,
+	Src1Alpha,
+	InvSrc1Alpha,
+
+	Count
+};
+
+enum class BlendOperation : uint8_t
+{
+	Add,
+	Subtract,
+	ReverseSubtract,
+	Min,
+	Max,
+
+	Count
+};
+
+enum class VertexInputRate : uint8_t
+{
+	PerVertex,
+	PerInstance,
+
+	Count
+};
+
+enum class DescriptorType : uint8_t
+{
+	CombinedSampler,
+	UniformBuffer,
+
+	Count
+};
 
 enum class BufferUsageFlags : uint8_t
 {
@@ -113,3 +255,53 @@ enum class BufferUsageFlags : uint8_t
 };
 RABBITHOLE_FLAG_TYPE_SETUP(BufferUsageFlags);
 
+enum class ImageFlags : uint8_t
+{
+	None = 0x0 << 0,
+	CubeMap = 0x1 << 0,
+	LinearTiling = 0x1 << 1,
+};
+RABBITHOLE_FLAG_TYPE_SETUP(ImageFlags)
+
+enum class ImageUsageFlags : uint8_t
+{
+	None = 0x0 << 0,
+	TransferSrc = 0x1 << 0,
+	TransferDst = 0x1 << 1,
+	Resource = 0x1 << 2,
+	Storage = 0x1 << 3,
+	RenderTarget = 0x1 << 4,
+	DepthStencil = 0x1 << 5,
+};
+RABBITHOLE_FLAG_TYPE_SETUP(ImageUsageFlags)
+
+enum class ImageViewFlags : uint8_t
+{
+	None = 0x0 << 0,
+	Color = 0x1 << 0,
+	ReadDepth = 0x1 << 1,
+	ReadStencil = 0x1 << 2,
+};
+RABBITHOLE_FLAG_TYPE_SETUP(ImageViewFlags)
+
+enum class ClearDepthStencilFlags : uint8_t
+{
+	None = 0x0 << 0,
+	ClearDepth = 0x1 << 0,
+	ClearStencil = 0x1 << 1,
+	ClearDepthStencil = ClearDepth | ClearStencil,
+};
+RABBITHOLE_FLAG_TYPE_SETUP(ClearDepthStencilFlags)
+
+enum class ColorWriteMaskFlags : uint8_t
+{
+	None = 0x0 << 0,
+	R = 0x1 << 0,
+	G = 0x1 << 1,
+	B = 0x1 << 2,
+	A = 0x1 << 3,
+	RG = R | G,
+	RGB = RG | B,
+	RGBA = RGB | A,
+};
+RABBITHOLE_FLAG_TYPE_SETUP(ColorWriteMaskFlags)
