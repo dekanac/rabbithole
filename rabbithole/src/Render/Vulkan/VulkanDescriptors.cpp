@@ -9,7 +9,10 @@ VulkanDescriptor::VulkanDescriptor(const VulkanDescriptorInfo& info)
 	{
 	case DescriptorType::CombinedSampler:
 	{
-		//TODO: add implementation for combined sampler
+		CombinedImageSampler* combinedImageSampler = m_Info.combinedImageSampler;
+		m_ResourceInfo.m_ResourceInfo.ImageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+		m_ResourceInfo.m_ResourceInfo.ImageInfo.imageView = combinedImageSampler->ImageView->GetImageView();
+		m_ResourceInfo.m_ResourceInfo.ImageInfo.sampler = combinedImageSampler->ImageSampler->GetSampler();
 		break;
 	}
 	case DescriptorType::UniformBuffer:
@@ -30,20 +33,21 @@ VulkanDescriptorPool::VulkanDescriptorPool(const VulkanDevice* device, const Vul
 	: m_Device(device),
 	  m_Info(info)
 {
-	VkDescriptorPoolSize poolSize{};
-	poolSize.type = GetVkDescriptorTypeFrom(info.type);
-	poolSize.descriptorCount = static_cast<uint32_t>(info.descriptorCount);
-
-	VkDescriptorPoolCreateInfo poolInfo{};
-	poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
-	poolInfo.poolSizeCount = info.poolSizeCount;
-	poolInfo.pPoolSizes = &poolSize;
-	poolInfo.maxSets = info.maxSets;
-
-	if (vkCreateDescriptorPool(device->GetGraphicDevice(), &poolInfo, nullptr, &m_DescriptorPool) != VK_SUCCESS) 
+	std::vector<VkDescriptorPoolSize> poolSizes{};
+	for (const VulkanDescriptorPoolSize descriptorSize : m_Info.DescriptorSizes)
 	{
-		LOG_ERROR("failed to create descriptor pool!");
+		VkDescriptorPoolSize descriptorPoolSize;
+		descriptorPoolSize.descriptorCount = descriptorSize.Count;
+		descriptorPoolSize.type = GetVkDescriptorTypeFrom(descriptorSize.Type);
+		poolSizes.push_back(descriptorPoolSize);
 	}
+
+	VkDescriptorPoolCreateInfo descriptorPoolCreateInfo = { VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO };
+	descriptorPoolCreateInfo.poolSizeCount = static_cast<uint32_t>(poolSizes.size());
+	descriptorPoolCreateInfo.pPoolSizes = poolSizes.data();
+	descriptorPoolCreateInfo.maxSets = m_Info.MaxSets;
+
+	VULKAN_API_CALL(vkCreateDescriptorPool(device->GetGraphicDevice(), &descriptorPoolCreateInfo, nullptr, &m_DescriptorPool));
 }
 
 VulkanDescriptorPool::~VulkanDescriptorPool()
@@ -127,9 +131,8 @@ VulkanDescriptorSet::VulkanDescriptorSet(const VulkanDevice* device,const Vulkan
 		switch (descriptors[i]->GetDescriptorInfo().Type)
 		{
 		case DescriptorType::CombinedSampler:
-// 			writeDescriptorSet.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-// 			writeDescriptorSet.pImageInfo = (descriptors[i])->GetDescriptorResourceInfo().ImageInfo;
-			//TODO: add implementation for combined sampler
+ 			writeDescriptorSet.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+ 			writeDescriptorSet.pImageInfo = &((descriptors[i])->GetDescriptorResourceInfo().m_ResourceInfo.ImageInfo);
 			break;
 		case DescriptorType::UniformBuffer:
 			writeDescriptorSet.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;

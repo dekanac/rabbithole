@@ -267,11 +267,17 @@ void Renderer::CreateUniformBuffers()
 
 void Renderer::CreateDescriptorPool()
 {
+	VulkanDescriptorPoolSize uboPoolSize{};
+	uboPoolSize.Count = m_VulkanSwapchain->GetImageCount();
+	uboPoolSize.Type = DescriptorType::UniformBuffer;
+
+	VulkanDescriptorPoolSize cisPoolSize{};
+	cisPoolSize.Count = m_VulkanSwapchain->GetImageCount();
+	cisPoolSize.Type = DescriptorType::CombinedSampler;
+
 	VulkanDescriptorPoolInfo vulkanDescriptorPoolInfo{};
-	vulkanDescriptorPoolInfo.descriptorCount = static_cast<uint32_t>(m_VulkanSwapchain->GetImageCount());
-	vulkanDescriptorPoolInfo.type = DescriptorType::UniformBuffer;
-	vulkanDescriptorPoolInfo.poolSizeCount = 1; //TODO: update this 
-	vulkanDescriptorPoolInfo.maxSets = static_cast<uint32_t>(m_VulkanSwapchain->GetImageCount());
+	vulkanDescriptorPoolInfo.DescriptorSizes = { uboPoolSize, cisPoolSize };
+	vulkanDescriptorPoolInfo.MaxSets = static_cast<uint32_t>(m_VulkanSwapchain->GetImageCount());
 
 	m_DescriptorPool = std::make_unique<VulkanDescriptorPool>(&m_VulkanDevice, vulkanDescriptorPoolInfo);
 }
@@ -291,6 +297,19 @@ void Renderer::CreateDescriptorSets()
 		VulkanDescriptor uniformBufferDescriptor(uniformBufferDescriptorInfo);
 
 		descriptors.push_back(&uniformBufferDescriptor);
+
+		CombinedImageSampler combinedImageSampler;
+		combinedImageSampler.ImageSampler = rabbitmodel->imageSampler;
+		combinedImageSampler.ImageView = rabbitmodel->imageView;
+
+		VulkanDescriptorInfo combinedImageSamplerDescriptorInfo{};
+		combinedImageSamplerDescriptorInfo.Type = DescriptorType::CombinedSampler;
+		combinedImageSamplerDescriptorInfo.combinedImageSampler = &combinedImageSampler;
+		combinedImageSamplerDescriptorInfo.Binding = 1;
+
+		VulkanDescriptor combinedImageSamplerDescriptor(combinedImageSamplerDescriptorInfo);
+
+		descriptors.push_back(&combinedImageSamplerDescriptor);
 
  		m_DescriptorSets[i] = new VulkanDescriptorSet(&m_VulkanDevice, m_DescriptorPool.get(),
  			m_DescriptorSetLayout, descriptors, "Main");

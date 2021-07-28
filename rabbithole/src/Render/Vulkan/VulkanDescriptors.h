@@ -2,15 +2,24 @@
 
 class VulkanDevice;
 class VulkanBuffer;
+class VulkanImageView;
+class VulkanImageSampler;
 class Shader;
+
+
+struct CombinedImageSampler
+{
+	VulkanImageView*	ImageView;
+	VulkanImageSampler* ImageSampler;
+};
 
 struct VulkanDescriptorInfo
 {
-	//TODO: add support for images and samplers
 	DescriptorType	Type;
 	uint32_t		Binding;
 
-	VulkanBuffer*	buffer;
+	VulkanBuffer*			buffer; 
+	CombinedImageSampler*	combinedImageSampler;
 };
 
 struct DescriptorResourceInfo
@@ -36,12 +45,16 @@ private:
 
 };
 
+struct VulkanDescriptorPoolSize
+{
+	DescriptorType Type;
+	uint32_t Count;
+};
+
 struct 	VulkanDescriptorPoolInfo
 {
-	DescriptorType	type;
-	uint32_t		descriptorCount;
-	uint32_t		poolSizeCount;
-	uint32_t		maxSets;
+	std::vector<VulkanDescriptorPoolSize>	  DescriptorSizes;
+	uint32_t								  MaxSets;
 };
 
 class VulkanDescriptorPool

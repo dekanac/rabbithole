@@ -7,6 +7,7 @@
 #include "../Model.h"
 #include "../VulkanBuffer.h"
 #include "../VulkanDescriptors.h"
+#include "../VulkanImage.h"
 #include "../utils.h"
 
 

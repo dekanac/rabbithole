@@ -7,6 +7,7 @@ layout(location = 2) in vec2 uv;
 layout(location = 0) out vec3 fragColors;
 layout(location = 1) out vec3 fragNormal;
 layout(location = 2) out vec3 fragPosition;
+layout(location = 3) out vec2 fragUv;
 
 
 layout(binding = 0) uniform UniformBufferObject {
@@ -26,4 +27,5 @@ void main()
   fragColors = vec3(0.3f, 0.2f, 0.6f);
   fragNormal = normal;
   fragPosition = vec3(push.model * vec4(position, 1.0));
+  fragUv = uv;
 }

@@ -182,7 +182,7 @@ enum class FilterType : uint8_t
 
 enum class AddressMode : uint8_t
 {
-	Wrap,
+	Repeat,
 	Mirror,
 	Clamp,
 	Border,
@@ -305,3 +305,35 @@ enum class ColorWriteMaskFlags : uint8_t
 	RGBA = RGB | A,
 };
 RABBITHOLE_FLAG_TYPE_SETUP(ColorWriteMaskFlags)
+
+struct Color
+{
+	float value[4];
+};
+
+struct Extent3D
+{
+	uint32_t Width;
+	uint32_t Height;
+	uint32_t Depth;
+};
+
+struct ImageSubresourceRange
+{
+	uint32_t MipSlice;
+	uint32_t MipSize;
+	uint32_t ArraySlice;
+	uint32_t ArraySize;
+};
+
+struct DepthStencil
+{
+	float Depth;
+	uint8_t Stencil;
+};
+
+union ClearValue
+{
+	Color Color;
+	DepthStencil DepthStencil;
+};

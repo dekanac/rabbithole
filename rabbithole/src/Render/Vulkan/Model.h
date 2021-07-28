@@ -10,6 +10,10 @@
 #include <unordered_map>
 #include <glm/gtx/hash.hpp>
 
+class VulkanImage;
+class VulkanImageView;
+class VulkanImageSampler;
+
 struct SimplePushConstantData
 {
 	rabbitMat4f model;
@@ -62,6 +66,7 @@ public:
 	void LoadFromFile();
 
 private:
+	void CreateTextures();
 	void CreateVertexBuffers();
 	void CreateIndexBuffers();
 
@@ -74,6 +79,11 @@ private:
 	uint32_t				m_IndexCount;
 	bool					hasIndexBuffer = false;
 
+public:	//TODO: clean this up, this is for test only
+	VulkanImage* image;
+	VulkanImageView* imageView;
+	VulkanImageSampler* imageSampler;
+private:
 	std::string				m_FilePath;
 	std::string				m_Name;
 };

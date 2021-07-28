@@ -43,11 +43,11 @@ public:
 	VulkanDevice& operator= (VulkanDevice&&) = delete;
 
 public:
-	VkCommandPool	GetCommandPool() { return m_CommandPool; }
+	VkCommandPool	GetCommandPool() const { return m_CommandPool; }
 	VkDevice		GetGraphicDevice() const { return m_Device; }
-	VkSurfaceKHR	GetPresentingSurface() { return m_PresetingSurface; }
+	VkSurfaceKHR	GetPresentingSurface() const { return m_PresetingSurface; }
 	VkQueue			GetGraphicsQueue() { return m_GraphicsQueue; }
-	VkQueue			GetPresentQueue() { return m_PresentQueue; }
+	VkQueue			GetPresentQueue() const { return m_PresentQueue; }
 	VmaAllocator	GetVmaAllocator() const { return m_VmaAllocator; }
 
 	//TODO: see what to do with this
@@ -61,6 +61,7 @@ public:
 	void				EndSingleTimeCommands(VkCommandBuffer commandBuffer);
 	void				CopyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size);
 	void				CopyBufferToImage(VkBuffer buffer, VkImage image, uint32_t width, uint32_t height, uint32_t layerCount);
+	void				TransitionImageLayout(VkImage image, VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout);
 	void				CreateImageWithInfo(const VkImageCreateInfo& imageInfo, VkMemoryPropertyFlags properties, VkImage& image, VkDeviceMemory& imageMemory);
 
 
@@ -126,6 +127,6 @@ VkSamplerAddressMode	GetVkAddressModeFrom(const AddressMode addressMode);
 VkBlendFactor			GetVkBlendFactorFrom(const BlendValue blendValue);
 VkBlendOp				GetVkBlendOpFrom(const BlendOperation blendOperation);
 VkVertexInputRate		GetVkVertexInputRateFrom(const VertexInputRate inputRate);
+VkImageUsageFlags		GetVkImageUsageFlagsFrom(const ImageUsageFlags usageFlags);
+VkBorderColor			GetVkBorderColorFrom(const Color color);
 
-//VkImageUsageFlags GetVkImageUsageFlagsFrom(const ImageUsageFlags usageFlags);
-//VkBorderColor			GetVkBorderColorFrom(const Color color);

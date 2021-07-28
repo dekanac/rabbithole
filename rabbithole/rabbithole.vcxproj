@@ -85,13 +85,13 @@
       <SDLCheck>true</SDLCheck>
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpp17</LanguageStandard>
-      <AdditionalIncludeDirectories>$(ProjectDir)src;$(ProjectDir)src\vendor;$(ProjectDir)extern\sdl\include;$(ProjectDir)extern;$(ProjectDir)extern\glfw\include;C:\VulkanSDK\1.2.182.0\Include;$(ProjectDir)extern\vma\;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(ProjectDir)src;$(ProjectDir)src\vendor;$(ProjectDir)extern\sdl\include;$(ProjectDir)extern;$(ProjectDir)extern\glfw\include;C:\VulkanSDK\1.2.182.0\Include;$(ProjectDir)extern\vma\;$(ProjectDir)extern\assimp\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
       <PrecompiledHeaderFile>precomp.h</PrecompiledHeaderFile>
     </ClCompile>
     <Link>
       <AdditionalDependencies>vulkan-1.lib;SDL2.lib;glfw3.lib;VkLayer_utils.lib;%(AdditionalDependencies)</AdditionalDependencies>
-      <AdditionalLibraryDirectories>$(ProjectDir)extern\sdl\lib;$(ProjectDir)extern\glfw\lib-vc2017;C:\VulkanSDK\1.2.182.0\Bin;C:\VulkanSDK\1.2.182.0\Lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>$(ProjectDir)extern\assimp\lib;$(ProjectDir)extern\sdl\lib;$(ProjectDir)extern\glfw\lib-vc2017;C:\VulkanSDK\1.2.182.0\Bin;C:\VulkanSDK\1.2.182.0\Lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <SubSystem>Console</SubSystem>
     </Link>
   </ItemDefinitionGroup>
@@ -117,7 +117,7 @@
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <SDLCheck>true</SDLCheck>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>$(ProjectDir)src;$(ProjectDir)src\vendor;$(ProjectDir)extern\sdl\include;$(ProjectDir)extern;$(ProjectDir)extern\glfw\include;C:\VulkanSDK\1.2.182.0\Include;$(ProjectDir)extern\vma\;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(ProjectDir)src;$(ProjectDir)src\vendor;$(ProjectDir)extern\sdl\include;$(ProjectDir)extern;$(ProjectDir)extern\glfw\include;C:\VulkanSDK\1.2.182.0\Include;$(ProjectDir)extern\vma\;$(ProjectDir)extern\assimp\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpp17</LanguageStandard>
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
       <PrecompiledHeaderFile>precomp.h</PrecompiledHeaderFile>
@@ -126,7 +126,7 @@
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
       <AdditionalDependencies>vulkan-1.lib;SDL2.lib;glfw3.lib;VkLayer_utils.lib;%(AdditionalDependencies)</AdditionalDependencies>
-      <AdditionalLibraryDirectories>$(ProjectDir)extern\sdl\lib;$(ProjectDir)extern\glfw\lib-vc2017;C:\VulkanSDK\1.2.182.0\Bin;C:\VulkanSDK\1.2.182.0\Lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>$(ProjectDir)extern\assimp\lib;$(ProjectDir)extern\sdl\lib;$(ProjectDir)extern\glfw\lib-vc2017;C:\VulkanSDK\1.2.182.0\Bin;C:\VulkanSDK\1.2.182.0\Lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <SubSystem>Console</SubSystem>
     </Link>
   </ItemDefinitionGroup>
@@ -149,6 +149,7 @@
     <ClCompile Include="src\Render\Vulkan\VulkanBuffer.cpp" />
     <ClCompile Include="src\Render\Vulkan\VulkanDescriptors.cpp" />
     <ClCompile Include="src\Render\Vulkan\VulkanDevice.cpp" />
+    <ClCompile Include="src\Render\Vulkan\VulkanImage.cpp" />
     <ClCompile Include="src\Render\Vulkan\VulkanPipeline.cpp" />
     <ClCompile Include="src\Render\Vulkan\VulkanSwapchain.cpp" />
     <ClCompile Include="src\Render\Window.cpp" />
@@ -176,6 +177,7 @@
     <ClInclude Include="src\Render\Vulkan\VulkanDescriptors.h" />
     <ClInclude Include="src\Render\Vulkan\VulkanDevice.h" />
     <ClInclude Include="src\Render\Vulkan\Include\VulkanWrapper.h" />
+    <ClInclude Include="src\Render\Vulkan\VulkanImage.h" />
     <ClInclude Include="src\Render\Vulkan\VulkanPipeline.h" />
     <ClInclude Include="src\Render\Vulkan\VulkanSwapchain.h" />
     <ClInclude Include="src\Render\Vulkan\VulkanTypes.h" />

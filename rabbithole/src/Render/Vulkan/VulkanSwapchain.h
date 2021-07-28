@@ -19,14 +19,14 @@ public:
 	VulkanSwapchain(const VulkanSwapchain&) = delete;
 	VulkanSwapchain operator=(const VulkanSwapchain&) = delete;
 
-	VkFramebuffer	GetFrameBuffer(int index) { return m_SwapChainFramebuffers[index]; }
-	VkRenderPass	GetRenderPass() { return m_RenderPass; }
-	VkImageView		GetImageView(int index) { return m_SwapChainImageViews[index]; }
-	size_t			GetImageCount() { return m_SwapChainImages.size(); }
-	VkFormat		GetSwapChainImageFormat() { return m_SwapChainImageFormat; }
-	VkExtent2D		GetSwapChainExtent() { return m_SwapChainExtent; }
-	uint32_t		GetWidth() { return m_SwapChainExtent.width; }
-	uint32_t		GetHeight() { return m_SwapChainExtent.height; }
+	VkFramebuffer	const GetFrameBuffer(int index) const { return m_SwapChainFramebuffers[index]; }
+	VkRenderPass	const GetRenderPass() const { return m_RenderPass; }
+	VkImageView		const GetImageView(int index) const { return m_SwapChainImageViews[index]; }
+	size_t			const GetImageCount() const { return m_SwapChainImages.size(); }
+	VkFormat		const GetSwapChainImageFormat() const { return m_SwapChainImageFormat; }
+	VkExtent2D		const GetSwapChainExtent() const { return m_SwapChainExtent; }
+	uint32_t		const GetWidth() const { return m_SwapChainExtent.width; }
+	uint32_t		const GetHeight() const { return m_SwapChainExtent.height; }
 
 	float			ExtentAspectRatio() { return static_cast<float>(m_SwapChainExtent.width) / static_cast<float>(m_SwapChainExtent.height); }
 	VkFormat		FindDepthFormat();
