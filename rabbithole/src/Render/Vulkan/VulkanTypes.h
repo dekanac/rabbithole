@@ -47,6 +47,7 @@ enum class PresentResult : uint8_t
 enum class Format : uint8_t
 {
 	UNDEFINED,
+	D32_SFLOAT,
 	D32_SFLOAT_S8_UINT,
 	B8G8R8A8_UNORM,
 	B8G8R8A8_UNORM_SRGB,
@@ -306,6 +307,17 @@ enum class ColorWriteMaskFlags : uint8_t
 };
 RABBITHOLE_FLAG_TYPE_SETUP(ColorWriteMaskFlags)
 
+enum class TextureFlags : uint8_t
+{
+	None = 0x0 << 0,
+	Color = 0x1 << 0,
+	DepthStencil = 0x1 << 1,
+	CubeMap = 0x1 << 2,
+	Read = 0x1 << 3,
+	RenderTarget = 0x1 << 4
+};
+RABBITHOLE_FLAG_TYPE_SETUP(TextureFlags)
+
 struct Color
 {
 	float value[4];
@@ -316,6 +328,13 @@ struct Extent3D
 	uint32_t Width;
 	uint32_t Height;
 	uint32_t Depth;
+};
+
+struct Offset3D
+{
+	int32_t X;
+	int32_t Y;
+	int32_t Z;
 };
 
 struct ImageSubresourceRange

@@ -5,6 +5,9 @@ const uint32_t MaxRenderTargetCount = 5;
 #include "vk_mem_alloc.h"
 #include "spirv-reflect/spirv_reflect.h"
 
+class VulkanTexture;
+class VulkanBuffer;
+
 struct QueueFamilyIndices 
 {
 	uint32_t graphicsFamily;
@@ -61,10 +64,10 @@ public:
 	void				EndSingleTimeCommands(VkCommandBuffer commandBuffer);
 	void				CopyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size);
 	void				CopyBufferToImage(VkBuffer buffer, VkImage image, uint32_t width, uint32_t height, uint32_t layerCount);
+	void				CopyBufferToImage(VulkanBuffer* buffer, VulkanTexture* texture);
 	void				TransitionImageLayout(VkImage image, VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout);
+	void				TransitionImageLayout(VulkanTexture* texture, ResourceState oldLayout, ResourceState newLayout);
 	void				CreateImageWithInfo(const VkImageCreateInfo& imageInfo, VkMemoryPropertyFlags properties, VkImage& image, VkDeviceMemory& imageMemory);
-
-
 
 private:
 	void CreateInstance();

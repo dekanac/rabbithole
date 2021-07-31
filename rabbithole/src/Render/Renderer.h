@@ -9,6 +9,7 @@
 
 #include "Vulkan/Include/VulkanWrapper.h"
 #include "Window.h"
+#include "Model/ModelLoading.h"
 
 
 class Camera;
@@ -37,14 +38,18 @@ private:
 	std::vector<VulkanDescriptorSet*>		m_DescriptorSets;
 	std::vector<VulkanBuffer*>				m_UniformBuffers;
 
-
-	std::unique_ptr<RabbitModel>			rabbitmodel;
+	std::vector<std::unique_ptr<RabbitModel>>			rabbitmodels;
 	Entity*									testEntity;
+	ModelLoading::SceneData*				testScene;
+	VulkanPipeline* m_CurrentGraphicsPipeline;
+	VkRenderPass* m_CurrentRenderPass;
+
+	int m_CurrentImageIndex = 0;
 
 	void loadModels();
 	void LoadAndCreateShaders();
 	void CreateShaderModule(const std::vector<char>& code, ShaderType type, const char* name, const char* codeEntry);
-	void createPipeline();
+	void CreateMainPhongLightingPipeline();
 	void createCommandBuffers();
 	void recreateSwapchain();
 	void recordCommandBuffer(int imageIndex);
@@ -52,7 +57,16 @@ private:
 	void CreateUniformBuffers();
 	void CreateDescriptorPool();
 	void CreateDescriptorSets();
-	
+
+	void SetCurrentImageIndex(int imageIndex) { m_CurrentImageIndex = imageIndex; }
+	void BeginRenderPass(VkRenderPass& renderPass);
+	void EndRenderPass();
+
+	void BindGraphicsPipeline(VulkanPipeline* pipeline);
+
+	void BeginCommandBuffer();
+	void EndCommandBuffer();
+
 	//helper functions
 	std::vector<char> ReadFile(const std::string& filepath);
 public:

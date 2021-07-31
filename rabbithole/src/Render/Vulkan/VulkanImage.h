@@ -1,5 +1,13 @@
 #pragma once
 
+struct ImageRegion
+{
+	ImageSubresourceRange Subresource;
+	Offset3D Offset;
+	Extent3D Extent;
+
+};
+
 struct VulkanImageInfo
 {
 	ImageFlags		Flags;

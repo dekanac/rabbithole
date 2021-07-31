@@ -530,8 +530,7 @@ void VulkanDevice::CopyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSi
 	EndSingleTimeCommands(commandBuffer);
 }
 
-void VulkanDevice::CopyBufferToImage(
-	VkBuffer buffer, VkImage image, uint32_t width, uint32_t height, uint32_t layerCount) 
+void VulkanDevice::CopyBufferToImage(VkBuffer buffer, VkImage image, uint32_t width, uint32_t height, uint32_t layerCount) 
 {
 	VkCommandBuffer commandBuffer = BeginSingleTimeCommands();
 
@@ -552,6 +551,36 @@ void VulkanDevice::CopyBufferToImage(
 		commandBuffer,
 		buffer,
 		image,
+		VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+		1,
+		&region);
+
+	EndSingleTimeCommands(commandBuffer);
+}
+
+void VulkanDevice::CopyBufferToImage(VulkanBuffer* buffer, VulkanTexture* texture)
+{
+	VkCommandBuffer commandBuffer = BeginSingleTimeCommands();
+
+	ImageRegion texRegion = texture->GetRegion();
+
+	VkBufferImageCopy region{};
+	region.bufferOffset = 0;
+	region.bufferRowLength = 0;
+	region.bufferImageHeight = 0;
+
+	region.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+	region.imageSubresource.mipLevel = texRegion.Subresource.MipSlice;
+	region.imageSubresource.baseArrayLayer = texRegion.Subresource.ArraySlice;
+	region.imageSubresource.layerCount = texRegion.Subresource.MipSize;
+
+	region.imageOffset = { texRegion.Offset.X, texRegion.Offset.Y, texRegion.Offset.Z };
+	region.imageExtent = { texRegion.Extent.Width, texRegion.Extent.Height, 1 };
+
+	vkCmdCopyBufferToImage(
+		commandBuffer,
+		buffer->GetBuffer(),
+		texture->GetResource()->GetImage(),
 		VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
 		1,
 		&region);
@@ -595,6 +624,58 @@ void VulkanDevice::TransitionImageLayout(VkImage image, VkFormat format, VkImage
 	}
 	else {
 		throw std::invalid_argument("unsupported layout transition!");
+	}
+
+	vkCmdPipelineBarrier(
+		commandBuffer,
+		sourceStage, destinationStage,
+		0,
+		0, nullptr,
+		0, nullptr,
+		1, &barrier
+	);
+
+	EndSingleTimeCommands(commandBuffer);
+}
+
+void VulkanDevice::TransitionImageLayout(VulkanTexture* texture, ResourceState oldLayout, ResourceState newLayout)
+{
+	VkCommandBuffer commandBuffer = BeginSingleTimeCommands();
+
+	VkImageMemoryBarrier barrier{};
+	barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+	barrier.oldLayout = GetVkImageLayoutFrom(oldLayout);
+	barrier.newLayout = GetVkImageLayoutFrom(newLayout);
+	barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+	barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+	barrier.image = texture->GetResource()->GetImage();
+	barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+	barrier.subresourceRange.baseMipLevel = 0;
+	barrier.subresourceRange.levelCount = 1;
+	barrier.subresourceRange.baseArrayLayer = 0;
+	barrier.subresourceRange.layerCount = 1;
+
+	VkPipelineStageFlags sourceStage;
+	VkPipelineStageFlags destinationStage;
+
+	if (oldLayout == ResourceState::None && newLayout == ResourceState::TransferDst) {
+		barrier.srcAccessMask = 0;
+		barrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+
+		sourceStage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+		destinationStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
+	}
+	else if (oldLayout == ResourceState::TransferDst && newLayout == ResourceState::GenericRead) 
+	{
+		barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+		barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+
+		sourceStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
+		destinationStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+	}
+	else 
+	{
+		LOG_ERROR("unsupported layout transition!");
 	}
 
 	vkCmdPipelineBarrier(
@@ -752,6 +833,8 @@ VkFormat GetVkFormatFrom(const Format format)
 {
 	switch (format)
 	{
+	case Format::D32_SFLOAT:
+		return VK_FORMAT_D32_SFLOAT;
 	case Format::D32_SFLOAT_S8_UINT:
 		return VK_FORMAT_D32_SFLOAT_S8_UINT;
 	case Format::B8G8R8A8_UNORM:

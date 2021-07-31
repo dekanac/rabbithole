@@ -10,6 +10,8 @@
 #include <unordered_map>
 #include <glm/gtx/hash.hpp>
 
+#include "../Model/ModelLoading.h"
+
 class VulkanImage;
 class VulkanImageView;
 class VulkanImageSampler;
@@ -17,6 +19,7 @@ class VulkanImageSampler;
 struct SimplePushConstantData
 {
 	rabbitMat4f model;
+	rabbitVec3f cameraPosition;
 };
 
 struct Vertex
@@ -32,6 +35,14 @@ struct Vertex
 	{
 		return position == other.position && normal == other.normal && uv == other.uv;
 	}
+};
+
+struct TextureData
+{
+	unsigned char* pData;
+	int width;
+	int height;
+	int bpp;
 };
 
 namespace std
@@ -55,6 +66,7 @@ class RabbitModel
 public:
 
 	RabbitModel(VulkanDevice& device, std::string filepath, std::string name);
+	RabbitModel(VulkanDevice& device, ModelLoading::ObjectData* objectData);
 	~RabbitModel();
 
 	RabbitModel(const RabbitModel&) = delete;
@@ -66,7 +78,7 @@ public:
 	void LoadFromFile();
 
 private:
-	void CreateTextures();
+	void CreateTextures(ModelLoading::MaterialData* material);
 	void CreateVertexBuffers();
 	void CreateIndexBuffers();
 
@@ -79,11 +91,13 @@ private:
 	uint32_t				m_IndexCount;
 	bool					hasIndexBuffer = false;
 
+	TextureData*			m_TextureData{};
+
 public:	//TODO: clean this up, this is for test only
-	VulkanImage* image;
-	VulkanImageView* imageView;
-	VulkanImageSampler* imageSampler;
+	VulkanImage*			image;
+	VulkanImageView*		imageView;
+	VulkanImageSampler*		imageSampler;
 private:
-	std::string				m_FilePath;
-	std::string				m_Name;
+	std::string				m_FilePath{};
+	std::string				m_Name{};
 };

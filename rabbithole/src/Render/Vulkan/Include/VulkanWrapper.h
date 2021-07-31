@@ -8,6 +8,7 @@
 #include "../VulkanBuffer.h"
 #include "../VulkanDescriptors.h"
 #include "../VulkanImage.h"
+#include "../VulkanTexture.h"
 #include "../utils.h"
 
 

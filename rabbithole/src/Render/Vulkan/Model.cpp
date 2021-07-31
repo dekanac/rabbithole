@@ -12,10 +12,25 @@ RabbitModel::RabbitModel(VulkanDevice& device, std::string filepath, std::string
 	, m_Name(name)
 {
 	LoadFromFile();
-	CreateTextures();
+	//CreateTextures();
 	CreateVertexBuffers();
 	CreateIndexBuffers();
 }
+
+RabbitModel::RabbitModel(VulkanDevice& device, ModelLoading::ObjectData* objectData)
+: m_VulkanDevice{ device }
+{
+	m_Vertices.resize(objectData->mesh->numVertices);
+	m_Indices.resize(objectData->mesh->numIndices);
+	m_VertexCount = objectData->mesh->numVertices;
+	std::memcpy(m_Vertices.data(), objectData->mesh->pVertices, objectData->mesh->numVertices * sizeof(ModelLoading::MeshVertex));
+	m_IndexCount = objectData->mesh->numIndices;
+	std::memcpy(m_Indices.data(), objectData->mesh->pIndices, objectData->mesh->numIndices * sizeof(uint32_t));
+	
+	CreateTextures(&objectData->material);
+	CreateVertexBuffers();
+	CreateIndexBuffers();
+ }
 
 RabbitModel::~RabbitModel()
 {
@@ -26,17 +41,40 @@ RabbitModel::~RabbitModel()
 	}
 }
 
-void RabbitModel::CreateTextures()
+void RabbitModel::CreateTextures(ModelLoading::MaterialData* material)
 {
 	int texWidth, texHeight, texChannels;
-	stbi_uc* pixels = stbi_load("res/meshes/box/box.jpg", &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
+	unsigned char* pixels = nullptr;
+	if (material->diffuseMap != NULL && material->diffuseMap->pData != NULL)
+	{
+		texWidth = material->diffuseMap->width;
+		texHeight = material->diffuseMap->height;
+		texChannels = material->diffuseMap->bpp;
+		pixels = material->diffuseMap->pData;
+	}
+	else
+	{
+		pixels = stbi_load("res/meshes/box/white.jpg", &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
+	}
+	if (!pixels) 
+	{
+		LOG_ERROR("failed to load texture image!");
+	}
 	VkDeviceSize imageSize = texWidth * texHeight * 4;
 
-	if (!pixels) {
-		throw std::runtime_error("failed to load texture image!");
-	}
+	TextureData texData{};
+	texData.bpp = texChannels;
+	texData.height = texHeight;
+	texData.width = texWidth;
+	texData.pData = pixels;
 
-	VulkanBufferInfo stagingBufferInfo{};
+	VulkanTexture* texture = new VulkanTexture(&m_VulkanDevice, &texData, TextureFlags::Color | TextureFlags::Read, Format::R8G8B8A8_UNORM_SRGB, "box_tex");
+
+	image = texture->GetResource();
+	imageView = texture->GetView();
+	imageSampler = texture->GetSampler();
+
+	/*VulkanBufferInfo stagingBufferInfo{};
 	stagingBufferInfo.usageFlags = BufferUsageFlags::TransferSrc;
 	stagingBufferInfo.memoryAccess = MemoryAccess::Host;
 	stagingBufferInfo.size = imageSize;
@@ -92,7 +130,7 @@ void RabbitModel::CreateTextures()
 	imageSamplerInfo.CompareOperation = CompareOperation::Always;
 	imageSamplerInfo.MipFilterType = FilterType::Linear;
 
-	imageSampler = new VulkanImageSampler(&m_VulkanDevice, imageSamplerInfo, "drametina");
+	imageSampler = new VulkanImageSampler(&m_VulkanDevice, imageSamplerInfo, "drametina");*/
 
 }
 

@@ -18,6 +18,8 @@
 #include <sstream>
 #include <set>
 
+#include "Model/ModelLoading.h"
+
 float sranje = 0.f;
 
 #define MAIN_VERTEX_FILE_PATH		"res/shaders/vert.spv"
@@ -34,6 +36,15 @@ bool Renderer::Init()
 	MainCamera = new Camera();
 	MainCamera->Init();
 	testEntity = new Entity();
+
+	testScene = ModelLoading::LoadScene("res/meshes/box/box.obj");
+	size_t verticesCount = 0;
+	std::vector<uint16_t> offsets{ 0 };
+	for (size_t i = 0; i < testScene->numObjects; i++)
+	{
+		verticesCount += testScene->pObjects[i]->mesh->numVertices;
+		offsets.push_back(testScene->pObjects[i]->mesh->numVertices * sizeof(Vertex));
+	}
 
 	loadModels();
 	LoadAndCreateShaders();
@@ -96,7 +107,54 @@ void Renderer::DrawFrame()
 
 void Renderer::loadModels()
 {
-	rabbitmodel = std::make_unique<RabbitModel>(m_VulkanDevice, "res/meshes/box/box.obj", "box");
+	for (unsigned int i = 0; i < testScene->numObjects; i++)
+	{
+		rabbitmodels.push_back(std::make_unique<RabbitModel>(m_VulkanDevice, testScene->pObjects[i]));
+	}
+}
+
+void Renderer::BeginRenderPass(VkRenderPass& renderPass)
+{
+	m_CurrentRenderPass = &renderPass;
+	VkRenderPassBeginInfo renderPassInfo{};
+	renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
+	renderPassInfo.renderPass = *m_CurrentRenderPass;
+	renderPassInfo.framebuffer = m_VulkanSwapchain->GetFrameBuffer(m_CurrentImageIndex);
+
+	renderPassInfo.renderArea.offset = { 0, 0 };
+	renderPassInfo.renderArea.extent = m_VulkanSwapchain->GetSwapChainExtent();
+
+	std::array<VkClearValue, 2> clearValues{};
+	clearValues[0].color = { 0.1f, 0.1f, 0.1f, 1.0f };
+	clearValues[1].depthStencil = { 1.0f, 0 };
+	renderPassInfo.clearValueCount = static_cast<uint32_t>(clearValues.size());
+	renderPassInfo.pClearValues = clearValues.data();
+
+	vkCmdBeginRenderPass(m_CommandBuffers[m_CurrentImageIndex], &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
+}
+
+void Renderer::EndRenderPass()
+{
+	vkCmdEndRenderPass(m_CommandBuffers[m_CurrentImageIndex]);
+}
+
+void Renderer::BindGraphicsPipeline(VulkanPipeline* pipeline)
+{
+	m_CurrentGraphicsPipeline = pipeline;
+	pipeline->Bind(m_CommandBuffers[m_CurrentImageIndex]);
+}
+
+void Renderer::BeginCommandBuffer()
+{
+	VkCommandBufferBeginInfo beginInfo{};
+	beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+
+	VULKAN_API_CALL(vkBeginCommandBuffer(m_CommandBuffers[m_CurrentImageIndex], &beginInfo), "failed to begin recording command buffer!");
+}
+
+void Renderer::EndCommandBuffer()
+{
+	VULKAN_API_CALL(vkEndCommandBuffer(m_CommandBuffers[m_CurrentImageIndex]), "failed to end recording command buffer!");
 }
 
 std::vector<char> Renderer::ReadFile(const std::string& filepath)
@@ -138,7 +196,7 @@ void Renderer::CreateShaderModule(const std::vector<char>& code, ShaderType type
 	m_Shaders.push_back(shader);
 }
 
-void Renderer::createPipeline() 
+void Renderer::CreateMainPhongLightingPipeline() 
 {
 	PipelineConfigInfo pipelineConfig{};
 	VulkanPipeline::DefaultPipelineConfigInfo(
@@ -182,7 +240,7 @@ void Renderer::recreateSwapchain()
 	vkDeviceWaitIdle(m_VulkanDevice.GetGraphicDevice());
 	m_VulkanSwapchain = std::make_unique<VulkanSwapchain>(m_VulkanDevice, extent);
 
-	createPipeline();
+	CreateMainPhongLightingPipeline();
 	
 	CreateUniformBuffers();
 	CreateDescriptorPool();
@@ -191,48 +249,34 @@ void Renderer::recreateSwapchain()
 
 void Renderer::recordCommandBuffer(int imageIndex)
 {
-	VkCommandBufferBeginInfo beginInfo{};
-	beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+	SetCurrentImageIndex(imageIndex);
+	BeginCommandBuffer();
 
-	if (vkBeginCommandBuffer(m_CommandBuffers[imageIndex], &beginInfo) != VK_SUCCESS) {
-		LOG_ERROR("failed to begin recording command buffer!");
+	VkRenderPass renderPass = m_VulkanSwapchain->GetRenderPass();
+	BeginRenderPass(renderPass);
+	BindGraphicsPipeline(m_VulkanPipeline.get());
+
+	SimplePushConstantData push{};
+	push.cameraPosition = MainCamera->GetPosition();
+
+	for(unsigned int i = 0; i < testScene->numObjects; i++) 
+	{ 
+		rabbitmodels[i]->Bind(m_CommandBuffers[imageIndex]);
+
+		vkCmdBindDescriptorSets(m_CommandBuffers[imageIndex], VK_PIPELINE_BIND_POINT_GRAPHICS, *m_VulkanPipeline->GetPipelineLayout(), 0, 1, m_DescriptorSets[imageIndex]->GetDescriptorSet(), 0, nullptr);
+
+		for (int j = 1; j < 400; j++)
+		{
+			push.model = glm::translate(rabbitMat4f{ 1.f } , rabbitVec3f(j * 3.f, 0.f, 0.f));
+			push.model = glm::rotate(push.model, 3.14f, rabbitVec3f(1.0f, 0.0f, 0.0f));
+			push.model = glm::rotate(push.model, sranje, rabbitVec3f(0.0f, 1.0f, 0.0f));
+			vkCmdPushConstants(m_CommandBuffers[imageIndex], *(m_VulkanPipeline->GetPipelineLayout()), VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(SimplePushConstantData), &push);
+			rabbitmodels[i]->Draw(m_CommandBuffers[imageIndex]);
+		}
 	}
 
-	VkRenderPassBeginInfo renderPassInfo{};
-	renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-	renderPassInfo.renderPass = m_VulkanSwapchain->GetRenderPass();
-	renderPassInfo.framebuffer = m_VulkanSwapchain->GetFrameBuffer(imageIndex);
-
-	renderPassInfo.renderArea.offset = { 0, 0 };
-	renderPassInfo.renderArea.extent = m_VulkanSwapchain->GetSwapChainExtent();
-
-	std::array<VkClearValue, 2> clearValues{};
-	clearValues[0].color = { 0.1f, 0.1f, 0.1f, 1.0f };
-	clearValues[1].depthStencil = { 1.0f, 0 };
-	renderPassInfo.clearValueCount = static_cast<uint32_t>(clearValues.size());
-	renderPassInfo.pClearValues = clearValues.data();
-
-	vkCmdBeginRenderPass(m_CommandBuffers[imageIndex], &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
-
-	m_VulkanPipeline->Bind(m_CommandBuffers[imageIndex]);
-	rabbitmodel->Bind(m_CommandBuffers[imageIndex]);
-
-	vkCmdBindDescriptorSets(m_CommandBuffers[imageIndex], VK_PIPELINE_BIND_POINT_GRAPHICS, *m_VulkanPipeline->GetPipelineLayout(), 0, 1, m_DescriptorSets[imageIndex]->GetDescriptorSet(), 0, nullptr);
-
-	for (int j = 1; j < 1000; j++)
-	{
-		SimplePushConstantData push{};
-
-		push.model = glm::translate(rabbitMat4f{ 1.f } , rabbitVec3f(j * 3.f, 0.f, 0.f));
-		vkCmdPushConstants(m_CommandBuffers[imageIndex], *(m_VulkanPipeline->GetPipelineLayout()), VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(SimplePushConstantData), &push);
-		rabbitmodel->Draw(m_CommandBuffers[imageIndex]);
-	}
-
-	vkCmdEndRenderPass(m_CommandBuffers[imageIndex]);
-	if (vkEndCommandBuffer(m_CommandBuffers[imageIndex]) != VK_SUCCESS)
-	{
-		LOG_ERROR("failed to record command buffer!");
-	}
+	EndRenderPass();
+	EndCommandBuffer();
 }
 
 void Renderer::UpdateUniformBuffer(uint32_t currentImage)
@@ -286,6 +330,7 @@ void Renderer::CreateDescriptorSets()
 {
 	size_t backBuffersCount = m_VulkanSwapchain->GetImageCount();
 	m_DescriptorSets.resize(backBuffersCount);
+
 	for (size_t i = 0; i < backBuffersCount; i++)
 	{
 		std::vector<VulkanDescriptor*> descriptors;
@@ -299,8 +344,8 @@ void Renderer::CreateDescriptorSets()
 		descriptors.push_back(&uniformBufferDescriptor);
 
 		CombinedImageSampler combinedImageSampler;
-		combinedImageSampler.ImageSampler = rabbitmodel->imageSampler;
-		combinedImageSampler.ImageView = rabbitmodel->imageView;
+		combinedImageSampler.ImageSampler = rabbitmodels[0]->imageSampler;
+		combinedImageSampler.ImageView = rabbitmodels[0]->imageView;
 
 		VulkanDescriptorInfo combinedImageSamplerDescriptorInfo{};
 		combinedImageSamplerDescriptorInfo.Type = DescriptorType::CombinedSampler;

@@ -9,6 +9,9 @@
 #include <string>
 #include <vector>
 
+class VulkanImage;
+class VulkanImageView;
+
 class VulkanSwapchain {
 public:
 	static constexpr int MAX_FRAMES_IN_FLIGHT = 2;
@@ -47,25 +50,25 @@ private:
 	VkPresentModeKHR	ChooseSwapPresentMode(const std::vector<VkPresentModeKHR>& availablePresentModes);
 	VkExtent2D			ChooseSwapExtent(const VkSurfaceCapabilitiesKHR& capabilities);
 
-	VulkanDevice&				m_VulkanDevice;
-	VkSwapchainKHR				m_SwapChain;
+	VulkanDevice&					m_VulkanDevice;
+	VkSwapchainKHR					m_SwapChain;
 
-	VkFormat					m_SwapChainImageFormat;
-	VkExtent2D					m_SwapChainExtent;
-	VkExtent2D					m_WindowExtent;
+	VkFormat						m_SwapChainImageFormat;
+	VkExtent2D						m_SwapChainExtent;
+	VkExtent2D						m_WindowExtent;
 
-	std::vector<VkFramebuffer>	m_SwapChainFramebuffers;
-	VkRenderPass				m_RenderPass;
+	std::vector<VkFramebuffer>		m_SwapChainFramebuffers;
+	VkRenderPass					m_RenderPass;
 
-	std::vector<VkImage>		m_DepthImages;
-	std::vector<VkDeviceMemory> m_DepthImageMemorys;
-	std::vector<VkImageView>	m_DepthImageViews;
-	std::vector<VkImage>		m_SwapChainImages;
-	std::vector<VkImageView>	m_SwapChainImageViews;
+	std::vector<VulkanImage*>		m_DepthImages;
+	std::vector<VkDeviceMemory>		m_DepthImageMemorys;
+	std::vector<VulkanImageView*>	m_DepthImageViews;
+	std::vector<VkImage>			m_SwapChainImages;
+	std::vector<VkImageView>		m_SwapChainImageViews;
 
-	std::vector<VkSemaphore>	m_ImageAvailableSemaphores;
-	std::vector<VkSemaphore>	m_RenderFinishedSemaphores;
-	std::vector<VkFence>		m_InFlightFences;
-	std::vector<VkFence>		m_ImagesInFlight;
-	size_t						m_CurrentFrame = 0;
+	std::vector<VkSemaphore>		m_ImageAvailableSemaphores;
+	std::vector<VkSemaphore>		m_RenderFinishedSemaphores;
+	std::vector<VkFence>			m_InFlightFences;
+	std::vector<VkFence>			m_ImagesInFlight;
+	size_t							m_CurrentFrame = 0;
 };

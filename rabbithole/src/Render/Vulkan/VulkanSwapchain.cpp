@@ -36,9 +36,9 @@ VulkanSwapchain::~VulkanSwapchain()
 
 	for (int i = 0; i < m_DepthImages.size(); i++) 
 	{
-		vkDestroyImageView(m_VulkanDevice.GetGraphicDevice(), m_DepthImageViews[i], nullptr);
-		vkDestroyImage(m_VulkanDevice.GetGraphicDevice(), m_DepthImages[i], nullptr);
-		vkFreeMemory(m_VulkanDevice.GetGraphicDevice(), m_DepthImageMemorys[i], nullptr);
+		//vkDestroyImageView(m_VulkanDevice.GetGraphicDevice(), m_DepthImageViews[i], nullptr);
+		//vkDestroyImage(m_VulkanDevice.GetGraphicDevice(), m_DepthImages[i], nullptr);
+		//vkFreeMemory(m_VulkanDevice.GetGraphicDevice(), m_DepthImageMemorys[i], nullptr);
 	}
 
 	for (auto framebuffer : m_SwapChainFramebuffers) 
@@ -79,7 +79,8 @@ VkResult VulkanSwapchain::AcquireNextImage(uint32_t* imageIndex)
 
 VkResult VulkanSwapchain::SubmitCommandBuffers(const VkCommandBuffer* buffers, uint32_t* imageIndex) 
 {
-	if (m_ImagesInFlight[*imageIndex] != VK_NULL_HANDLE) {
+	if (m_ImagesInFlight[*imageIndex] != VK_NULL_HANDLE) 
+	{
 		vkWaitForFences(m_VulkanDevice.GetGraphicDevice(), 1, &m_ImagesInFlight[*imageIndex], VK_TRUE, UINT64_MAX);
 	}
 	m_ImagesInFlight[*imageIndex] = m_InFlightFences[m_CurrentFrame];
@@ -101,10 +102,7 @@ VkResult VulkanSwapchain::SubmitCommandBuffers(const VkCommandBuffer* buffers, u
 	submitInfo.pSignalSemaphores = signalSemaphores;
 
 	vkResetFences(m_VulkanDevice.GetGraphicDevice(), 1, &m_InFlightFences[m_CurrentFrame]);
-	if (vkQueueSubmit(m_VulkanDevice.GetGraphicsQueue(), 1, &submitInfo, m_InFlightFences[m_CurrentFrame]) != VK_SUCCESS) 
-	{
-		LOG_ERROR("failed to submit draw command buffer!");
-	}
+	VULKAN_API_CALL(vkQueueSubmit(m_VulkanDevice.GetGraphicsQueue(), 1, &submitInfo, m_InFlightFences[m_CurrentFrame]), "failed to submit draw command buffer!");
 
 	VkPresentInfoKHR presentInfo = {};
 	presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
@@ -174,10 +172,7 @@ void VulkanSwapchain::CreateSwapChain()
 
 	createInfo.oldSwapchain = VK_NULL_HANDLE;
 
-	if (vkCreateSwapchainKHR(m_VulkanDevice.GetGraphicDevice(), &createInfo, nullptr, &m_SwapChain) != VK_SUCCESS)
-	{
-		LOG_ERROR("failed to create swap chain!");
-	}
+	VULKAN_API_CALL(vkCreateSwapchainKHR(m_VulkanDevice.GetGraphicDevice(), &createInfo, nullptr, &m_SwapChain), "failed to create swap chain!");
 
 	// we only specified a minimum number of images in the swap chain, so the implementation is
 	// allowed to create a swap chain with more. That's why we'll first query the final number of
@@ -279,7 +274,7 @@ void VulkanSwapchain::CreateFramebuffers()
 {
 	m_SwapChainFramebuffers.resize(GetImageCount());
 	for (size_t i = 0; i < GetImageCount(); i++) {
-		std::array<VkImageView, 2> attachments = { m_SwapChainImageViews[i], m_DepthImageViews[i] };
+		std::array<VkImageView, 2> attachments = { m_SwapChainImageViews[i], m_DepthImageViews[i]->GetImageView() };
 
 		VkExtent2D swapChainExtent = GetSwapChainExtent();
 		VkFramebufferCreateInfo framebufferInfo = {};
@@ -291,14 +286,7 @@ void VulkanSwapchain::CreateFramebuffers()
 		framebufferInfo.height = swapChainExtent.height;
 		framebufferInfo.layers = 1;
 
-		if (vkCreateFramebuffer(
-			m_VulkanDevice.GetGraphicDevice(),
-			&framebufferInfo,
-			nullptr,
-			&m_SwapChainFramebuffers[i]) != VK_SUCCESS) 
-		{
-			LOG_ERROR("failed to create framebuffer!");
-		}
+		VULKAN_API_CALL(vkCreateFramebuffer(m_VulkanDevice.GetGraphicDevice(), &framebufferInfo, nullptr, &m_SwapChainFramebuffers[i]), "failed to create framebuffer!");
 	}
 }
 
@@ -308,47 +296,38 @@ void VulkanSwapchain::CreateDepthResources()
 	VkExtent2D swapChainExtent = GetSwapChainExtent();
 
 	m_DepthImages.resize(GetImageCount());
-	m_DepthImageMemorys.resize(GetImageCount());
 	m_DepthImageViews.resize(GetImageCount());
 
 	for (int i = 0; i < m_DepthImages.size(); i++) {
-		VkImageCreateInfo imageInfo{};
-		imageInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
-		imageInfo.imageType = VK_IMAGE_TYPE_2D;
-		imageInfo.extent.width = swapChainExtent.width;
-		imageInfo.extent.height = swapChainExtent.height;
-		imageInfo.extent.depth = 1;
-		imageInfo.mipLevels = 1;
-		imageInfo.arrayLayers = 1;
-		imageInfo.format = depthFormat;
-		imageInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
-		imageInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-		imageInfo.usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
-		imageInfo.samples = VK_SAMPLE_COUNT_1_BIT;
-		imageInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-		imageInfo.flags = 0;
+		
+		VulkanImageInfo imageInfo{};
+		imageInfo.Extent.Depth = 1;
+		imageInfo.Extent.Width =  swapChainExtent.width;
+		imageInfo.Extent.Height = swapChainExtent.height;
+		imageInfo.MipLevels = 1;
+		imageInfo.ArraySize = 1;
+		imageInfo.Format = Format::D32_SFLOAT;
+		imageInfo.UsageFlags = ImageUsageFlags::DepthStencil | ImageUsageFlags::RenderTarget;
+		imageInfo.Flags = ImageFlags::None;
+		imageInfo.MultisampleType = MultisampleType::Sample_1;
+		imageInfo.MemoryAccess = MemoryAccess::Device;
 
-		m_VulkanDevice.CreateImageWithInfo(
-			imageInfo,
-			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
-			m_DepthImages[i],
-			m_DepthImageMemorys[i]);
+		VulkanImage* depthImage = new VulkanImage(&m_VulkanDevice, imageInfo, "depth");
 
-		VkImageViewCreateInfo viewInfo{};
-		viewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-		viewInfo.image = m_DepthImages[i];
-		viewInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
-		viewInfo.format = depthFormat;
-		viewInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
-		viewInfo.subresourceRange.baseMipLevel = 0;
-		viewInfo.subresourceRange.levelCount = 1;
-		viewInfo.subresourceRange.baseArrayLayer = 0;
-		viewInfo.subresourceRange.layerCount = 1;
+		VulkanImageViewInfo imageViewInfo{};
 
-		if (vkCreateImageView(m_VulkanDevice.GetGraphicDevice(), &viewInfo, nullptr, &m_DepthImageViews[i]) != VK_SUCCESS) 
-		{
-			LOG_ERROR("failed to create texture image view!");
-		}
+		imageViewInfo.Format = Format::D32_SFLOAT;
+		imageViewInfo.Resource = depthImage;
+		imageViewInfo.Subresource.ArraySize = 1;
+		imageViewInfo.Subresource.ArraySlice = 0;
+		imageViewInfo.Subresource.MipSize = 1;
+		imageViewInfo.Subresource.MipSlice = 0;
+
+		VulkanImageView* depthImageView = new VulkanImageView(&m_VulkanDevice, imageViewInfo, "depth image view");
+
+		m_DepthImages[i] = depthImage;
+		m_DepthImageViews[i] = depthImageView;
+		
 	}
 }
 
