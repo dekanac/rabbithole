@@ -111,22 +111,22 @@ void VulkanPipeline::DefaultPipelineConfigInfo(PipelineConfigInfo& configInfo, u
 	configInfo.multisampleInfo.alphaToCoverageEnable = VK_FALSE;  // Optional
 	configInfo.multisampleInfo.alphaToOneEnable = VK_FALSE;       // Optional
 
-	configInfo.colorBlendAttachment.colorWriteMask =
+	configInfo.colorBlendAttachment[0].colorWriteMask =
 		VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT |
 		VK_COLOR_COMPONENT_A_BIT;
-	configInfo.colorBlendAttachment.blendEnable = VK_FALSE;
-	configInfo.colorBlendAttachment.srcColorBlendFactor = VK_BLEND_FACTOR_ONE;   // Optional
-	configInfo.colorBlendAttachment.dstColorBlendFactor = VK_BLEND_FACTOR_ZERO;  // Optional
-	configInfo.colorBlendAttachment.colorBlendOp = VK_BLEND_OP_ADD;              // Optional
-	configInfo.colorBlendAttachment.srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE;   // Optional
-	configInfo.colorBlendAttachment.dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO;  // Optional
-	configInfo.colorBlendAttachment.alphaBlendOp = VK_BLEND_OP_ADD;              // Optional
+	configInfo.colorBlendAttachment[0].blendEnable = VK_FALSE;
+	configInfo.colorBlendAttachment[0].srcColorBlendFactor = VK_BLEND_FACTOR_ONE;   // Optional
+	configInfo.colorBlendAttachment[0].dstColorBlendFactor = VK_BLEND_FACTOR_ZERO;  // Optional
+	configInfo.colorBlendAttachment[0].colorBlendOp = VK_BLEND_OP_ADD;              // Optional
+	configInfo.colorBlendAttachment[0].srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE;   // Optional
+	configInfo.colorBlendAttachment[0].dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO;  // Optional
+	configInfo.colorBlendAttachment[0].alphaBlendOp = VK_BLEND_OP_ADD;              // Optional
 
 	configInfo.colorBlendInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
 	configInfo.colorBlendInfo.logicOpEnable = VK_FALSE;
 	configInfo.colorBlendInfo.logicOp = VK_LOGIC_OP_COPY;  // Optional
 	configInfo.colorBlendInfo.attachmentCount = 1;
-	configInfo.colorBlendInfo.pAttachments = &configInfo.colorBlendAttachment;
+	configInfo.colorBlendInfo.pAttachments = &configInfo.colorBlendAttachment[0];
 	configInfo.colorBlendInfo.blendConstants[0] = 0.0f;  // Optional
 	configInfo.colorBlendInfo.blendConstants[1] = 0.0f;  // Optional
 	configInfo.colorBlendInfo.blendConstants[2] = 0.0f;  // Optional
@@ -239,67 +239,67 @@ void PipelineConfigInfo::SetWindingOrder(const WindingOrder winding)
 	rasterizationInfo.frontFace = winding == WindingOrder::Clockwise ? VK_FRONT_FACE_CLOCKWISE : VK_FRONT_FACE_COUNTER_CLOCKWISE;
 }
 
-// void PipelineConfigInfo::SetColorWriteMask(const uint32_t mrtIndex, const ColorWriteMaskFlags mask)
-// {
-// 	//ASSERT(mrtIndex < MaxRenderTargetCount, "Max render target count reached!");
-// 
-// 	colorBlendAttachment[mrtIndex].colorWriteMask = VkColorComponentFlags(mask);
-// }
-// 
-// void PipelineConfigInfo::SetColorWriteMask(const uint32_t mrtIndex, const uint32_t mrtCount, const ColorWriteMaskFlags masks[])
-// {
-// 	//ASSERT(mrtIndex + mrtCount <= MaxRenderTargetCount);
-// 
-// 	for (uint32_t i = 0; i < mrtCount; ++i)
-// 	{
-// 		colorBlendAttachment[mrtIndex].colorWriteMask = VkColorComponentFlags(masks[mrtIndex]);
-// 	}
-// }
+ void PipelineConfigInfo::SetColorWriteMask(const uint32_t mrtIndex, const ColorWriteMaskFlags mask)
+ {
+	ASSERT(mrtIndex < MaxRenderTargetCount, "mrtIndex must be lower then MaxRenderTargetCount");
+
+ 	colorBlendAttachment[mrtIndex].colorWriteMask = VkColorComponentFlags(mask);
+ }
+ 
+ void PipelineConfigInfo::SetColorWriteMask(const uint32_t mrtIndex, const uint32_t mrtCount, const ColorWriteMaskFlags masks[])
+ {
+	ASSERT(mrtIndex < MaxRenderTargetCount, "mrtIndex must be lower then MaxRenderTargetCount");
+
+ 	for (uint32_t i = 0; i < mrtCount; ++i)
+ 	{
+ 		colorBlendAttachment[mrtIndex].colorWriteMask = VkColorComponentFlags(masks[mrtIndex]);
+ 	}
+ }
 
 void PipelineConfigInfo::SetAttachmentCount(const uint32_t attachmentCount)
 {
-	//ASSERT(attachmentCount <= MaxRenderTargetCount);
+	ASSERT(attachmentCount < MaxRenderTargetCount, "mrtIndex must be lower then MaxRenderTargetCount");
 
 	colorBlendInfo.attachmentCount = attachmentCount;
 }
 
 void PipelineConfigInfo::SetAlphaBlendEnabled(const uint32_t mrtIndex, const bool enabled)
 {
-	//ASSERT(mrtIndex < MaxRenderTargetCount);
+	ASSERT(mrtIndex < MaxRenderTargetCount, "mrtIndex must be lower then MaxRenderTargetCount");
 
-	colorBlendAttachment.blendEnable = enabled;
+	colorBlendAttachment[mrtIndex].blendEnable = enabled;
 }
 
 void PipelineConfigInfo::SetAlphaBlendFunction(const uint32_t mrtIndex, const BlendValue srcBlend, const BlendValue dstBlend)
 {
-	//ASSERT(mrtIndex < MaxRenderTargetCount);
+	ASSERT(mrtIndex < MaxRenderTargetCount, "mrtIndex must be lower then MaxRenderTargetCount");
 
-	colorBlendAttachment.srcColorBlendFactor = GetVkBlendFactorFrom(srcBlend);
-	colorBlendAttachment.dstColorBlendFactor = GetVkBlendFactorFrom(dstBlend);
+	colorBlendAttachment[mrtIndex].srcColorBlendFactor = GetVkBlendFactorFrom(srcBlend);
+	colorBlendAttachment[mrtIndex].dstColorBlendFactor = GetVkBlendFactorFrom(dstBlend);
 }
 
 void PipelineConfigInfo::SetAlphaBlendFunction(const uint32_t mrtIndex, const BlendValue srcColorBlend,
 	const BlendValue dstColorBlend, const BlendValue srcAlphaBlend, const BlendValue dstAlphablend)
 {
-	//ASSERT(mrtIndex < MaxRenderTargetCount);
+	ASSERT(mrtIndex < MaxRenderTargetCount, "mrtIndex must be lower then MaxRenderTargetCount");
 
-	colorBlendAttachment.srcColorBlendFactor = GetVkBlendFactorFrom(srcColorBlend);
-	colorBlendAttachment.dstColorBlendFactor = GetVkBlendFactorFrom(dstColorBlend);
-	colorBlendAttachment.srcAlphaBlendFactor = GetVkBlendFactorFrom(srcAlphaBlend);
-	colorBlendAttachment.dstAlphaBlendFactor = GetVkBlendFactorFrom(dstAlphablend);
+	colorBlendAttachment[mrtIndex].srcColorBlendFactor = GetVkBlendFactorFrom(srcColorBlend);
+	colorBlendAttachment[mrtIndex].dstColorBlendFactor = GetVkBlendFactorFrom(dstColorBlend);
+	colorBlendAttachment[mrtIndex].srcAlphaBlendFactor = GetVkBlendFactorFrom(srcAlphaBlend);
+	colorBlendAttachment[mrtIndex].dstAlphaBlendFactor = GetVkBlendFactorFrom(dstAlphablend);
 }
 
 void PipelineConfigInfo::SetAlphaBlendOperation(const uint32_t mrtIndex, const BlendOperation colorOperation)
 {
-	//ASSERT(mrtIndex < MaxRenderTargetCount);
+	ASSERT(mrtIndex < MaxRenderTargetCount, "mrtIndex must be lower then MaxRenderTargetCount");
 
-	colorBlendAttachment.colorBlendOp = GetVkBlendOpFrom(colorOperation);
+	colorBlendAttachment[mrtIndex].colorBlendOp = GetVkBlendOpFrom(colorOperation);
 }
 
 void PipelineConfigInfo::SetAlphaBlendOperation(const uint32_t mrtIndex, const BlendOperation colorOperation, const BlendOperation alphaOperation)
 {
-	//ASSERT(mrtIndex < MaxRenderTargetCount);
+	ASSERT(mrtIndex < MaxRenderTargetCount, "mrtIndex must be lower then MaxRenderTargetCount");
 
-	colorBlendAttachment.colorBlendOp = GetVkBlendOpFrom(colorOperation);
-	colorBlendAttachment.alphaBlendOp = GetVkBlendOpFrom(alphaOperation);
+	colorBlendAttachment[mrtIndex].colorBlendOp = GetVkBlendOpFrom(colorOperation);
+	colorBlendAttachment[mrtIndex].alphaBlendOp = GetVkBlendOpFrom(alphaOperation);
 }

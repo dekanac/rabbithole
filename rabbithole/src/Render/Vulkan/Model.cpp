@@ -80,27 +80,15 @@ void RabbitModel::CreateVertexBuffers()
 	m_VertexCount = static_cast<uint32_t>(m_Vertices.size());
 	ASSERT(m_VertexCount >= 3, "Vertex count must be greater then 3!");
 
-	VkDeviceSize bufferSize = sizeof(m_Vertices[0]) * m_VertexCount;
-	
-	VulkanBufferInfo stagingbufferinfo{};
+	uint64_t bufferSize = sizeof(m_Vertices[0]) * m_VertexCount;
 
-	stagingbufferinfo.memoryAccess = MemoryAccess::Host;
-	stagingbufferinfo.size = bufferSize;
-	stagingbufferinfo.usageFlags = BufferUsageFlags::TransferSrc;
-
-	VulkanBuffer* stagingBuffer = new VulkanBuffer(&m_VulkanDevice, stagingbufferinfo);
+	VulkanBuffer* stagingBuffer = new VulkanBuffer(&m_VulkanDevice, BufferUsageFlags::TransferSrc, MemoryAccess::Host, bufferSize);
 
 	stagingBuffer->Map();
 	memcpy(stagingBuffer->GetHostVisibleData(), m_Vertices.data(), static_cast<size_t>(bufferSize));
 	stagingBuffer->Unmap();
 
-	VulkanBufferInfo vertexbufferinfo{};
-
-	vertexbufferinfo.memoryAccess = MemoryAccess::Device;
-	vertexbufferinfo.size = bufferSize;
-	vertexbufferinfo.usageFlags = BufferUsageFlags::VertexBuffer | BufferUsageFlags::TransferDst;
-	
-	m_VertexBuffer = new VulkanBuffer(&m_VulkanDevice, vertexbufferinfo);
+	m_VertexBuffer = new VulkanBuffer(&m_VulkanDevice, BufferUsageFlags::VertexBuffer | BufferUsageFlags::TransferDst, MemoryAccess::Device, bufferSize);
 
 	m_VulkanDevice.CopyBuffer(stagingBuffer->GetBuffer(), m_VertexBuffer->GetBuffer(), bufferSize);
 
@@ -119,25 +107,13 @@ void RabbitModel::CreateIndexBuffers()
 
 	VkDeviceSize bufferSize = sizeof(m_Indices[0]) * m_IndexCount;
 
-	VulkanBufferInfo stagingbufferinfo{};
-
-	stagingbufferinfo.memoryAccess = MemoryAccess::Host;
-	stagingbufferinfo.size = bufferSize;
-	stagingbufferinfo.usageFlags = BufferUsageFlags::TransferSrc;
-
-	VulkanBuffer* stagingBuffer = new VulkanBuffer(&m_VulkanDevice, stagingbufferinfo);
+	VulkanBuffer* stagingBuffer = new VulkanBuffer(&m_VulkanDevice, BufferUsageFlags::TransferSrc, MemoryAccess::Host, bufferSize);
 
 	stagingBuffer->Map();
 	memcpy(stagingBuffer->GetHostVisibleData(), m_Indices.data(), static_cast<size_t>(bufferSize));
 	stagingBuffer->Unmap();
 
-	VulkanBufferInfo indexbufferinfo{};
-
-	indexbufferinfo.memoryAccess = MemoryAccess::Device;
-	indexbufferinfo.size = bufferSize;
-	indexbufferinfo.usageFlags = BufferUsageFlags::IndexBuffer | BufferUsageFlags::TransferDst;
-
-	m_IndexBuffer = new VulkanBuffer(&m_VulkanDevice, indexbufferinfo);
+	m_IndexBuffer = new VulkanBuffer(&m_VulkanDevice, BufferUsageFlags::IndexBuffer | BufferUsageFlags::TransferDst, MemoryAccess::Device, bufferSize);
 
 	m_VulkanDevice.CopyBuffer(stagingBuffer->GetBuffer(), m_IndexBuffer->GetBuffer(), bufferSize);
 

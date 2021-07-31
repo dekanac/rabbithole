@@ -318,6 +318,7 @@ enum class TextureFlags : uint8_t
 };
 RABBITHOLE_FLAG_TYPE_SETUP(TextureFlags)
 
+
 struct Color
 {
 	float value[4];

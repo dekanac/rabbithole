@@ -68,7 +68,7 @@ void Renderer::Draw(float dt)
 {
 	MainCamera->Update(dt);
 
-	sranje += 0.5 * dt;
+	sranje += 0.5f * dt;
     DrawFrame();
 }
 
@@ -87,7 +87,7 @@ void Renderer::DrawFrame()
 		return;
 	}
 
-	recordCommandBuffer(imageIndex);
+	RecordCommandBuffer(imageIndex);
 	UpdateUniformBuffer(imageIndex);
 
 
@@ -247,7 +247,7 @@ void Renderer::recreateSwapchain()
 	CreateDescriptorSets();
 }
 
-void Renderer::recordCommandBuffer(int imageIndex)
+void Renderer::RecordCommandBuffer(int imageIndex)
 {
 	SetCurrentImageIndex(imageIndex);
 	BeginCommandBuffer();
@@ -265,11 +265,11 @@ void Renderer::recordCommandBuffer(int imageIndex)
 
 		vkCmdBindDescriptorSets(m_CommandBuffers[imageIndex], VK_PIPELINE_BIND_POINT_GRAPHICS, *m_VulkanPipeline->GetPipelineLayout(), 0, 1, m_DescriptorSets[imageIndex]->GetDescriptorSet(), 0, nullptr);
 
-		for (int j = 1; j < 400; j++)
+		for (int j = 1; j < 4; j++)
 		{
 			push.model = glm::translate(rabbitMat4f{ 1.f } , rabbitVec3f(j * 3.f, 0.f, 0.f));
 			push.model = glm::rotate(push.model, 3.14f, rabbitVec3f(1.0f, 0.0f, 0.0f));
-			push.model = glm::rotate(push.model, sranje, rabbitVec3f(0.0f, 1.0f, 0.0f));
+			push.model = glm::rotate(push.model, sranje, rabbitVec3f(1.0f, 1.0f, 1.0f));
 			vkCmdPushConstants(m_CommandBuffers[imageIndex], *(m_VulkanPipeline->GetPipelineLayout()), VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(SimplePushConstantData), &push);
 			rabbitmodels[i]->Draw(m_CommandBuffers[imageIndex]);
 		}
@@ -281,11 +281,6 @@ void Renderer::recordCommandBuffer(int imageIndex)
 
 void Renderer::UpdateUniformBuffer(uint32_t currentImage)
 {
-	static auto startTime = std::chrono::high_resolution_clock::now();
-
-	auto currentTime = std::chrono::high_resolution_clock::now();
-	float time = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - startTime).count();
-
 	UniformBufferObject ubo{};
 	ubo.view = MainCamera->View();
 	ubo.proj = MainCamera->Projection();
@@ -301,11 +296,7 @@ void Renderer::CreateUniformBuffers()
 	m_UniformBuffers.resize(m_VulkanSwapchain->GetImageCount());
 	for (size_t i = 0; i < m_VulkanSwapchain->GetImageCount(); i++)
 	{
-		VulkanBufferInfo bufferInfo{};
-		bufferInfo.usageFlags = BufferUsageFlags::UniformBuffer;
-		bufferInfo.memoryAccess = MemoryAccess::Host;
-		bufferInfo.size = (uint32_t)sizeof(UniformBufferObject);
-		m_UniformBuffers[i] = new VulkanBuffer(&m_VulkanDevice, bufferInfo);
+		m_UniformBuffers[i] = new VulkanBuffer(&m_VulkanDevice, BufferUsageFlags::UniformBuffer, MemoryAccess::Host, (uint64_t)sizeof(UniformBufferObject));
 	}
 }
 

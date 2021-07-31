@@ -1,7 +1,5 @@
 #pragma once
 
-const uint32_t MaxRenderTargetCount = 5;
-
 #include "vk_mem_alloc.h"
 #include "spirv-reflect/spirv_reflect.h"
 

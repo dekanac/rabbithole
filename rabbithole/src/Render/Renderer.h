@@ -52,7 +52,7 @@ private:
 	void CreateMainPhongLightingPipeline();
 	void createCommandBuffers();
 	void recreateSwapchain();
-	void recordCommandBuffer(int imageIndex);
+	void RecordCommandBuffer(int imageIndex);
 	void UpdateUniformBuffer(uint32_t currentImage);
 	void CreateUniformBuffers();
 	void CreateDescriptorPool();

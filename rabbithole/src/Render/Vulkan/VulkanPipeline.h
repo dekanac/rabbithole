@@ -6,13 +6,14 @@
 #include <string>
 #include <vector>
 
+const uint8_t MaxRenderTargetCount = 4;
+
 class VulkanDescriptorSetLayout;
 class Shader;
 
 class PipelineConfigInfo 
 {
 public:
-	void SetShaders(const std::vector<Shader*> shaders);
 	//void SetVertexBinding(const VertexBinding* vertexBinding);
 	void SetTopology(const Topology topology);
 	void SetMultisampleType(const MultisampleType multisampleType);
@@ -33,8 +34,8 @@ public:
 	void SetAlphaBlendFunction(const uint32_t mrtIndex, const BlendValue srcColorBlend, const BlendValue dstColorBlend, const BlendValue srcAlphaBlend, const BlendValue dstAlphablend);
 	void SetAlphaBlendOperation(const uint32_t mrtIndex, const BlendOperation colorOperation);
 	void SetAlphaBlendOperation(const uint32_t mrtIndex, const BlendOperation colorOperation, const BlendOperation alphaOperation);
-	//void SetColorWriteMask(const uint32_t mrtIndex, const ColorWriteMaskFlags mask);
-	//void SetColorWriteMask(const uint32_t mrtIndex, const uint32_t mrtCount, const ColorWriteMaskFlags masks[]);
+	void SetColorWriteMask(const uint32_t mrtIndex, const ColorWriteMaskFlags mask);
+	void SetColorWriteMask(const uint32_t mrtIndex, const uint32_t mrtCount, const ColorWriteMaskFlags masks[]);
 
 	PipelineConfigInfo(const PipelineConfigInfo&) = delete;
 	PipelineConfigInfo& operator=(const PipelineConfigInfo&) = delete;
@@ -45,7 +46,7 @@ public:
 	VkPipelineInputAssemblyStateCreateInfo	inputAssemblyInfo;
 	VkPipelineRasterizationStateCreateInfo	rasterizationInfo;
 	VkPipelineMultisampleStateCreateInfo	multisampleInfo;
-	VkPipelineColorBlendAttachmentState		colorBlendAttachment;
+	VkPipelineColorBlendAttachmentState		colorBlendAttachment[MaxRenderTargetCount];
 	VkPipelineColorBlendStateCreateInfo		colorBlendInfo;
 	VkPipelineDepthStencilStateCreateInfo	depthStencilInfo;
 	VkPipelineLayout						pipelineLayout = nullptr;

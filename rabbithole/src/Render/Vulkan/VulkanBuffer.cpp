@@ -3,20 +3,23 @@
 #include "vk_mem_alloc.h"
 
 VulkanBuffer::VulkanBuffer(const VulkanDevice* device, const VulkanBufferInfo& info)
-	: m_Device(device),
-	m_Info(info)
+	: m_Device(device)
+	, m_Info(info)
 {
-	VkBufferCreateInfo bufferInfo{};
-	bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
-	bufferInfo.size = info.size;
-	bufferInfo.usage = GetVkBufferUsageFlags(info.usageFlags);
-	bufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-
-	VmaAllocationCreateInfo allocationCreateInfo = {};
-	allocationCreateInfo.usage = GetVmaMemoryUsageFrom(m_Info.memoryAccess);
-
-	vmaCreateBuffer(m_Device->GetVmaAllocator(), &bufferInfo, &allocationCreateInfo, &m_Buffer, &m_VmaAllocation, nullptr);
+	CreateBufferResource();
 }
+
+VulkanBuffer::VulkanBuffer(const VulkanDevice* device, BufferUsageFlags flags, MemoryAccess access, uint64_t size)
+	: m_Device(device)
+{
+	VulkanBufferInfo info{};
+	info.memoryAccess = access;
+	info.size = size;
+	info.usageFlags = flags;
+	m_Info = info;
+	CreateBufferResource();
+}
+
 
 VulkanBuffer::~VulkanBuffer()
 {
@@ -42,4 +45,18 @@ void VulkanBuffer::Unmap()
 		vmaUnmapMemory(m_Device->GetVmaAllocator(), m_VmaAllocation);
 		m_HostVisibleData = nullptr;
 	}
+}
+
+void VulkanBuffer::CreateBufferResource()
+{
+	VkBufferCreateInfo bufferInfo{};
+	bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+	bufferInfo.size = m_Info.size;
+	bufferInfo.usage = GetVkBufferUsageFlags(m_Info.usageFlags);
+	bufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+
+	VmaAllocationCreateInfo allocationCreateInfo = {};
+	allocationCreateInfo.usage = GetVmaMemoryUsageFrom(m_Info.memoryAccess);
+
+	vmaCreateBuffer(m_Device->GetVmaAllocator(), &bufferInfo, &allocationCreateInfo, &m_Buffer, &m_VmaAllocation, nullptr);
 }
