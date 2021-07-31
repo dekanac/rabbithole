@@ -307,7 +307,7 @@ void VulkanSwapchain::CreateDepthResources()
 		imageInfo.MipLevels = 1;
 		imageInfo.ArraySize = 1;
 		imageInfo.Format = Format::D32_SFLOAT;
-		imageInfo.UsageFlags = ImageUsageFlags::DepthStencil | ImageUsageFlags::RenderTarget;
+		imageInfo.UsageFlags = ImageUsageFlags::DepthStencil;
 		imageInfo.Flags = ImageFlags::None;
 		imageInfo.MultisampleType = MultisampleType::Sample_1;
 		imageInfo.MemoryAccess = MemoryAccess::Device;

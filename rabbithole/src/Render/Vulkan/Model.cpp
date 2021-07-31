@@ -73,65 +73,6 @@ void RabbitModel::CreateTextures(ModelLoading::MaterialData* material)
 	image = texture->GetResource();
 	imageView = texture->GetView();
 	imageSampler = texture->GetSampler();
-
-	/*VulkanBufferInfo stagingBufferInfo{};
-	stagingBufferInfo.usageFlags = BufferUsageFlags::TransferSrc;
-	stagingBufferInfo.memoryAccess = MemoryAccess::Host;
-	stagingBufferInfo.size = imageSize;
-
-	VulkanBuffer stagingBuffer(&m_VulkanDevice, stagingBufferInfo);
-
-	stagingBuffer.Map();
-	memcpy(stagingBuffer.GetHostVisibleData(), pixels, static_cast<size_t>(imageSize));
-	stagingBuffer.Unmap();
-
-	stbi_image_free(pixels);
-
-	VulkanImageInfo imageInfo{};
-	imageInfo.Extent.Width = texWidth;
-	imageInfo.Extent.Height = texHeight;
-	imageInfo.Extent.Depth = 1;
-	imageInfo.Format = Format::R8G8B8A8_UNORM_SRGB;
-	imageInfo.Flags = ImageFlags::LinearTiling;
-	imageInfo.UsageFlags = ImageUsageFlags::TransferDst | ImageUsageFlags::Resource;
-	imageInfo.MemoryAccess = MemoryAccess::Device;
-	imageInfo.ArraySize = 1;
-	imageInfo.MipLevels = 1;
-
-	image = new VulkanImage(&m_VulkanDevice, imageInfo, "drametina");
-
-	m_VulkanDevice.TransitionImageLayout(image->GetImage(), VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
-	m_VulkanDevice.CopyBufferToImage(stagingBuffer.GetBuffer(), image->GetImage(), static_cast<uint32_t>(texWidth), static_cast<uint32_t>(texHeight), 1);
-	m_VulkanDevice.TransitionImageLayout(image->GetImage(), VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-
-	VulkanImageViewInfo imageViewInfo{};
-	imageViewInfo.Resource = image;
-	imageViewInfo.Format = Format::R8G8B8A8_UNORM_SRGB;
-	imageViewInfo.Subresource.ArraySize = 1;
-	imageViewInfo.Subresource.ArraySlice = 0;
-	imageViewInfo.Subresource.MipSize = 1;
-	imageViewInfo.Subresource.MipSlice - 0;
-
-	imageView = new VulkanImageView(&m_VulkanDevice, imageViewInfo, "drametina");
-
-	VulkanImageSamplerInfo imageSamplerInfo{};
-	imageSamplerInfo.AddressModeU = AddressMode::Repeat;
-	imageSamplerInfo.AddressModeV = AddressMode::Repeat;
-	imageSamplerInfo.AddressModeW = AddressMode::Repeat;
-	imageSamplerInfo.MagFilterType = FilterType::Linear;
-	imageSamplerInfo.MinFilterType = FilterType::Linear;
-	imageSamplerInfo.MaxLevelOfAnisotropy = 1; //TODO: replace this with real one
-	Color color{};					//TODO: do this better pls		
-	color.value[0] = 0.f;
-	color.value[1] = 0.f;
-	color.value[2] = 0.f;
-	color.value[3] = 0.f;
-	imageSamplerInfo.BorderColor = color;
-	imageSamplerInfo.CompareOperation = CompareOperation::Always;
-	imageSamplerInfo.MipFilterType = FilterType::Linear;
-
-	imageSampler = new VulkanImageSampler(&m_VulkanDevice, imageSamplerInfo, "drametina");*/
-
 }
 
 void RabbitModel::CreateVertexBuffers()

@@ -50,7 +50,7 @@ void VulkanTexture::CreateResource(VulkanDevice* device, TextureData* texData)
 
 	VulkanBufferInfo bufferInfo{};
 	bufferInfo.memoryAccess = MemoryAccess::Host;
-	bufferInfo.usageFlags = BufferUsageFlags::StorageBuffer;
+	bufferInfo.usageFlags = BufferUsageFlags::StorageBuffer | BufferUsageFlags::TransferSrc;
 	bufferInfo.size = textureSize;
 
 	VulkanBuffer stagingBuffer(device, bufferInfo);
