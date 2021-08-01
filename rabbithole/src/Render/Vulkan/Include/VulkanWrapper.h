@@ -9,6 +9,8 @@
 #include "../VulkanDescriptors.h"
 #include "../VulkanImage.h"
 #include "../VulkanTexture.h"
+#include "../VulkanFramebuffer.h"
+#include "../VulkanRenderPass.h"
 #include "../utils.h"
 
 

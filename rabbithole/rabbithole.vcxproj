@@ -151,8 +151,10 @@
     <ClCompile Include="src\Render\Vulkan\VulkanBuffer.cpp" />
     <ClCompile Include="src\Render\Vulkan\VulkanDescriptors.cpp" />
     <ClCompile Include="src\Render\Vulkan\VulkanDevice.cpp" />
+    <ClCompile Include="src\Render\Vulkan\VulkanFramebuffer.cpp" />
     <ClCompile Include="src\Render\Vulkan\VulkanImage.cpp" />
     <ClCompile Include="src\Render\Vulkan\VulkanPipeline.cpp" />
+    <ClCompile Include="src\Render\Vulkan\VulkanRenderPass.cpp" />
     <ClCompile Include="src\Render\Vulkan\VulkanSwapchain.cpp" />
     <ClCompile Include="src\Render\Vulkan\VulkanTexture.cpp" />
     <ClCompile Include="src\Render\Window.cpp" />
@@ -182,8 +184,10 @@
     <ClInclude Include="src\Render\Vulkan\VulkanDescriptors.h" />
     <ClInclude Include="src\Render\Vulkan\VulkanDevice.h" />
     <ClInclude Include="src\Render\Vulkan\Include\VulkanWrapper.h" />
+    <ClInclude Include="src\Render\Vulkan\VulkanFramebuffer.h" />
     <ClInclude Include="src\Render\Vulkan\VulkanImage.h" />
     <ClInclude Include="src\Render\Vulkan\VulkanPipeline.h" />
+    <ClInclude Include="src\Render\Vulkan\VulkanRenderPass.h" />
     <ClInclude Include="src\Render\Vulkan\VulkanSwapchain.h" />
     <ClInclude Include="src\Render\Vulkan\VulkanTexture.h" />
     <ClInclude Include="src\Render\Vulkan\VulkanTypes.h" />

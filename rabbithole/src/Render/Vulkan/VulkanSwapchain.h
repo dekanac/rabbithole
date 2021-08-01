@@ -11,6 +11,8 @@
 
 class VulkanImage;
 class VulkanImageView;
+class VulkanRenderPass;
+class VulkanFramebuffer;
 
 class VulkanSwapchain {
 public:
@@ -22,14 +24,15 @@ public:
 	VulkanSwapchain(const VulkanSwapchain&) = delete;
 	VulkanSwapchain operator=(const VulkanSwapchain&) = delete;
 
-	VkFramebuffer	const GetFrameBuffer(int index) const { return m_SwapChainFramebuffers[index]; }
-	VkRenderPass	const GetRenderPass() const { return m_RenderPass; }
-	VkImageView		const GetImageView(int index) const { return m_SwapChainImageViews[index]; }
-	size_t			const GetImageCount() const { return m_SwapChainImages.size(); }
-	VkFormat		const GetSwapChainImageFormat() const { return m_SwapChainImageFormat; }
+	VulkanFramebuffer*	  GetFrameBuffer(int index) const { return m_SwapChainFramebuffers[index]; }
+	VulkanRenderPass*	  GetRenderPass() const { return m_RenderPass; }
+	VulkanImageView*	  GetImageView(int index) const { return m_SwapChainVulkanImageViews[index]; }
+	size_t			const GetImageCount() const { return m_SwapChainVulkanImages.size(); }
+	Format				  GetSwapChainImageFormat() const { return m_SwapChainImageFormat; }
 	VkExtent2D		const GetSwapChainExtent() const { return m_SwapChainExtent; }
 	uint32_t		const GetWidth() const { return m_SwapChainExtent.width; }
 	uint32_t		const GetHeight() const { return m_SwapChainExtent.height; }
+	VulkanImage*	      GetSwapChainImage(uint32_t imageIndex) const { return m_SwapChainVulkanImages[imageIndex]; }
 
 	float			ExtentAspectRatio() { return static_cast<float>(m_SwapChainExtent.width) / static_cast<float>(m_SwapChainExtent.height); }
 	VkFormat		FindDepthFormat();
@@ -53,21 +56,27 @@ private:
 	VulkanDevice&					m_VulkanDevice;
 	VkSwapchainKHR					m_SwapChain;
 
-	VkFormat						m_SwapChainImageFormat;
+	Format							m_SwapChainImageFormat;
 	VkExtent2D						m_SwapChainExtent;
 	VkExtent2D						m_WindowExtent;
 
-	std::vector<VkFramebuffer>		m_SwapChainFramebuffers;
-	VkRenderPass					m_RenderPass;
+	std::vector<VulkanFramebuffer*>	m_SwapChainFramebuffers;
+	VulkanRenderPass*				m_RenderPass;
 
-	std::vector<VulkanImage*>		m_DepthImages;
-	std::vector<VulkanImageView*>	m_DepthImageViews;
-	std::vector<VkImage>			m_SwapChainImages;
-	std::vector<VkImageView>		m_SwapChainImageViews;
+	VulkanTexture*					m_DepthStencil;
+
+	std::vector<VulkanImage*>		m_SwapChainVulkanImages;
+	std::vector<VulkanImageView*>   m_SwapChainVulkanImageViews;
 
 	std::vector<VkSemaphore>		m_ImageAvailableSemaphores;
 	std::vector<VkSemaphore>		m_RenderFinishedSemaphores;
 	std::vector<VkFence>			m_InFlightFences;
 	std::vector<VkFence>			m_ImagesInFlight;
+
 	size_t							m_CurrentFrame = 0;
+
+protected:
+	friend class VulkanImage;
+	std::vector<VkImage>			m_SwapChainImages;
+
 };

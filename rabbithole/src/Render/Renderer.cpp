@@ -119,7 +119,7 @@ void Renderer::BeginRenderPass(VkRenderPass& renderPass)
 	VkRenderPassBeginInfo renderPassInfo{};
 	renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
 	renderPassInfo.renderPass = *m_CurrentRenderPass;
-	renderPassInfo.framebuffer = m_VulkanSwapchain->GetFrameBuffer(m_CurrentImageIndex);
+	renderPassInfo.framebuffer = m_VulkanSwapchain->GetFrameBuffer(m_CurrentImageIndex)->GetFramebuffer();
 
 	renderPassInfo.renderArea.offset = { 0, 0 };
 	renderPassInfo.renderArea.extent = m_VulkanSwapchain->GetSwapChainExtent();
@@ -206,7 +206,7 @@ void Renderer::CreateMainPhongLightingPipeline()
 
 	m_DescriptorSetLayout = new VulkanDescriptorSetLayout(&m_VulkanDevice, m_Shaders, "Main");
 
-	pipelineConfig.renderPass = m_VulkanSwapchain->GetRenderPass();
+	pipelineConfig.renderPass = m_VulkanSwapchain->GetRenderPass()->GetRenderPass();
 	pipelineConfig.pipelineLayout = *m_DescriptorSetLayout->GetPipelineLayout();
 
 	m_VulkanPipeline = std::make_unique<VulkanPipeline>(m_VulkanDevice, m_Shaders, pipelineConfig);
@@ -252,7 +252,7 @@ void Renderer::RecordCommandBuffer(int imageIndex)
 	SetCurrentImageIndex(imageIndex);
 	BeginCommandBuffer();
 
-	VkRenderPass renderPass = m_VulkanSwapchain->GetRenderPass();
+	VkRenderPass renderPass = m_VulkanSwapchain->GetRenderPass()->GetRenderPass();
 	BeginRenderPass(renderPass);
 	BindGraphicsPipeline(m_VulkanPipeline.get());
 

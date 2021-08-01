@@ -41,7 +41,26 @@ VulkanImage::VulkanImage(const VulkanDevice* device, const VulkanImageInfo& info
 
 VulkanImage::VulkanImage(const VulkanDevice* device, const VulkanSwapchain* swapchain, const uint32_t backBufferIndex)
 {
-	//TODO: implement this for swapchain images
+	m_Info.Flags = ImageFlags::None;
+	m_Info.UsageFlags =
+		ImageUsageFlags::TransferDst |
+		ImageUsageFlags::Resource |
+		ImageUsageFlags::Storage |
+		ImageUsageFlags::RenderTarget;
+	m_Info.MemoryAccess = MemoryAccess::Device;
+	m_Info.Format = Format::B8G8R8A8_UNORM_SRGB; //swapchain->GetSwapChainImageFormat(); //TODO: add proper fields to swapchain class
+	m_Info.Extent.Width = swapchain->GetSwapChainExtent().width;
+	m_Info.Extent.Height = swapchain->GetSwapChainExtent().height;
+	m_Info.Extent.Depth = 1;
+	m_Info.ArraySize = 1;
+	m_Info.MipLevels = 1;
+	m_Info.MultisampleType = MultisampleType::Sample_1;
+
+	m_VulkanDevice = nullptr;
+	m_Image = swapchain->m_SwapChainImages[backBufferIndex];
+	m_Allocation = VK_NULL_HANDLE;
+	m_Format = GetVkFormatFrom(m_Info.Format);
+	m_ImageType = VK_IMAGE_TYPE_2D;
 }
 
 VulkanImage::~VulkanImage()

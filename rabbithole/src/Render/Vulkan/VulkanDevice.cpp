@@ -587,6 +587,14 @@ void VulkanDevice::TransitionImageLayout(VulkanTexture* texture, ResourceState o
 		sourceStage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
 		destinationStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
 	}
+ 	else if (oldLayout == ResourceState::None && newLayout == ResourceState::DepthStencilWrite)
+ 	{
+ 		barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+		barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
+ 
+ 		sourceStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
+ 		destinationStage = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT  | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT;
+ 	}
 	else if (oldLayout == ResourceState::TransferDst && newLayout == ResourceState::GenericRead) 
 	{
 		barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
@@ -595,6 +603,7 @@ void VulkanDevice::TransitionImageLayout(VulkanTexture* texture, ResourceState o
 		sourceStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
 		destinationStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
 	}
+
 	else 
 	{
 		LOG_ERROR("unsupported layout transition!");
