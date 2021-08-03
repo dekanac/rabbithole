@@ -37,7 +37,7 @@ bool Renderer::Init()
 	MainCamera->Init();
 	testEntity = new Entity();
 
-	testScene = ModelLoading::LoadScene("res/meshes/box/box.obj");
+	testScene = ModelLoading::LoadScene("res/meshes/viking_room/viking_room.obj");
 	size_t verticesCount = 0;
 	std::vector<uint16_t> offsets{ 0 };
 	for (size_t i = 0; i < testScene->numObjects; i++)
@@ -68,7 +68,7 @@ void Renderer::Draw(float dt)
 {
 	MainCamera->Update(dt);
 
-	sranje += 0.5f * dt;
+	sranje += 0.25f * dt;
     DrawFrame();
 }
 
@@ -265,11 +265,12 @@ void Renderer::RecordCommandBuffer(int imageIndex)
 
 		vkCmdBindDescriptorSets(m_CommandBuffers[imageIndex], VK_PIPELINE_BIND_POINT_GRAPHICS, *m_VulkanPipeline->GetPipelineLayout(), 0, 1, m_DescriptorSets[imageIndex]->GetDescriptorSet(), 0, nullptr);
 
-		for (int j = 1; j < 4; j++)
+		for (int j = 1; j < 2; j++)
 		{
-			push.model = glm::translate(rabbitMat4f{ 1.f } , rabbitVec3f(j * 3.f, 0.f, 0.f));
-			push.model = glm::rotate(push.model, 3.14f, rabbitVec3f(1.0f, 0.0f, 0.0f));
-			push.model = glm::rotate(push.model, sranje, rabbitVec3f(1.0f, 1.0f, 1.0f));
+			push.model = rabbitMat4f{ 1.f };//glm::translate(rabbitMat4f{ 1.f } , rabbitVec3f(j * 3.f, 0.f, 0.f));
+			//push.model = glm::rotate(push.model, sranje, rabbitVec3f(0.0f, 1.0f, 0.0f));
+			push.model = glm::rotate(push.model, 0.785398f * 2, rabbitVec3f(1.0f, 0.0f, 0.0f));
+			push.model = glm::rotate(push.model, 0.785398f * 2, rabbitVec3f(0.0f, 0.0f, 1.0f));
 			vkCmdPushConstants(m_CommandBuffers[imageIndex], *(m_VulkanPipeline->GetPipelineLayout()), VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(SimplePushConstantData), &push);
 			rabbitmodels[i]->Draw(m_CommandBuffers[imageIndex]);
 		}

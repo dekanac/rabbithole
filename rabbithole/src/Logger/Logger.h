@@ -25,6 +25,7 @@ private:
     do \
     { \
          ::Logger::GetLogger().critical(__VA_ARGS__); \
+         __debugbreak(); \
     } \
     while (0)
 
@@ -32,6 +33,7 @@ private:
     do \
     { \
          ::Logger::GetLogger().error(__VA_ARGS__); \
+         __debugbreak(); \
     } \
     while (0)
 

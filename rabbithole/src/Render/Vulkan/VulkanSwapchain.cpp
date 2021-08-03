@@ -29,8 +29,8 @@ VulkanSwapchain::~VulkanSwapchain()
 		m_SwapChain = nullptr;
 	}
 
-	//vkDestroyRenderPass(m_VulkanDevice.GetGraphicDevice(), m_RenderPass, nullptr);
-
+	delete(m_RenderPass);
+	delete(m_DepthStencil);
 	// cleanup synchronization objects
 	for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) 
 	{

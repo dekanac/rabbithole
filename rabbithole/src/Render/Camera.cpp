@@ -12,7 +12,7 @@
 static const float MAX_VERTICAL_ANGLE = 85.0f;
 
 Camera::Camera() :
-	m_Position(-1.0f, -1.0f, -1.0f),
+	m_Position(-2.0f, -2.0f, 2.0f),
 	m_Front(0.f, 0.f, 0.f),
 	m_UpVector(0.f, 1.f, 0.f),
 	m_HorizontalAngle(0.0f),

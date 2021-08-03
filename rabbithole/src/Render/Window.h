@@ -6,8 +6,8 @@
 
 #include <string>
 
-constexpr int DEFAULT_WIDTH = 640;
-constexpr int DEFAULT_HEIGHT = 480;
+constexpr int DEFAULT_WIDTH = 1280;
+constexpr int DEFAULT_HEIGHT = 720;
 
 struct WindowData
 {

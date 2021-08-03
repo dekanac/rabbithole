@@ -54,7 +54,7 @@ void RabbitModel::CreateTextures(ModelLoading::MaterialData* material)
 	}
 	else
 	{
-		pixels = stbi_load("res/meshes/box/white.jpg", &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
+		pixels = stbi_load("res/meshes/viking_room/viking_room.png", &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
 	}
 	if (!pixels) 
 	{

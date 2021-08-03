@@ -99,6 +99,8 @@ private:
 
 	const std::vector<const char*> m_ValidationLayers = { "VK_LAYER_KHRONOS_validation" };
 	const std::vector<const char*> m_DeviceExtensions = { VK_KHR_SWAPCHAIN_EXTENSION_NAME };
+
+	//TODO: this is for test purposes, this should be moved to future statemanager
 };
 
 //converter functions //TODO: move to separate file
