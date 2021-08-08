@@ -9,11 +9,13 @@
 const uint8_t MaxRenderTargetCount = 4;
 
 class VulkanDescriptorSetLayout;
+class VulkanDescriptorSet;
 class Shader;
 
 class PipelineConfigInfo 
 {
 public:
+	PipelineConfigInfo();
 	//void SetVertexBinding(const VertexBinding* vertexBinding);
 	void SetTopology(const Topology topology);
 	void SetMultisampleType(const MultisampleType multisampleType);
@@ -50,14 +52,15 @@ public:
 	VkPipelineColorBlendStateCreateInfo		colorBlendInfo;
 	VkPipelineDepthStencilStateCreateInfo	depthStencilInfo;
 	VkPipelineLayout						pipelineLayout = nullptr;
-	VkRenderPass							renderPass = nullptr;
+	VulkanRenderPass*						renderPass = nullptr;
 	uint32_t								subpass = 0;
+
 };
 
 class VulkanPipeline 
 {
 public:
-	VulkanPipeline(VulkanDevice& device, std::vector<Shader*>& shaders, const PipelineConfigInfo& configInfo);
+	VulkanPipeline(VulkanDevice& device, std::vector<Shader*>& shaders, PipelineConfigInfo& configInfo);
 	~VulkanPipeline();
 
 	VulkanPipeline(const VulkanPipeline&) = delete;
@@ -68,11 +71,16 @@ public:
 	static void						 DefaultPipelineConfigInfo(PipelineConfigInfo& configInfo, uint32_t width, uint32_t height);
 	const VulkanDescriptorSetLayout* GetDescriptorSetLayout() { return m_DescriptorSetLayout; }
 	const VkPipelineLayout*			 GetPipelineLayout() const { return &m_PipelineLayout; }
+	void							 CreatePipeline();
 
 private:
 
-	VulkanDevice&				m_VulkanDevice;
-	VkPipeline					m_GraphicsPipeline;
-	VkPipelineLayout			m_PipelineLayout;
-	VulkanDescriptorSetLayout*	m_DescriptorSetLayout;
+	VulkanDevice&							m_VulkanDevice;
+	PipelineConfigInfo&						m_PipelineInfo;
+	VkPipeline								m_GraphicsPipeline;
+	VkPipelineLayout						m_PipelineLayout;
+	VulkanDescriptorSetLayout*				m_DescriptorSetLayout;
+	std::vector<Shader*>					m_Shaders;
+	VulkanRenderPass*						m_RenderPass;
+
 };

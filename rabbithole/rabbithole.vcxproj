@@ -90,7 +90,7 @@
       <PrecompiledHeaderFile>precomp.h</PrecompiledHeaderFile>
     </ClCompile>
     <Link>
-      <AdditionalDependencies>vulkan-1.lib;SDL2.lib;glfw3.lib;VkLayer_utils.lib;assimp-vc140-mt.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>vulkan-1.lib;SDL2.lib;glfw3.lib;VkLayer_utils.lib;assimp-vc142-mtd.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalLibraryDirectories>$(ProjectDir)extern\assimp\lib;$(ProjectDir)extern\sdl\lib;$(ProjectDir)extern\glfw\lib-vc2017;C:\VulkanSDK\1.2.182.0\Bin;C:\VulkanSDK\1.2.182.0\Lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <SubSystem>Console</SubSystem>
     </Link>
@@ -126,7 +126,7 @@
     <Link>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
-      <AdditionalDependencies>vulkan-1.lib;SDL2.lib;glfw3.lib;VkLayer_utils.lib;assimp-vc140-mt.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>vulkan-1.lib;SDL2.lib;glfw3.lib;VkLayer_utils.lib;assimp-vc142-mtd.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalLibraryDirectories>$(ProjectDir)extern\assimp\lib;$(ProjectDir)extern\sdl\lib;$(ProjectDir)extern\glfw\lib-vc2017;C:\VulkanSDK\1.2.182.0\Bin;C:\VulkanSDK\1.2.182.0\Lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <SubSystem>Console</SubSystem>
     </Link>

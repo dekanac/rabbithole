@@ -224,7 +224,8 @@ void VulkanSwapchain::CreateRenderPass()
 	std::vector<VulkanImageView*> renderTargetViews;
 	renderTargetViews.push_back(m_SwapChainVulkanImageViews[0]);
 
-	m_RenderPass = new VulkanRenderPass(&m_VulkanDevice, renderTargetViews, m_DepthStencil->GetView(), renderPassInfo, "swapchain renderpass");
+	m_RenderPass = new VulkanRenderPass(&m_VulkanDevice, renderTargetViews, m_DepthStencil->GetView(), renderPassInfo, "swapchain");
+	m_VulkanDevice.AddRenderPassToCollection(m_RenderPass, "swapchain");
 	
 }
 

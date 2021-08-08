@@ -5,6 +5,8 @@
 
 class VulkanTexture;
 class VulkanBuffer;
+class VulkanRenderPass;
+class VulkanPipeline;
 
 struct QueueFamilyIndices 
 {
@@ -101,6 +103,15 @@ private:
 	const std::vector<const char*> m_DeviceExtensions = { VK_KHR_SWAPCHAIN_EXTENSION_NAME };
 
 	//TODO: this is for test purposes, this should be moved to future statemanager
+	std::unordered_map<std::string, VulkanRenderPass*>	m_RenderPassCollection;
+	std::unordered_map<std::string, VulkanPipeline*>	m_PipelineCollection;
+
+public:
+
+	VulkanRenderPass* GetRenderPassFromCollection(std::string name) { return m_RenderPassCollection[name]; }
+	void AddRenderPassToCollection(VulkanRenderPass* renderPass, std::string name) { m_RenderPassCollection[name] = renderPass; }
+	VulkanPipeline* GetPipelineFromCollection(std::string name) { return m_PipelineCollection[name]; }
+	void AddPipelineToCollection(VulkanPipeline* pipeline, std::string name) { m_PipelineCollection[name] = pipeline; }
 };
 
 //converter functions //TODO: move to separate file

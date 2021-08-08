@@ -72,6 +72,8 @@ public:
 	RabbitModel(const RabbitModel&) = delete;
 	RabbitModel& operator=(const RabbitModel&) = delete;
 
+	VulkanTexture* GetTexture()	const { return m_Texture; }
+
 	void Bind(VkCommandBuffer commandBuffer);
 	void Draw(VkCommandBuffer commandBuffer);
 
@@ -92,11 +94,8 @@ private:
 	bool					hasIndexBuffer = false;
 
 	TextureData*			m_TextureData{};
+	VulkanTexture*			m_Texture;
 
-public:	//TODO: clean this up, this is for test only
-	VulkanImage*			image;
-	VulkanImageView*		imageView;
-	VulkanImageSampler*		imageSampler;
 private:
 	std::string				m_FilePath{};
 	std::string				m_Name{};

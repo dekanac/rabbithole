@@ -68,11 +68,8 @@ void RabbitModel::CreateTextures(ModelLoading::MaterialData* material)
 	texData.width = texWidth;
 	texData.pData = pixels;
 
-	VulkanTexture* texture = new VulkanTexture(&m_VulkanDevice, &texData, TextureFlags::Color | TextureFlags::Read, Format::R8G8B8A8_UNORM_SRGB, "box_tex");
+	m_Texture = new VulkanTexture(&m_VulkanDevice, &texData, TextureFlags::Color | TextureFlags::Read, Format::R8G8B8A8_UNORM_SRGB, "box_tex");
 
-	image = texture->GetResource();
-	imageView = texture->GetView();
-	imageSampler = texture->GetSampler();
 }
 
 void RabbitModel::CreateVertexBuffers()

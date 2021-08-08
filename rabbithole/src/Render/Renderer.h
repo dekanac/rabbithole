@@ -30,25 +30,25 @@ private:
 	VulkanDevice							m_VulkanDevice{};
 	std::unique_ptr<VulkanSwapchain>		m_VulkanSwapchain;
 	std::unique_ptr<VulkanDescriptorPool>	m_DescriptorPool;
-	std::unique_ptr<VulkanPipeline>			m_VulkanPipeline;
 	std::vector<Shader*>					m_Shaders;
 	std::vector<VkCommandBuffer>			m_CommandBuffers;
 	
-	VulkanDescriptorSetLayout*				m_DescriptorSetLayout;
 	std::vector<VulkanDescriptorSet*>		m_DescriptorSets;
 	std::vector<VulkanBuffer*>				m_UniformBuffers;
 
+	VulkanPipeline*							m_CurrentGraphicsPipeline;
+	VulkanRenderPass*						m_CurrentRenderPass;
+
+	int										m_CurrentImageIndex = 0;
+
+	Entity*												testEntity;
+	ModelLoading::SceneData*							testScene;
 	std::vector<std::unique_ptr<RabbitModel>>			rabbitmodels;
-	Entity*									testEntity;
-	ModelLoading::SceneData*				testScene;
-	VulkanPipeline* m_CurrentGraphicsPipeline;
-	VkRenderPass* m_CurrentRenderPass;
-
-	int m_CurrentImageIndex = 0;
-
+	
 	void loadModels();
 	void LoadAndCreateShaders();
 	void CreateShaderModule(const std::vector<char>& code, ShaderType type, const char* name, const char* codeEntry);
+	void CreateRenderPasses();
 	void CreateMainPhongLightingPipeline();
 	void createCommandBuffers();
 	void recreateSwapchain();
@@ -58,8 +58,19 @@ private:
 	void CreateDescriptorPool();
 	void CreateDescriptorSets();
 
+	template <typename T>
+	void BindPushConstant(int imageIndex, ShaderType shaderType, T& push)
+	{
+		vkCmdPushConstants(m_CommandBuffers[imageIndex], 
+			*(m_CurrentGraphicsPipeline->GetPipelineLayout()), 
+			GetVkShaderStageFrom(shaderType), 
+			0, 
+			sizeof(T), 
+			&push);
+	}
+
 	void SetCurrentImageIndex(int imageIndex) { m_CurrentImageIndex = imageIndex; }
-	void BeginRenderPass(VkRenderPass& renderPass);
+	void BeginRenderPass(VulkanRenderPass* renderPass);
 	void EndRenderPass();
 
 	void BindGraphicsPipeline(VulkanPipeline* pipeline);

@@ -46,6 +46,7 @@ bool Renderer::Init()
 		offsets.push_back(testScene->pObjects[i]->mesh->numVertices * sizeof(Vertex));
 	}
 
+	WrappedBuffer::InitializeBuffer(&m_VulkanDevice);
 	loadModels();
 	LoadAndCreateShaders();
 	recreateSwapchain();
@@ -113,12 +114,12 @@ void Renderer::loadModels()
 	}
 }
 
-void Renderer::BeginRenderPass(VkRenderPass& renderPass)
+void Renderer::BeginRenderPass(VulkanRenderPass* renderPass)
 {
-	m_CurrentRenderPass = &renderPass;
+	m_CurrentRenderPass = renderPass;
 	VkRenderPassBeginInfo renderPassInfo{};
 	renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-	renderPassInfo.renderPass = *m_CurrentRenderPass;
+	renderPassInfo.renderPass = m_CurrentRenderPass->GetRenderPass();
 	renderPassInfo.framebuffer = m_VulkanSwapchain->GetFrameBuffer(m_CurrentImageIndex)->GetFramebuffer();
 
 	renderPassInfo.renderArea.offset = { 0, 0 };
@@ -190,26 +191,21 @@ void Renderer::CreateShaderModule(const std::vector<char>& code, ShaderType type
 	ShaderInfo shaderInfo{};
 	shaderInfo.CodeEntry = codeEntry;
 	shaderInfo.Type = type;
-
 	Shader* shader = new Shader(m_VulkanDevice, code.size(), code.data(), shaderInfo, name);
-
 	m_Shaders.push_back(shader);
+}
+
+void Renderer::CreateRenderPasses()
+{
 }
 
 void Renderer::CreateMainPhongLightingPipeline() 
 {
 	PipelineConfigInfo pipelineConfig{};
-	VulkanPipeline::DefaultPipelineConfigInfo(
-		pipelineConfig,
-		m_VulkanSwapchain->GetWidth(),
-		m_VulkanSwapchain->GetHeight());
+	pipelineConfig.renderPass = m_VulkanSwapchain->GetRenderPass();
 
-	m_DescriptorSetLayout = new VulkanDescriptorSetLayout(&m_VulkanDevice, m_Shaders, "Main");
-
-	pipelineConfig.renderPass = m_VulkanSwapchain->GetRenderPass()->GetRenderPass();
-	pipelineConfig.pipelineLayout = *m_DescriptorSetLayout->GetPipelineLayout();
-
-	m_VulkanPipeline = std::make_unique<VulkanPipeline>(m_VulkanDevice, m_Shaders, pipelineConfig);
+	VulkanPipeline* pipeline = new VulkanPipeline(m_VulkanDevice, m_Shaders, pipelineConfig);
+	m_VulkanDevice.AddPipelineToCollection(pipeline, "phonglighting");
 }
 void Renderer::createCommandBuffers() 
 {
@@ -240,6 +236,7 @@ void Renderer::recreateSwapchain()
 	vkDeviceWaitIdle(m_VulkanDevice.GetGraphicDevice());
 	m_VulkanSwapchain = std::make_unique<VulkanSwapchain>(m_VulkanDevice, extent);
 
+	CreateRenderPasses();
 	CreateMainPhongLightingPipeline();
 	
 	CreateUniformBuffers();
@@ -252,29 +249,22 @@ void Renderer::RecordCommandBuffer(int imageIndex)
 	SetCurrentImageIndex(imageIndex);
 	BeginCommandBuffer();
 
-	VkRenderPass renderPass = m_VulkanSwapchain->GetRenderPass()->GetRenderPass();
+	VulkanRenderPass* renderPass = m_VulkanSwapchain->GetRenderPass();
 	BeginRenderPass(renderPass);
-	BindGraphicsPipeline(m_VulkanPipeline.get());
+	VulkanPipeline* pipeline = m_VulkanDevice.GetPipelineFromCollection({ "phonglighting" });
+	BindGraphicsPipeline(pipeline);
+	vkCmdBindDescriptorSets(m_CommandBuffers[imageIndex], VK_PIPELINE_BIND_POINT_GRAPHICS, *pipeline->GetPipelineLayout(), 0, 1, m_DescriptorSets[imageIndex]->GetDescriptorSet(), 0, nullptr);
+	
+	rabbitmodels[0]->Bind(m_CommandBuffers[imageIndex]);
 
 	SimplePushConstantData push{};
 	push.cameraPosition = MainCamera->GetPosition();
+	push.model = rabbitMat4f{ 1.f };
+	push.model = glm::rotate(push.model, -0.785398f * 2, rabbitVec3f(1.0f, 0.0f, 0.0f));
+	push.model = glm::rotate(push.model, -0.785398f * 2, rabbitVec3f(0.0f, 0.0f, 1.0f));
+	BindPushConstant(imageIndex, ShaderType::Vertex, push);
 
-	for(unsigned int i = 0; i < testScene->numObjects; i++) 
-	{ 
-		rabbitmodels[i]->Bind(m_CommandBuffers[imageIndex]);
-
-		vkCmdBindDescriptorSets(m_CommandBuffers[imageIndex], VK_PIPELINE_BIND_POINT_GRAPHICS, *m_VulkanPipeline->GetPipelineLayout(), 0, 1, m_DescriptorSets[imageIndex]->GetDescriptorSet(), 0, nullptr);
-
-		for (int j = 1; j < 2; j++)
-		{
-			push.model = rabbitMat4f{ 1.f };//glm::translate(rabbitMat4f{ 1.f } , rabbitVec3f(j * 3.f, 0.f, 0.f));
-			//push.model = glm::rotate(push.model, sranje, rabbitVec3f(0.0f, 1.0f, 0.0f));
-			push.model = glm::rotate(push.model, 0.785398f * 2, rabbitVec3f(1.0f, 0.0f, 0.0f));
-			push.model = glm::rotate(push.model, 0.785398f * 2, rabbitVec3f(0.0f, 0.0f, 1.0f));
-			vkCmdPushConstants(m_CommandBuffers[imageIndex], *(m_VulkanPipeline->GetPipelineLayout()), VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(SimplePushConstantData), &push);
-			rabbitmodels[i]->Draw(m_CommandBuffers[imageIndex]);
-		}
-	}
+	rabbitmodels[0]->Draw(m_CommandBuffers[imageIndex]);
 
 	EndRenderPass();
 	EndCommandBuffer();
@@ -323,6 +313,8 @@ void Renderer::CreateDescriptorSets()
 	size_t backBuffersCount = m_VulkanSwapchain->GetImageCount();
 	m_DescriptorSets.resize(backBuffersCount);
 
+	VulkanPipeline* pipeline = m_VulkanDevice.GetPipelineFromCollection({ "phonglighting" });
+
 	for (size_t i = 0; i < backBuffersCount; i++)
 	{
 		std::vector<VulkanDescriptor*> descriptors;
@@ -336,8 +328,8 @@ void Renderer::CreateDescriptorSets()
 		descriptors.push_back(&uniformBufferDescriptor);
 
 		CombinedImageSampler combinedImageSampler;
-		combinedImageSampler.ImageSampler = rabbitmodels[0]->imageSampler;
-		combinedImageSampler.ImageView = rabbitmodels[0]->imageView;
+		combinedImageSampler.ImageSampler = rabbitmodels[0]->GetTexture()->GetSampler();
+		combinedImageSampler.ImageView = rabbitmodels[0]->GetTexture()->GetView();
 
 		VulkanDescriptorInfo combinedImageSamplerDescriptorInfo{};
 		combinedImageSamplerDescriptorInfo.Type = DescriptorType::CombinedSampler;
@@ -349,6 +341,6 @@ void Renderer::CreateDescriptorSets()
 		descriptors.push_back(&combinedImageSamplerDescriptor);
 
  		m_DescriptorSets[i] = new VulkanDescriptorSet(&m_VulkanDevice, m_DescriptorPool.get(),
- 			m_DescriptorSetLayout, descriptors, "Main");
+			pipeline->GetDescriptorSetLayout(), descriptors, "Main");
 	}
 }

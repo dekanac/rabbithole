@@ -55,21 +55,6 @@ VulkanDescriptorPool::~VulkanDescriptorPool()
 	vkDestroyDescriptorPool(m_Device->GetGraphicDevice(), m_DescriptorPool, nullptr);
 }
 
-// VulkanDescriptorSetLayout::VulkanDescriptorSetLayout(const VulkanDevice* device, const VulkanDescriptorSetLayoutInfo& info)
-// 	:	m_Device(device),
-// 		m_Info(info)
-// {
-// 	VkDescriptorSetLayoutCreateInfo layoutInfo{};
-// 	layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-// 	layoutInfo.bindingCount = info.bindings.size();
-// 	layoutInfo.pBindings = info.bindings.data();
-// 
-// 	if (vkCreateDescriptorSetLayout(m_Device->GetGraphicDevice(), &layoutInfo, nullptr, &m_Layout) != VK_SUCCESS) 
-// 	{
-// 		LOG_ERROR("failed to create descriptor set layout!");
-// 	}
-// }
-
 VulkanDescriptorSetLayout::VulkanDescriptorSetLayout(const VulkanDevice* device, const std::vector<Shader*> shaders, const char* name)
 	: m_Device(device)
 {

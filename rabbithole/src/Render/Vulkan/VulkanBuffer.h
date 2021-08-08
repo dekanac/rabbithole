@@ -37,3 +37,27 @@ private:
 	void*					m_HostVisibleData = nullptr;
 
 };
+
+class WrappedBuffer
+{
+public:
+	WrappedBuffer(const VulkanDevice* device, BufferUsageFlags bufferType, uint32_t size, void* data);
+	~WrappedBuffer();
+
+	static void InitializeBuffer(VulkanDevice* device);
+	static void BindBuffer(VulkanDevice* device);
+
+private:
+
+	const VulkanDevice* m_VulkanDevice;
+
+public:
+	static VulkanBuffer*	ms_MainGPUBuffer;
+	static uint32_t			ms_CurrentOffset;
+	static void*			ms_Data;
+
+private:
+	uint32_t m_Offset;
+	uint32_t m_Size;
+
+};
