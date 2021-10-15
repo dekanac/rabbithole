@@ -8,9 +8,8 @@
 #include "Shader.h"
 #include "../Renderer.h"
 
-VulkanPipeline::VulkanPipeline(VulkanDevice& device, std::vector<Shader*>& shaders, PipelineConfigInfo& configInfo)
+VulkanPipeline::VulkanPipeline(VulkanDevice& device, PipelineConfigInfo& configInfo)
 	: m_VulkanDevice{ device } 
-	, m_Shaders(shaders)
 	, m_PipelineInfo(configInfo)
 	, m_RenderPass(configInfo.renderPass)
 {
@@ -103,20 +102,30 @@ void VulkanPipeline::DefaultPipelineConfigInfo(PipelineConfigInfo& configInfo, u
 void VulkanPipeline::CreatePipeline()
 {
 	std::vector<VkPipelineShaderStageCreateInfo> shaderStages{};
-	for (auto& shader : m_Shaders)
-	{
-		VkPipelineShaderStageCreateInfo shaderStage{};
-		shaderStage.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-		shaderStage.stage = GetVkShaderStageFrom(shader->GetInfo().Type);
-		shaderStage.module = shader->GetModule();
-		shaderStage.pName = "main";
-		shaderStage.flags = 0;
-		shaderStage.pNext = nullptr;
 
-		shaderStages.push_back(shaderStage);
-	}
+	VkPipelineShaderStageCreateInfo vertexShaderStage{};
 
-	m_DescriptorSetLayout = new VulkanDescriptorSetLayout(&m_VulkanDevice, m_Shaders, "Main");
+	vertexShaderStage.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+	vertexShaderStage.stage = GetVkShaderStageFrom(m_PipelineInfo.vertexShader->GetInfo().Type);
+	vertexShaderStage.module = m_PipelineInfo.vertexShader->GetModule();
+	vertexShaderStage.pName = "main";
+	vertexShaderStage.flags = 0;
+	vertexShaderStage.pNext = nullptr;
+
+	shaderStages.push_back(vertexShaderStage);
+
+	VkPipelineShaderStageCreateInfo pixelShaderStage{};
+
+	pixelShaderStage.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+	pixelShaderStage.stage = GetVkShaderStageFrom(m_PipelineInfo.pixelShader->GetInfo().Type);
+	pixelShaderStage.module = m_PipelineInfo.pixelShader->GetModule();
+	pixelShaderStage.pName = "main";
+	pixelShaderStage.flags = 0;
+	pixelShaderStage.pNext = nullptr;
+
+	shaderStages.push_back(pixelShaderStage);
+
+	m_DescriptorSetLayout = new VulkanDescriptorSetLayout(&m_VulkanDevice, { m_PipelineInfo.pixelShader, m_PipelineInfo.vertexShader }, "Main");
 	m_PipelineLayout = *(m_DescriptorSetLayout->GetPipelineLayout());
 
 	auto bindingDescriptions = Vertex::GetBindingDescriptions();		//TODO: abstract this
@@ -265,6 +274,9 @@ void PipelineConfigInfo::SetWindingOrder(const WindingOrder winding)
 
  PipelineConfigInfo::PipelineConfigInfo()
  {
+	 vertexShader = nullptr;
+	 pixelShader = nullptr;
+
 	 inputAssemblyInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
 
 	 SetTopology(Topology::TriangleList);
@@ -381,4 +393,22 @@ void PipelineConfigInfo::SetAlphaBlendOperation(const uint32_t mrtIndex, const B
 
 	colorBlendAttachment[mrtIndex].colorBlendOp = GetVkBlendOpFrom(colorOperation);
 	colorBlendAttachment[mrtIndex].alphaBlendOp = GetVkBlendOpFrom(alphaOperation);
+}
+
+bool GraphicsPipelineKey::operator<(const GraphicsPipelineKey& k) const
+{
+	return memcmp(this, &k, sizeof(GraphicsPipelineKey)) < 0;
+}
+
+bool GraphicsPipelineKey::operator==(const GraphicsPipelineKey& k) const
+{
+	return memcmp(this, &k, sizeof(GraphicsPipelineKey)) == 0;
+}
+
+VulkanPipeline* PipelineManager::FindOrCreateGraphicsPipeline(const GraphicPipelineDescription& description)
+{
+	GraphicsPipelineKey key;
+
+	//TODO: fill this properly please
+	return nullptr;
 }

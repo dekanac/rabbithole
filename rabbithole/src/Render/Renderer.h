@@ -17,6 +17,7 @@ class EntityManager;
 struct GLFWwindow;
 struct Vertex;
 class VulkanDevice;
+class VulkanStateManager;
 class Entity;
 class Shader;
 
@@ -38,6 +39,7 @@ private:
 
 	VulkanPipeline*							m_CurrentGraphicsPipeline;
 	VulkanRenderPass*						m_CurrentRenderPass;
+	VulkanStateManager*						m_StateManager;
 
 	int										m_CurrentImageIndex = 0;
 
@@ -62,7 +64,7 @@ private:
 	void BindPushConstant(int imageIndex, ShaderType shaderType, T& push)
 	{
 		vkCmdPushConstants(m_CommandBuffers[imageIndex], 
-			*(m_CurrentGraphicsPipeline->GetPipelineLayout()), 
+			*(m_StateManager->GetPipeline()->GetPipelineLayout()), 
 			GetVkShaderStageFrom(shaderType), 
 			0, 
 			sizeof(T), 
@@ -70,10 +72,12 @@ private:
 	}
 
 	void SetCurrentImageIndex(int imageIndex) { m_CurrentImageIndex = imageIndex; }
-	void BeginRenderPass(VulkanRenderPass* renderPass);
+	void BeginRenderPass();
 	void EndRenderPass();
 
-	void BindGraphicsPipeline(VulkanPipeline* pipeline);
+	void BindGraphicsPipeline();
+
+	void DrawPrimitive(RabbitModel* model);
 
 	void BeginCommandBuffer();
 	void EndCommandBuffer();

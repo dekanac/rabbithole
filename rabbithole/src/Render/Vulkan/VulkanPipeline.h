@@ -6,6 +6,8 @@
 #include <string>
 #include <vector>
 
+#include <crc32/Crc32.h>
+
 const uint8_t MaxRenderTargetCount = 4;
 
 class VulkanDescriptorSetLayout;
@@ -42,6 +44,9 @@ public:
 	PipelineConfigInfo(const PipelineConfigInfo&) = delete;
 	PipelineConfigInfo& operator=(const PipelineConfigInfo&) = delete;
 
+	Shader*									vertexShader;
+	Shader*									pixelShader;
+
 	VkViewport								viewport;
 	VkRect2D								scissor;
 	VkPipelineViewportStateCreateInfo		viewportInfo;
@@ -57,10 +62,40 @@ public:
 
 };
 
+struct GraphicsPipelineKey
+{
+	uint32_t m_VertexShaderCRC;
+	uint32_t m_PixelShaderCRC;
+	uint32_t m_Topology;
+	uint32_t m_Padding1;
+
+	VkFormat m_RenderTargetFormats[MaxRenderTargetCount];
+	VkSampleCountFlagBits m_RenderTargetSampleCount[MaxRenderTargetCount];
+	VkFormat m_DepthStencilFormat;
+	VkSampleCountFlagBits m_DepthStencilSampleCount;
+
+	uint32_t m_DepthStencilIndex;
+	uint32_t m_BlendStateIndex;
+	uint32_t m_RasterizerStateIndex;
+	uint32_t m_Padding2;
+
+	bool operator < (const GraphicsPipelineKey& k) const;
+	bool operator == (const GraphicsPipelineKey& k) const;
+};
+
+template<>
+struct std::hash<GraphicsPipelineKey>
+{
+	inline uint32_t operator()(const GraphicsPipelineKey& x) const
+	{
+		return (uint32_t)crc32_fast((const void*)&x, sizeof(x));
+	}
+};
+
 class VulkanPipeline 
 {
 public:
-	VulkanPipeline(VulkanDevice& device, std::vector<Shader*>& shaders, PipelineConfigInfo& configInfo);
+	VulkanPipeline(VulkanDevice& device, PipelineConfigInfo& configInfo);
 	~VulkanPipeline();
 
 	VulkanPipeline(const VulkanPipeline&) = delete;
@@ -80,7 +115,20 @@ private:
 	VkPipeline								m_GraphicsPipeline;
 	VkPipelineLayout						m_PipelineLayout;
 	VulkanDescriptorSetLayout*				m_DescriptorSetLayout;
-	std::vector<Shader*>					m_Shaders;
 	VulkanRenderPass*						m_RenderPass;
+};
 
+struct GraphicPipelineDescription
+{
+
+};
+
+class PipelineManager 
+{
+	SingletonClass(PipelineManager)
+
+public:
+	std::unordered_map<GraphicsPipelineKey, VulkanPipeline*> m_GraphicPipelines;
+
+	VulkanPipeline* FindOrCreateGraphicsPipeline(const GraphicPipelineDescription& description);
 };

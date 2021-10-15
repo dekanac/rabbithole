@@ -6,6 +6,7 @@
 #include "VulkanDevice.h"
 #include "spirv-reflect/spirv_reflect.h"
 
+#include <crc32/Crc32.h>
 
 Shader::Shader(VulkanDevice& device, size_t byteCodeSize, const char* byteCode, const ShaderInfo& info, const char* name)
 	: m_Device(device)
@@ -39,6 +40,8 @@ Shader::Shader(VulkanDevice& device, size_t byteCodeSize, const char* byteCode, 
 	}
 
 	spvReflectDestroyShaderModule(&spvModule);
+
+	m_Hash = crc32_fast((const void*)byteCode, byteCodeSize);
 }
 
 Shader::~Shader()

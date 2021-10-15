@@ -21,20 +21,17 @@ layout(location = 0) out VS_OUT {
 layout(binding = 0) uniform UniformBufferObject {
     mat4 view;
     mat4 proj;
-} VP;
-
-layout(push_constant) uniform Push {
     mat4 model;
 	vec3 cameraPosition;
-} push;
+} MVP;
 
 
 void main() 
 {
-  gl_Position = VP.proj * VP.view * push.model * vec4(position, 1.0);
+  gl_Position = MVP.proj * MVP.view * MVP.model * vec4(position, 1.0);
   vs_out.fragColors = vec3(0.3f, 0.2f, 0.6f);
-  vs_out.fragNormal = mat3(transpose(inverse(push.model))) * normal;
-  vs_out.fragPosition = vec3(push.model * vec4(position, 1.0));
+  vs_out.fragNormal = mat3(transpose(inverse(MVP.model))) * normal;
+  vs_out.fragPosition = vec3(MVP.model * vec4(position, 1.0));
   vs_out.fragUv = uv;
-  vs_out.fragCameraPosition = push.cameraPosition;
+  vs_out.fragCameraPosition = MVP.cameraPosition;
 }

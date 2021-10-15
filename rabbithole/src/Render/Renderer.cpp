@@ -29,6 +29,8 @@ struct UniformBufferObject
 {
 	alignas(16) rabbitMat4f view;
 	alignas(16) rabbitMat4f proj;
+	alignas(16) rabbitMat4f model;
+	rabbitVec3f cameraPos;
 };
 
 bool Renderer::Init()
@@ -36,6 +38,8 @@ bool Renderer::Init()
 	MainCamera = new Camera();
 	MainCamera->Init();
 	testEntity = new Entity();
+
+	m_StateManager = new VulkanStateManager();
 
 	testScene = ModelLoading::LoadScene("res/meshes/viking_room/viking_room.obj");
 	size_t verticesCount = 0;
@@ -46,7 +50,6 @@ bool Renderer::Init()
 		offsets.push_back(testScene->pObjects[i]->mesh->numVertices * sizeof(Vertex));
 	}
 
-	WrappedBuffer::InitializeBuffer(&m_VulkanDevice);
 	loadModels();
 	LoadAndCreateShaders();
 	recreateSwapchain();
@@ -114,16 +117,15 @@ void Renderer::loadModels()
 	}
 }
 
-void Renderer::BeginRenderPass(VulkanRenderPass* renderPass)
+void Renderer::BeginRenderPass()
 {
-	m_CurrentRenderPass = renderPass;
 	VkRenderPassBeginInfo renderPassInfo{};
 	renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-	renderPassInfo.renderPass = m_CurrentRenderPass->GetRenderPass();
-	renderPassInfo.framebuffer = m_VulkanSwapchain->GetFrameBuffer(m_CurrentImageIndex)->GetFramebuffer();
+	renderPassInfo.renderPass = m_StateManager->GetRenderPass()->GetRenderPass(); //TODO: change names to GetVk.....
+	renderPassInfo.framebuffer = m_StateManager->GetFramebuffer()->GetFramebuffer();
 
 	renderPassInfo.renderArea.offset = { 0, 0 };
-	renderPassInfo.renderArea.extent = m_VulkanSwapchain->GetSwapChainExtent();
+	renderPassInfo.renderArea.extent = m_VulkanSwapchain->GetSwapChainExtent(); //only fullscreen draw for now
 
 	std::array<VkClearValue, 2> clearValues{};
 	clearValues[0].color = { 0.1f, 0.1f, 0.1f, 1.0f };
@@ -139,10 +141,24 @@ void Renderer::EndRenderPass()
 	vkCmdEndRenderPass(m_CommandBuffers[m_CurrentImageIndex]);
 }
 
-void Renderer::BindGraphicsPipeline(VulkanPipeline* pipeline)
+void Renderer::BindGraphicsPipeline()
 {
-	m_CurrentGraphicsPipeline = pipeline;
-	pipeline->Bind(m_CommandBuffers[m_CurrentImageIndex]);
+	m_StateManager->GetPipeline()->Bind(m_CommandBuffers[m_CurrentImageIndex]);
+}
+
+void Renderer::DrawPrimitive(RabbitModel* model)
+{
+	BeginRenderPass();
+
+	BindGraphicsPipeline();
+
+	vkCmdBindDescriptorSets(m_CommandBuffers[m_CurrentImageIndex], VK_PIPELINE_BIND_POINT_GRAPHICS, *m_StateManager->GetPipeline()->GetPipelineLayout(), 0, 1, m_DescriptorSets[m_CurrentImageIndex]->GetDescriptorSet(), 0, nullptr);
+
+	model->Bind(m_CommandBuffers[m_CurrentImageIndex]);
+
+	model->Draw(m_CommandBuffers[m_CurrentImageIndex]);
+
+	EndRenderPass();
 }
 
 void Renderer::BeginCommandBuffer()
@@ -202,9 +218,12 @@ void Renderer::CreateRenderPasses()
 void Renderer::CreateMainPhongLightingPipeline() 
 {
 	PipelineConfigInfo pipelineConfig{};
+	//BAD BAD BAD WTF is this, take care of this please
+	pipelineConfig.vertexShader = m_Shaders[0];
+	pipelineConfig.pixelShader = m_Shaders[1];
 	pipelineConfig.renderPass = m_VulkanSwapchain->GetRenderPass();
 
-	VulkanPipeline* pipeline = new VulkanPipeline(m_VulkanDevice, m_Shaders, pipelineConfig);
+	VulkanPipeline* pipeline = new VulkanPipeline(m_VulkanDevice, pipelineConfig);
 	m_VulkanDevice.AddPipelineToCollection(pipeline, "phonglighting");
 }
 void Renderer::createCommandBuffers() 
@@ -249,24 +268,12 @@ void Renderer::RecordCommandBuffer(int imageIndex)
 	SetCurrentImageIndex(imageIndex);
 	BeginCommandBuffer();
 
-	VulkanRenderPass* renderPass = m_VulkanSwapchain->GetRenderPass();
-	BeginRenderPass(renderPass);
-	VulkanPipeline* pipeline = m_VulkanDevice.GetPipelineFromCollection({ "phonglighting" });
-	BindGraphicsPipeline(pipeline);
-	vkCmdBindDescriptorSets(m_CommandBuffers[imageIndex], VK_PIPELINE_BIND_POINT_GRAPHICS, *pipeline->GetPipelineLayout(), 0, 1, m_DescriptorSets[imageIndex]->GetDescriptorSet(), 0, nullptr);
+	m_StateManager->SetRenderPass(m_VulkanSwapchain->GetRenderPass());
+	m_StateManager->SetFramebuffer(m_VulkanSwapchain->GetFrameBuffer(m_CurrentImageIndex));
+	m_StateManager->SetPipeline(m_VulkanDevice.GetPipelineFromCollection("phonglighting"));
 	
-	rabbitmodels[0]->Bind(m_CommandBuffers[imageIndex]);
+	DrawPrimitive(rabbitmodels[0].get());
 
-	SimplePushConstantData push{};
-	push.cameraPosition = MainCamera->GetPosition();
-	push.model = rabbitMat4f{ 1.f };
-	push.model = glm::rotate(push.model, -0.785398f * 2, rabbitVec3f(1.0f, 0.0f, 0.0f));
-	push.model = glm::rotate(push.model, -0.785398f * 2, rabbitVec3f(0.0f, 0.0f, 1.0f));
-	BindPushConstant(imageIndex, ShaderType::Vertex, push);
-
-	rabbitmodels[0]->Draw(m_CommandBuffers[imageIndex]);
-
-	EndRenderPass();
 	EndCommandBuffer();
 }
 
@@ -276,6 +283,12 @@ void Renderer::UpdateUniformBuffer(uint32_t currentImage)
 	ubo.view = MainCamera->View();
 	ubo.proj = MainCamera->Projection();
 
+	//TODO: HARDCODED, find a way to smuggle model matrix from every model
+	ubo.model = rabbitMat4f{ 1.f };
+	ubo.model = glm::rotate(ubo.model, -0.785398f * 2, rabbitVec3f(1.0f, 0.0f, 0.0f));
+	ubo.model = glm::rotate(ubo.model, -0.785398f * 2, rabbitVec3f(0.0f, 0.0f, 1.0f));
+
+	ubo.cameraPos = MainCamera->GetPosition();
 	void* data = m_UniformBuffers[currentImage]->Map();
 	memcpy(data, &ubo, sizeof(ubo));
 	m_UniformBuffers[currentImage]->Unmap();

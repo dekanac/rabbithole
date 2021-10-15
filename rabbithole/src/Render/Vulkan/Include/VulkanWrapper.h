@@ -11,6 +11,7 @@
 #include "../VulkanTexture.h"
 #include "../VulkanFramebuffer.h"
 #include "../VulkanRenderPass.h"
+#include "../VulkanStateManager.h"
 #include "../utils.h"
 
 
