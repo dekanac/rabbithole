@@ -85,14 +85,14 @@
       <SDLCheck>true</SDLCheck>
       <ConformanceMode>false</ConformanceMode>
       <LanguageStandard>stdcpp17</LanguageStandard>
-      <AdditionalIncludeDirectories>$(ProjectDir)src;$(ProjectDir)src\vendor;$(ProjectDir)extern\sdl\include;$(ProjectDir)extern;$(ProjectDir)extern\glfw\include;C:\VulkanSDK\1.2.189.2\Include;$(ProjectDir)extern\vma\;$(ProjectDir)extern\assimp\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(ProjectDir)src;$(ProjectDir)src\vendor;$(ProjectDir)extern\sdl\include;$(ProjectDir)extern;$(ProjectDir)extern\glfw\include;$(ProjectDir)extern\vulkan\Include;$(ProjectDir)extern\vma\;$(ProjectDir)extern\assimp\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
       <PrecompiledHeaderFile>precomp.h</PrecompiledHeaderFile>
       <LanguageStandard_C>stdc17</LanguageStandard_C>
     </ClCompile>
     <Link>
       <AdditionalDependencies>vulkan-1.lib;SDL2.lib;glfw3.lib;VkLayer_utils.lib;assimp-vc142-mtd.lib;%(AdditionalDependencies)</AdditionalDependencies>
-      <AdditionalLibraryDirectories>$(ProjectDir)extern\assimp\lib;$(ProjectDir)extern\sdl\lib;$(ProjectDir)extern\glfw\lib-vc2017;C:\VulkanSDK\1.2.189.2\Lib;C:\VulkanSDK\1.2.189.2\Bin;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>$(ProjectDir)extern\assimp\lib;$(ProjectDir)extern\sdl\lib;$(ProjectDir)extern\glfw\lib-vc2017;$(ProjectDir)extern\vulkan\Lib;$(ProjectDir)extern\vulkan\Bin;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <SubSystem>Console</SubSystem>
     </Link>
   </ItemDefinitionGroup>
@@ -482,8 +482,6 @@
     <ClInclude Include="src\vendor\stb_image\stb_image.h" />
   </ItemGroup>
   <ItemGroup>
-    <None Include="res\shaders\baseshader.frag" />
-    <None Include="res\shaders\baseshader.vert" />
     <None Include="src\vendor\glm\detail\func_common.inl" />
     <None Include="src\vendor\glm\detail\func_common_simd.inl" />
     <None Include="src\vendor\glm\detail\func_exponential.inl" />

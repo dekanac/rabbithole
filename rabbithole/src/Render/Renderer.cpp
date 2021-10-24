@@ -22,16 +22,10 @@
 
 float sranje = 0.f;
 
-#define MAIN_VERTEX_FILE_PATH		"res/shaders/vert.spv"
-#define MAIN_FRAGMENT_FILE_PATH		"res/shaders/frag.spv"
+#define MAIN_VERTEX_FILE_PATH		"res/shaders/VS_PhongBasicTest.spv"
+#define MAIN_FRAGMENT_FILE_PATH		"res/shaders/FS_PhongBasicTest.spv"
 
-struct UniformBufferObject
-{
-	alignas(16) rabbitMat4f view;
-	alignas(16) rabbitMat4f proj;
-	alignas(16) rabbitMat4f model;
-	rabbitVec3f cameraPos;
-};
+
 
 bool Renderer::Init()
 {
@@ -60,6 +54,7 @@ bool Renderer::Init()
 bool Renderer::Shutdown()
 {
 	delete MainCamera;
+	//delete m_StateManager;
     return true;
 }
 
@@ -92,8 +87,6 @@ void Renderer::DrawFrame()
 	}
 
 	RecordCommandBuffer(imageIndex);
-	UpdateUniformBuffer(imageIndex);
-
 
 	result = m_VulkanSwapchain->SubmitCommandBuffers(&m_CommandBuffers[imageIndex], &imageIndex);
 	if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR || m_FramebufferResized)
@@ -111,9 +104,14 @@ void Renderer::DrawFrame()
 
 void Renderer::loadModels()
 {
-	for (unsigned int i = 0; i < testScene->numObjects; i++)
+	// improvised to see how is engine rendering 10 models
+	for (unsigned int i = 0; i < 10; i++)
 	{
-		rabbitmodels.push_back(std::make_unique<RabbitModel>(m_VulkanDevice, testScene->pObjects[i]));
+		RabbitModel* model2 = new RabbitModel(m_VulkanDevice, testScene->pObjects[0]);
+		auto matrix = rabbitMat4f{ 1.f };
+		matrix = glm::translate(matrix, rabbitVec3f(0.f, i*2.f, 0.f));
+		model2->SetModelMatrix(matrix);
+		rabbitmodels.push_back(model2);
 	}
 }
 
@@ -143,20 +141,40 @@ void Renderer::EndRenderPass()
 
 void Renderer::BindGraphicsPipeline()
 {
-	m_StateManager->GetPipeline()->Bind(m_CommandBuffers[m_CurrentImageIndex]);
+	if (!m_StateManager->GetPipelineDirty())
+	{
+		m_StateManager->GetPipeline()->Bind(m_CommandBuffers[m_CurrentImageIndex]);
+	}
+	else
+	{
+		//FIND OR CREATE PIPELINE
+		auto pipelineInfo = m_StateManager->GetPipelineInfo();
+		pipelineInfo->renderPass = m_StateManager->GetRenderPass();
+		auto pipeline = PipelineManager::instance().FindOrCreateGraphicsPipeline(m_VulkanDevice, *pipelineInfo);
+		m_StateManager->SetPipeline(pipeline);
+		pipeline->Bind(m_CommandBuffers[m_CurrentImageIndex]);
+		m_StateManager->SetPipelineDirty(false);
+	}
 }
 
-void Renderer::DrawPrimitive(RabbitModel* model)
+void Renderer::DrawBucket(std::vector<RabbitModel*> bucket)
 {
 	BeginRenderPass();
 
 	BindGraphicsPipeline();
 
-	vkCmdBindDescriptorSets(m_CommandBuffers[m_CurrentImageIndex], VK_PIPELINE_BIND_POINT_GRAPHICS, *m_StateManager->GetPipeline()->GetPipelineLayout(), 0, 1, m_DescriptorSets[m_CurrentImageIndex]->GetDescriptorSet(), 0, nullptr);
+	BindDescriptorSets();
 
-	model->Bind(m_CommandBuffers[m_CurrentImageIndex]);
+	BindUBO();
+	
+	for (auto model : bucket)
+	{
+		model->Bind(m_CommandBuffers[m_CurrentImageIndex]);
+		
+		BindModelMatrix(model);
 
-	model->Draw(m_CommandBuffers[m_CurrentImageIndex]);
+		model->Draw(m_CommandBuffers[m_CurrentImageIndex]);
+	}
 
 	EndRenderPass();
 }
@@ -191,6 +209,44 @@ std::vector<char> Renderer::ReadFile(const std::string& filepath)
 
 	file.close();
 	return buffer;
+}
+
+void Renderer::BindCameraMatrices(Camera* camera)
+{
+	auto viewMatrix = camera->View();
+	m_StateManager->UpdateUBOElement(UBOElement::ViewMatrix, 4, &viewMatrix);
+
+	auto projMatrix = camera->Projection();
+	m_StateManager->UpdateUBOElement(UBOElement::ProjectionMatrix, 4, &projMatrix);
+
+	auto cameraPos = camera->GetPosition();
+	m_StateManager->UpdateUBOElement(UBOElement::CameraPosition, 1, &cameraPos);
+}
+
+void Renderer::BindModelMatrix(RabbitModel* model)
+{
+	auto modelMatrix = model->GetModelMatrix();
+	SimplePushConstantData push{};
+	push.modelMatrix = modelMatrix;
+	BindPushConstant(ShaderType::Vertex, push);
+}
+
+void Renderer::BindUBO()
+{	
+	if (m_StateManager->GetUBODirty())
+	{ 
+		void* data = m_UniformBuffers[m_CurrentImageIndex]->Map();
+		memcpy(data, m_StateManager->GetUBO(), sizeof(UniformBufferObject));
+		m_UniformBuffers[m_CurrentImageIndex]->Unmap();
+		
+		m_StateManager->SetUBODirty(false);
+	}
+}
+
+void Renderer::BindDescriptorSets()
+{
+	//TODO: decide where to store descriptor sets, models or state manager?
+	vkCmdBindDescriptorSets(m_CommandBuffers[m_CurrentImageIndex], VK_PIPELINE_BIND_POINT_GRAPHICS, *m_StateManager->GetPipeline()->GetPipelineLayout(), 0, 1, m_DescriptorSets[m_CurrentImageIndex]->GetDescriptorSet(), 0, nullptr);
 }
 
 void Renderer::LoadAndCreateShaders()
@@ -270,28 +326,21 @@ void Renderer::RecordCommandBuffer(int imageIndex)
 
 	m_StateManager->SetRenderPass(m_VulkanSwapchain->GetRenderPass());
 	m_StateManager->SetFramebuffer(m_VulkanSwapchain->GetFrameBuffer(m_CurrentImageIndex));
-	m_StateManager->SetPipeline(m_VulkanDevice.GetPipelineFromCollection("phonglighting"));
+
+	m_StateManager->SetCullMode(CullMode::Back);
+	m_StateManager->SetVertexShader(m_Shaders[0]);
+	m_StateManager->SetPixelShader(m_Shaders[1]);
+
+	BindCameraMatrices(MainCamera);
 	
-	DrawPrimitive(rabbitmodels[0].get());
+	DrawBucket(rabbitmodels);
 
 	EndCommandBuffer();
 }
 
 void Renderer::UpdateUniformBuffer(uint32_t currentImage)
 {
-	UniformBufferObject ubo{};
-	ubo.view = MainCamera->View();
-	ubo.proj = MainCamera->Projection();
 
-	//TODO: HARDCODED, find a way to smuggle model matrix from every model
-	ubo.model = rabbitMat4f{ 1.f };
-	ubo.model = glm::rotate(ubo.model, -0.785398f * 2, rabbitVec3f(1.0f, 0.0f, 0.0f));
-	ubo.model = glm::rotate(ubo.model, -0.785398f * 2, rabbitVec3f(0.0f, 0.0f, 1.0f));
-
-	ubo.cameraPos = MainCamera->GetPosition();
-	void* data = m_UniformBuffers[currentImage]->Map();
-	memcpy(data, &ubo, sizeof(ubo));
-	m_UniformBuffers[currentImage]->Unmap();
 }
 
 

@@ -347,11 +347,3 @@ MigrationBackup/
 
 # Ionide (cross platform F# VS Code tools) working folder
 .ionide/
-
-#Ignore vulkan extern because its too big
-rabbithole/extern/vulkan
-
-#TMP ignore, fix this in future
-rabbithole/rabbithole.vcxproj
-rabbithole/rabbithole.vcxproj.filters
-rabbithole/res/shaders/compile.bat

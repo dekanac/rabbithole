@@ -1,3 +1,3 @@
-C:\VulkanSDK\1.2.189.2\Bin\glslc.exe baseshader.vert -o vert.spv
-C:\VulkanSDK\1.2.189.2\Bin\glslc.exe baseshader.frag -o frag.spv
+glslc.exe -fshader-stage=vertex VS_PhongBasicTest.glsl -o VS_PhongBasicTest.spv
+glslc.exe -fshader-stage=fragment FS_PhongBasicTest.glsl -o FS_PhongBasicTest.spv
 pause

@@ -69,6 +69,12 @@ struct GraphicsPipelineKey
 	uint32_t m_Topology;
 	uint32_t m_Padding1;
 
+	uint32_t m_PolygonMode;
+	uint32_t m_CullMode;
+	uint32_t m_Frontface;
+	uint32_t m_Padding2;
+	//TODO: implement this fully
+	/*
 	VkFormat m_RenderTargetFormats[MaxRenderTargetCount];
 	VkSampleCountFlagBits m_RenderTargetSampleCount[MaxRenderTargetCount];
 	VkFormat m_DepthStencilFormat;
@@ -78,6 +84,7 @@ struct GraphicsPipelineKey
 	uint32_t m_BlendStateIndex;
 	uint32_t m_RasterizerStateIndex;
 	uint32_t m_Padding2;
+	*/
 
 	bool operator < (const GraphicsPipelineKey& k) const;
 	bool operator == (const GraphicsPipelineKey& k) const;
@@ -103,7 +110,7 @@ public:
 
 	void							 Bind(VkCommandBuffer commandBuffer);
 
-	static void						 DefaultPipelineConfigInfo(PipelineConfigInfo& configInfo, uint32_t width, uint32_t height);
+	static void						 DefaultPipelineConfigInfo(PipelineConfigInfo*& configInfo, uint32_t width, uint32_t height);
 	const VulkanDescriptorSetLayout* GetDescriptorSetLayout() { return m_DescriptorSetLayout; }
 	const VkPipelineLayout*			 GetPipelineLayout() const { return &m_PipelineLayout; }
 	void							 CreatePipeline();
@@ -130,5 +137,5 @@ class PipelineManager
 public:
 	std::unordered_map<GraphicsPipelineKey, VulkanPipeline*> m_GraphicPipelines;
 
-	VulkanPipeline* FindOrCreateGraphicsPipeline(const GraphicPipelineDescription& description);
+	VulkanPipeline* FindOrCreateGraphicsPipeline(VulkanDevice& device, PipelineConfigInfo& pipelineInfo);
 };

@@ -21,6 +21,13 @@ class VulkanStateManager;
 class Entity;
 class Shader;
 
+struct UniformBufferObject
+{
+	rabbitMat4f view;
+	rabbitMat4f proj;
+	rabbitVec3f cameraPos;
+};
+
 class Renderer
 {
     SingletonClass(Renderer)
@@ -45,7 +52,7 @@ private:
 
 	Entity*												testEntity;
 	ModelLoading::SceneData*							testScene;
-	std::vector<std::unique_ptr<RabbitModel>>			rabbitmodels;
+	std::vector<RabbitModel*>			rabbitmodels;
 	
 	void loadModels();
 	void LoadAndCreateShaders();
@@ -61,9 +68,9 @@ private:
 	void CreateDescriptorSets();
 
 	template <typename T>
-	void BindPushConstant(int imageIndex, ShaderType shaderType, T& push)
+	void BindPushConstant(ShaderType shaderType, T& push)
 	{
-		vkCmdPushConstants(m_CommandBuffers[imageIndex], 
+		vkCmdPushConstants(m_CommandBuffers[m_CurrentImageIndex], 
 			*(m_StateManager->GetPipeline()->GetPipelineLayout()), 
 			GetVkShaderStageFrom(shaderType), 
 			0, 
@@ -76,8 +83,13 @@ private:
 	void EndRenderPass();
 
 	void BindGraphicsPipeline();
+	void BindDescriptorSets();
+	void BindUBO();
 
-	void DrawPrimitive(RabbitModel* model);
+	void BindModelMatrix(RabbitModel* model);
+	void BindCameraMatrices(Camera* camera);
+
+	void DrawBucket(std::vector<RabbitModel*> bucket);
 
 	void BeginCommandBuffer();
 	void EndCommandBuffer();

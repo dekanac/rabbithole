@@ -18,8 +18,7 @@ class VulkanImageSampler;
 
 struct SimplePushConstantData
 {
-	rabbitMat4f model;
-	rabbitVec3f cameraPosition;
+	rabbitMat4f modelMatrix;
 };
 
 struct Vertex
@@ -74,6 +73,9 @@ public:
 
 	VulkanTexture* GetTexture()	const { return m_Texture; }
 
+	rabbitMat4f	GetModelMatrix() { return m_ModelMatrix; }
+	void SetModelMatrix(rabbitMat4f modelMatrix) { m_ModelMatrix = modelMatrix; }
+
 	void Bind(VkCommandBuffer commandBuffer);
 	void Draw(VkCommandBuffer commandBuffer);
 
@@ -95,6 +97,8 @@ private:
 
 	TextureData*			m_TextureData{};
 	VulkanTexture*			m_Texture;
+
+	rabbitMat4f				m_ModelMatrix;
 
 private:
 	std::string				m_FilePath{};
