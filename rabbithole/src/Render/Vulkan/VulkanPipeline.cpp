@@ -435,3 +435,9 @@ VulkanPipeline* PipelineManager::FindOrCreateGraphicsPipeline(VulkanDevice& devi
 		return pipeline;
 	}
 }
+
+VulkanRenderPass* PipelineManager::FindOrCreateRenderPass(VulkanDevice& device, const std::vector<VulkanImageView*> renderTargets, const VulkanImageView* depthStencil, RenderPassConfigInfo& renderPassInfo)
+{
+    //for now just create
+    return new VulkanRenderPass(&device, renderTargets, depthStencil, renderPassInfo, "somename");
+}

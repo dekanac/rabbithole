@@ -213,13 +213,15 @@ void VulkanSwapchain::CreateImageViews()
 
 void VulkanSwapchain::CreateRenderPass() 
 {
-	VulkanRenderPassInfo renderPassInfo{};
+	RenderPassConfigInfo renderPassInfo{};
 
 	renderPassInfo.ClearDepth = true;
 	renderPassInfo.ClearRenderTargets = true;
 	renderPassInfo.ClearStencil = true;
 	renderPassInfo.InitialRenderTargetState = ResourceState::None;
 	renderPassInfo.FinalRenderTargetState = ResourceState::Present;
+    renderPassInfo.InitialDepthStencilState = ResourceState::DepthStencilWrite;
+    renderPassInfo.FinalRenderTargetState = ResourceState::DepthStencilWrite;
 
 	std::vector<VulkanImageView*> renderTargetViews;
 	renderTargetViews.push_back(m_SwapChainVulkanImageViews[0]);

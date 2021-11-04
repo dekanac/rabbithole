@@ -13,6 +13,7 @@ const uint8_t MaxRenderTargetCount = 4;
 class VulkanDescriptorSetLayout;
 class VulkanDescriptorSet;
 class Shader;
+struct RenderPassConfigInfo;
 
 class PipelineConfigInfo 
 {
@@ -137,5 +138,6 @@ class PipelineManager
 public:
 	std::unordered_map<GraphicsPipelineKey, VulkanPipeline*> m_GraphicPipelines;
 
-	VulkanPipeline* FindOrCreateGraphicsPipeline(VulkanDevice& device, PipelineConfigInfo& pipelineInfo);
+	VulkanPipeline*     FindOrCreateGraphicsPipeline(VulkanDevice& device, PipelineConfigInfo& pipelineInfo);
+    VulkanRenderPass*   FindOrCreateRenderPass(VulkanDevice& device, const std::vector<VulkanImageView*> renderTargets, const VulkanImageView* depthStencil, RenderPassConfigInfo& renderPassInfo);
 };

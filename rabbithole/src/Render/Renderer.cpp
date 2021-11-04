@@ -48,6 +48,7 @@ bool Renderer::Init()
 	LoadAndCreateShaders();
 	recreateSwapchain();
 	createCommandBuffers();
+
 	return true;
 }
 
@@ -141,6 +142,21 @@ void Renderer::EndRenderPass()
 
 void Renderer::BindGraphicsPipeline()
 {
+    if (!m_StateManager->GetRenderPassDirty())
+    {
+
+    }
+    else
+    {
+        auto attachments = m_StateManager->GetRenderTargets();
+        auto depthStencil = m_StateManager->GetDepthStencil();
+        auto renderPassInfo = m_StateManager->GetRenderPassInfo();
+        VulkanRenderPass* renderpass = PipelineManager::instance().FindOrCreateRenderPass(m_VulkanDevice, attachments, depthStencil, *renderPassInfo);
+        m_StateManager->SetRenderPass(renderpass);
+
+        m_StateManager->SetRenderPassDirty(false);
+    }
+
 	if (!m_StateManager->GetPipelineDirty())
 	{
 		m_StateManager->GetPipeline()->Bind(m_CommandBuffers[m_CurrentImageIndex]);
@@ -159,9 +175,9 @@ void Renderer::BindGraphicsPipeline()
 
 void Renderer::DrawBucket(std::vector<RabbitModel*> bucket)
 {
-	BeginRenderPass();
-
 	BindGraphicsPipeline();
+
+	BeginRenderPass();
 
 	BindDescriptorSets();
 
@@ -327,7 +343,7 @@ void Renderer::RecordCommandBuffer(int imageIndex)
 	m_StateManager->SetRenderPass(m_VulkanSwapchain->GetRenderPass());
 	m_StateManager->SetFramebuffer(m_VulkanSwapchain->GetFrameBuffer(m_CurrentImageIndex));
 
-	m_StateManager->SetCullMode(CullMode::Back);
+	m_StateManager->SetCullMode(CullMode::None);
 	m_StateManager->SetVertexShader(m_Shaders[0]);
 	m_StateManager->SetPixelShader(m_Shaders[1]);
 

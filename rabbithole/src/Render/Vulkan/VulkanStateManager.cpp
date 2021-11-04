@@ -10,7 +10,9 @@ VulkanStateManager::VulkanStateManager()
 	m_RenderPass = nullptr;
 	m_Framebuffer = nullptr;
 	m_PipelineConfig = new PipelineConfigInfo();
-	VulkanPipeline::DefaultPipelineConfigInfo(m_PipelineConfig, 1280, 720);
+    m_RenderPassConfig = new RenderPassConfigInfo();
+	VulkanPipeline::DefaultPipelineConfigInfo(m_PipelineConfig, DEFAULT_WIDTH, DEFAULT_HEIGHT);
+    VulkanRenderPass::DefaultRenderPassInfo(m_RenderPassConfig);
 
 	m_DirtyPipeline = false; 
 	m_DirtyUBO = false;
@@ -45,6 +47,63 @@ void VulkanStateManager::UpdateUBOElement(UBOElement element, uint32_t count, vo
 	void* ubo = (char*)m_UBO + DEFAULT_UBO_ELEMENT_SIZE * (uint32_t)element;
 	memcpy(ubo, data, sizeOfElement);
 	m_DirtyUBO = true;
+}
+
+std::vector<VulkanImageView*> VulkanStateManager::GetRenderTargets() const
+{
+    std::vector<VulkanImageView*> renderTargets;
+
+    if (m_RenderTarget0 != nullptr)
+    {
+        renderTargets.push_back(m_RenderTarget0);
+
+        if (m_RenderTarget1 != nullptr)
+        {
+            renderTargets.push_back(m_RenderTarget1);
+        
+            if (m_RenderTarget2 != nullptr)
+            {
+                renderTargets.push_back(m_RenderTarget2);
+
+                if (m_RenderTarget3 != nullptr)
+                {
+                    renderTargets.push_back(m_RenderTarget3);
+                }
+            }
+        }
+    }
+
+    return renderTargets;
+}
+
+void VulkanStateManager::SetRenderTarget0(VulkanImageView* rt)
+{
+    m_RenderTarget0 = rt;
+    m_DirtyRenderPass = true;
+}
+
+void VulkanStateManager::SetRenderTarget1(VulkanImageView* rt)
+{
+    m_RenderTarget1 = rt;
+    m_DirtyRenderPass = true;
+}
+
+void VulkanStateManager::SetRenderTarget2(VulkanImageView* rt)
+{
+    m_RenderTarget2 = rt;
+    m_DirtyRenderPass = true;
+}
+
+void VulkanStateManager::SetRenderTarget3(VulkanImageView* rt)
+{
+    m_RenderTarget3 = rt;
+    m_DirtyRenderPass = true;
+}
+
+void VulkanStateManager::SetDepthStencil(VulkanImageView* ds)
+{
+    m_DepthStencil = ds;
+    m_DirtyRenderPass = true;
 }
 
 void VulkanStateManager::SetVertexShader(Shader* shader)

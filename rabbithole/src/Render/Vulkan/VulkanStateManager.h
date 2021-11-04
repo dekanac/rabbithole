@@ -31,7 +31,8 @@ public:
 	void SetCullMode(const CullMode mode);
 
 	//renderpass
-	VulkanRenderPass*	GetRenderPass() const { return m_RenderPass; }
+	VulkanRenderPass*	    GetRenderPass() const { return m_RenderPass; }
+    RenderPassConfigInfo*   GetRenderPassInfo() { return m_RenderPassConfig; }
 	void SetRenderPass(VulkanRenderPass* renderPass) { m_RenderPass = renderPass; }
 	bool GetRenderPassDirty() { return m_DirtyRenderPass; }
 	void SetRenderPassDirty(bool dirty) { m_DirtyRenderPass = dirty; }
@@ -48,18 +49,33 @@ public:
 	void SetUBODirty(bool dirty) { m_DirtyUBO = dirty; }
 	bool GetUBODirty() { return m_DirtyUBO; }
 
+    std::vector<VulkanImageView*>   GetRenderTargets() const;
+    VulkanImageView*                GetDepthStencil() const { return m_DepthStencil; }
+
+    void SetRenderTarget0(VulkanImageView* rt);
+    void SetRenderTarget1(VulkanImageView* rt);
+    void SetRenderTarget2(VulkanImageView* rt);
+    void SetRenderTarget3(VulkanImageView* rt);
+    void SetDepthStencil(VulkanImageView* ds);
 
 private:
-	PipelineConfigInfo* m_PipelineConfig;
-	VulkanPipeline*		m_Pipeline;
-	VulkanRenderPass*	m_RenderPass;
-	VulkanFramebuffer*	m_Framebuffer;
-	UniformBufferObject* m_UBO;
+	PipelineConfigInfo*     m_PipelineConfig;
+	VulkanPipeline*		    m_Pipeline;
+    RenderPassConfigInfo*   m_RenderPassConfig;
+	VulkanRenderPass*	    m_RenderPass;
+	VulkanFramebuffer*	    m_Framebuffer;
+	UniformBufferObject*    m_UBO;
 
 	bool m_DirtyPipeline;
 	bool m_DirtyRenderPass;
 	bool m_DirtyFramebuffer;
 	bool m_DirtyUBO;
 
+    VulkanImageView* m_RenderTarget0 = nullptr;
+    VulkanImageView* m_RenderTarget1 = nullptr;
+    VulkanImageView* m_RenderTarget2 = nullptr;
+    VulkanImageView* m_RenderTarget3 = nullptr;
+
+    VulkanImageView* m_DepthStencil = nullptr;
 };
 

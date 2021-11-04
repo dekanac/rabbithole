@@ -4,7 +4,7 @@ VulkanRenderPass::VulkanRenderPass(
 	const VulkanDevice* device, 
 	const std::vector<VulkanImageView*> renderTargetViews, 
 	const VulkanImageView* depthStencilView, 
-	const VulkanRenderPassInfo& info, 
+	const RenderPassConfigInfo& info, 
 	const char* name)
 	: m_VulkanDevice(device)
 	, m_Info(info)
@@ -66,8 +66,8 @@ VulkanRenderPass::VulkanRenderPass(
 		attachmentDescription.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
 		attachmentDescription.stencilLoadOp = m_Info.ClearStencil ? VK_ATTACHMENT_LOAD_OP_CLEAR : VK_ATTACHMENT_LOAD_OP_LOAD;
 		attachmentDescription.stencilStoreOp = VK_ATTACHMENT_STORE_OP_STORE;
-		attachmentDescription.initialLayout = depthStencilLayout;
-		attachmentDescription.finalLayout = depthStencilLayout;
+		attachmentDescription.initialLayout = GetVkImageLayoutFrom(m_Info.InitialDepthStencilState);
+		attachmentDescription.finalLayout = GetVkImageLayoutFrom(m_Info.FinalDepthStencilState);
 		attachmentDescriptions.push_back(attachmentDescription);
 
 		depthStencilAttachmentReference.attachment = static_cast<uint32_t>(attachmentDescriptions.size() - 1);
@@ -80,11 +80,32 @@ VulkanRenderPass::VulkanRenderPass(
 	subpassDescription.pColorAttachments = colorAttachmentCount ? colorAttachmentReferences.data() : nullptr;
 	subpassDescription.pDepthStencilAttachment = depthStencilView ? &depthStencilAttachmentReference : nullptr;
 
-	VkRenderPassCreateInfo renderPassCreateInfo = { VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO };
-	renderPassCreateInfo.attachmentCount = static_cast<uint32_t>(attachmentDescriptions.size());
-	renderPassCreateInfo.pAttachments = attachmentDescriptions.data();
-	renderPassCreateInfo.pSubpasses = &subpassDescription;
-	renderPassCreateInfo.subpassCount = 1;
+    std::array<VkSubpassDependency, 2> dependencies;
+
+    dependencies[0].srcSubpass = VK_SUBPASS_EXTERNAL;
+    dependencies[0].dstSubpass = 0;
+    dependencies[0].srcStageMask = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
+    dependencies[0].dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+    dependencies[0].srcAccessMask = VK_ACCESS_MEMORY_READ_BIT;
+    dependencies[0].dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+    dependencies[0].dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT;
+
+    dependencies[1].srcSubpass = 0;
+    dependencies[1].dstSubpass = VK_SUBPASS_EXTERNAL;
+    dependencies[1].srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+    dependencies[1].dstStageMask = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
+    dependencies[1].srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+    dependencies[1].dstAccessMask = VK_ACCESS_MEMORY_READ_BIT;
+    dependencies[1].dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT;
+
+    VkRenderPassCreateInfo renderPassCreateInfo = { VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO };
+    renderPassCreateInfo.attachmentCount = static_cast<uint32_t>(attachmentDescriptions.size());
+    renderPassCreateInfo.pAttachments = attachmentDescriptions.data();
+    renderPassCreateInfo.pSubpasses = &subpassDescription;
+    renderPassCreateInfo.subpassCount = 1;
+    renderPassCreateInfo.dependencyCount = dependencies.size();
+    renderPassCreateInfo.pDependencies = dependencies.data();
+
 
 	VULKAN_API_CALL(vkCreateRenderPass(m_VulkanDevice->GetGraphicDevice(), &renderPassCreateInfo, nullptr, &m_RenderPass));
 }
@@ -92,4 +113,15 @@ VulkanRenderPass::VulkanRenderPass(
 VulkanRenderPass::~VulkanRenderPass()
 {
 	vkDestroyRenderPass(m_VulkanDevice->GetGraphicDevice(), m_RenderPass, nullptr);
+}
+
+void VulkanRenderPass::DefaultRenderPassInfo(RenderPassConfigInfo*& renderPassInfo)
+{
+    renderPassInfo->ClearDepth = true;
+    renderPassInfo->ClearRenderTargets = true;
+    renderPassInfo->ClearStencil = true;
+    renderPassInfo->InitialRenderTargetState = ResourceState::None;
+    renderPassInfo->FinalRenderTargetState = ResourceState::Present;
+    renderPassInfo->InitialDepthStencilState = ResourceState::DepthStencilWrite;
+    renderPassInfo->FinalDepthStencilState = ResourceState::DepthStencilWrite;
 }

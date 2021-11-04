@@ -13,6 +13,7 @@ class VulkanImage;
 class VulkanImageView;
 class VulkanRenderPass;
 class VulkanFramebuffer;
+class VulkanTexture;
 
 class VulkanSwapchain {
 public:
@@ -27,6 +28,7 @@ public:
 	VulkanFramebuffer*	  GetFrameBuffer(int index) const { return m_SwapChainFramebuffers[index]; }
 	VulkanRenderPass*	  GetRenderPass() const { return m_RenderPass; }
 	VulkanImageView*	  GetImageView(int index) const { return m_SwapChainVulkanImageViews[index]; }
+    VulkanTexture*        GetDepthStencil() const { return m_DepthStencil; }
 	size_t			const GetImageCount() const { return m_SwapChainVulkanImages.size(); }
 	Format				  GetSwapChainImageFormat() const { return m_SwapChainImageFormat; }
 	VkExtent2D		const GetSwapChainExtent() const { return m_SwapChainExtent; }
