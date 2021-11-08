@@ -11,6 +11,7 @@
 #include "Window.h"
 #include "Model/ModelLoading.h"
 
+#define DYNAMIC_SCISSOR_AND_VIEWPORT_STATES
 
 class Camera;
 class EntityManager;
@@ -26,6 +27,7 @@ struct UniformBufferObject
 	rabbitMat4f view;
 	rabbitMat4f proj;
 	rabbitVec3f cameraPos;
+	rabbitVec3f debugOption;
 };
 
 class Renderer
@@ -66,6 +68,8 @@ private:
 	void CreateUniformBuffers();
 	void CreateDescriptorPool();
 	void CreateDescriptorSets();
+
+	void BindViewport(float x, float y, float width, float height);
 
 	template <typename T>
 	void BindPushConstant(ShaderType shaderType, T& push)

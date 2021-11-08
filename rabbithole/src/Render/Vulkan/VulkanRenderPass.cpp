@@ -27,6 +27,7 @@ VulkanRenderPass::VulkanRenderPass(
 		m_ClearValues[i] = clearValue;
 
 		VkAttachmentDescription attachmentDescription{};
+		attachmentDescription.flags = 0;
 		attachmentDescription.format = renderTargetView->GetFormat();
 		attachmentDescription.samples = GetVkSampleFlagsFrom(renderTargetView->GetInfo().Resource->GetInfo().MultisampleType);
 		attachmentDescription.loadOp = m_Info.ClearRenderTargets ? VK_ATTACHMENT_LOAD_OP_CLEAR : VK_ATTACHMENT_LOAD_OP_LOAD;

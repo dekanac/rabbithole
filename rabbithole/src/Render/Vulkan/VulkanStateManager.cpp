@@ -11,7 +11,8 @@ VulkanStateManager::VulkanStateManager()
 	m_Framebuffer = nullptr;
 	m_PipelineConfig = new PipelineConfigInfo();
     m_RenderPassConfig = new RenderPassConfigInfo();
-	VulkanPipeline::DefaultPipelineConfigInfo(m_PipelineConfig, DEFAULT_WIDTH, DEFAULT_HEIGHT);
+    //dont need this line because the values are already set in constructor
+	//VulkanPipeline::DefaultPipelineConfigInfo(m_PipelineConfig, DEFAULT_WIDTH, DEFAULT_HEIGHT);
     VulkanRenderPass::DefaultRenderPassInfo(m_RenderPassConfig);
 
 	m_DirtyPipeline = false; 
@@ -39,6 +40,16 @@ void VulkanStateManager::SetCullMode(const CullMode mode)
 {
 	m_PipelineConfig->SetCullMode(mode);
 	m_DirtyPipeline = true;
+}
+
+void VulkanStateManager::SetViewport(float x, float y, float width, float height)
+{
+	m_PipelineConfig->viewport.x = x;
+	m_PipelineConfig->viewport.y = y;
+	m_PipelineConfig->viewport.width = width;
+	m_PipelineConfig->viewport.height = height;
+
+    m_DirtyPipeline = true;
 }
 
 void VulkanStateManager::UpdateUBOElement(UBOElement element, uint32_t count, void* data)

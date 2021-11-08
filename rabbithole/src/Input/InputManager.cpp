@@ -9,8 +9,8 @@
 
 #include <iostream>
 
-static float LAST_MOUSE_POS_Y = DEFAULT_HEIGHT / 2.f;
-static float LAST_MOUSE_POS_X = DEFAULT_WIDTH / 2.f;
+static float LAST_MOUSE_POS_Y = Window::instance().GetExtent().height / 2.f;
+static float LAST_MOUSE_POS_X = Window::instance().GetExtent().width / 2.f;
 
 bool KeyDown(KeyboardButton _iKey)
 {   
@@ -118,6 +118,10 @@ void InputManager::InitKeybinds()
     m_InputActions["CameraDown"] = 'S';
     m_InputActions["CameraRight"] = 'D';
     m_InputActions["Test"] = 'X';
+	m_InputActions["Debug1"] = '1';
+	m_InputActions["Debug2"] = '2';
+	m_InputActions["Debug3"] = '3';
+	m_InputActions["Debug4"] = '4';
 
 }
 

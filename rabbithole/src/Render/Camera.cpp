@@ -12,7 +12,7 @@
 static const float MAX_VERTICAL_ANGLE = 85.0f;
 
 Camera::Camera() :
-	m_Position(-2.0f, -2.0f, 2.0f),
+	m_Position(-2.0f, 0.0f, 2.0f),
 	m_Front(0.f, 0.f, 0.f),
 	m_UpVector(0.f, 1.f, 0.f),
 	m_HorizontalAngle(0.0f),
@@ -20,7 +20,7 @@ Camera::Camera() :
 	m_FieldOfView(45.0f),
 	m_NearPlane(0.01f),
 	m_FarPlane(100.0f),
-	m_Aspect(static_cast<float>(DEFAULT_WIDTH) / DEFAULT_HEIGHT)
+	m_Aspect(static_cast<float>(Window::instance().GetExtent().width) / Window::instance().GetExtent().height)
 {
 }
 

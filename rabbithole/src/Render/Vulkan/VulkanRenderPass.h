@@ -14,6 +14,7 @@ struct RenderPassConfigInfo
     ResourceState FinalDepthStencilState;
 };
 
+
 class VulkanRenderPass
 {
 public:
@@ -21,7 +22,7 @@ public:
 		const VulkanImageView* depthStencilView, const RenderPassConfigInfo& info, const char* name);
 	~VulkanRenderPass();
 
-	VkRenderPass GetRenderPass() const { return m_RenderPass; }
+	VkRenderPass GetVkRenderPass() const { return m_RenderPass; }
     static void DefaultRenderPassInfo(RenderPassConfigInfo*& renderPassInfo);
 
 private:
@@ -33,5 +34,4 @@ private:
 	uint8_t						m_AttachmentCount;
 	VkClearValue				m_ClearValues[MaxRenderTargetCount];
 
-	
 };

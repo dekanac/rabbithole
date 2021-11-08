@@ -10,6 +10,7 @@ enum class UBOElement : uint32_t
 	ViewMatrix = 0,
 	ProjectionMatrix = 4,
 	CameraPosition = 8,
+	DebugOption = 9
 };
 
 class VulkanStateManager
@@ -30,6 +31,8 @@ public:
 	void EnableWireframe(bool enable);
 	void SetCullMode(const CullMode mode);
 
+	void SetViewport(float x, float y, float width, float height);
+
 	//renderpass
 	VulkanRenderPass*	    GetRenderPass() const { return m_RenderPass; }
     RenderPassConfigInfo*   GetRenderPassInfo() { return m_RenderPassConfig; }
@@ -40,8 +43,14 @@ public:
 	//framebuffer
 	VulkanFramebuffer*	GetFramebuffer() const { return m_Framebuffer; }
 	void SetFramebuffer(VulkanFramebuffer* framebuffer) { m_Framebuffer = framebuffer; }
-	bool GetGramebufferDirty() { m_DirtyFramebuffer; }
+	bool GetGramebufferDirty() { return m_DirtyFramebuffer; }
 	void SetFramebufferDirty(bool dirty) { m_DirtyFramebuffer = dirty; }
+
+	//descriptor set
+	VulkanDescriptorSet* GetDescriptorSet() const { return m_DescriptorSet; }
+	void SetDescriptorSet(VulkanDescriptorSet* descriptorSet) { m_DescriptorSet = descriptorSet; }
+	bool GetDescriptorSetDirty() { return m_DirtyDescriptorSet; }
+	void SetDescriptorSetDirty(bool dirty) { m_DirtyDescriptorSet = dirty; }
 
 	//uniform buffer
 	UniformBufferObject* GetUBO() const { return m_UBO; }
@@ -64,11 +73,13 @@ private:
     RenderPassConfigInfo*   m_RenderPassConfig;
 	VulkanRenderPass*	    m_RenderPass;
 	VulkanFramebuffer*	    m_Framebuffer;
+	VulkanDescriptorSet*	m_DescriptorSet;
 	UniformBufferObject*    m_UBO;
 
 	bool m_DirtyPipeline;
 	bool m_DirtyRenderPass;
 	bool m_DirtyFramebuffer;
+	bool m_DirtyDescriptorSet;
 	bool m_DirtyUBO;
 
     VulkanImageView* m_RenderTarget0 = nullptr;

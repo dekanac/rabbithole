@@ -31,3 +31,8 @@ private: \
 typedef glm::vec3 rabbitVec3f;
 typedef glm::vec2 rabbitVec2f;
 typedef glm::mat4 rabbitMat4f;
+
+#define ZERO_VEC3f rabbitVec3f{0.0, 0.0, 0.0}
+#define ZERO_MAT4f rabbitMat4f{1.f}
+
+#define MB_16 16777216

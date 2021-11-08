@@ -4,6 +4,7 @@
 #include "Render/Camera.h"
 #include "Render/Window.h"
 #include "Vulkan/Shader.h"
+#include "Input/InputManager.h"
 #include "ECS/EntityManager.h"
 #include "Core/Application.h"
 #include "Vulkan/Include/VulkanWrapper.h"
@@ -22,10 +23,12 @@
 
 float sranje = 0.f;
 
+rabbitVec3f renderDebugOption;
+
 #define MAIN_VERTEX_FILE_PATH		"res/shaders/VS_PhongBasicTest.spv"
 #define MAIN_FRAGMENT_FILE_PATH		"res/shaders/FS_PhongBasicTest.spv"
 
-
+VulkanTexture* renderTargetTest;
 
 bool Renderer::Init()
 {
@@ -43,6 +46,8 @@ bool Renderer::Init()
 		verticesCount += testScene->pObjects[i]->mesh->numVertices;
 		offsets.push_back(testScene->pObjects[i]->mesh->numVertices * sizeof(Vertex));
 	}
+
+	renderDebugOption.x = 1.f; //we use vector4f as a default UBO element
 
 	loadModels();
 	LoadAndCreateShaders();
@@ -106,11 +111,13 @@ void Renderer::DrawFrame()
 void Renderer::loadModels()
 {
 	// improvised to see how is engine rendering 10 models
-	for (unsigned int i = 0; i < 10; i++)
+	for (unsigned int i = 0; i < 3; i++)
 	{
 		RabbitModel* model2 = new RabbitModel(m_VulkanDevice, testScene->pObjects[0]);
 		auto matrix = rabbitMat4f{ 1.f };
-		matrix = glm::translate(matrix, rabbitVec3f(0.f, i*2.f, 0.f));
+		matrix = glm::translate(matrix, rabbitVec3f(0.f, 0.f, i*2.f));
+		matrix = glm::rotate(matrix, -3.14f / 2.f, { 1.f, 0.f, 0.f });
+		matrix = glm::rotate(matrix, -3.14f, { 0.f, 0.f, 1.f });
 		model2->SetModelMatrix(matrix);
 		rabbitmodels.push_back(model2);
 	}
@@ -118,10 +125,13 @@ void Renderer::loadModels()
 
 void Renderer::BeginRenderPass()
 {
+
+	BindGraphicsPipeline();
+
 	VkRenderPassBeginInfo renderPassInfo{};
 	renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-	renderPassInfo.renderPass = m_StateManager->GetRenderPass()->GetRenderPass(); //TODO: change names to GetVk.....
-	renderPassInfo.framebuffer = m_StateManager->GetFramebuffer()->GetFramebuffer();
+	renderPassInfo.renderPass = m_StateManager->GetRenderPass()->GetVkRenderPass(); //TODO: change names to GetVk.....
+	renderPassInfo.framebuffer = m_StateManager->GetFramebuffer()->GetVkFramebuffer();
 
 	renderPassInfo.renderArea.offset = { 0, 0 };
 	renderPassInfo.renderArea.extent = m_VulkanSwapchain->GetSwapChainExtent(); //only fullscreen draw for now
@@ -142,11 +152,7 @@ void Renderer::EndRenderPass()
 
 void Renderer::BindGraphicsPipeline()
 {
-    if (!m_StateManager->GetRenderPassDirty())
-    {
-
-    }
-    else
+	if (m_StateManager->GetRenderPassDirty())
     {
         auto attachments = m_StateManager->GetRenderTargets();
         auto depthStencil = m_StateManager->GetDepthStencil();
@@ -154,7 +160,11 @@ void Renderer::BindGraphicsPipeline()
         VulkanRenderPass* renderpass = PipelineManager::instance().FindOrCreateRenderPass(m_VulkanDevice, attachments, depthStencil, *renderPassInfo);
         m_StateManager->SetRenderPass(renderpass);
 
+		VulkanFramebuffer* framebuffer = PipelineManager::instance().FindOrCreateFramebuffer(m_VulkanDevice, attachments, depthStencil, renderpass, Window::instance().GetExtent().width, Window::instance().GetExtent().height);
+		m_StateManager->SetFramebuffer(framebuffer);
+
         m_StateManager->SetRenderPassDirty(false);
+		m_StateManager->SetFramebufferDirty(false);
     }
 
 	if (!m_StateManager->GetPipelineDirty())
@@ -175,8 +185,6 @@ void Renderer::BindGraphicsPipeline()
 
 void Renderer::DrawBucket(std::vector<RabbitModel*> bucket)
 {
-	BindGraphicsPipeline();
-
 	BeginRenderPass();
 
 	BindDescriptorSets();
@@ -333,19 +341,47 @@ void Renderer::recreateSwapchain()
 	CreateUniformBuffers();
 	CreateDescriptorPool();
 	CreateDescriptorSets();
+
+}
+
+void UpdateDebugOptions()
+{
+	if (InputManager::instance().IsButtonActionActive("Debug1", EInputActionState::Pressed))
+	{
+		renderDebugOption.x = 1.f;
+	}
+	else if (InputManager::instance().IsButtonActionActive("Debug2", EInputActionState::Pressed))
+	{
+		renderDebugOption.x = 2.f;
+	}
+	else if (InputManager::instance().IsButtonActionActive("Debug3", EInputActionState::Pressed))
+	{
+		renderDebugOption.x = 3.f;
+	}
+	else if (InputManager::instance().IsButtonActionActive("Debug4", EInputActionState::Pressed))
+	{
+		renderDebugOption.x = 4.f;
+	}
 }
 
 void Renderer::RecordCommandBuffer(int imageIndex)
 {
 	SetCurrentImageIndex(imageIndex);
 	BeginCommandBuffer();
+	
+	BindViewport(0, 0, Window::instance().GetExtent().width, Window::instance().GetExtent().height);
 
-	m_StateManager->SetRenderPass(m_VulkanSwapchain->GetRenderPass());
-	m_StateManager->SetFramebuffer(m_VulkanSwapchain->GetFrameBuffer(m_CurrentImageIndex));
+	m_StateManager->SetRenderTarget0(m_VulkanSwapchain->GetImageView(imageIndex));
+	m_StateManager->SetDepthStencil(m_VulkanSwapchain->GetDepthStencil()->GetView());
 
 	m_StateManager->SetCullMode(CullMode::None);
 	m_StateManager->SetVertexShader(m_Shaders[0]);
 	m_StateManager->SetPixelShader(m_Shaders[1]);
+
+
+	UpdateDebugOptions();
+
+	m_StateManager->UpdateUBOElement(UBOElement::DebugOption, 1, &renderDebugOption);
 
 	BindCameraMatrices(MainCamera);
 	
@@ -421,4 +457,27 @@ void Renderer::CreateDescriptorSets()
  		m_DescriptorSets[i] = new VulkanDescriptorSet(&m_VulkanDevice, m_DescriptorPool.get(),
 			pipeline->GetDescriptorSetLayout(), descriptors, "Main");
 	}
+}
+
+void Renderer::BindViewport(float x, float y, float width, float height)
+{
+#ifdef DYNAMIC_SCISSOR_AND_VIEWPORT_STATES
+	VkViewport viewport;
+	viewport.x = x;
+	viewport.y = y;
+	viewport.width = width;
+	viewport.height = height;
+	viewport.minDepth = 0.0f;
+	viewport.maxDepth = 1.0f;
+
+	VkRect2D scissor{};
+	scissor.offset = { 0, 0 };
+	scissor.extent = { static_cast<uint32_t>(viewport.width), static_cast<uint32_t>(viewport.height) };
+
+	vkCmdSetViewport(m_CommandBuffers[m_CurrentImageIndex], 0, 1, &viewport);
+	//for now scissor is not used separately, i'll just bind both here
+	vkCmdSetScissor(m_CommandBuffers[m_CurrentImageIndex], 0, 1, &scissor);
+#else
+	m_StateManager->SetViewport(x, y, width, height);
+#endif
 }

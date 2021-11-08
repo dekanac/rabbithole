@@ -63,8 +63,17 @@ public:
 
 };
 
+struct DescriptorSetLayoutBinding
+{
+	uint32_t descriptorCount : 32;
+	uint16_t binding : 16;
+	uint8_t descriptorType : 4;
+	uint8_t stageFlags : 6;
+};
+
 struct GraphicsPipelineKey
 {
+	//TODO: need to add viewport here somehow
 	uint32_t m_VertexShaderCRC;
 	uint32_t m_PixelShaderCRC;
 	uint32_t m_Topology;
@@ -95,6 +104,34 @@ template<>
 struct std::hash<GraphicsPipelineKey>
 {
 	inline uint32_t operator()(const GraphicsPipelineKey& x) const
+	{
+		return (uint32_t)crc32_fast((const void*)&x, sizeof(x));
+	}
+};
+
+struct AttachmentDescription
+{
+	uint8_t format : 8;
+	uint8_t samples : 4;
+	uint8_t initialLayout : 4;
+	uint8_t finalLayout : 4;
+	uint8_t loadOp : 2;
+	uint8_t storeOp : 2;
+};
+
+struct RenderPassKey
+{
+	AttachmentDescription attachmentDescriptions[MaxRenderTargetCount];
+	AttachmentDescription depthStencilAttachmentDescription;
+
+	bool operator < (const RenderPassKey& k) const;
+	bool operator == (const RenderPassKey& k) const;
+};
+
+template<>
+struct std::hash<RenderPassKey>
+{
+	inline uint32_t operator()(const RenderPassKey& x) const
 	{
 		return (uint32_t)crc32_fast((const void*)&x, sizeof(x));
 	}
@@ -131,13 +168,31 @@ struct GraphicPipelineDescription
 
 };
 
+typedef std::vector<uint32_t> FramebufferKey;
+
+struct VectorHasher {
+
+	std::size_t operator()(std::vector<uint32_t> const& vec) const {
+		std::size_t seed = vec.size();
+		for (auto& i : vec) {
+			seed ^= i + 0x9e3779b9 + (seed << 6) + (seed >> 2);
+		}
+		return seed;
+	}
+};
+
+//for now its the same thing, vector of attachments
+
 class PipelineManager 
 {
 	SingletonClass(PipelineManager)
 
 public:
 	std::unordered_map<GraphicsPipelineKey, VulkanPipeline*> m_GraphicPipelines;
+	std::unordered_map<RenderPassKey, VulkanRenderPass*>	 m_RenderPasses;
+	std::unordered_map<FramebufferKey, VulkanFramebuffer*, VectorHasher>   m_Framebuffers;
 
 	VulkanPipeline*     FindOrCreateGraphicsPipeline(VulkanDevice& device, PipelineConfigInfo& pipelineInfo);
     VulkanRenderPass*   FindOrCreateRenderPass(VulkanDevice& device, const std::vector<VulkanImageView*> renderTargets, const VulkanImageView* depthStencil, RenderPassConfigInfo& renderPassInfo);
+	VulkanFramebuffer*  FindOrCreateFramebuffer(VulkanDevice& device, const std::vector<VulkanImageView*> renderTargets, const VulkanImageView* depthStencil, const VulkanRenderPass* renderpass, uint32_t width, uint32_t height);
 };

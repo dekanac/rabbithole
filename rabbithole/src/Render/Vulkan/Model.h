@@ -36,6 +36,19 @@ struct Vertex
 	}
 };
 
+template <>
+struct std::hash<Vertex>
+{
+	size_t operator()(const Vertex& k) const
+	{
+		size_t res = 17;
+		res = res * 31 + std::hash<rabbitVec3f>()(k.position);
+		res = res * 31 + std::hash<rabbitVec3f>()(k.normal);
+		res = res * 31 + std::hash<rabbitVec2f>()(k.uv);
+		return res;
+	}
+};
+
 struct TextureData
 {
 	unsigned char* pData;
@@ -43,22 +56,6 @@ struct TextureData
 	int height;
 	int bpp;
 };
-
-namespace std
-{
-	template <>
-	struct hash<Vertex>
-	{
-		size_t operator()(const Vertex& k) const
-		{
-			size_t res = 17;
-			res = res * 31 + hash<rabbitVec3f>()(k.position);
-			res = res * 31 + hash<rabbitVec3f>()(k.normal);
-			res = res * 31 + hash<rabbitVec2f>()(k.uv);
-			return res;
-		}
-	};
-}
 
 class RabbitModel
 {
@@ -104,3 +101,56 @@ private:
 	std::string				m_FilePath{};
 	std::string				m_Name{};
 };
+
+class Mesh
+{
+public:
+	std::vector<Vertex>		GetVertices() { return m_Vertices; }
+	std::vector<uint32_t>	GetIndices() { return m_Indices; }
+
+	uint32_t GetIndexCount() { return m_IndexCount; }
+	uint32_t GetVertexCount() { return m_VertexCount; }
+
+private:
+	std::vector<Vertex>		m_Vertices;
+	std::vector<uint32_t>	m_Indices;
+
+	uint32_t				m_VertexCount;
+	uint32_t				m_IndexCount;
+	bool					hasIndexBuffer = false;
+
+};
+
+class Material
+{
+public:
+	//use default gray texture instead nullptr
+	VulkanTexture* GetDiffuseTexture() { return m_DiffuseTexture ? m_DiffuseTexture : nullptr; }
+private:
+	VulkanTexture* m_DiffuseTexture;
+};
+
+struct TransformData
+{
+	rabbitMat4f modelMatrix = ZERO_MAT4f;
+	rabbitVec3f modelPosition = ZERO_VEC3f;
+	rabbitVec3f modelRotation = ZERO_VEC3f;
+
+	float modelScale = 1.f;
+};
+
+class SceneObject
+{
+
+public:
+	Mesh*			GetMesh() { return m_Mesh; };
+	Material*		GetMaterial() { return m_Material; }
+
+private:
+	Mesh*			m_Mesh;
+	Material*		m_Material;
+	TransformData*	m_TransformData;
+
+	uint32_t		m_ID;
+};
+

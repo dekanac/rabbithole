@@ -20,10 +20,10 @@ public:
 	bool Shutdown();
 
 	static bool IsActionActive(InputComponent* inputComponent, EInputAction targetAction);
+	bool IsButtonActionActive(EInputAction _eAction, EInputActionState _eState) const;
 private:
 	void ProcessInput();
 	void ProcessMousePosition(double& x, double& y);
-	bool IsButtonActionActive(EInputAction _eAction, EInputActionState _eState) const;
 	void InitKeybinds();
 
 	std::unordered_map<EInputAction, KeyboardButton> m_InputActions{ };

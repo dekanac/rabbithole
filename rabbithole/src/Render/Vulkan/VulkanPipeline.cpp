@@ -148,10 +148,26 @@ void VulkanPipeline::CreatePipeline()
 	pipelineInfo.pMultisampleState = &m_PipelineInfo.multisampleInfo;
 	pipelineInfo.pColorBlendState = &m_PipelineInfo.colorBlendInfo;
 	pipelineInfo.pDepthStencilState = &m_PipelineInfo.depthStencilInfo;
+
+#ifdef DYNAMIC_SCISSOR_AND_VIEWPORT_STATES
+	VkDynamicState dynamicStates[2];
+	VkDynamicState viewportState = VK_DYNAMIC_STATE_VIEWPORT;
+	VkDynamicState scissorState = VK_DYNAMIC_STATE_SCISSOR;
+	dynamicStates[0] = viewportState;
+	dynamicStates[1] = scissorState;
+
+	VkPipelineDynamicStateCreateInfo dynamicStateInfo{};
+	dynamicStateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO;
+	dynamicStateInfo.dynamicStateCount = 2;
+	dynamicStateInfo.pDynamicStates = &dynamicStates[0];
+
+	pipelineInfo.pDynamicState = &dynamicStateInfo;
+#else
 	pipelineInfo.pDynamicState = nullptr;
+#endif
 
 	pipelineInfo.layout = *(m_DescriptorSetLayout->GetPipelineLayout());
-	pipelineInfo.renderPass = m_RenderPass->GetRenderPass();
+	pipelineInfo.renderPass = m_RenderPass->GetVkRenderPass();
 	pipelineInfo.subpass = m_PipelineInfo.subpass;
 
 	pipelineInfo.basePipelineIndex = -1;
@@ -405,6 +421,18 @@ bool GraphicsPipelineKey::operator==(const GraphicsPipelineKey& k) const
 	return memcmp(this, &k, sizeof(GraphicsPipelineKey)) == 0;
 }
 
+bool RenderPassKey::operator<(const RenderPassKey& k) const
+{
+	return memcmp(this, &k, sizeof(RenderPassKey)) < 0;
+
+}
+
+bool RenderPassKey::operator==(const RenderPassKey& k) const
+{
+	return memcmp(this, &k, sizeof(RenderPassKey)) == 0;
+}
+
+
 VulkanPipeline* PipelineManager::FindOrCreateGraphicsPipeline(VulkanDevice& device, PipelineConfigInfo& pipelineInfo)
 {
 	GraphicsPipelineKey key;
@@ -438,6 +466,69 @@ VulkanPipeline* PipelineManager::FindOrCreateGraphicsPipeline(VulkanDevice& devi
 
 VulkanRenderPass* PipelineManager::FindOrCreateRenderPass(VulkanDevice& device, const std::vector<VulkanImageView*> renderTargets, const VulkanImageView* depthStencil, RenderPassConfigInfo& renderPassInfo)
 {
-    //for now just create
-    return new VulkanRenderPass(&device, renderTargets, depthStencil, renderPassInfo, "somename");
+    //create hash key
+	RenderPassKey key{};
+
+	for (size_t i = 0; i < renderTargets.size(); i++)
+	{
+		key.attachmentDescriptions[i].format = renderTargets[i]->GetFormat();
+		key.attachmentDescriptions[i].samples = GetVkSampleFlagsFrom(renderTargets[i]->GetInfo().Resource->GetInfo().MultisampleType);
+		key.attachmentDescriptions[i].loadOp = renderPassInfo.ClearRenderTargets ? VK_ATTACHMENT_LOAD_OP_CLEAR : VK_ATTACHMENT_LOAD_OP_LOAD;
+		key.attachmentDescriptions[i].storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+		key.attachmentDescriptions[i].initialLayout = GetVkImageLayoutFrom(renderPassInfo.InitialRenderTargetState);
+		key.attachmentDescriptions[i].finalLayout = GetVkImageLayoutFrom(renderPassInfo.FinalRenderTargetState);
+	}
+	
+	if (depthStencil != nullptr)
+	{
+		key.depthStencilAttachmentDescription.format = depthStencil->GetFormat();
+		key.depthStencilAttachmentDescription.samples = GetVkSampleFlagsFrom(depthStencil->GetInfo().Resource->GetInfo().MultisampleType);
+		key.depthStencilAttachmentDescription.loadOp = renderPassInfo.ClearDepth ? VK_ATTACHMENT_LOAD_OP_CLEAR : VK_ATTACHMENT_LOAD_OP_LOAD;
+		key.depthStencilAttachmentDescription.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+		//missing for stencil, TODO: implement this if needed
+		key.depthStencilAttachmentDescription.initialLayout = GetVkImageLayoutFrom(renderPassInfo.InitialDepthStencilState);
+		key.depthStencilAttachmentDescription.finalLayout = GetVkImageLayoutFrom(renderPassInfo.FinalDepthStencilState);
+	}
+
+	auto renderpass = m_RenderPasses.find(key);
+	if (renderpass != m_RenderPasses.end())
+	{
+		return renderpass->second;
+	}
+	else
+	{
+		auto newRenderPass = new VulkanRenderPass(&device, renderTargets, depthStencil, renderPassInfo, "somename");
+		m_RenderPasses[key] = newRenderPass;
+		return newRenderPass;
+	}
+
+}
+
+VulkanFramebuffer* PipelineManager::FindOrCreateFramebuffer(VulkanDevice& device, const std::vector<VulkanImageView*> renderTargets, const VulkanImageView* depthStencil, const VulkanRenderPass* renderpass, uint32_t width, uint32_t height)
+{
+	FramebufferKey key{};
+	key.resize(5);
+
+	for (size_t i = 0; i < renderTargets.size(); i++)
+	{
+		key[i] = renderTargets[i]->GetId();
+	}
+	key[4] = depthStencil->GetId();
+
+	auto framebuffer = m_Framebuffers.find(key);
+	if (framebuffer != m_Framebuffers.end())
+	{
+		return framebuffer->second;
+	}
+	else
+	{
+		VulkanFramebufferInfo info{};
+		info.height = height;
+		info.width = width;
+
+		auto newFramebuffer = new VulkanFramebuffer(&device, info, renderpass, renderTargets, depthStencil);
+		m_Framebuffers[key] = newFramebuffer;
+
+		return newFramebuffer;
+	}
 }

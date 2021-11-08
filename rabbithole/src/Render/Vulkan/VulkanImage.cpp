@@ -71,10 +71,15 @@ VulkanImage::~VulkanImage()
 	}
 }
 
+uint32_t VulkanImageView::ms_currentId = 0;
+
 VulkanImageView::VulkanImageView(const VulkanDevice* device, const VulkanImageViewInfo& info, const char* name)
 	: m_VulkanDevice(device)
 	, m_Info(info)
 {
+	m_Id = ms_currentId;
+	ms_currentId++;
+
 	VulkanImage* image = m_Info.Resource;
 	m_Format = GetVkFormatFrom(m_Info.Format == Format::UNDEFINED ? image->GetInfo().Format : m_Info.Format);
 

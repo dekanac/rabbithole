@@ -18,7 +18,7 @@ public:
 		const VulkanImageView* depthStencil);
 	~VulkanFramebuffer();
 
-	VkFramebuffer			GetFramebuffer() const { return m_Framebuffer; }
+	VkFramebuffer			GetVkFramebuffer() const { return m_Framebuffer; }
 	VulkanFramebufferInfo	GetInfo() const { return m_Info; }
 
 private:
