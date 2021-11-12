@@ -230,7 +230,7 @@ namespace ModelLoading
 
 			if (loadTangents)
 			{
-				//vert.tangent = Private::GetVec3(mesh->mTangents[v]); TODO: Tmp disabled
+				vert.tangent = GetVec3(mesh->mTangents[v]);
 			}
 			else
 			{
@@ -253,7 +253,7 @@ namespace ModelLoading
 		for (size_t f = 0; f < numFaces; f++)
 		{
 			aiFace& face = mesh->mFaces[f];
-			ASSERT(face.mNumIndices == 3, "[ModelLoading] Not supported anything else except triangle meshes!");
+			//ASSERT(face.mNumIndices == 3, "[ModelLoading] Not supported anything else except triangle meshes!");
 
 			indices[f * 3] = face.mIndices[0];
 			indices[f * 3 + 1] = face.mIndices[1];

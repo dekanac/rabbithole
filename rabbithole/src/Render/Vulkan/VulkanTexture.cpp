@@ -62,7 +62,8 @@ void VulkanTexture::CreateResource(VulkanDevice* device, TextureData* texData)
 	VulkanImageInfo textureResourceInfo;
 	textureResourceInfo.Flags = IsFlagSet(m_Flags & TextureFlags::CubeMap) ? ImageFlags::CubeMap : ImageFlags::None;
 	textureResourceInfo.UsageFlags = ImageUsageFlags::TransferDst | ImageUsageFlags::Resource |
-		(IsFlagSet(m_Flags & TextureFlags::DepthStencil) ? ImageUsageFlags::DepthStencil : ImageUsageFlags::None);
+		(IsFlagSet(m_Flags & TextureFlags::DepthStencil) ? ImageUsageFlags::DepthStencil : ImageUsageFlags::None) | 
+		(IsFlagSet(m_Flags & TextureFlags::RenderTarget) ? ImageUsageFlags::RenderTarget : ImageUsageFlags::None);
 	textureResourceInfo.MemoryAccess = MemoryAccess::Device;
 	textureResourceInfo.Format = m_Format;
 	textureResourceInfo.Extent.Width = texData->width;
@@ -102,8 +103,16 @@ void VulkanTexture::CreateResource(VulkanDevice* device, const uint32_t width, c
 
 	VulkanImageInfo textureResourceInfo;
 	textureResourceInfo.Flags = IsFlagSet(m_Flags & TextureFlags::CubeMap) ? ImageFlags::CubeMap : ImageFlags::None;
-	textureResourceInfo.UsageFlags = ImageUsageFlags::Resource |
-		(IsFlagSet(m_Flags & TextureFlags::DepthStencil) ? ImageUsageFlags::DepthStencil : ImageUsageFlags::None);
+	if (IsFlagSet(m_Flags & TextureFlags::DepthStencil))
+	{
+		textureResourceInfo.UsageFlags = ImageUsageFlags::DepthStencil;
+	}
+	else
+	{
+		textureResourceInfo.UsageFlags = ImageUsageFlags::Storage |
+			(IsFlagSet(m_Flags & TextureFlags::Read) ? ImageUsageFlags::Resource : ImageUsageFlags::None) |
+			(IsFlagSet(m_Flags & TextureFlags::RenderTarget) ? ImageUsageFlags::RenderTarget : ImageUsageFlags::None);
+	}
 	textureResourceInfo.MemoryAccess = MemoryAccess::Device;
 	textureResourceInfo.Format = m_Format;
 	textureResourceInfo.Extent.Width = width;
@@ -137,7 +146,7 @@ void VulkanTexture::CreateResource(VulkanDevice* device, const uint32_t width, c
 
 void VulkanTexture::CreateResource(VulkanDevice* device)
 {
-	//TODO: implement this if needed
+	ASSERT(false, "Not implemented");
 }
 
 void VulkanTexture::CreateView(VulkanDevice* device)

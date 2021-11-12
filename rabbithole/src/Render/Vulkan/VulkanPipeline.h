@@ -12,6 +12,8 @@ const uint8_t MaxRenderTargetCount = 4;
 
 class VulkanDescriptorSetLayout;
 class VulkanDescriptorSet;
+class VulkanDescriptorPool;
+class VulkanDescriptor;
 class Shader;
 struct RenderPassConfigInfo;
 
@@ -169,6 +171,8 @@ struct GraphicPipelineDescription
 };
 
 typedef std::vector<uint32_t> FramebufferKey;
+typedef std::vector<uint32_t> DescriptorSetKey;
+
 
 struct VectorHasher {
 
@@ -183,7 +187,7 @@ struct VectorHasher {
 
 //for now its the same thing, vector of attachments
 
-class PipelineManager 
+class PipelineManager
 {
 	SingletonClass(PipelineManager)
 
@@ -191,8 +195,10 @@ public:
 	std::unordered_map<GraphicsPipelineKey, VulkanPipeline*> m_GraphicPipelines;
 	std::unordered_map<RenderPassKey, VulkanRenderPass*>	 m_RenderPasses;
 	std::unordered_map<FramebufferKey, VulkanFramebuffer*, VectorHasher>   m_Framebuffers;
+	std::unordered_map<DescriptorSetKey, VulkanDescriptorSet*, VectorHasher> m_DescriptorSets;
 
-	VulkanPipeline*     FindOrCreateGraphicsPipeline(VulkanDevice& device, PipelineConfigInfo& pipelineInfo);
-    VulkanRenderPass*   FindOrCreateRenderPass(VulkanDevice& device, const std::vector<VulkanImageView*> renderTargets, const VulkanImageView* depthStencil, RenderPassConfigInfo& renderPassInfo);
-	VulkanFramebuffer*  FindOrCreateFramebuffer(VulkanDevice& device, const std::vector<VulkanImageView*> renderTargets, const VulkanImageView* depthStencil, const VulkanRenderPass* renderpass, uint32_t width, uint32_t height);
+	VulkanPipeline* FindOrCreateGraphicsPipeline(VulkanDevice& device, PipelineConfigInfo& pipelineInfo);
+	VulkanRenderPass* FindOrCreateRenderPass(VulkanDevice& device, const std::vector<VulkanImageView*> renderTargets, const VulkanImageView* depthStencil, RenderPassConfigInfo& renderPassInfo);
+	VulkanFramebuffer* FindOrCreateFramebuffer(VulkanDevice& device, const std::vector<VulkanImageView*> renderTargets, const VulkanImageView* depthStencil, const VulkanRenderPass* renderpass, uint32_t width, uint32_t height);
+	VulkanDescriptorSet* FindOrCreateDescriptorSet(VulkanDevice& device, const VulkanDescriptorPool* desciptorPool, const VulkanDescriptorSetLayout* descriptorSetLayout, const std::vector<VulkanDescriptor*> descriptors);
 };

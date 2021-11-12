@@ -66,22 +66,14 @@ void VulkanPipeline::DefaultPipelineConfigInfo(PipelineConfigInfo*& configInfo, 
 	configInfo->multisampleInfo.alphaToCoverageEnable = VK_FALSE;  // Optional
 	configInfo->multisampleInfo.alphaToOneEnable = VK_FALSE;       // Optional
 
-	configInfo->colorBlendAttachment[0].colorWriteMask =
-		VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT |
-		VK_COLOR_COMPONENT_A_BIT;
+	configInfo->colorBlendAttachment[0].colorWriteMask = 0xf;
 	configInfo->colorBlendAttachment[0].blendEnable = VK_FALSE;
-	configInfo->colorBlendAttachment[0].srcColorBlendFactor = VK_BLEND_FACTOR_ONE;   // Optional
-	configInfo->colorBlendAttachment[0].dstColorBlendFactor = VK_BLEND_FACTOR_ZERO;  // Optional
-	configInfo->colorBlendAttachment[0].colorBlendOp = VK_BLEND_OP_ADD;              // Optional
-	configInfo->colorBlendAttachment[0].srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE;   // Optional
-	configInfo->colorBlendAttachment[0].dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO;  // Optional
-	configInfo->colorBlendAttachment[0].alphaBlendOp = VK_BLEND_OP_ADD;              // Optional
 
 	configInfo->colorBlendInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
 	configInfo->colorBlendInfo.logicOpEnable = VK_FALSE;
 	configInfo->colorBlendInfo.logicOp = VK_LOGIC_OP_COPY;  // Optional
 	configInfo->colorBlendInfo.attachmentCount = 1;
-	configInfo->colorBlendInfo.pAttachments = &configInfo->colorBlendAttachment[0];
+	configInfo->colorBlendInfo.pAttachments = configInfo->colorBlendAttachment;
 	configInfo->colorBlendInfo.blendConstants[0] = 0.0f;  // Optional
 	configInfo->colorBlendInfo.blendConstants[1] = 0.0f;  // Optional
 	configInfo->colorBlendInfo.blendConstants[2] = 0.0f;  // Optional
@@ -90,7 +82,7 @@ void VulkanPipeline::DefaultPipelineConfigInfo(PipelineConfigInfo*& configInfo, 
 	configInfo->depthStencilInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
 	configInfo->depthStencilInfo.depthTestEnable = VK_TRUE;
 	configInfo->depthStencilInfo.depthWriteEnable = VK_TRUE;
-	configInfo->depthStencilInfo.depthCompareOp = VK_COMPARE_OP_LESS;
+	configInfo->depthStencilInfo.depthCompareOp = VK_COMPARE_OP_LESS_OR_EQUAL;
 	configInfo->depthStencilInfo.depthBoundsTestEnable = VK_FALSE;
 	configInfo->depthStencilInfo.minDepthBounds = 0.0f;  // Optional
 	configInfo->depthStencilInfo.maxDepthBounds = 1.0f;  // Optional
@@ -330,22 +322,14 @@ void PipelineConfigInfo::SetWindingOrder(const WindingOrder winding)
 	 multisampleInfo.alphaToCoverageEnable = VK_FALSE;  // Optional
 	 multisampleInfo.alphaToOneEnable = VK_FALSE;       // Optional
 
-	 colorBlendAttachment[0].colorWriteMask =
-		 VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT |
-		 VK_COLOR_COMPONENT_A_BIT;
+	 colorBlendAttachment[0].colorWriteMask = 0xf;
 	 colorBlendAttachment[0].blendEnable = VK_FALSE;
-	 colorBlendAttachment[0].srcColorBlendFactor = VK_BLEND_FACTOR_ONE;   // Optional
-	 colorBlendAttachment[0].dstColorBlendFactor = VK_BLEND_FACTOR_ZERO;  // Optional
-	 colorBlendAttachment[0].colorBlendOp = VK_BLEND_OP_ADD;              // Optional
-	 colorBlendAttachment[0].srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE;   // Optional
-	 colorBlendAttachment[0].dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO;  // Optional
-	 colorBlendAttachment[0].alphaBlendOp = VK_BLEND_OP_ADD;              // Optional
 
 	 colorBlendInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
 	 colorBlendInfo.logicOpEnable = VK_FALSE;
 	 colorBlendInfo.logicOp = VK_LOGIC_OP_COPY;  // Optional
 	 colorBlendInfo.attachmentCount = 1;
-	 colorBlendInfo.pAttachments = &colorBlendAttachment[0];
+	 colorBlendInfo.pAttachments = colorBlendAttachment;
 	 colorBlendInfo.blendConstants[0] = 0.0f;  // Optional
 	 colorBlendInfo.blendConstants[1] = 0.0f;  // Optional
 	 colorBlendInfo.blendConstants[2] = 0.0f;  // Optional
@@ -513,7 +497,10 @@ VulkanFramebuffer* PipelineManager::FindOrCreateFramebuffer(VulkanDevice& device
 	{
 		key[i] = renderTargets[i]->GetId();
 	}
-	key[4] = depthStencil->GetId();
+	if (depthStencil != nullptr)
+	{
+		key[4] = depthStencil->GetId();
+	}
 
 	auto framebuffer = m_Framebuffers.find(key);
 	if (framebuffer != m_Framebuffers.end())
@@ -531,4 +518,37 @@ VulkanFramebuffer* PipelineManager::FindOrCreateFramebuffer(VulkanDevice& device
 
 		return newFramebuffer;
 	}
+}
+
+VulkanDescriptorSet* PipelineManager::FindOrCreateDescriptorSet(VulkanDevice& device, const VulkanDescriptorPool* desciptorPool, const VulkanDescriptorSetLayout* descriptorSetLayout, const std::vector<VulkanDescriptor*> descriptors)
+{
+	DescriptorSetKey key;
+
+	for (size_t i = 0; i < descriptors.size(); i++)
+	{
+		switch (descriptors[i]->GetDescriptorInfo().Type)
+		{
+		case DescriptorType::UniformBuffer:
+			key.push_back(descriptors[i]->GetDescriptorInfo().buffer->GetId());
+			break;
+		case DescriptorType::CombinedSampler:
+			//only views now have unique ID so its a little bit hacky but who cares
+			key.push_back(descriptors[i]->GetDescriptorInfo().combinedImageSampler->ImageView->GetId());
+			break;
+		}
+	}
+
+	auto descriptorset = m_DescriptorSets.find(key);
+	if (descriptorset != m_DescriptorSets.end())
+	{
+		return descriptorset->second;
+	}
+	else
+	{
+		VulkanDescriptorSet* newDescSet = new VulkanDescriptorSet(&device, desciptorPool, descriptorSetLayout, descriptors, "descriptorset");
+		m_DescriptorSets[key] = newDescSet;
+		return newDescSet;
+	}
+
+	return nullptr;
 }

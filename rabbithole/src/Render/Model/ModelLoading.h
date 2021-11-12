@@ -39,11 +39,12 @@ namespace ModelLoading
 	{
 		Vec3 position;
 		Vec3 normal;
+		Vec3 tangent;
 		Vec2 uv;
 
 		inline static unsigned int GetStride()
 		{
-			return (3 + 3 + 2) * sizeof(float);
+			return (3 + 3 + 3 + 2) * sizeof(float);
 		}
 	};
 

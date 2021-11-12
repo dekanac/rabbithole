@@ -21,6 +21,7 @@ class VulkanDevice;
 class VulkanStateManager;
 class Entity;
 class Shader;
+class RenderPass;
 
 struct UniformBufferObject
 {
@@ -28,6 +29,12 @@ struct UniformBufferObject
 	rabbitMat4f proj;
 	rabbitVec3f cameraPos;
 	rabbitVec3f debugOption;
+};
+
+struct LightParams
+{
+	rabbitVec4f position;
+	rabbitVec4f colorAndRadius; //4th element of vector is radius
 };
 
 class Renderer
@@ -43,11 +50,9 @@ private:
 	std::vector<Shader*>					m_Shaders;
 	std::vector<VkCommandBuffer>			m_CommandBuffers;
 	
-	std::vector<VulkanDescriptorSet*>		m_DescriptorSets;
-	std::vector<VulkanBuffer*>				m_UniformBuffers;
+	VulkanBuffer*							m_UniformBuffer;
+	VulkanBuffer*							m_LightParams;
 
-	VulkanPipeline*							m_CurrentGraphicsPipeline;
-	VulkanRenderPass*						m_CurrentRenderPass;
 	VulkanStateManager*						m_StateManager;
 
 	int										m_CurrentImageIndex = 0;
@@ -59,17 +64,31 @@ private:
 	void loadModels();
 	void LoadAndCreateShaders();
 	void CreateShaderModule(const std::vector<char>& code, ShaderType type, const char* name, const char* codeEntry);
-	void CreateRenderPasses();
-	void CreateMainPhongLightingPipeline();
 	void createCommandBuffers();
 	void recreateSwapchain();
 	void RecordCommandBuffer(int imageIndex);
-	void UpdateUniformBuffer(uint32_t currentImage);
 	void CreateUniformBuffers();
 	void CreateDescriptorPool();
-	void CreateDescriptorSets();
 
+public:
+	inline VulkanDevice& GetVulkanDevice() { return m_VulkanDevice; }
+	inline VulkanStateManager* GetStateManager() { return m_StateManager; }
+	inline VulkanSwapchain* GetSwapchain() { return m_VulkanSwapchain.get(); }
+	inline VulkanImageView* GetSwapchainImage() { return m_VulkanSwapchain->GetImageView(m_CurrentImageIndex); }
+
+	void ResourceBarrier(VulkanTexture* texture, ResourceState oldLayout, ResourceState newLayout);
+
+	inline Shader* GetShader(int index) { return m_Shaders[index]; }
+	inline std::vector<RabbitModel*> GetModels() { return rabbitmodels; }
+	inline Camera* GetCamera() { return MainCamera; }
+
+	inline VulkanBuffer* GetUniformBuffer() { return m_UniformBuffer; }
+	inline VulkanBuffer* GetLightParams() { return m_LightParams; }
+	
+
+	void UpdateDebugOptions();
 	void BindViewport(float x, float y, float width, float height);
+
 
 	template <typename T>
 	void BindPushConstant(ShaderType shaderType, T& push)
@@ -83,6 +102,7 @@ private:
 	}
 
 	void SetCurrentImageIndex(int imageIndex) { m_CurrentImageIndex = imageIndex; }
+	
 	void BeginRenderPass();
 	void EndRenderPass();
 
@@ -93,14 +113,22 @@ private:
 	void BindModelMatrix(RabbitModel* model);
 	void BindCameraMatrices(Camera* camera);
 
-	void DrawBucket(std::vector<RabbitModel*> bucket);
+	void DrawGeometry(std::vector<RabbitModel*> bucket);
 
 	void BeginCommandBuffer();
 	void EndCommandBuffer();
 
 	//helper functions
 	std::vector<char> ReadFile(const std::string& filepath);
+	void DrawFullScreenQuad();
+	void ImageTransitionToPresent();
 public:
+
+	VulkanTexture* albedoGBuffer;
+	VulkanTexture* normalGBuffer;
+	VulkanTexture* worldPositionGBuffer;
+	VulkanTexture* lightingMain;
+
     bool m_FramebufferResized = false;
 
 	bool Init();
@@ -109,4 +137,6 @@ public:
     void Draw(float dt);
     void DrawFrame();
 
+private:
+	void CreateGeometryDescriptors();
 };

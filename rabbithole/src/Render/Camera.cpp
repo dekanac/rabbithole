@@ -12,11 +12,11 @@
 static const float MAX_VERTICAL_ANGLE = 85.0f;
 
 Camera::Camera() :
-	m_Position(-2.0f, 0.0f, 2.0f),
-	m_Front(0.f, 0.f, 0.f),
+	m_Position(-12.0f, 0.0f, -14.0f),
+	m_Front(0.0f, 0.0f, 0.0f),
 	m_UpVector(0.f, 1.f, 0.f),
 	m_HorizontalAngle(0.0f),
-	m_VerticalAngle(0.0f),
+	m_VerticalAngle(0.f),
 	m_FieldOfView(45.0f),
 	m_NearPlane(0.01f),
 	m_FarPlane(100.0f),
@@ -150,7 +150,8 @@ float Camera::GetFieldOfView() const
 	return m_FieldOfView;
 }
 
-void Camera::setFieldOfView(float fieldOfView_) {
+void Camera::setFieldOfView(float fieldOfView_) 
+{
 	ASSERT(fieldOfView_ > 0.0f && fieldOfView_ < 180.0f, "Field of view mus be between 0 adn 180 degrees!");
 	m_FieldOfView = fieldOfView_;
 }

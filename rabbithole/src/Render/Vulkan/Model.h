@@ -16,6 +16,8 @@ class VulkanImage;
 class VulkanImageView;
 class VulkanImageSampler;
 
+void InitDefaultTextures(VulkanDevice* device);
+
 struct SimplePushConstantData
 {
 	rabbitMat4f modelMatrix;
@@ -25,6 +27,7 @@ struct Vertex
 {
 	rabbitVec3f position;
 	rabbitVec3f normal;
+	rabbitVec3f tangent;
 	rabbitVec2f uv;
 
 	static std::vector<VkVertexInputBindingDescription>		GetBindingDescriptions();
@@ -32,7 +35,7 @@ struct Vertex
 
 	bool operator==(const Vertex& other) const
 	{
-		return position == other.position && normal == other.normal && uv == other.uv;
+		return position == other.position && normal == other.normal && tangent == other.tangent && uv == other.uv;
 	}
 };
 
@@ -44,6 +47,7 @@ struct std::hash<Vertex>
 		size_t res = 17;
 		res = res * 31 + std::hash<rabbitVec3f>()(k.position);
 		res = res * 31 + std::hash<rabbitVec3f>()(k.normal);
+		res = res * 31 + std::hash<rabbitVec2f>()(k.tangent);
 		res = res * 31 + std::hash<rabbitVec2f>()(k.uv);
 		return res;
 	}
@@ -69,6 +73,7 @@ public:
 	RabbitModel& operator=(const RabbitModel&) = delete;
 
 	VulkanTexture* GetTexture()	const { return m_Texture; }
+	VulkanTexture* GetNormalTexture()	const { return m_NormalTexture; }
 
 	rabbitMat4f	GetModelMatrix() { return m_ModelMatrix; }
 	void SetModelMatrix(rabbitMat4f modelMatrix) { m_ModelMatrix = modelMatrix; }
@@ -77,6 +82,10 @@ public:
 	void Draw(VkCommandBuffer commandBuffer);
 
 	void LoadFromFile();
+	
+	//test purpose, make it private
+	VulkanDescriptorSet* m_DescriptorSet;
+
 
 private:
 	void CreateTextures(ModelLoading::MaterialData* material);
@@ -94,63 +103,46 @@ private:
 
 	TextureData*			m_TextureData{};
 	VulkanTexture*			m_Texture;
+	VulkanTexture*			m_NormalTexture;
+
 
 	rabbitMat4f				m_ModelMatrix;
-
+public:
+	static VulkanTexture*	ms_DefaultWhiteTexture;
 private:
 	std::string				m_FilePath{};
 	std::string				m_Name{};
 };
 
-class Mesh
+struct SceneNode 
 {
-public:
-	std::vector<Vertex>		GetVertices() { return m_Vertices; }
-	std::vector<uint32_t>	GetIndices() { return m_Indices; }
-
-	uint32_t GetIndexCount() { return m_IndexCount; }
-	uint32_t GetVertexCount() { return m_VertexCount; }
-
-private:
-	std::vector<Vertex>		m_Vertices;
-	std::vector<uint32_t>	m_Indices;
-
-	uint32_t				m_VertexCount;
-	uint32_t				m_IndexCount;
-	bool					hasIndexBuffer = false;
-
+	int mesh, material;
+	int parent;
+	int firstChild;
+	int rightSibling;
 };
 
-class Material
+struct Hierarchy 
 {
-public:
-	//use default gray texture instead nullptr
-	VulkanTexture* GetDiffuseTexture() { return m_DiffuseTexture ? m_DiffuseTexture : nullptr; }
-private:
-	VulkanTexture* m_DiffuseTexture;
+	int parent;
+	int firstChild;
+	int nextSibling;
+	int level;
 };
 
-struct TransformData
+struct Scene 
 {
-	rabbitMat4f modelMatrix = ZERO_MAT4f;
-	rabbitVec3f modelPosition = ZERO_VEC3f;
-	rabbitVec3f modelRotation = ZERO_VEC3f;
-
-	float modelScale = 1.f;
+	std::vector<rabbitMat4f> localTransforms;
+	std::vector<rabbitMat4f> globalTransforms;
+	std::vector<Hierarchy> hierarchy;
+	// Meshes for nodes (Node -> Mesh)
+	std::unordered_map<uint32_t, uint32_t> meshes;
+	// Materials for nodes (Node -> Material)
+	std::unordered_map<uint32_t, uint32_t> materialForNode;
+	// Node names: which name is assigned to the node
+	std::unordered_map<uint32_t, uint32_t> nameForNode;
+	// Collection of scene node names
+	std::vector<std::string> names;
+	// Collection of debug material names
+	std::vector<std::string> materialNames;
 };
-
-class SceneObject
-{
-
-public:
-	Mesh*			GetMesh() { return m_Mesh; };
-	Material*		GetMaterial() { return m_Material; }
-
-private:
-	Mesh*			m_Mesh;
-	Material*		m_Material;
-	TransformData*	m_TransformData;
-
-	uint32_t		m_ID;
-};
-

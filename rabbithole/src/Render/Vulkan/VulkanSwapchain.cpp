@@ -246,7 +246,7 @@ void VulkanSwapchain::CreateFramebuffers()
 
 void VulkanSwapchain::CreateDepthResources() 
 {
-	m_DepthStencil = new VulkanTexture(&m_VulkanDevice, m_SwapChainExtent.width, m_SwapChainExtent.height ,TextureFlags::DepthStencil | TextureFlags::RenderTarget, Format::D32_SFLOAT, "swapchain depthstencil");
+	m_DepthStencil = new VulkanTexture(&m_VulkanDevice, m_SwapChainExtent.width, m_SwapChainExtent.height, TextureFlags::DepthStencil | TextureFlags::RenderTarget, Format::D32_SFLOAT, "swapchain depthstencil");
 }
 
 void VulkanSwapchain::CreateSyncObjects() 

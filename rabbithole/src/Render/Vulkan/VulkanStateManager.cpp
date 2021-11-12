@@ -18,6 +18,8 @@ VulkanStateManager::VulkanStateManager()
 	m_DirtyPipeline = false; 
 	m_DirtyUBO = false;
 
+    m_DescriptorSetManager = new DescriptorSetManager();
+
 	m_UBO = new UniformBufferObject();
 	memset(m_UBO, 0, sizeof(UniformBufferObject));
 }
@@ -28,6 +30,7 @@ VulkanStateManager::~VulkanStateManager()
 	delete m_Pipeline;
 	delete m_Framebuffer;
 	delete m_UBO;
+    delete m_DescriptorSetManager;
 }
 
 void VulkanStateManager::EnableWireframe(bool enable)
@@ -90,31 +93,99 @@ std::vector<VulkanImageView*> VulkanStateManager::GetRenderTargets() const
 void VulkanStateManager::SetRenderTarget0(VulkanImageView* rt)
 {
     m_RenderTarget0 = rt;
-    m_DirtyRenderPass = true;
+    m_DirtyPipeline = true;
 }
 
 void VulkanStateManager::SetRenderTarget1(VulkanImageView* rt)
 {
     m_RenderTarget1 = rt;
-    m_DirtyRenderPass = true;
+    m_DirtyPipeline = true;
 }
 
 void VulkanStateManager::SetRenderTarget2(VulkanImageView* rt)
 {
     m_RenderTarget2 = rt;
-    m_DirtyRenderPass = true;
+    m_DirtyPipeline = true;
 }
 
 void VulkanStateManager::SetRenderTarget3(VulkanImageView* rt)
 {
     m_RenderTarget3 = rt;
-    m_DirtyRenderPass = true;
+    m_DirtyPipeline = true;
 }
 
 void VulkanStateManager::SetDepthStencil(VulkanImageView* ds)
 {
     m_DepthStencil = ds;
-    m_DirtyRenderPass = true;
+    m_DirtyPipeline = true;
+}
+
+void VulkanStateManager::ShouldCleanColor(bool clean)
+{
+    m_RenderPassConfig->ClearRenderTargets = clean;
+    m_DirtyPipeline = true;
+}
+
+void VulkanStateManager::ShouldCleanDepth(bool clean)
+{
+	m_RenderPassConfig->ClearDepth = clean;
+	m_RenderPassConfig->ClearStencil = clean;
+    m_DirtyPipeline = true;
+}
+
+void VulkanStateManager::SetCombinedImageSampler(uint32_t slot, VulkanTexture* texture)
+{
+    //TODO: dual implementation, get rid of one
+    VulkanDescriptorInfo info{};
+    info.Binding = slot;
+
+    //probably memory leak TODO: see whats going on here
+    info.combinedImageSampler = new CombinedImageSampler();
+    info.combinedImageSampler->ImageSampler = texture->GetSampler();
+    info.combinedImageSampler->ImageView = texture->GetView();
+    info.Type = DescriptorType::CombinedSampler;
+
+    VulkanDescriptor* descriptor = new VulkanDescriptor(info);
+
+    m_Descriptors.push_back(descriptor);
+}
+
+void VulkanStateManager::SetConstantBuffer(uint32_t slot, VulkanBuffer* buffer, uint64_t offset, uint64_t range)
+{
+	VulkanDescriptorInfo info{};
+	info.Binding = slot;
+	info.buffer = buffer;
+	info.Type = DescriptorType::UniformBuffer;
+
+	VulkanDescriptor* descriptor = new VulkanDescriptor(info);
+
+    m_Descriptors.push_back(descriptor);
+}
+
+VulkanDescriptorSet* VulkanStateManager::FinalizeDescriptorSet(VulkanDevice& device, const VulkanDescriptorPool* pool)
+{
+    VulkanDescriptorSet* descriptorset = PipelineManager::instance().FindOrCreateDescriptorSet(device, pool, m_Pipeline->GetDescriptorSetLayout(), m_Descriptors);
+    m_Descriptors.clear();
+    return descriptorset;
+}
+
+uint8_t VulkanStateManager::GetRenderTargetCount()
+{
+    //man, this line makes me proud :'D
+    return m_RenderTarget0 ? (m_RenderTarget1 ? (m_RenderTarget2 ? (m_RenderTarget3 ? 4 : 3) : 2) : 1) : 0;
+}
+
+void VulkanStateManager::Reset()
+{
+    m_RenderTarget0 = nullptr;
+    m_RenderTarget1 = nullptr;
+	m_RenderTarget2 = nullptr;
+	m_RenderTarget3 = nullptr;
+
+    m_DepthStencil = nullptr;
+
+    VulkanPipeline::DefaultPipelineConfigInfo(m_PipelineConfig, Window::instance().GetExtent().width, Window::instance().GetExtent().height);
+    VulkanRenderPass::DefaultRenderPassInfo(m_RenderPassConfig);
 }
 
 void VulkanStateManager::SetVertexShader(Shader* shader)

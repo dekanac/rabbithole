@@ -2,6 +2,8 @@
 
 #include "VulkanTypes.h"
 
+#define BUFFER_ID_START_POS 1024
+
 struct VulkanBufferInfo
 {
 	BufferUsageFlags usageFlags;
@@ -25,6 +27,7 @@ public:
 	inline const VulkanBufferInfo	GetInfo() const { return m_Info; }
 	inline void*					GetHostVisibleData() { return m_HostVisibleData; }
 	inline VkBuffer					GetBuffer() { return m_Buffer; }
+	inline uint32_t					GetId() { return m_Id; }
 
 private:
 	void CreateBufferResource();
@@ -35,5 +38,8 @@ private:
 	VkBuffer				m_Buffer;
 	VmaAllocation			m_VmaAllocation;
 	void*					m_HostVisibleData = nullptr;
+
+	uint32_t				m_Id;
+	static uint32_t			ms_currentId;
 
 };

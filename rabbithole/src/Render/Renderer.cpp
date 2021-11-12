@@ -3,6 +3,7 @@
 #include "Renderer.h"
 #include "Render/Camera.h"
 #include "Render/Window.h"
+#include "Render/RenderPass.h"
 #include "Vulkan/Shader.h"
 #include "Input/InputManager.h"
 #include "ECS/EntityManager.h"
@@ -21,14 +22,21 @@
 
 #include "Model/ModelLoading.h"
 
-float sranje = 0.f;
-
 rabbitVec3f renderDebugOption;
 
-#define MAIN_VERTEX_FILE_PATH		"res/shaders/VS_PhongBasicTest.spv"
-#define MAIN_FRAGMENT_FILE_PATH		"res/shaders/FS_PhongBasicTest.spv"
+#define GBUFFER_VERTEX_FILE_PATH			"res/shaders/VS_GBuffer.spv"
+#define GBUFFER_FRAGMENT_FILE_PATH			"res/shaders/FS_GBuffer.spv"
+#define PASSTHROUGH_VERTEX_FILE_PATH		"res/shaders/VS_PassThrough.spv"
+#define PASSTHROUGH_FRAGMENT_FILE_PATH		"res/shaders/FS_PassThrough.spv"
+#define PHONG_LIGHT_FRAGMENT_FILE_PATH		"res/shaders/FS_PhongBasicTest.spv"
 
-VulkanTexture* renderTargetTest;
+
+void ExecuteRenderPass(RenderPass& renderpass, Renderer* renderer)
+{
+	renderpass.DeclareResources(renderer);
+	renderpass.Setup(renderer);
+	renderpass.Render(renderer);
+}
 
 bool Renderer::Init()
 {
@@ -36,9 +44,10 @@ bool Renderer::Init()
 	MainCamera->Init();
 	testEntity = new Entity();
 
+	InitDefaultTextures(&m_VulkanDevice);
 	m_StateManager = new VulkanStateManager();
 
-	testScene = ModelLoading::LoadScene("res/meshes/viking_room/viking_room.obj");
+	testScene = ModelLoading::LoadScene("res/meshes/cottage/Cottage_FREE.obj");
 	size_t verticesCount = 0;
 	std::vector<uint16_t> offsets{ 0 };
 	for (size_t i = 0; i < testScene->numObjects; i++)
@@ -47,12 +56,20 @@ bool Renderer::Init()
 		offsets.push_back(testScene->pObjects[i]->mesh->numVertices * sizeof(Vertex));
 	}
 
-	renderDebugOption.x = 1.f; //we use vector4f as a default UBO element
+	renderDebugOption.x = 0.f; //we use vector4f as a default UBO element
 
 	loadModels();
 	LoadAndCreateShaders();
 	recreateSwapchain();
 	createCommandBuffers();
+
+	CreateGeometryDescriptors();
+
+	albedoGBuffer = new VulkanTexture(&m_VulkanDevice, DEFAULT_WIDTH, DEFAULT_HEIGHT, TextureFlags::RenderTarget, Format::B8G8R8A8_UNORM, "albedo");
+	normalGBuffer = new VulkanTexture(&m_VulkanDevice, DEFAULT_WIDTH, DEFAULT_HEIGHT, TextureFlags::RenderTarget, Format::R16G16B16A16_FLOAT, "normal");
+	worldPositionGBuffer = new VulkanTexture(&m_VulkanDevice, DEFAULT_WIDTH, DEFAULT_HEIGHT, TextureFlags::RenderTarget, Format::R16G16B16A16_FLOAT, "wordlPosition");
+
+	lightingMain = new VulkanTexture(&m_VulkanDevice, DEFAULT_WIDTH, DEFAULT_HEIGHT, TextureFlags::RenderTarget, Format::R16G16B16A16_FLOAT, "lightingmain");
 
 	return true;
 }
@@ -73,7 +90,6 @@ void Renderer::Draw(float dt)
 {
 	MainCamera->Update(dt);
 
-	sranje += 0.25f * dt;
     DrawFrame();
 }
 
@@ -108,38 +124,91 @@ void Renderer::DrawFrame()
 
 }
 
+void Renderer::CreateGeometryDescriptors()
+{
+	VulkanDescriptorSetLayout* descrSetLayout = new VulkanDescriptorSetLayout(&m_VulkanDevice, { m_Shaders[0], m_Shaders[1] }, "smthing");
+
+	VulkanDescriptorInfo descriptorinfo{};
+	descriptorinfo.Type = DescriptorType::UniformBuffer;
+	descriptorinfo.Binding = 0;
+	descriptorinfo.buffer = m_UniformBuffer;
+
+	VulkanDescriptor* bufferDescr = new VulkanDescriptor(descriptorinfo);
+
+	for (size_t i = 0; i < rabbitmodels.size(); i++)
+	{
+
+		VulkanDescriptorInfo descriptorinfo2{};
+		descriptorinfo2.Type = DescriptorType::CombinedSampler;
+		descriptorinfo2.Binding = 1;
+
+		CombinedImageSampler* imagesampler = new CombinedImageSampler();
+		imagesampler->ImageSampler = rabbitmodels[i]->GetTexture()->GetSampler();
+		imagesampler->ImageView = rabbitmodels[i]->GetTexture()->GetView();
+
+		descriptorinfo2.combinedImageSampler = imagesampler;
+
+		VulkanDescriptor* cisDescr = new VulkanDescriptor(descriptorinfo2);
+
+		VulkanDescriptorInfo descriptorinfo3{};
+		descriptorinfo3.Type = DescriptorType::CombinedSampler;
+		descriptorinfo3.Binding = 2;
+
+		CombinedImageSampler* imagesampler2 = new CombinedImageSampler();
+		imagesampler2->ImageSampler = rabbitmodels[i]->GetNormalTexture()->GetSampler();
+		imagesampler2->ImageView = rabbitmodels[i]->GetNormalTexture()->GetView();
+
+		descriptorinfo3.combinedImageSampler = imagesampler2;
+
+		VulkanDescriptor* cis2Descr = new VulkanDescriptor(descriptorinfo3);
+
+		VulkanDescriptorSet* descriptorSet = new VulkanDescriptorSet(&m_VulkanDevice, m_DescriptorPool.get(), descrSetLayout, { bufferDescr, cisDescr, cis2Descr }, "smthing");
+
+		rabbitmodels[i]->m_DescriptorSet = descriptorSet;
+	}
+}
+
 void Renderer::loadModels()
 {
 	// improvised to see how is engine rendering 10 models
-	for (unsigned int i = 0; i < 3; i++)
+	for (unsigned int i = 0; i < testScene->numObjects; i++)
 	{
-		RabbitModel* model2 = new RabbitModel(m_VulkanDevice, testScene->pObjects[0]);
+		RabbitModel* model = new RabbitModel(m_VulkanDevice, testScene->pObjects[i]);
 		auto matrix = rabbitMat4f{ 1.f };
-		matrix = glm::translate(matrix, rabbitVec3f(0.f, 0.f, i*2.f));
-		matrix = glm::rotate(matrix, -3.14f / 2.f, { 1.f, 0.f, 0.f });
 		matrix = glm::rotate(matrix, -3.14f, { 0.f, 0.f, 1.f });
-		model2->SetModelMatrix(matrix);
-		rabbitmodels.push_back(model2);
+		model->SetModelMatrix(matrix);
+		rabbitmodels.push_back(model);
+
 	}
 }
 
 void Renderer::BeginRenderPass()
 {
-
-	BindGraphicsPipeline();
-
 	VkRenderPassBeginInfo renderPassInfo{};
 	renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-	renderPassInfo.renderPass = m_StateManager->GetRenderPass()->GetVkRenderPass(); //TODO: change names to GetVk.....
+	renderPassInfo.renderPass = m_StateManager->GetRenderPass()->GetVkRenderPass();
 	renderPassInfo.framebuffer = m_StateManager->GetFramebuffer()->GetVkFramebuffer();
 
 	renderPassInfo.renderArea.offset = { 0, 0 };
 	renderPassInfo.renderArea.extent = m_VulkanSwapchain->GetSwapChainExtent(); //only fullscreen draw for now
 
-	std::array<VkClearValue, 2> clearValues{};
-	clearValues[0].color = { 0.1f, 0.1f, 0.1f, 1.0f };
-	clearValues[1].depthStencil = { 1.0f, 0 };
-	renderPassInfo.clearValueCount = static_cast<uint32_t>(clearValues.size());
+	auto renderTargetCount = m_StateManager->GetRenderTargetCount();
+	std::vector<VkClearValue> clearValues(renderTargetCount);
+
+	for (size_t i = 0; i < renderTargetCount; i++)
+	{
+		clearValues[i].color = { 0.1f, 0.1f, 0.1f, 1.0f };
+	}
+
+	if (m_StateManager->HasDepthStencil())
+	{
+		renderTargetCount++;
+		VkClearValue depthClearValue{};
+		depthClearValue.depthStencil = { 1.0f, 0 };
+		clearValues.push_back(depthClearValue);
+	}
+
+	renderPassInfo.clearValueCount = static_cast<uint32_t>(renderTargetCount);
 	renderPassInfo.pClearValues = clearValues.data();
 
 	vkCmdBeginRenderPass(m_CommandBuffers[m_CurrentImageIndex], &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
@@ -148,24 +217,11 @@ void Renderer::BeginRenderPass()
 void Renderer::EndRenderPass()
 {
 	vkCmdEndRenderPass(m_CommandBuffers[m_CurrentImageIndex]);
+	m_StateManager->Reset();
 }
 
 void Renderer::BindGraphicsPipeline()
 {
-	if (m_StateManager->GetRenderPassDirty())
-    {
-        auto attachments = m_StateManager->GetRenderTargets();
-        auto depthStencil = m_StateManager->GetDepthStencil();
-        auto renderPassInfo = m_StateManager->GetRenderPassInfo();
-        VulkanRenderPass* renderpass = PipelineManager::instance().FindOrCreateRenderPass(m_VulkanDevice, attachments, depthStencil, *renderPassInfo);
-        m_StateManager->SetRenderPass(renderpass);
-
-		VulkanFramebuffer* framebuffer = PipelineManager::instance().FindOrCreateFramebuffer(m_VulkanDevice, attachments, depthStencil, renderpass, Window::instance().GetExtent().width, Window::instance().GetExtent().height);
-		m_StateManager->SetFramebuffer(framebuffer);
-
-        m_StateManager->SetRenderPassDirty(false);
-		m_StateManager->SetFramebufferDirty(false);
-    }
 
 	if (!m_StateManager->GetPipelineDirty())
 	{
@@ -173,31 +229,55 @@ void Renderer::BindGraphicsPipeline()
 	}
 	else
 	{
-		//FIND OR CREATE PIPELINE
+		//TODO: take care of this really, optimize for most performance
+		auto attachments = m_StateManager->GetRenderTargets();
+		auto depthStencil = m_StateManager->GetDepthStencil();
+		auto renderPassInfo = m_StateManager->GetRenderPassInfo();
+		VulkanRenderPass* renderpass = PipelineManager::instance().FindOrCreateRenderPass(m_VulkanDevice, attachments, depthStencil, *renderPassInfo);
+		m_StateManager->SetRenderPass(renderpass);
+
+		VulkanFramebuffer* framebuffer = PipelineManager::instance().FindOrCreateFramebuffer(m_VulkanDevice, attachments, depthStencil, renderpass, Window::instance().GetExtent().width, Window::instance().GetExtent().height);
+		m_StateManager->SetFramebuffer(framebuffer);
+
 		auto pipelineInfo = m_StateManager->GetPipelineInfo();
 		pipelineInfo->renderPass = m_StateManager->GetRenderPass();
 		auto pipeline = PipelineManager::instance().FindOrCreateGraphicsPipeline(m_VulkanDevice, *pipelineInfo);
 		m_StateManager->SetPipeline(pipeline);
+
 		pipeline->Bind(m_CommandBuffers[m_CurrentImageIndex]);
 		m_StateManager->SetPipelineDirty(false);
 	}
 }
 
-void Renderer::DrawBucket(std::vector<RabbitModel*> bucket)
+void Renderer::DrawGeometry(std::vector<RabbitModel*> bucket)
 {
-	BeginRenderPass();
 
-	BindDescriptorSets();
+	BindGraphicsPipeline();
+
+	BeginRenderPass();
 
 	BindUBO();
 	
 	for (auto model : bucket)
 	{
-		model->Bind(m_CommandBuffers[m_CurrentImageIndex]);
 		
+		model->Bind(m_CommandBuffers[m_CurrentImageIndex]);
+
+		//bind geometry descriptors from models
+		vkCmdBindDescriptorSets(
+			m_CommandBuffers[m_CurrentImageIndex],
+			VK_PIPELINE_BIND_POINT_GRAPHICS,
+			*m_StateManager->GetPipeline()->GetPipelineLayout(),
+			0,
+			1,
+			model->m_DescriptorSet->GetVkDescriptorSet(),
+			0,
+			nullptr);
+
 		BindModelMatrix(model);
 
 		model->Draw(m_CommandBuffers[m_CurrentImageIndex]);
+
 	}
 
 	EndRenderPass();
@@ -235,6 +315,47 @@ std::vector<char> Renderer::ReadFile(const std::string& filepath)
 	return buffer;
 }
 
+void Renderer::DrawFullScreenQuad()
+{
+	BindGraphicsPipeline();
+
+	BindDescriptorSets();
+
+	BeginRenderPass();
+
+	vkCmdDraw(m_CommandBuffers[m_CurrentImageIndex], 3, 1, 0, 0);
+
+	EndRenderPass();
+}
+
+void Renderer::ImageTransitionToPresent()
+{
+	VkImageMemoryBarrier barrier{};
+	barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+	barrier.oldLayout = GetVkImageLayoutFrom(ResourceState::RenderTarget);
+	barrier.newLayout = GetVkImageLayoutFrom(ResourceState::Present);
+	barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+	barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+	barrier.image = m_VulkanSwapchain->GetSwapChainImage(m_CurrentImageIndex)->GetImage();
+	barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+	barrier.subresourceRange.baseMipLevel = 0;
+	barrier.subresourceRange.levelCount = 1;
+	barrier.subresourceRange.baseArrayLayer = 0;
+	barrier.subresourceRange.layerCount = 1;
+
+	VkPipelineStageFlags sourceStage = VK_ACCESS_TRANSFER_WRITE_BIT;
+	VkPipelineStageFlags destinationStage = VK_ACCESS_TRANSFER_READ_BIT;
+
+	vkCmdPipelineBarrier(
+		m_CommandBuffers[m_CurrentImageIndex],
+		sourceStage, destinationStage,
+		0,
+		0, nullptr,
+		0, nullptr,
+		1, &barrier
+	);
+}
+
 void Renderer::BindCameraMatrices(Camera* camera)
 {
 	auto viewMatrix = camera->View();
@@ -259,9 +380,9 @@ void Renderer::BindUBO()
 {	
 	if (m_StateManager->GetUBODirty())
 	{ 
-		void* data = m_UniformBuffers[m_CurrentImageIndex]->Map();
+		void* data = m_UniformBuffer->Map();
 		memcpy(data, m_StateManager->GetUBO(), sizeof(UniformBufferObject));
-		m_UniformBuffers[m_CurrentImageIndex]->Unmap();
+		m_UniformBuffer->Unmap();
 		
 		m_StateManager->SetUBODirty(false);
 	}
@@ -269,17 +390,26 @@ void Renderer::BindUBO()
 
 void Renderer::BindDescriptorSets()
 {
+	auto descriptorSet = m_StateManager->FinalizeDescriptorSet(m_VulkanDevice, m_DescriptorPool.get());
 	//TODO: decide where to store descriptor sets, models or state manager?
-	vkCmdBindDescriptorSets(m_CommandBuffers[m_CurrentImageIndex], VK_PIPELINE_BIND_POINT_GRAPHICS, *m_StateManager->GetPipeline()->GetPipelineLayout(), 0, 1, m_DescriptorSets[m_CurrentImageIndex]->GetDescriptorSet(), 0, nullptr);
+	vkCmdBindDescriptorSets(m_CommandBuffers[m_CurrentImageIndex], VK_PIPELINE_BIND_POINT_GRAPHICS, *m_StateManager->GetPipeline()->GetPipelineLayout(), 0, 1, descriptorSet->GetVkDescriptorSet(), 0, nullptr);
 }
 
 void Renderer::LoadAndCreateShaders()
 {
-	auto vertCode = ReadFile(MAIN_VERTEX_FILE_PATH);
-	auto fragCode = ReadFile(MAIN_FRAGMENT_FILE_PATH);
+	auto vertCode = ReadFile(GBUFFER_VERTEX_FILE_PATH);
+	auto fragCode = ReadFile(GBUFFER_FRAGMENT_FILE_PATH);
 
-	CreateShaderModule(vertCode, ShaderType::Vertex, "mainvertex", nullptr);
-	CreateShaderModule(fragCode, ShaderType::Fragment, "mainfragment", nullptr);
+	auto vertCode2 = ReadFile(PASSTHROUGH_VERTEX_FILE_PATH);
+	auto fragCode2 = ReadFile(PASSTHROUGH_FRAGMENT_FILE_PATH);
+
+	auto fragCode3 = ReadFile(PHONG_LIGHT_FRAGMENT_FILE_PATH);
+
+	CreateShaderModule(vertCode, ShaderType::Vertex, "gbuffervertex", nullptr);
+	CreateShaderModule(fragCode, ShaderType::Fragment, "gbufferfragment", nullptr);
+	CreateShaderModule(vertCode2, ShaderType::Vertex, "passthroughvs", nullptr);
+	CreateShaderModule(fragCode2, ShaderType::Fragment, "passthroughfs", nullptr);
+	CreateShaderModule(fragCode3, ShaderType::Fragment, "phonglightfragment", nullptr);
 }
 
 void Renderer::CreateShaderModule(const std::vector<char>& code, ShaderType type, const char* name, const char* codeEntry)
@@ -291,21 +421,6 @@ void Renderer::CreateShaderModule(const std::vector<char>& code, ShaderType type
 	m_Shaders.push_back(shader);
 }
 
-void Renderer::CreateRenderPasses()
-{
-}
-
-void Renderer::CreateMainPhongLightingPipeline() 
-{
-	PipelineConfigInfo pipelineConfig{};
-	//BAD BAD BAD WTF is this, take care of this please
-	pipelineConfig.vertexShader = m_Shaders[0];
-	pipelineConfig.pixelShader = m_Shaders[1];
-	pipelineConfig.renderPass = m_VulkanSwapchain->GetRenderPass();
-
-	VulkanPipeline* pipeline = new VulkanPipeline(m_VulkanDevice, pipelineConfig);
-	m_VulkanDevice.AddPipelineToCollection(pipeline, "phonglighting");
-}
 void Renderer::createCommandBuffers() 
 {
 	m_CommandBuffers.resize(m_VulkanSwapchain->GetImageCount());
@@ -335,16 +450,87 @@ void Renderer::recreateSwapchain()
 	vkDeviceWaitIdle(m_VulkanDevice.GetGraphicDevice());
 	m_VulkanSwapchain = std::make_unique<VulkanSwapchain>(m_VulkanDevice, extent);
 
-	CreateRenderPasses();
-	CreateMainPhongLightingPipeline();
-	
 	CreateUniformBuffers();
 	CreateDescriptorPool();
-	CreateDescriptorSets();
+}
+
+void Renderer::ResourceBarrier(VulkanTexture* texture, ResourceState oldLayout, ResourceState newLayout)
+{
+	VkCommandBuffer commandBuffer = m_CommandBuffers[m_CurrentImageIndex];
+
+	VkImageMemoryBarrier barrier{};
+	barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+	barrier.oldLayout = GetVkImageLayoutFrom(oldLayout);
+	barrier.newLayout = GetVkImageLayoutFrom(newLayout);
+	barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+	barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+	barrier.image = texture->GetResource()->GetImage();
+	barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+	barrier.subresourceRange.baseMipLevel = 0;
+	barrier.subresourceRange.levelCount = 1;
+	barrier.subresourceRange.baseArrayLayer = 0;
+	barrier.subresourceRange.layerCount = 1;
+
+	VkPipelineStageFlags sourceStage;
+	VkPipelineStageFlags destinationStage;
+
+	if (oldLayout == ResourceState::None && newLayout == ResourceState::TransferDst) {
+		barrier.srcAccessMask = 0;
+		barrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+
+		sourceStage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+		destinationStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
+	}
+	else if (oldLayout == ResourceState::None && newLayout == ResourceState::DepthStencilWrite)
+	{
+		barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+		barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
+
+		sourceStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
+		destinationStage = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT;
+	}
+	else if (oldLayout == ResourceState::TransferDst && newLayout == ResourceState::GenericRead)
+	{
+		barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+		barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+
+		sourceStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
+		destinationStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+	}
+	else if (oldLayout == ResourceState::None && newLayout == ResourceState::RenderTarget)
+	{
+		barrier.srcAccessMask = 0;
+		barrier.dstAccessMask = VK_ACCESS_SHADER_WRITE_BIT;
+
+		sourceStage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+		destinationStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+	}
+	else if (oldLayout == ResourceState::RenderTarget && newLayout == ResourceState::GenericRead)
+	{
+		barrier.srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT;
+		barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+
+		sourceStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+		destinationStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+	}
+
+	else
+	{
+		LOG_ERROR("unsupported layout transition!");
+	}
+
+	vkCmdPipelineBarrier(
+		commandBuffer,
+		sourceStage, destinationStage,
+		0,
+		0, nullptr,
+		0, nullptr,
+		1, &barrier
+	);
 
 }
 
-void UpdateDebugOptions()
+void Renderer::UpdateDebugOptions()
 {
 	if (InputManager::instance().IsButtonActionActive("Debug1", EInputActionState::Pressed))
 	{
@@ -360,103 +546,54 @@ void UpdateDebugOptions()
 	}
 	else if (InputManager::instance().IsButtonActionActive("Debug4", EInputActionState::Pressed))
 	{
-		renderDebugOption.x = 4.f;
+		renderDebugOption.x = 0.f;
 	}
+
+	m_StateManager->UpdateUBOElement(UBOElement::DebugOption, 1, &renderDebugOption);
+
 }
 
 void Renderer::RecordCommandBuffer(int imageIndex)
 {
 	SetCurrentImageIndex(imageIndex);
 	BeginCommandBuffer();
-	
-	BindViewport(0, 0, Window::instance().GetExtent().width, Window::instance().GetExtent().height);
 
-	m_StateManager->SetRenderTarget0(m_VulkanSwapchain->GetImageView(imageIndex));
-	m_StateManager->SetDepthStencil(m_VulkanSwapchain->GetDepthStencil()->GetView());
-
-	m_StateManager->SetCullMode(CullMode::None);
-	m_StateManager->SetVertexShader(m_Shaders[0]);
-	m_StateManager->SetPixelShader(m_Shaders[1]);
-
+	GBufferPass gbuffer{};
+	LightingPass lighting{};
+	CopyToSwapchainPass copytoswapchain{};
 
 	UpdateDebugOptions();
 
-	m_StateManager->UpdateUBOElement(UBOElement::DebugOption, 1, &renderDebugOption);
-
-	BindCameraMatrices(MainCamera);
-	
-	DrawBucket(rabbitmodels);
+	ExecuteRenderPass(gbuffer, this);
+	ExecuteRenderPass(lighting, this);
+	ExecuteRenderPass(copytoswapchain, this);
 
 	EndCommandBuffer();
-}
-
-void Renderer::UpdateUniformBuffer(uint32_t currentImage)
-{
-
 }
 
 
 void Renderer::CreateUniformBuffers()
 {
-	m_UniformBuffers.resize(m_VulkanSwapchain->GetImageCount());
-	for (size_t i = 0; i < m_VulkanSwapchain->GetImageCount(); i++)
-	{
-		m_UniformBuffers[i] = new VulkanBuffer(&m_VulkanDevice, BufferUsageFlags::UniformBuffer, MemoryAccess::Host, (uint64_t)sizeof(UniformBufferObject));
-	}
+	m_UniformBuffer = new VulkanBuffer(&m_VulkanDevice, BufferUsageFlags::UniformBuffer, MemoryAccess::Host, (uint64_t)sizeof(UniformBufferObject));
+	m_LightParams = new VulkanBuffer(&m_VulkanDevice, BufferUsageFlags::UniformBuffer, MemoryAccess::Host, (uint64_t)sizeof(LightParams)*3);
 }
 
 void Renderer::CreateDescriptorPool()
 {
+	//TODO: see what to do with this, now its hard coded number of descriptors
 	VulkanDescriptorPoolSize uboPoolSize{};
-	uboPoolSize.Count = m_VulkanSwapchain->GetImageCount();
+	uboPoolSize.Count = 10;
 	uboPoolSize.Type = DescriptorType::UniformBuffer;
 
 	VulkanDescriptorPoolSize cisPoolSize{};
-	cisPoolSize.Count = m_VulkanSwapchain->GetImageCount();
+	cisPoolSize.Count = 10;
 	cisPoolSize.Type = DescriptorType::CombinedSampler;
 
 	VulkanDescriptorPoolInfo vulkanDescriptorPoolInfo{};
 	vulkanDescriptorPoolInfo.DescriptorSizes = { uboPoolSize, cisPoolSize };
-	vulkanDescriptorPoolInfo.MaxSets = static_cast<uint32_t>(m_VulkanSwapchain->GetImageCount());
+	vulkanDescriptorPoolInfo.MaxSets = 10; //static_cast<uint32_t>(m_VulkanSwapchain->GetImageCount() * 2);
 
 	m_DescriptorPool = std::make_unique<VulkanDescriptorPool>(&m_VulkanDevice, vulkanDescriptorPoolInfo);
-}
-
-void Renderer::CreateDescriptorSets()
-{
-	size_t backBuffersCount = m_VulkanSwapchain->GetImageCount();
-	m_DescriptorSets.resize(backBuffersCount);
-
-	VulkanPipeline* pipeline = m_VulkanDevice.GetPipelineFromCollection({ "phonglighting" });
-
-	for (size_t i = 0; i < backBuffersCount; i++)
-	{
-		std::vector<VulkanDescriptor*> descriptors;
-
-		VulkanDescriptorInfo uniformBufferDescriptorInfo{};
-		uniformBufferDescriptorInfo.Type = DescriptorType::UniformBuffer;
-		uniformBufferDescriptorInfo.buffer = m_UniformBuffers[i];
-		uniformBufferDescriptorInfo.Binding = 0;
-		VulkanDescriptor uniformBufferDescriptor(uniformBufferDescriptorInfo);
-
-		descriptors.push_back(&uniformBufferDescriptor);
-
-		CombinedImageSampler combinedImageSampler;
-		combinedImageSampler.ImageSampler = rabbitmodels[0]->GetTexture()->GetSampler();
-		combinedImageSampler.ImageView = rabbitmodels[0]->GetTexture()->GetView();
-
-		VulkanDescriptorInfo combinedImageSamplerDescriptorInfo{};
-		combinedImageSamplerDescriptorInfo.Type = DescriptorType::CombinedSampler;
-		combinedImageSamplerDescriptorInfo.combinedImageSampler = &combinedImageSampler;
-		combinedImageSamplerDescriptorInfo.Binding = 1;
-
-		VulkanDescriptor combinedImageSamplerDescriptor(combinedImageSamplerDescriptorInfo);
-
-		descriptors.push_back(&combinedImageSamplerDescriptor);
-
- 		m_DescriptorSets[i] = new VulkanDescriptorSet(&m_VulkanDevice, m_DescriptorPool.get(),
-			pipeline->GetDescriptorSetLayout(), descriptors, "Main");
-	}
 }
 
 void Renderer::BindViewport(float x, float y, float width, float height)

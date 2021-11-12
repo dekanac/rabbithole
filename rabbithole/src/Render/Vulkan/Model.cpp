@@ -6,6 +6,8 @@
 #include "tiny_obj_loader/tiny_obj_loader.h"
 #include "stb_image/stb_image.h"
 
+VulkanTexture* RabbitModel::ms_DefaultWhiteTexture = nullptr;
+
 RabbitModel::RabbitModel(VulkanDevice& device, std::string filepath, std::string name) 
 	: m_VulkanDevice{ device }
 	, m_FilePath(filepath)
@@ -39,6 +41,10 @@ RabbitModel::~RabbitModel()
 	{
 		delete m_IndexBuffer;
 	}
+	if (m_DescriptorSet)
+	{
+		delete m_DescriptorSet;
+	}
 }
 
 void RabbitModel::CreateTextures(ModelLoading::MaterialData* material)
@@ -54,7 +60,9 @@ void RabbitModel::CreateTextures(ModelLoading::MaterialData* material)
 	}
 	else
 	{
-		pixels = stbi_load("res/meshes/viking_room/viking_room.png", &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
+		m_Texture = ms_DefaultWhiteTexture;
+		m_NormalTexture = ms_DefaultWhiteTexture;
+		return;
 	}
 	if (!pixels) 
 	{
@@ -68,8 +76,30 @@ void RabbitModel::CreateTextures(ModelLoading::MaterialData* material)
 	texData.width = texWidth;
 	texData.pData = pixels;
 
-	m_Texture = new VulkanTexture(&m_VulkanDevice, &texData, TextureFlags::Color | TextureFlags::Read, Format::R8G8B8A8_UNORM_SRGB, "box_tex");
+	m_Texture = new VulkanTexture(&m_VulkanDevice, &texData, TextureFlags::Color | TextureFlags::Read, Format::R8G8B8A8_UNORM_SRGB, "albedo_tex");
 
+	int texWidth2, texHeight2, texChannels2;
+	unsigned char* pixels2 = nullptr;
+
+	if (material->roughnessMap != NULL)
+	{
+		pixels2 = material->roughnessMap->pData;
+		texWidth2 = material->roughnessMap->width;
+		texHeight2 = material->roughnessMap->height;
+		texChannels2 = material->roughnessMap->bpp;
+	}
+	else
+	{
+		m_NormalTexture = ms_DefaultWhiteTexture;
+		return;
+	}
+	TextureData texData2{};
+	texData2.bpp = texChannels2;
+	texData2.height = texHeight2;
+	texData2.width = texWidth2;
+	texData2.pData = pixels2;
+
+	m_NormalTexture = new VulkanTexture(&m_VulkanDevice, &texData2, TextureFlags::Color | TextureFlags::Read, Format::R8G8B8A8_UNORM, "normal_tex");
 }
 
 void RabbitModel::CreateVertexBuffers()
@@ -200,7 +230,7 @@ std::vector<VkVertexInputBindingDescription> Vertex::GetBindingDescriptions()
 
 std::vector<VkVertexInputAttributeDescription> Vertex::GetAttributeDescriptions()
 {
-	std::vector<VkVertexInputAttributeDescription> attributeDescriptions(3);
+	std::vector<VkVertexInputAttributeDescription> attributeDescriptions(4);
 	attributeDescriptions[0].binding = 0;
 	attributeDescriptions[0].location = 0;
 	attributeDescriptions[0].format = VK_FORMAT_R32G32B32_SFLOAT;
@@ -213,8 +243,29 @@ std::vector<VkVertexInputAttributeDescription> Vertex::GetAttributeDescriptions(
 
 	attributeDescriptions[2].binding = 0;
 	attributeDescriptions[2].location = 2;
-	attributeDescriptions[2].format = VK_FORMAT_R32G32_SFLOAT;
-	attributeDescriptions[2].offset = offsetof(Vertex, uv);
+	attributeDescriptions[2].format = VK_FORMAT_R32G32B32_SFLOAT;
+	attributeDescriptions[2].offset = offsetof(Vertex, tangent);
+
+	attributeDescriptions[3].binding = 0;
+	attributeDescriptions[3].location = 3;
+	attributeDescriptions[3].format = VK_FORMAT_R32G32_SFLOAT;
+	attributeDescriptions[3].offset = offsetof(Vertex, uv);
 
 	return attributeDescriptions;
+}
+
+void InitDefaultTextures(VulkanDevice* device)
+{
+	int texWidth, texHeight, texChannels;
+	unsigned char* pixels = nullptr;
+
+	pixels = stbi_load("res/textures/default_white.jpg", &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
+	
+	TextureData texData{};
+	texData.bpp = texChannels;
+	texData.height = texHeight;
+	texData.width = texWidth;
+	texData.pData = pixels;
+
+	RabbitModel::ms_DefaultWhiteTexture = new VulkanTexture(device, &texData, TextureFlags::Color | TextureFlags::Read, Format::R8G8B8A8_UNORM_SRGB, "defaul_white");
 }

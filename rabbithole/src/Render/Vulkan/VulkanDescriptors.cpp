@@ -116,11 +116,13 @@ VulkanDescriptorSet::VulkanDescriptorSet(const VulkanDevice* device,const Vulkan
 		{
 		case DescriptorType::CombinedSampler:
  			writeDescriptorSet.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
- 			writeDescriptorSet.pImageInfo = &((descriptors[i])->GetDescriptorResourceInfo().m_ResourceInfo.ImageInfo);
+			DescriptorResourceInfo info = descriptors[i]->GetDescriptorResourceInfo();
+ 			writeDescriptorSet.pImageInfo = new VkDescriptorImageInfo(info.m_ResourceInfo.ImageInfo);
 			break;
 		case DescriptorType::UniformBuffer:
 			writeDescriptorSet.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-			writeDescriptorSet.pBufferInfo = &((descriptors[i])->GetDescriptorResourceInfo().m_ResourceInfo.BufferInfo);
+			DescriptorResourceInfo info2 = descriptors[i]->GetDescriptorResourceInfo();
+			writeDescriptorSet.pBufferInfo = &info2.m_ResourceInfo.BufferInfo;
 			break;
 		default:
 			ASSERT(false, "Not supported DescriptorType.");
@@ -131,4 +133,64 @@ VulkanDescriptorSet::VulkanDescriptorSet(const VulkanDevice* device,const Vulkan
 	uint32_t descriptorWriteCount = static_cast<uint32_t>(writeDescriptorSets.size());
 	VkWriteDescriptorSet* descriptorWrites = writeDescriptorSets.data();
 	vkUpdateDescriptorSets(device->GetGraphicDevice(), descriptorWriteCount, descriptorWrites, 0, nullptr);
+}
+
+DescriptorSetManager::DescriptorSetManager()
+{
+	for (size_t i = 0; i < MaxDescriptorEntryCount; ++i)
+	{
+		VkWriteDescriptorSet& write = m_Writes[i];
+		write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+		write.pNext = nullptr;
+		write.dstArrayElement = 0;
+		write.descriptorCount = 1;
+	}
+}
+
+void DescriptorSetManager::SetCombinedImageSampler(uint32_t slot, VulkanTexture* texture)
+{
+	VkWriteDescriptorSet& write = m_Writes[m_CurrentWriteIndex++];
+	write.dstSet = m_DescriptorSet->GetVkDescriptorSet2();
+	write.dstBinding = slot;
+	write.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+	VkDescriptorImageInfo& info = m_ImageInfos[m_CurrentImageInfoIndex++];
+	write.pImageInfo = &info;
+	info.sampler = texture->GetSampler()->GetSampler();
+	info.imageView = texture->GetView()->GetImageView();
+	info.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+}
+
+void DescriptorSetManager::SetConstantBuffer(uint32_t slot, VulkanBuffer* buffer, uint64_t offset, uint64_t range)
+{
+	VkWriteDescriptorSet& write = m_Writes[m_CurrentWriteIndex++];
+	write.dstSet = m_DescriptorSet->GetVkDescriptorSet2();
+	write.dstBinding = slot;
+	write.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+	VkDescriptorBufferInfo& info = m_BufferInfos[m_CurrentBufferInfoIndex++];
+	write.pBufferInfo = &info;
+	info.buffer = buffer->GetBuffer();
+	info.offset = offset;
+	info.range = range;
+}
+
+void DescriptorSetManager::Reset()
+{
+	m_CurrentWriteIndex = 0;
+	m_CurrentBufferInfoIndex = 0;
+	m_CurrentImageInfoIndex = 0;
+	//m_DescriptorSet = nullptr;
+}
+
+void DescriptorSetManager::SetDescriptorSet(VulkanDescriptorSet* set)
+{
+	m_DescriptorSet = set;
+}
+
+void DescriptorSetManager::Commit(VulkanDevice* device)
+{
+	if (m_CurrentWriteIndex > 0)
+	{
+		ASSERT(m_CurrentWriteIndex <= MaxDescriptorEntryCount, "current write index exceeded maximum count");
+		vkUpdateDescriptorSets(device->GetGraphicDevice(), m_CurrentWriteIndex, &(m_Writes[0]), 0, nullptr);
+	}
 }

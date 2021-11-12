@@ -52,6 +52,8 @@ public:
 	bool GetDescriptorSetDirty() { return m_DirtyDescriptorSet; }
 	void SetDescriptorSetDirty(bool dirty) { m_DirtyDescriptorSet = dirty; }
 
+	DescriptorSetManager* GetDescriptorSetManager() { return m_DescriptorSetManager; }
+
 	//uniform buffer
 	UniformBufferObject* GetUBO() const { return m_UBO; }
 	void UpdateUBOElement(UBOElement element, uint32_t count, void* data);
@@ -67,14 +69,27 @@ public:
     void SetRenderTarget3(VulkanImageView* rt);
     void SetDepthStencil(VulkanImageView* ds);
 
+	void ShouldCleanColor(bool clean);
+	void ShouldCleanDepth(bool clean);
+
+	void SetCombinedImageSampler(uint32_t slot, VulkanTexture* texture);
+	void SetConstantBuffer(uint32_t slot, VulkanBuffer* buffer, uint64_t offset, uint64_t range);
+	VulkanDescriptorSet* FinalizeDescriptorSet(VulkanDevice& device, const VulkanDescriptorPool* pool);
+	uint8_t GetRenderTargetCount();
+	bool HasDepthStencil() { return m_DepthStencil ? true : false; }
+
+	void Reset();
 private:
 	PipelineConfigInfo*     m_PipelineConfig;
 	VulkanPipeline*		    m_Pipeline;
     RenderPassConfigInfo*   m_RenderPassConfig;
 	VulkanRenderPass*	    m_RenderPass;
 	VulkanFramebuffer*	    m_Framebuffer;
-	VulkanDescriptorSet*	m_DescriptorSet;
 	UniformBufferObject*    m_UBO;
+
+	std::vector<VulkanDescriptor*> m_Descriptors;
+	VulkanDescriptorSet*	m_DescriptorSet;
+	DescriptorSetManager*	m_DescriptorSetManager;
 
 	bool m_DirtyPipeline;
 	bool m_DirtyRenderPass;

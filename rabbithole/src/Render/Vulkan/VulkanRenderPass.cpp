@@ -107,7 +107,6 @@ VulkanRenderPass::VulkanRenderPass(
     renderPassCreateInfo.dependencyCount = dependencies.size();
     renderPassCreateInfo.pDependencies = dependencies.data();
 
-
 	VULKAN_API_CALL(vkCreateRenderPass(m_VulkanDevice->GetGraphicDevice(), &renderPassCreateInfo, nullptr, &m_RenderPass));
 }
 
@@ -122,7 +121,7 @@ void VulkanRenderPass::DefaultRenderPassInfo(RenderPassConfigInfo*& renderPassIn
     renderPassInfo->ClearRenderTargets = true;
     renderPassInfo->ClearStencil = true;
     renderPassInfo->InitialRenderTargetState = ResourceState::None;
-    renderPassInfo->FinalRenderTargetState = ResourceState::Present;
+    renderPassInfo->FinalRenderTargetState = ResourceState::RenderTarget;
     renderPassInfo->InitialDepthStencilState = ResourceState::DepthStencilWrite;
     renderPassInfo->FinalDepthStencilState = ResourceState::DepthStencilWrite;
 }

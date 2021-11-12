@@ -28,6 +28,7 @@ private: \
 		}
 
 //move this to separate math lib
+typedef glm::vec4 rabbitVec4f;
 typedef glm::vec3 rabbitVec3f;
 typedef glm::vec2 rabbitVec2f;
 typedef glm::mat4 rabbitMat4f;
