@@ -43,8 +43,8 @@ private:
 	std::vector<Shader*>					m_Shaders;
 	std::vector<VkCommandBuffer>			m_CommandBuffers;
 	
-	std::vector<VulkanDescriptorSet*>		m_DescriptorSets;
-	std::vector<VulkanBuffer*>				m_UniformBuffers;
+	VulkanDescriptorSet*					m_DescriptorSet;
+	VulkanBuffer*							m_UniformBuffer;
 
 	VulkanPipeline*							m_CurrentGraphicsPipeline;
 	VulkanRenderPass*						m_CurrentRenderPass;
@@ -63,6 +63,7 @@ private:
 	void CreateMainPhongLightingPipeline();
 	void createCommandBuffers();
 	void recreateSwapchain();
+	void UpdateDebugOptions();
 	void RecordCommandBuffer(int imageIndex);
 	void UpdateUniformBuffer(uint32_t currentImage);
 	void CreateUniformBuffers();
@@ -100,6 +101,7 @@ private:
 
 	//helper functions
 	std::vector<char> ReadFile(const std::string& filepath);
+	void PresentSwapchain();
 public:
     bool m_FramebufferResized = false;
 

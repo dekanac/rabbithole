@@ -122,7 +122,7 @@ void VulkanRenderPass::DefaultRenderPassInfo(RenderPassConfigInfo*& renderPassIn
     renderPassInfo->ClearRenderTargets = true;
     renderPassInfo->ClearStencil = true;
     renderPassInfo->InitialRenderTargetState = ResourceState::None;
-    renderPassInfo->FinalRenderTargetState = ResourceState::Present;
+    renderPassInfo->FinalRenderTargetState = ResourceState::RenderTarget;
     renderPassInfo->InitialDepthStencilState = ResourceState::DepthStencilWrite;
     renderPassInfo->FinalDepthStencilState = ResourceState::DepthStencilWrite;
 }

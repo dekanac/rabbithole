@@ -513,7 +513,10 @@ VulkanFramebuffer* PipelineManager::FindOrCreateFramebuffer(VulkanDevice& device
 	{
 		key[i] = renderTargets[i]->GetId();
 	}
-	key[4] = depthStencil->GetId();
+	if (depthStencil != nullptr)
+	{
+		key[4] = depthStencil->GetId();
+	}
 
 	auto framebuffer = m_Framebuffers.find(key);
 	if (framebuffer != m_Framebuffers.end())

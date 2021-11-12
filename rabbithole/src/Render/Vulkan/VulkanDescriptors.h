@@ -99,8 +99,35 @@ public:
 		const char* name);
 
 public:
-	inline const VkDescriptorSet* GetDescriptorSet() const { return &m_DescriptorSet; }
+	const VkDescriptorSet* GetVkDescriptorSet() const { return &m_DescriptorSet; }
+	VkDescriptorSet GetVkDescriptorSet2() const { return m_DescriptorSet; }
+	//TODO: maaan what the hell
 
 private:
 	VkDescriptorSet m_DescriptorSet = VK_NULL_HANDLE;
+};
+
+class DescriptorSetManager
+{
+public:
+	DescriptorSetManager();
+
+	void SetCombinedImageSampler(uint32_t slot, VulkanTexture* texture);
+	void SetConstantBuffer(uint32_t slot, VulkanBuffer* buffer, uint64_t offset, uint64_t range);
+
+	void Reset();
+	void SetDescriptorSet(VulkanDescriptorSet* set);
+	void Commit(VulkanDevice* device);
+
+private:
+	static constexpr uint32_t MaxDescriptorEntryCount = 64;
+
+	VulkanDescriptorSet* m_DescriptorSet;
+	VkWriteDescriptorSet m_Writes[MaxDescriptorEntryCount];
+	uint32_t m_CurrentWriteIndex;
+	VkDescriptorImageInfo m_ImageInfos[MaxDescriptorEntryCount];
+	uint32_t m_CurrentImageInfoIndex;
+	VkDescriptorBufferInfo m_BufferInfos[MaxDescriptorEntryCount];
+	uint32_t m_CurrentBufferInfoIndex;
+
 };
