@@ -2,6 +2,7 @@
 
 #include "vk_mem_alloc.h"
 #include "spirv-reflect/spirv_reflect.h"
+#include <imgui/backends/imgui_impl_vulkan.h>
 
 class VulkanTexture;
 class VulkanBuffer;
@@ -66,6 +67,7 @@ public:
 	void				CopyBufferToImage(VulkanBuffer* buffer, VulkanTexture* texture);
 	void				TransitionImageLayout(VulkanTexture* texture, ResourceState oldLayout, ResourceState newLayout);
 	void				CreateImageWithInfo(const VkImageCreateInfo& imageInfo, VkMemoryPropertyFlags properties, VkImage& image, VkDeviceMemory& imageMemory);
+	void				InitImguiForVulkan(ImGui_ImplVulkan_InitInfo& info);
 
 private:
 	void CreateInstance();

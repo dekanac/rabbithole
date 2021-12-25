@@ -116,13 +116,11 @@ VulkanDescriptorSet::VulkanDescriptorSet(const VulkanDevice* device,const Vulkan
 		{
 		case DescriptorType::CombinedSampler:
  			writeDescriptorSet.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-			DescriptorResourceInfo info = descriptors[i]->GetDescriptorResourceInfo();
- 			writeDescriptorSet.pImageInfo = new VkDescriptorImageInfo(info.m_ResourceInfo.ImageInfo);
+ 			writeDescriptorSet.pImageInfo = new VkDescriptorImageInfo(descriptors[i]->GetDescriptorResourceInfo().m_ResourceInfo.ImageInfo);
 			break;
 		case DescriptorType::UniformBuffer:
 			writeDescriptorSet.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-			DescriptorResourceInfo info2 = descriptors[i]->GetDescriptorResourceInfo();
-			writeDescriptorSet.pBufferInfo = &info2.m_ResourceInfo.BufferInfo;
+			writeDescriptorSet.pBufferInfo = new VkDescriptorBufferInfo(descriptors[i]->GetDescriptorResourceInfo().m_ResourceInfo.BufferInfo);
 			break;
 		default:
 			ASSERT(false, "Not supported DescriptorType.");

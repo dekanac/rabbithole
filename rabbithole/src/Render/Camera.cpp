@@ -99,7 +99,7 @@ void Camera::Update(float dt)
 	
 	float cameraSensitivity = moveComp->m_RotationSpeed;
 	m_HorizontalAngle += cameraInput->mouse_x * cameraSensitivity;
-	m_VerticalAngle += -cameraInput->mouse_y * cameraSensitivity;
+	m_VerticalAngle += cameraInput->mouse_y * cameraSensitivity;
 
 	if (m_VerticalAngle > 89.0f)
 		m_VerticalAngle = 89.0f;
@@ -107,7 +107,7 @@ void Camera::Update(float dt)
 		m_VerticalAngle = -89.0f;
 
 	direction.x = cos(glm::radians(m_HorizontalAngle)) * cos(glm::radians(m_VerticalAngle));
-	direction.y = -sin(glm::radians(m_VerticalAngle));
+	direction.y = sin(glm::radians(m_VerticalAngle));
 	direction.z = sin(glm::radians(m_HorizontalAngle)) * cos(glm::radians(m_VerticalAngle));
 	m_Front = glm::normalize(direction);
 	//########################

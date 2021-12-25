@@ -666,6 +666,14 @@ void VulkanDevice::CreateImageWithInfo(
 	}
 }
 
+void VulkanDevice::InitImguiForVulkan(ImGui_ImplVulkan_InitInfo& info)
+{
+	info.Instance = m_Instance;
+	info.PhysicalDevice = m_PhysicalDevice;
+	info.Device = m_Device;
+	info.Queue = m_GraphicsQueue;
+}
+
 VkBufferUsageFlags GetVkBufferUsageFlags(const BufferUsageFlags usageFlags)
 {
 	VkBufferUsageFlags bufferUsageFlags = 0;

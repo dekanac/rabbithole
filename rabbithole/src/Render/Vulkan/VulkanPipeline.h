@@ -152,6 +152,7 @@ public:
 
 	static void						 DefaultPipelineConfigInfo(PipelineConfigInfo*& configInfo, uint32_t width, uint32_t height);
 	const VulkanDescriptorSetLayout* GetDescriptorSetLayout() { return m_DescriptorSetLayout; }
+	VkPipeline						 GetVkPipeline() { return m_GraphicsPipeline; }
 	const VkPipelineLayout*			 GetPipelineLayout() const { return &m_PipelineLayout; }
 	void							 CreatePipeline();
 

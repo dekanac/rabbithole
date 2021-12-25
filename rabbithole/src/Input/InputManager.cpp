@@ -20,7 +20,7 @@ bool KeyDown(KeyboardButton _iKey)
 
 bool InputManager::Init()
 {
-    glfwSetInputMode(Window::instance().GetNativeWindowHandle(), GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+    glfwSetInputMode(Window::instance().GetNativeWindowHandle(), GLFW_CURSOR, GLFW_CURSOR_NORMAL);
     InitKeybinds();
 
     return true;

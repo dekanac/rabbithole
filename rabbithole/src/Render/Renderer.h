@@ -12,6 +12,7 @@
 #include "Model/ModelLoading.h"
 
 #define DYNAMIC_SCISSOR_AND_VIEWPORT_STATES
+#define RABBITHOLE_USING_IMGUI
 
 class Camera;
 class EntityManager;
@@ -53,12 +54,13 @@ private:
 	VulkanBuffer*							m_UniformBuffer;
 	VulkanBuffer*							m_LightParams;
 
+	VkRenderPass							m_ImguiRenderPass;
+
 	VulkanStateManager*						m_StateManager;
 
 	int										m_CurrentImageIndex = 0;
 
 	Entity*												testEntity;
-	ModelLoading::SceneData*							testScene;
 	std::vector<RabbitModel*>			rabbitmodels;
 	
 	void loadModels();
@@ -121,6 +123,7 @@ public:
 	//helper functions
 	std::vector<char> ReadFile(const std::string& filepath);
 	void DrawFullScreenQuad();
+	void CopyToSwapChain();
 	void ImageTransitionToPresent();
 public:
 
@@ -139,4 +142,9 @@ public:
 
 private:
 	void CreateGeometryDescriptors();
+	void InitImgui();
+
+private:
+
+	bool m_ImguiInitialized = false;
 };

@@ -128,7 +128,7 @@ void CopyToSwapchainPass::Setup(Renderer* renderer)
 
 void CopyToSwapchainPass::Render(Renderer* renderer)
 {
-	renderer->DrawFullScreenQuad();
+	renderer->CopyToSwapChain();
 }
 
 
