@@ -4,6 +4,8 @@
 #include "Input/InputManager.h"
 #include "Logger/Logger.h"
 
+#define GLM_ENABLE_EXPERIMENTAL
+#include <glm/gtx/quaternion.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 
 #include <cmath>
@@ -11,42 +13,23 @@
 
 static const float MAX_VERTICAL_ANGLE = 85.0f;
 
-Camera::Camera() :
-	m_Position(-12.0f, 0.0f, -14.0f),
-	m_Front(0.0f, 0.0f, 0.0f),
-	m_UpVector(0.f, 1.f, 0.f),
-	m_HorizontalAngle(0.0f),
-	m_VerticalAngle(0.f),
-	m_FieldOfView(45.0f),
-	m_NearPlane(0.01f),
-	m_FarPlane(100.0f),
-	m_Aspect(static_cast<float>(Window::instance().GetExtent().width) / Window::instance().GetExtent().height)
+Camera::Camera() 
+	: m_Position(0.0f, 0.0f, 0.0f)
+	, m_FieldOfView(45.0f)
+	, m_NearPlane(0.01f)
+	, m_FarPlane(100.0f)
+	, m_Aspect(static_cast<float>(Window::instance().GetExtent().width) / Window::instance().GetExtent().height)
+	, m_Pitch(0.f)
+	, m_Yaw(0.f)
+	, m_ViewMatrix(rabbitMat4f{ 1.f })
+	, m_FocalPoint({ 0.0f, 0.0f, 0.0f })
+	, m_Distance(20.f)
 {
-}
-
-const rabbitVec3f& Camera::getFront() const
-{
-	return m_Front;
-}
-
-const rabbitVec3f& Camera::getUpVector() const
-{
-	return m_UpVector;
-}
-
-void Camera::setFront(rabbitVec3f front_)
-{
-	m_Front = front_;
-}
-
-void Camera::setUpVector(rabbitVec3f upvec_)
-{
-	m_UpVector = upvec_;
+	UpdateView();
 }
 
 bool Camera::Init() 
 {
-
 	Entity* mainCamera = new Entity();
 
 	mainCamera->AddComponent<CameraComponent>();
@@ -54,7 +37,7 @@ bool Camera::Init()
 	mainCamera->AddComponent<InputComponent>();
 
 	auto moveComp = mainCamera->GetComponent<MoverComponent>();
-	moveComp->m_MoveSpeed = 5.f;
+	moveComp->m_MoveSpeed = 10.f;
 	moveComp->m_RotationSpeed = 0.1f;
 
 	auto inputComp = mainCamera->GetComponent<InputComponent>();
@@ -62,10 +45,12 @@ bool Camera::Init()
 	inputComp->inputActions.push_back({ "CameraDown" });
 	inputComp->inputActions.push_back({ "CameraRight" });
 	inputComp->inputActions.push_back({ "CameraLeft" });
+	inputComp->inputActions.push_back({ "ActivateCameraMove", EInputActionState::Pressed });
+	inputComp->inputActions.push_back({ "ActivateCameraOrbit", EInputActionState::Pressed });
+	inputComp->inputActions.push_back({ "ActivateCameraZoom", EInputActionState::Pressed });
+	inputComp->inputActions.push_back({ "ActivateCameraPan", EInputActionState::Pressed });
 
 	auto camComp = mainCamera->GetComponent<CameraComponent>();
-	camComp->m_View = View();
-	camComp->m_Projection = Projection();
 	
 	EntityManager::instance().AddEntity(mainCamera);
 
@@ -80,42 +65,36 @@ void Camera::Update(float dt)
 	//CAMERA MOVEMENT
 	auto moveComp = cameraEnt[0]->GetComponent<MoverComponent>();
 	auto cameraInput = cameraEnt[0]->GetComponent<InputComponent>();
-	
-	bool moveUpInput = InputManager::IsActionActive(cameraInput, "CameraUp");
-	bool moveDownInput = InputManager::IsActionActive(cameraInput, "CameraDown");
-	bool moveRightInput = InputManager::IsActionActive(cameraInput, "CameraRight");
-	bool moveLeftInput = InputManager::IsActionActive(cameraInput, "CameraLeft");
-	
+	auto inputComp = cameraEnt[0]->GetComponent<InputComponent>();
+
 	float cameraSpeed = moveComp->m_MoveSpeed * dt;
-	if (moveUpInput) { m_Position += cameraSpeed * m_Front; }
-	if (moveDownInput) { m_Position -= cameraSpeed * m_Front; }
-	if (moveLeftInput) { m_Position -= glm::normalize(glm::cross(m_Front, m_UpVector)) * cameraSpeed; }
-	if (moveRightInput) { m_Position += glm::normalize(glm::cross(m_Front, m_UpVector)) * cameraSpeed; }
 
-	rabbitVec3f direction;
-	direction.x = cos(glm::radians(m_HorizontalAngle)) * cos(glm::radians(m_VerticalAngle));
-	direction.y = sin(glm::radians(m_VerticalAngle));
-	direction.z = sin(glm::radians(m_HorizontalAngle)) * cos(glm::radians(m_VerticalAngle));
-	
-	float cameraSensitivity = moveComp->m_RotationSpeed;
-	m_HorizontalAngle += cameraInput->mouse_x * cameraSensitivity;
-	m_VerticalAngle += cameraInput->mouse_y * cameraSensitivity;
+	if (InputManager::IsActionActive(cameraInput, "ActivateCameraMove"))
+	{
+		bool moveUpInput = InputManager::IsActionActive(cameraInput, "CameraUp");
+		bool moveDownInput = InputManager::IsActionActive(cameraInput, "CameraDown");
+		bool moveRightInput = InputManager::IsActionActive(cameraInput, "CameraRight");
+		bool moveLeftInput = InputManager::IsActionActive(cameraInput, "CameraLeft");
 
-	if (m_VerticalAngle > 89.0f)
-		m_VerticalAngle = 89.0f;
-	if (m_VerticalAngle < -89.0f)
-		m_VerticalAngle = -89.0f;
+		glm::vec2 delta = { inputComp->mouse_x * cameraSpeed, inputComp->mouse_y * cameraSpeed };
 
-	direction.x = cos(glm::radians(m_HorizontalAngle)) * cos(glm::radians(m_VerticalAngle));
-	direction.y = sin(glm::radians(m_VerticalAngle));
-	direction.z = sin(glm::radians(m_HorizontalAngle)) * cos(glm::radians(m_VerticalAngle));
-	m_Front = glm::normalize(direction);
-	//########################
+		if (InputManager::IsActionActive(cameraInput, "ActivateCameraPan"))
+			MousePan(delta/3.f);
+		else if (InputManager::IsActionActive(cameraInput, "ActivateCameraOrbit"))
+			MouseRotate(delta);
+		else if (InputManager::IsActionActive(cameraInput, "ActivateCameraZoom"))
+			MouseZoom(delta.y);
 
-	cameraComp->m_View = View();
-	cameraComp->m_Projection = Projection();
-	cameraComp->m_Position = m_Position;
-	
+		auto front = GetForwardDirection();
+		auto up = GetUpDirection();
+
+		if (moveUpInput) { m_FocalPoint += cameraSpeed * front; }
+		if (moveDownInput) { m_FocalPoint -= cameraSpeed * front; }
+		if (moveLeftInput) { m_FocalPoint -= glm::normalize(glm::cross(front, up)) * cameraSpeed; }
+		if (moveRightInput) { m_FocalPoint += glm::normalize(glm::cross(front, up)) * cameraSpeed; }
+
+		UpdateView();
+	}
 }
 
 rabbitMat4f Camera::GetMatrix() const 
@@ -130,20 +109,13 @@ rabbitMat4f Camera::Projection() const
 
 rabbitMat4f Camera::View() const
 {
-	return glm::lookAt(m_Position, m_Position + m_Front, m_UpVector);
+	return m_ViewMatrix;
 }
-
 
 const rabbitVec3f& Camera::GetPosition() const 
 {
-	return m_Position;
+	return CalculatePosition();
 }
-
-void Camera::setPosition(const rabbitVec3f& position_)
-{
-	m_Position = position_;
-}
-
 
 float Camera::GetFieldOfView() const 
 {
@@ -174,10 +146,64 @@ void Camera::setNearAndFarPlanes(float nearPlane_, float farPlane_)
 	m_FarPlane = farPlane_;
 }
 
-
 void Camera::setViewportAspectRatio(float vpaspect_)
 {
 	ASSERT(vpaspect_ > 0.0, "");
 	m_Aspect = vpaspect_;
 }
 
+glm::quat Camera::GetOrientation() const
+{
+	return glm::quat(glm::vec3(-m_Pitch, -m_Yaw, 0.0f));
+}
+
+glm::vec3 Camera::GetUpDirection() const
+{
+	return glm::rotate(GetOrientation(), glm::vec3(0.0f, 1.0f, 0.0f));
+}
+
+glm::vec3 Camera::CalculatePosition() const
+{
+	return m_FocalPoint - GetForwardDirection() * m_Distance;
+}
+
+glm::vec3 Camera::GetRightDirection() const
+{
+	return glm::rotate(GetOrientation(), glm::vec3(1.0f, 0.0f, 0.0f));
+}
+
+glm::vec3 Camera::GetForwardDirection() const
+{
+	return glm::rotate(GetOrientation(), glm::vec3(0.0f, 0.0f, -1.0f));
+}
+
+void Camera::UpdateView()
+{
+	m_Position = CalculatePosition();
+	glm::quat orientation = GetOrientation();
+	m_ViewMatrix = glm::translate(glm::mat4(1.0f), m_Position) * glm::toMat4(orientation);
+	m_ViewMatrix = glm::inverse(m_ViewMatrix);
+}
+
+void Camera::MousePan(const glm::vec2& delta)
+{
+	m_FocalPoint += -GetRightDirection() * delta.x * m_Distance;
+	m_FocalPoint += GetUpDirection() * delta.y * m_Distance;
+}
+
+void Camera::MouseRotate(const glm::vec2& delta)
+{
+	float yawSign = GetUpDirection().y < 0 ? -1.0f : 1.0f;
+	m_Yaw += yawSign * delta.x;
+	m_Pitch += delta.y;
+}
+
+void Camera::MouseZoom(float delta)
+{
+	m_Distance -= delta;
+	if (m_Distance < 1.0f)
+	{
+		m_FocalPoint += GetForwardDirection();
+		m_Distance = 1.0f;
+	}
+}

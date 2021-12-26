@@ -269,3 +269,39 @@ void InitDefaultTextures(VulkanDevice* device)
 
 	RabbitModel::ms_DefaultWhiteTexture = new VulkanTexture(device, &texData, TextureFlags::Color | TextureFlags::Read, Format::R8G8B8A8_UNORM_SRGB, "defaul_white");
 }
+
+void Mesh::CalculateMatrix()
+{
+	float alpha = glm::radians(rotation.x);
+	float beta = glm::radians(rotation.y);
+	float gamma = glm::radians(rotation.z);
+
+	float cosAlpha = glm::cos(alpha);
+	float cosBeta = glm::cos(beta);
+	float cosGamma = glm::cos(gamma);
+
+	float sinAlpha = glm::sin(alpha);
+	float sinBeta = glm::sin(beta);
+	float sinGamma = glm::sin(gamma);
+
+	modelMatrix[0][0] = cosAlpha * cosBeta;
+	modelMatrix[0][1] = cosAlpha * sinBeta * sinGamma - sinAlpha * cosGamma;
+	modelMatrix[0][2] = cosAlpha * sinBeta * cosGamma + sinAlpha * sinGamma;
+	modelMatrix[1][0] = sinAlpha * cosBeta;
+	modelMatrix[1][1] = sinAlpha * sinBeta * sinGamma + cosAlpha * cosGamma;
+	modelMatrix[1][2] = sinAlpha * sinBeta * cosGamma - cosAlpha * sinGamma;
+	modelMatrix[2][0] = -sinBeta;
+	modelMatrix[2][1] = cosBeta * sinGamma;
+	modelMatrix[2][2] = cosBeta * cosGamma;
+	modelMatrix[3][0] = 0.f;
+	modelMatrix[3][1] = 0.f;
+	modelMatrix[3][2] = 0.f;
+	modelMatrix[0][3] = position.x;
+	modelMatrix[1][3] = position.y;
+	modelMatrix[2][3] = position.z;
+	modelMatrix[3][3] = 1.f;
+
+	modelMatrix *= glm::vec4{scale.x, scale.y, scale.z, 1.f};
+
+	modelMatrix = glm::transpose(modelMatrix);
+}

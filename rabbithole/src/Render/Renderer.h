@@ -13,6 +13,7 @@
 
 #define DYNAMIC_SCISSOR_AND_VIEWPORT_STATES
 #define RABBITHOLE_USING_IMGUI
+#define MAX_NUM_OF_LIGHTS 12
 
 class Camera;
 class EntityManager;

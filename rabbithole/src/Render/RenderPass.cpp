@@ -34,7 +34,7 @@ void GBufferPass::Setup(Renderer* renderer)
 	renderPassInfo->InitialDepthStencilState = ResourceState::None;
 	renderPassInfo->FinalDepthStencilState = ResourceState::DepthStencilWrite;
 
-	stateManager->SetCullMode(CullMode::Back);
+	stateManager->SetCullMode(CullMode::Front);//TODO: VULKAN INVERT Y FLIP FIX
 	stateManager->SetVertexShader(renderer->GetShader(0));
 	stateManager->SetPixelShader(renderer->GetShader(1));
 
@@ -64,20 +64,24 @@ void LightingPass::Setup(Renderer* renderer)
 	renderPassInfo->InitialDepthStencilState = ResourceState::None;
 	renderPassInfo->FinalDepthStencilState = ResourceState::DepthStencilWrite;
 
-	LightParams lightParams[3];
-	lightParams[0].position = { 7.0f, -2.0f, 7.0f, 0.0f };
+	constexpr size_t numOfLights = 4;
+	LightParams lightParams[numOfLights];
+	lightParams[0].position = { 7.0f, 1.0f, 7.0f, 0.0f };
 	lightParams[0].colorAndRadius = { 0.0f, 0.0f, 1.0f, 5.0f };
 
-	lightParams[1].position = { -7.0f, -2.0f, 7.0f, 0.0f };
+	lightParams[1].position = { -7.0f, 1.0f, 7.0f, 0.0f };
 	lightParams[1].colorAndRadius = { 1.0f, 0.0f, 0.0f, 5.0f };
 
-	lightParams[2].position = { -10.0f, -2.0f, -10.0f, 0.0f };
+	lightParams[2].position = { -10.0f, 2.0f, -10.0f, 0.0f };
 	lightParams[2].colorAndRadius = { 1.0f, 0.6f, 0.2f, 10.0f };
+
+	lightParams[3].position = { 0.0f, 25.0f, 0.0f, 0.0f };
+	lightParams[3].colorAndRadius = { 1.0f, 1.0f, 0.0f, 30.0f };
 
 	//fill the light buffer
 	auto lightParamsBuffer = renderer->GetLightParams();
 	void* data = lightParamsBuffer->Map();
-	memcpy(data, &lightParams, sizeof(LightParams) * 3);
+	memcpy(data, &lightParams, sizeof(LightParams) * numOfLights);
 	lightParamsBuffer->Unmap();
 
 	auto& device = renderer->GetVulkanDevice();

@@ -45,6 +45,12 @@ void VulkanStateManager::SetCullMode(const CullMode mode)
 	m_DirtyPipeline = true;
 }
 
+void VulkanStateManager::SetWindingOrder(const WindingOrder wo)
+{
+    m_PipelineConfig->SetWindingOrder(wo);
+    m_DirtyPipeline = true;
+}
+
 void VulkanStateManager::SetViewport(float x, float y, float width, float height)
 {
 	m_PipelineConfig->viewport.x = x;

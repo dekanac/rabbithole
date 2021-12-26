@@ -1,5 +1,7 @@
 #version 450
 
+#define lightCount 4
+
 layout (location = 0) in vec2 inUV;
 
 layout (binding = 0) uniform sampler2D samplerAlbedo;
@@ -22,7 +24,7 @@ struct Light
 };
 
 layout(binding = 4) uniform LightParams {
-	Light[3] light;
+	Light[lightCount] light;
 } Lights;
 
 
@@ -55,8 +57,7 @@ void main()
 	}
 
 	// Render-target composition
-
-	#define lightCount 3
+	
 	#define ambient 0.03
 	
 	// Ambient part

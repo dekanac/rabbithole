@@ -122,6 +122,10 @@ void InputManager::InitKeybinds()
 	m_InputActions["Debug2"] = '2';
 	m_InputActions["Debug3"] = '3';
 	m_InputActions["Debug4"] = '4';
+    m_InputActions["ActivateCameraMove"] = VK_LMENU;
+    m_InputActions["ActivateCameraOrbit"] = VK_LBUTTON;
+	m_InputActions["ActivateCameraZoom"] = VK_RBUTTON;
+	m_InputActions["ActivateCameraPan"] = VK_MBUTTON;
 
 }
 

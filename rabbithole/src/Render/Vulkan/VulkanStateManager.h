@@ -30,7 +30,7 @@ public:
 	void SetPixelShader(Shader* shader);
 	void EnableWireframe(bool enable);
 	void SetCullMode(const CullMode mode);
-
+	void SetWindingOrder(const WindingOrder wo);
 	void SetViewport(float x, float y, float width, float height);
 
 	//renderpass

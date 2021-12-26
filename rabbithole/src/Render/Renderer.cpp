@@ -70,7 +70,6 @@ bool Renderer::Init()
 
 	lightingMain = new VulkanTexture(&m_VulkanDevice, DEFAULT_WIDTH, DEFAULT_HEIGHT, TextureFlags::RenderTarget, Format::R16G16B16A16_FLOAT, "lightingmain");
 
-
 	return true;
 }
 
@@ -170,41 +169,25 @@ void Renderer::CreateGeometryDescriptors()
 
 void Renderer::InitImgui()
 {
-	//1: create descriptor pool for IMGUI
-	// the size of the pool is very oversize, but it's copied from imgui demo itself.
-	VkDescriptorPoolSize pool_sizes[] =
-	{
-		{ VK_DESCRIPTOR_TYPE_SAMPLER, 1000 },
-		{ VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1000 },
-		{ VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, 1000 },
-		{ VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1000 },
-		{ VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER, 1000 },
-		{ VK_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER, 1000 },
-		{ VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1000 },
-		{ VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1000 },
-		{ VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 1000 },
-		{ VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC, 1000 },
-		{ VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT, 1000 }
-	};
+	VulkanDescriptorPoolSize cisSize;
+	cisSize.Count = 100;
+	cisSize.Type = DescriptorType::CombinedSampler;
+	VulkanDescriptorPoolSize bufferSize;
+	bufferSize.Count = 100;
+	bufferSize.Type = DescriptorType::UniformBuffer;
 
-	VkDescriptorPoolCreateInfo pool_info = {};
-	pool_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
-	pool_info.flags = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT;
-	pool_info.maxSets = 1000;
-	pool_info.poolSizeCount = std::size(pool_sizes);
-	pool_info.pPoolSizes = pool_sizes;
+	VulkanDescriptorPoolInfo info{};
+	info.DescriptorSizes = { cisSize, bufferSize };
+	info.MaxSets = 100;
 
-	VkDescriptorPool imguiPool;
-	VULKAN_API_CALL(vkCreateDescriptorPool(m_VulkanDevice.GetGraphicDevice(), &pool_info, nullptr, &imguiPool));
-
-	// 2: initialize imgui library
+	VulkanDescriptorPool* imguiDescriptorPool = new VulkanDescriptorPool(&m_VulkanDevice, info);
 
 	//this initializes imgui for GLFW
 	ImGui_ImplGlfw_InitForVulkan(Window::instance().GetNativeWindowHandle(), true);
 
 	ImGui_ImplVulkan_InitInfo init_info = {};
 	m_VulkanDevice.InitImguiForVulkan(init_info);
-	init_info.DescriptorPool = imguiPool;
+	init_info.DescriptorPool = imguiDescriptorPool->GetPool();
 	init_info.MinImageCount = m_VulkanSwapchain->GetImageCount();
 	init_info.ImageCount = m_VulkanSwapchain->GetImageCount();
 
@@ -229,18 +212,17 @@ void Renderer::loadModels()
 	for (unsigned int i = 0; i < testScene->numObjects; i++)
 	{
 		RabbitModel* model = new RabbitModel(m_VulkanDevice, testScene->pObjects[i]);
-		auto matrix = rabbitMat4f{ 1.f };
-		matrix = glm::rotate(matrix, -3.14f, { 0.f, 0.f, 1.f });
-		model->SetModelMatrix(matrix);
+		Mesh mesh{};
+		model->SetMesh(mesh);
 		rabbitmodels.push_back(model);
 	}
 
 	{
 		RabbitModel* model = new RabbitModel(m_VulkanDevice, testScene2->pObjects[0]);
 		auto matrix = rabbitMat4f{ 1.f };
-		matrix = glm::translate(matrix, { 7.f, 0.1f, 9.f });
-		matrix = glm::rotate(matrix, -3.14f, { 0.f, 0.f, 1.f });
-		model->SetModelMatrix(matrix);
+		Mesh mesh{};
+		mesh.position = { 7.f, 0.1f, 9.f };
+		model->SetMesh(mesh);
 		rabbitmodels.push_back(model);
 	}
 
@@ -394,10 +376,12 @@ void Renderer::DrawFullScreenQuad()
 
 	EndRenderPass();
 }
-float rot_mod = 0.f;
+
 void Renderer::CopyToSwapChain()
 {
+
 	BindGraphicsPipeline();
+
 #ifdef RABBITHOLE_USING_IMGUI
 	if (!m_ImguiInitialized)
 	{
@@ -423,7 +407,6 @@ void Renderer::CopyToSwapChain()
 
 		ImGui::Begin("Test");
 		ImGui::End();
-
 
 		ImGui::Render();
 		ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), m_CommandBuffers[m_CurrentImageIndex]);
@@ -475,7 +458,10 @@ void Renderer::BindCameraMatrices(Camera* camera)
 
 void Renderer::BindModelMatrix(RabbitModel* model)
 {
-	auto modelMatrix = model->GetModelMatrix();
+	auto modelMesh = model->GetMesh();
+	modelMesh.CalculateMatrix();	//Update model matrix
+	auto modelMatrix = modelMesh.modelMatrix;
+
 	SimplePushConstantData push{};
 	push.modelMatrix = modelMatrix;
 	BindPushConstant(ShaderType::Vertex, push);
@@ -678,8 +664,8 @@ void Renderer::RecordCommandBuffer(int imageIndex)
 
 void Renderer::CreateUniformBuffers()
 {
-	m_UniformBuffer = new VulkanBuffer(&m_VulkanDevice, BufferUsageFlags::UniformBuffer, MemoryAccess::Host, (uint64_t)sizeof(UniformBufferObject));
-	m_LightParams = new VulkanBuffer(&m_VulkanDevice, BufferUsageFlags::UniformBuffer, MemoryAccess::Host, (uint64_t)sizeof(LightParams)*3);
+	m_UniformBuffer = new VulkanBuffer(&m_VulkanDevice, BufferUsageFlags::UniformBuffer, MemoryAccess::Host, (uint64_t)sizeof(UniformBufferObject) + 32/*just to be sure :D*/);
+	m_LightParams = new VulkanBuffer(&m_VulkanDevice, BufferUsageFlags::UniformBuffer, MemoryAccess::Host, (uint64_t)sizeof(LightParams) * MAX_NUM_OF_LIGHTS);
 }
 
 void Renderer::CreateDescriptorPool()

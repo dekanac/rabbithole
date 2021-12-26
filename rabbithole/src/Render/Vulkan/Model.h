@@ -61,6 +61,16 @@ struct TextureData
 	int bpp;
 };
 
+struct Mesh
+{
+	rabbitVec3f position = { 0.0, 0.0, 0.0 };
+	rabbitVec3f rotation = { 0.0, 0.0, 0.0 };
+	rabbitVec3f scale = { 1.f, 1.f, 1.f };
+	rabbitMat4f modelMatrix = rabbitMat4f{ 1.f };
+
+	void CalculateMatrix();
+};
+
 class RabbitModel
 {
 public:
@@ -75,9 +85,6 @@ public:
 	VulkanTexture* GetTexture()	const { return m_Texture; }
 	VulkanTexture* GetNormalTexture()	const { return m_NormalTexture; }
 
-	rabbitMat4f	GetModelMatrix() { return m_ModelMatrix; }
-	void SetModelMatrix(rabbitMat4f modelMatrix) { m_ModelMatrix = modelMatrix; }
-
 	void Bind(VkCommandBuffer commandBuffer);
 	void Draw(VkCommandBuffer commandBuffer);
 
@@ -86,6 +93,8 @@ public:
 	//test purpose, make it private
 	VulkanDescriptorSet* m_DescriptorSet;
 
+	Mesh GetMesh() { return m_MeshData; }
+	void SetMesh(Mesh mesh) { m_MeshData = mesh; }
 
 private:
 	void CreateTextures(ModelLoading::MaterialData* material);
@@ -106,13 +115,15 @@ private:
 	VulkanTexture*			m_NormalTexture;
 
 
-	rabbitMat4f				m_ModelMatrix;
+	Mesh					m_MeshData;
 public:
 	static VulkanTexture*	ms_DefaultWhiteTexture;
 private:
 	std::string				m_FilePath{};
 	std::string				m_Name{};
 };
+
+
 
 struct SceneNode 
 {
