@@ -8,7 +8,7 @@
 
 #include <crc32/Crc32.h>
 
-const uint8_t MaxRenderTargetCount = 4;
+const uint8_t MaxRenderTargetCount = 5;
 
 class VulkanDescriptorSetLayout;
 class VulkanDescriptorSet;

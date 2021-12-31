@@ -33,12 +33,15 @@ rabbitVec3f renderDebugOption;
 #define PASSTHROUGH_FRAGMENT_FILE_PATH		"res/shaders/FS_PassThrough.spv"
 #define PHONG_LIGHT_FRAGMENT_FILE_PATH		"res/shaders/FS_PhongBasicTest.spv"
 
-
-void ExecuteRenderPass(RenderPass& renderpass, Renderer* renderer)
+void Renderer::ExecuteRenderPass(RenderPass& renderpass)
 {
-	renderpass.DeclareResources(renderer);
-	renderpass.Setup(renderer);
-	renderpass.Render(renderer);
+	m_VulkanDevice.BeginLabel(m_CommandBuffers[m_CurrentImageIndex], renderpass.GetName());
+
+	renderpass.DeclareResources(this);
+	renderpass.Setup(this);
+	renderpass.Render(this);
+
+	m_VulkanDevice.EndLabel(m_CommandBuffers[m_CurrentImageIndex]);
 }
 
 bool Renderer::Init()
@@ -46,6 +49,9 @@ bool Renderer::Init()
 	MainCamera = new Camera();
 	MainCamera->Init();
 	testEntity = new Entity();
+	testEntity->AddComponent<InputComponent>();
+
+	EntityManager::instance().AddEntity(testEntity);
 
 #ifdef RABBITHOLE_USING_IMGUI
 	ImGui::CreateContext();
@@ -67,6 +73,9 @@ bool Renderer::Init()
 	albedoGBuffer = new VulkanTexture(&m_VulkanDevice, DEFAULT_WIDTH, DEFAULT_HEIGHT, TextureFlags::RenderTarget, Format::B8G8R8A8_UNORM, "albedo");
 	normalGBuffer = new VulkanTexture(&m_VulkanDevice, DEFAULT_WIDTH, DEFAULT_HEIGHT, TextureFlags::RenderTarget, Format::R16G16B16A16_FLOAT, "normal");
 	worldPositionGBuffer = new VulkanTexture(&m_VulkanDevice, DEFAULT_WIDTH, DEFAULT_HEIGHT, TextureFlags::RenderTarget, Format::R16G16B16A16_FLOAT, "wordlPosition");
+	
+	entityHelper = new VulkanTexture(&m_VulkanDevice, DEFAULT_WIDTH, DEFAULT_HEIGHT, TextureFlags::RenderTarget | TextureFlags::LinearTiling | TextureFlags::TransferSrc, Format::R32_UINT, "entityHelper");
+	entityHelperBuffer = new VulkanBuffer(&m_VulkanDevice, BufferUsageFlags::StorageBuffer, MemoryAccess::Host, DEFAULT_HEIGHT * DEFAULT_WIDTH * 4);
 
 	lightingMain = new VulkanTexture(&m_VulkanDevice, DEFAULT_WIDTH, DEFAULT_HEIGHT, TextureFlags::RenderTarget, Format::R16G16B16A16_FLOAT, "lightingmain");
 
@@ -163,7 +172,7 @@ void Renderer::CreateGeometryDescriptors()
 
 		VulkanDescriptorSet* descriptorSet = new VulkanDescriptorSet(&m_VulkanDevice, m_DescriptorPool.get(), descrSetLayout, { bufferDescr, cisDescr, cis2Descr }, "smthing");
 
-		rabbitmodels[i]->m_DescriptorSet = descriptorSet;
+		rabbitmodels[i]->SetDescriptorSet(descriptorSet);
 	}
 }
 
@@ -319,7 +328,7 @@ void Renderer::DrawGeometry(std::vector<RabbitModel*> bucket)
 			*m_StateManager->GetPipeline()->GetPipelineLayout(),
 			0,
 			1,
-			model->m_DescriptorSet->GetVkDescriptorSet(),
+			model->GetDescriptorSet()->GetVkDescriptorSet(),
 			0,
 			nullptr);
 
@@ -464,7 +473,8 @@ void Renderer::BindModelMatrix(RabbitModel* model)
 
 	SimplePushConstantData push{};
 	push.modelMatrix = modelMatrix;
-	BindPushConstant(ShaderType::Vertex, push);
+	push.id = model->GetId();
+	BindPushConstant(push);
 }
 
 void Renderer::BindUBO()
@@ -645,6 +655,10 @@ void Renderer::UpdateDebugOptions()
 }
 void Renderer::RecordCommandBuffer(int imageIndex)
 {
+	auto inputComponent = testEntity->GetComponent<InputComponent>();
+	auto x = inputComponent->mouse_current_x;
+	auto y = inputComponent->mouse_current_y;
+
 	SetCurrentImageIndex(imageIndex);
 	BeginCommandBuffer();
 
@@ -653,10 +667,18 @@ void Renderer::RecordCommandBuffer(int imageIndex)
 	CopyToSwapchainPass copytoswapchain{};
 
 	UpdateDebugOptions();
+	ExecuteRenderPass(gbuffer);
+	CopyImageToBuffer(entityHelper, entityHelperBuffer);
+	void* data = entityHelperBuffer->Map();
+	uint32_t* dataInt = (uint32_t*)data;
 
-	ExecuteRenderPass(gbuffer, this);
-	ExecuteRenderPass(lighting, this);
-	ExecuteRenderPass(copytoswapchain, this);
+	int current_pixel = (y) * 1280 + x;
+	if (current_pixel > 0 && current_pixel < 921600)
+		std::cout << dataInt[current_pixel] << std::endl;
+
+	entityHelperBuffer->Unmap(); 
+	ExecuteRenderPass(lighting);
+	ExecuteRenderPass(copytoswapchain);
 
 	EndCommandBuffer();
 }
@@ -707,4 +729,27 @@ void Renderer::BindViewport(float x, float y, float width, float height)
 #else
 	m_StateManager->SetViewport(x, y, width, height);
 #endif
+}
+
+void Renderer::CopyImageToBuffer(VulkanTexture* texture, VulkanBuffer* buffer)
+{
+	VkCommandBuffer commandBuffer = m_VulkanDevice.BeginSingleTimeCommands();
+
+	ImageRegion texRegion = texture->GetRegion();
+
+	VkBufferImageCopy region{};
+	region.bufferOffset = 0;
+	region.bufferRowLength = 0;
+	region.bufferImageHeight = 0;
+
+	region.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+	region.imageSubresource.mipLevel = texRegion.Subresource.MipSlice;
+	region.imageSubresource.baseArrayLayer = texRegion.Subresource.ArraySlice;
+	region.imageSubresource.layerCount = texRegion.Subresource.MipSize;
+
+	region.imageOffset = { texRegion.Offset.X, texRegion.Offset.Y, texRegion.Offset.Z };
+	region.imageExtent = { texRegion.Extent.Width, texRegion.Extent.Height, 1 };
+
+	vkCmdCopyImageToBuffer(commandBuffer, texture->GetResource()->GetImage(), VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, buffer->GetBuffer(), 1, &region);
+	m_VulkanDevice.EndSingleTimeCommands(commandBuffer);
 }

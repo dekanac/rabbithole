@@ -16,14 +16,16 @@ void GBufferPass::Setup(Renderer* renderer)
 
 	auto pipelineInfo = stateManager->GetPipelineInfo();
 	
-	pipelineInfo->SetAttachmentCount(3);
+	pipelineInfo->SetAttachmentCount(4);
 	pipelineInfo->SetColorWriteMask(0, ColorWriteMaskFlags::RGBA);
 	pipelineInfo->SetColorWriteMask(1, ColorWriteMaskFlags::RGBA);
 	pipelineInfo->SetColorWriteMask(2, ColorWriteMaskFlags::RGBA);
+	pipelineInfo->SetColorWriteMask(3, ColorWriteMaskFlags::R);
 	
 	stateManager->SetRenderTarget0(renderer->albedoGBuffer->GetView());
 	stateManager->SetRenderTarget1(renderer->normalGBuffer->GetView());
 	stateManager->SetRenderTarget2(renderer->worldPositionGBuffer->GetView());
+	stateManager->SetRenderTarget3(renderer->entityHelper->GetView());
 	stateManager->SetDepthStencil(renderer->GetSwapchain()->GetDepthStencil()->GetView());
 
 	auto renderPassInfo = stateManager->GetRenderPassInfo();

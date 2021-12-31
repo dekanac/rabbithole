@@ -6,14 +6,21 @@ layout(location = 0) in VS_OUT {
     vec3 FragDebugOption;
     vec3 FragNormal;
     vec3 FragTangent;
+    uint FragId;
 } fs_in;
 
 layout (location = 0) out vec4 outColor;
 layout (location = 1) out vec4 outNormal;
 layout (location = 2) out vec4 outWorldPosition;
+layout (location = 3) out uint outEntityId;
 
 layout (binding = 1) uniform sampler2D texSampler;
 layout (binding = 2) uniform sampler2D normalSampler;
+
+layout(push_constant) uniform Push {
+    mat4 model;
+    uint id;
+} push;
 
 void main() 
 {
@@ -27,4 +34,6 @@ void main()
 	outNormal = vec4(tnorm, 1.0);
 
     outWorldPosition = vec4(fs_in.FragPos, 1.0);
+
+    outEntityId = push.id;
 }

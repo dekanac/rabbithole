@@ -13,7 +13,7 @@ VulkanTexture::VulkanTexture(VulkanDevice* device, std::string filePath, Texture
 	CreateSampler(device);
 }
 
-VulkanTexture::VulkanTexture(VulkanDevice* device, const uint32_t width, const uint32_t height, TextureFlags flags, Format format, std::string name)
+VulkanTexture::VulkanTexture(VulkanDevice* device, const uint32_t width, const uint32_t height, TextureFlags flags, Format format, const char* name)
 	: m_Format(format)
 	, m_Flags(flags)
 	, m_FilePath("")
@@ -22,6 +22,10 @@ VulkanTexture::VulkanTexture(VulkanDevice* device, const uint32_t width, const u
 	CreateResource(device, width, height);
 	CreateView(device);
 	CreateSampler(device);
+
+	device->SetObjectName((uint64_t)(m_Resource->GetImage()), VK_DEBUG_REPORT_OBJECT_TYPE_IMAGE_EXT, name);
+	//device->SetObjectName((uint64_t)m_View->GetImageView(), VK_DEBUG_REPORT_OBJECT_TYPE_IMAGE_VIEW_EXT, name);
+	//device->SetObjectName((uint64_t)m_Sampler->GetSampler(), VK_DEBUG_REPORT_OBJECT_TYPE_SAMPLER_EXT, name);
 }
 
 VulkanTexture::VulkanTexture(VulkanDevice* device, TextureData* texData, TextureFlags flags, Format format, std::string name)
@@ -60,8 +64,11 @@ void VulkanTexture::CreateResource(VulkanDevice* device, TextureData* texData)
 	stagingBuffer.Unmap();
 
 	VulkanImageInfo textureResourceInfo;
-	textureResourceInfo.Flags = IsFlagSet(m_Flags & TextureFlags::CubeMap) ? ImageFlags::CubeMap : ImageFlags::None;
-	textureResourceInfo.UsageFlags = ImageUsageFlags::TransferDst | ImageUsageFlags::Resource |
+	textureResourceInfo.Flags = (IsFlagSet(m_Flags & TextureFlags::CubeMap) ? ImageFlags::CubeMap : ImageFlags::None) |
+								(IsFlagSet(m_Flags & TextureFlags::LinearTiling) ? ImageFlags::LinearTiling : ImageFlags::None);
+	textureResourceInfo.UsageFlags = ImageUsageFlags::Resource |
+		(IsFlagSet(m_Flags & TextureFlags::TransferDst) ? ImageUsageFlags::TransferDst : ImageUsageFlags::None) | 
+		(IsFlagSet(m_Flags & TextureFlags::TransferSrc) ? ImageUsageFlags::TransferSrc : ImageUsageFlags::None) | 
 		(IsFlagSet(m_Flags & TextureFlags::DepthStencil) ? ImageUsageFlags::DepthStencil : ImageUsageFlags::None) | 
 		(IsFlagSet(m_Flags & TextureFlags::RenderTarget) ? ImageUsageFlags::RenderTarget : ImageUsageFlags::None);
 	textureResourceInfo.MemoryAccess = MemoryAccess::Device;
@@ -102,7 +109,8 @@ void VulkanTexture::CreateResource(VulkanDevice* device, const uint32_t width, c
 	InitializeRegion(width, height);
 
 	VulkanImageInfo textureResourceInfo;
-	textureResourceInfo.Flags = IsFlagSet(m_Flags & TextureFlags::CubeMap) ? ImageFlags::CubeMap : ImageFlags::None;
+	textureResourceInfo.Flags = (IsFlagSet(m_Flags & TextureFlags::CubeMap) ? ImageFlags::CubeMap : ImageFlags::None) |
+		(IsFlagSet(m_Flags & TextureFlags::LinearTiling) ? ImageFlags::LinearTiling : ImageFlags::None);
 	if (IsFlagSet(m_Flags & TextureFlags::DepthStencil))
 	{
 		textureResourceInfo.UsageFlags = ImageUsageFlags::DepthStencil;

@@ -9,6 +9,8 @@ class VulkanBuffer;
 class VulkanRenderPass;
 class VulkanPipeline;
 
+#define MUTE_VALIDATION_ERROR_SPAM
+
 struct QueueFamilyIndices 
 {
 	uint32_t graphicsFamily;
@@ -68,6 +70,11 @@ public:
 	void				TransitionImageLayout(VulkanTexture* texture, ResourceState oldLayout, ResourceState newLayout);
 	void				CreateImageWithInfo(const VkImageCreateInfo& imageInfo, VkMemoryPropertyFlags properties, VkImage& image, VkDeviceMemory& imageMemory);
 	void				InitImguiForVulkan(ImGui_ImplVulkan_InitInfo& info);
+	
+	//debug utils
+	void SetObjectName(uint64_t object, VkDebugReportObjectTypeEXT objectType, const char* name);
+	void BeginLabel(VkCommandBuffer commandBuffer, const char* name);
+	void EndLabel(VkCommandBuffer commandBuffer);
 
 private:
 	void CreateInstance();
@@ -80,6 +87,7 @@ private:
 
 	//helper fuctions
 	bool						IsDeviceSuitable(VkPhysicalDevice device);
+	void						InitializeFunctionsThroughProcAddr();
 	std::vector<const char*>	GetRequiredExtensions();
 	bool						CheckValidationLayerSupport();
 	QueueFamilyIndices			FindQueueFamilies(VkPhysicalDevice device);

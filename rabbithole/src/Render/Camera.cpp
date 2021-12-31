@@ -37,8 +37,7 @@ bool Camera::Init()
 	mainCamera->AddComponent<InputComponent>();
 
 	auto moveComp = mainCamera->GetComponent<MoverComponent>();
-	moveComp->m_MoveSpeed = 10.f;
-	moveComp->m_RotationSpeed = 0.1f;
+	moveComp->m_MoveSpeed = 4.f; //camera sensitivity 
 
 	auto inputComp = mainCamera->GetComponent<InputComponent>();
 	inputComp->inputActions.push_back({ "CameraUp" });

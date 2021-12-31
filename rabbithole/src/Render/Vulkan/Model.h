@@ -21,6 +21,7 @@ void InitDefaultTextures(VulkanDevice* device);
 struct SimplePushConstantData
 {
 	rabbitMat4f modelMatrix;
+	uint32_t	id;
 };
 
 struct Vertex
@@ -82,8 +83,11 @@ public:
 	RabbitModel(const RabbitModel&) = delete;
 	RabbitModel& operator=(const RabbitModel&) = delete;
 
-	VulkanTexture* GetTexture()	const { return m_Texture; }
-	VulkanTexture* GetNormalTexture()	const { return m_NormalTexture; }
+	VulkanTexture*			GetTexture()	const { return m_Texture; }
+	VulkanTexture*			GetNormalTexture()	const { return m_NormalTexture; }
+
+	VulkanDescriptorSet*	GetDescriptorSet() const { return m_DescriptorSet; }
+	void					SetDescriptorSet(VulkanDescriptorSet* ds) { m_DescriptorSet = ds; }
 
 	void Bind(VkCommandBuffer commandBuffer);
 	void Draw(VkCommandBuffer commandBuffer);
@@ -91,10 +95,10 @@ public:
 	void LoadFromFile();
 	
 	//test purpose, make it private
-	VulkanDescriptorSet* m_DescriptorSet;
 
 	Mesh GetMesh() { return m_MeshData; }
 	void SetMesh(Mesh mesh) { m_MeshData = mesh; }
+	inline uint32_t GetId() const { return m_Id; }
 
 private:
 	void CreateTextures(ModelLoading::MaterialData* material);
@@ -113,14 +117,16 @@ private:
 	TextureData*			m_TextureData{};
 	VulkanTexture*			m_Texture;
 	VulkanTexture*			m_NormalTexture;
-
+	VulkanDescriptorSet*	m_DescriptorSet;
 
 	Mesh					m_MeshData;
 public:
 	static VulkanTexture*	ms_DefaultWhiteTexture;
+	static uint32_t			m_CurrentId;
 private:
 	std::string				m_FilePath{};
 	std::string				m_Name{};
+	uint32_t				m_Id;
 };
 
 

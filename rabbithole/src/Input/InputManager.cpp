@@ -82,6 +82,8 @@ void InputManager::Update(float dt)
     {
         component->mouse_x = offset_x;
         component->mouse_y = offset_y;
+        component->mouse_current_x = curr_mouse_x;
+        component->mouse_current_y = curr_mouse_y;
 
         for (auto& action : component->inputActions)
         {

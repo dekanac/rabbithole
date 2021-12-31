@@ -8,11 +8,16 @@
 
 VulkanTexture* RabbitModel::ms_DefaultWhiteTexture = nullptr;
 
+uint32_t RabbitModel::m_CurrentId = 1;
+
 RabbitModel::RabbitModel(VulkanDevice& device, std::string filepath, std::string name) 
 	: m_VulkanDevice{ device }
 	, m_FilePath(filepath)
 	, m_Name(name)
+	, m_Id(m_CurrentId)
 {
+	m_CurrentId++;
+
 	LoadFromFile();
 	//CreateTextures();
 	CreateVertexBuffers();
@@ -20,8 +25,11 @@ RabbitModel::RabbitModel(VulkanDevice& device, std::string filepath, std::string
 }
 
 RabbitModel::RabbitModel(VulkanDevice& device, ModelLoading::ObjectData* objectData)
-: m_VulkanDevice{ device }
+	: m_VulkanDevice{ device }
+	, m_Id(m_CurrentId)
 {
+	m_CurrentId++;
+
 	m_Vertices.resize(objectData->mesh->numVertices);
 	m_Indices.resize(objectData->mesh->numIndices);
 	m_VertexCount = objectData->mesh->numVertices;
@@ -76,7 +84,7 @@ void RabbitModel::CreateTextures(ModelLoading::MaterialData* material)
 	texData.width = texWidth;
 	texData.pData = pixels;
 
-	m_Texture = new VulkanTexture(&m_VulkanDevice, &texData, TextureFlags::Color | TextureFlags::Read, Format::R8G8B8A8_UNORM_SRGB, "albedo_tex");
+	m_Texture = new VulkanTexture(&m_VulkanDevice, &texData, TextureFlags::Color | TextureFlags::Read | TextureFlags::TransferDst, Format::R8G8B8A8_UNORM_SRGB, "albedo_tex");
 
 	int texWidth2, texHeight2, texChannels2;
 	unsigned char* pixels2 = nullptr;

@@ -16,6 +16,7 @@ layout(location = 0) out VS_OUT {
     vec3 FragDebugOption;
     vec3 FragNormal;
     vec3 FragTangent;
+    uint FragId;
 } vs_out;
 
 //use UBO as a Constant Buffer to provide common stuff to shaders
@@ -28,6 +29,7 @@ layout(binding = 0) uniform UniformBufferObject {
 
 layout(push_constant) uniform Push {
     mat4 model;
+    uint id;
 } push;
 
 const vec3 lightPosition = vec3(0.0, 0.0, 100.0);

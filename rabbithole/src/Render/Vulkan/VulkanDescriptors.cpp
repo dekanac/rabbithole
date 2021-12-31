@@ -74,7 +74,7 @@ VulkanDescriptorSetLayout::VulkanDescriptorSetLayout(const VulkanDevice* device,
 	VULKAN_API_CALL(vkCreateDescriptorSetLayout(m_Device->GetGraphicDevice(), &descriptorSetLayoutCreateInfo, nullptr, &m_Layout));
 	
 	VkPushConstantRange pushConstantRange{}; //TODO: this is hard coded...need to provide this through arguments
-	pushConstantRange.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+	pushConstantRange.stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
 	pushConstantRange.offset = 0;
 	pushConstantRange.size = sizeof(SimplePushConstantData);
 	

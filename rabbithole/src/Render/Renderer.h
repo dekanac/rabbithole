@@ -55,14 +55,12 @@ private:
 	VulkanBuffer*							m_UniformBuffer;
 	VulkanBuffer*							m_LightParams;
 
-	VkRenderPass							m_ImguiRenderPass;
-
 	VulkanStateManager*						m_StateManager;
 
-	int										m_CurrentImageIndex = 0;
+	uint8_t									m_CurrentImageIndex = 0;
 
-	Entity*												testEntity;
-	std::vector<RabbitModel*>			rabbitmodels;
+	Entity*									testEntity;
+	std::vector<RabbitModel*>				rabbitmodels;
 	
 	void loadModels();
 	void LoadAndCreateShaders();
@@ -80,6 +78,7 @@ public:
 	inline VulkanImageView* GetSwapchainImage() { return m_VulkanSwapchain->GetImageView(m_CurrentImageIndex); }
 
 	void ResourceBarrier(VulkanTexture* texture, ResourceState oldLayout, ResourceState newLayout);
+	void CopyImageToBuffer(VulkanTexture* texture, VulkanBuffer* buffer);
 
 	inline Shader* GetShader(int index) { return m_Shaders[index]; }
 	inline std::vector<RabbitModel*> GetModels() { return rabbitmodels; }
@@ -94,11 +93,11 @@ public:
 
 
 	template <typename T>
-	void BindPushConstant(ShaderType shaderType, T& push)
+	void BindPushConstant(T& push)
 	{
 		vkCmdPushConstants(m_CommandBuffers[m_CurrentImageIndex], 
 			*(m_StateManager->GetPipeline()->GetPipelineLayout()), 
-			GetVkShaderStageFrom(shaderType), 
+			VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_VERTEX_BIT, //TODO: HC
 			0, 
 			sizeof(T), 
 			&push);
@@ -126,12 +125,15 @@ public:
 	void DrawFullScreenQuad();
 	void CopyToSwapChain();
 	void ImageTransitionToPresent();
+	void ExecuteRenderPass(RenderPass& renderpass);
 public:
 
 	VulkanTexture* albedoGBuffer;
 	VulkanTexture* normalGBuffer;
 	VulkanTexture* worldPositionGBuffer;
 	VulkanTexture* lightingMain;
+	VulkanTexture* entityHelper;
+	VulkanBuffer*  entityHelperBuffer;
 
     bool m_FramebufferResized = false;
 

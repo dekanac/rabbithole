@@ -9,7 +9,17 @@
 #include <set>
 #include <unordered_set>
 
+std::vector<rabbitVec4f> g_Colors = { YELLOW_COLOR, RED_COLOR, BLUE_COLOR, PUPRPLE_COLOR, GREEN_COLOR };
 
+
+rabbitVec4f GetNextColor()
+{
+	static int i = 0;
+
+	i = (i < (g_Colors.size() - 1)) ? ++i : 0;
+
+	return g_Colors[i];
+}
 
 // local callback functions
 static VKAPI_ATTR VkBool32 VKAPI_CALL DebugCallback(
@@ -23,6 +33,11 @@ static VKAPI_ATTR VkBool32 VKAPI_CALL DebugCallback(
 	return VK_FALSE;
 }
 
+PFN_vkCmdBeginDebugUtilsLabelEXT pfnCmdBeginDebugUtilsLabelEXT;
+PFN_vkCmdEndDebugUtilsLabelEXT pfnCmdEndDebugUtilsLabelEXT;
+PFN_vkDebugMarkerSetObjectTagEXT pfnDebugMarkerSetObjectTag;
+PFN_vkDebugMarkerSetObjectNameEXT pfnDebugMarkerSetObjectName;
+
 VkResult CreateDebugUtilsMessengerEXT(
 	VkInstance instance,
 	const VkDebugUtilsMessengerCreateInfoEXT* pCreateInfo,
@@ -31,6 +46,7 @@ VkResult CreateDebugUtilsMessengerEXT(
 	auto func = (PFN_vkCreateDebugUtilsMessengerEXT)vkGetInstanceProcAddr(
 		instance,
 		"vkCreateDebugUtilsMessengerEXT");
+	
 	if (func != nullptr) 
 	{
 		return func(instance, pCreateInfo, pAllocator, pDebugMessenger);
@@ -63,6 +79,7 @@ VulkanDevice::VulkanDevice()
 	CreateLogicalDevice();
 	CreateVmaAllocator();
 	CreateCommandPool();
+	InitializeFunctionsThroughProcAddr();
 }
 
 VulkanDevice::~VulkanDevice() 
@@ -266,9 +283,11 @@ void VulkanDevice::PopulateDebugMessengerCreateInfo(VkDebugUtilsMessengerCreateI
 {
 	createInfo = {};
 	createInfo.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT;
+#ifndef MUTE_VALIDATION_ERROR_SPAM
 	createInfo.messageSeverity = VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT |
 		VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT |
 		VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT;
+#endif
 	createInfo.messageType = VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT |
 		VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT |
 		VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT;
@@ -447,6 +466,14 @@ SwapChainSupportDetails VulkanDevice::QuerySwapChainSupport(VkPhysicalDevice dev
 	return details;
 }
 
+void VulkanDevice::InitializeFunctionsThroughProcAddr()
+{
+	pfnDebugMarkerSetObjectTag = (PFN_vkDebugMarkerSetObjectTagEXT)vkGetInstanceProcAddr(m_Instance, "vkDebugMarkerSetObjectTagEXT");
+	pfnDebugMarkerSetObjectName = (PFN_vkDebugMarkerSetObjectNameEXT)vkGetDeviceProcAddr(m_Device, "vkDebugMarkerSetObjectNameEXT");
+	pfnCmdBeginDebugUtilsLabelEXT = (PFN_vkCmdBeginDebugUtilsLabelEXT)vkGetInstanceProcAddr(m_Instance, "vkCmdBeginDebugUtilsLabelEXT");
+	pfnCmdEndDebugUtilsLabelEXT = (PFN_vkCmdEndDebugUtilsLabelEXT)vkGetInstanceProcAddr(m_Instance, "vkCmdEndDebugUtilsLabelEXT");
+}
+
 VkFormat VulkanDevice::FindSupportedFormat(const std::vector<VkFormat>& candidates, VkImageTiling tiling, VkFormatFeatureFlags features) 
 {
 	for (VkFormat format : candidates) 
@@ -560,6 +587,7 @@ void VulkanDevice::CopyBufferToImage(VulkanBuffer* buffer, VulkanTexture* textur
 	EndSingleTimeCommands(commandBuffer);
 }
 
+
 void VulkanDevice::TransitionImageLayout(VulkanTexture* texture, ResourceState oldLayout, ResourceState newLayout)
 {
 	VkCommandBuffer commandBuffer = BeginSingleTimeCommands();
@@ -672,6 +700,43 @@ void VulkanDevice::InitImguiForVulkan(ImGui_ImplVulkan_InitInfo& info)
 	info.PhysicalDevice = m_PhysicalDevice;
 	info.Device = m_Device;
 	info.Queue = m_GraphicsQueue;
+}
+
+void VulkanDevice::SetObjectName(uint64_t object, VkDebugReportObjectTypeEXT objectType, const char* name)
+{
+	// Check for a valid function pointer
+	if (pfnDebugMarkerSetObjectName)
+	{
+		VkDebugMarkerObjectNameInfoEXT nameInfo = {};
+		nameInfo.sType = VK_STRUCTURE_TYPE_DEBUG_MARKER_OBJECT_NAME_INFO_EXT;
+		nameInfo.objectType = objectType;
+		nameInfo.object = object;
+		nameInfo.pObjectName = name;
+		pfnDebugMarkerSetObjectName(m_Device, &nameInfo);
+	}
+}
+
+void VulkanDevice::BeginLabel(VkCommandBuffer commandBuffer, const char* name)
+{
+#ifdef _DEBUG
+	glm::vec4 color = GetNextColor();
+	VkDebugUtilsLabelEXT labelInfo{};
+	labelInfo.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_LABEL_EXT;
+	labelInfo.color[0] = color[0];
+	labelInfo.color[1] = color[1];
+	labelInfo.color[2] = color[2];
+	labelInfo.color[3] = color[3];
+	labelInfo.pLabelName = name;
+
+	pfnCmdBeginDebugUtilsLabelEXT(commandBuffer, &labelInfo);
+#endif
+}
+
+void VulkanDevice::EndLabel(VkCommandBuffer commandBuffer)
+{
+#ifdef _DEBUG
+	pfnCmdEndDebugUtilsLabelEXT(commandBuffer);
+#endif
 }
 
 VkBufferUsageFlags GetVkBufferUsageFlags(const BufferUsageFlags usageFlags)
@@ -826,6 +891,8 @@ VkFormat GetVkFormatFrom(const Format format)
 		return VK_FORMAT_BC7_UNORM_BLOCK;
 	case Format::BC7_UNORM_SRGB:
 		return VK_FORMAT_BC7_SRGB_BLOCK;
+	case Format::R32_UINT:
+		return VK_FORMAT_R32_UINT;
 	default:
 		ASSERT(false, "Not supported Format.");
 		return VK_FORMAT_UNDEFINED;

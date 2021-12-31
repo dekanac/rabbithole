@@ -48,6 +48,8 @@ struct InputComponent : public Component
 	std::vector<InputAction> inputActions;
 	double mouse_x;
 	double mouse_y;
+    double mouse_current_x;
+    double mouse_current_y;
 
 };
 

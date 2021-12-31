@@ -8,7 +8,7 @@ struct TextureData;
 class VulkanTexture
 {
 public:
-	VulkanTexture(VulkanDevice* device, const uint32_t width, const uint32_t height, TextureFlags flags, Format format, std::string name);
+	VulkanTexture(VulkanDevice* device, const uint32_t width, const uint32_t height, TextureFlags flags, Format format, const char* name);
 	VulkanTexture(VulkanDevice* device, std::string filePath, TextureFlags flags, Format format, std::string name);
 	VulkanTexture(VulkanDevice* device, TextureData* texData, TextureFlags flags, Format format, std::string name);
 	~VulkanTexture();

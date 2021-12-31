@@ -66,6 +66,7 @@ enum class Format : uint8_t
 	BC3_UNORM_SRGB,
 	BC7_UNORM,
 	BC7_UNORM_SRGB,
+	R32_UINT,
 
 	Count
 };
@@ -307,14 +308,18 @@ enum class ColorWriteMaskFlags : uint8_t
 };
 RABBITHOLE_FLAG_TYPE_SETUP(ColorWriteMaskFlags)
 
-enum class TextureFlags : uint8_t
+enum class TextureFlags : uint16_t
 {
 	None = 0x0 << 0,
 	Color = 0x1 << 0,
 	DepthStencil = 0x1 << 1,
 	CubeMap = 0x1 << 2,
 	Read = 0x1 << 3,
-	RenderTarget = 0x1 << 4
+	RenderTarget = 0x1 << 4,
+	LinearTiling = 0x1 << 5,
+	TransferSrc = 0x1 << 6,
+	TransferDst = 0x1 << 7
+
 };
 RABBITHOLE_FLAG_TYPE_SETUP(TextureFlags)
 

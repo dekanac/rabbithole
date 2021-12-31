@@ -36,4 +36,11 @@ typedef glm::mat4 rabbitMat4f;
 #define ZERO_VEC3f rabbitVec3f{0.0, 0.0, 0.0}
 #define ZERO_MAT4f rabbitMat4f{1.f}
 
+#define YELLOW_COLOR	rabbitVec4f{1.f, 1.f, 0.f, 1.f}
+#define RED_COLOR		rabbitVec4f{1.f, 0.f, 0.f, 1.f}
+#define BLUE_COLOR		rabbitVec4f{0.f, 0.f, 1.f, 1.f}
+#define PUPRPLE_COLOR	rabbitVec4f{1.f, 0.f, 1.f, 1.f}
+#define GREEN_COLOR		rabbitVec4f{0.f, 1.f, 0.f, 1.f}
+
 #define MB_16 16777216
+
