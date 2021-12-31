@@ -24,4 +24,5 @@ private: \
 
 DECLARE_RENDERPASS(GBufferPass)
 DECLARE_RENDERPASS(LightingPass)
+DECLARE_RENDERPASS(OutlineEntityPass);
 DECLARE_RENDERPASS(CopyToSwapchainPass)

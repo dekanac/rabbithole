@@ -32,6 +32,7 @@ rabbitVec3f renderDebugOption;
 #define PASSTHROUGH_VERTEX_FILE_PATH		"res/shaders/VS_PassThrough.spv"
 #define PASSTHROUGH_FRAGMENT_FILE_PATH		"res/shaders/FS_PassThrough.spv"
 #define PHONG_LIGHT_FRAGMENT_FILE_PATH		"res/shaders/FS_PhongBasicTest.spv"
+#define OUTLINE_ENTITY_FRAGMENT_FILE_PATH	"res/shaders/FS_OutlineEntity.spv"
 
 void Renderer::ExecuteRenderPass(RenderPass& renderpass)
 {
@@ -134,7 +135,7 @@ void Renderer::DrawFrame()
 
 void Renderer::CreateGeometryDescriptors()
 {
-	VulkanDescriptorSetLayout* descrSetLayout = new VulkanDescriptorSetLayout(&m_VulkanDevice, { m_Shaders[0], m_Shaders[1] }, "smthing");
+	VulkanDescriptorSetLayout* descrSetLayout = new VulkanDescriptorSetLayout(&m_VulkanDevice, { m_Shaders["VS_GBuffer"], m_Shaders["FS_GBuffer"]}, "GeometryDescSetLayout");
 
 	VulkanDescriptorInfo descriptorinfo{};
 	descriptorinfo.Type = DescriptorType::UniformBuffer;
@@ -170,7 +171,7 @@ void Renderer::CreateGeometryDescriptors()
 
 		VulkanDescriptor* cis2Descr = new VulkanDescriptor(descriptorinfo3);
 
-		VulkanDescriptorSet* descriptorSet = new VulkanDescriptorSet(&m_VulkanDevice, m_DescriptorPool.get(), descrSetLayout, { bufferDescr, cisDescr, cis2Descr }, "smthing");
+		VulkanDescriptorSet* descriptorSet = new VulkanDescriptorSet(&m_VulkanDevice, m_DescriptorPool.get(), descrSetLayout, { bufferDescr, cisDescr, cis2Descr }, "GeometryDescSet");
 
 		rabbitmodels[i]->SetDescriptorSet(descriptorSet);
 	}
@@ -386,6 +387,28 @@ void Renderer::DrawFullScreenQuad()
 	EndRenderPass();
 }
 
+void Renderer::UpdateEntityPickId()
+{
+	auto inputComponent = testEntity->GetComponent<InputComponent>();
+	auto x = inputComponent->mouse_current_x;
+	auto y = inputComponent->mouse_current_y;
+
+	CopyImageToBuffer(entityHelper, entityHelperBuffer);
+	void* data = entityHelperBuffer->Map();
+	uint32_t* dataInt = (uint32_t*)data;
+
+	int current_pixel = (y)*DEFAULT_WIDTH + x;
+	if (current_pixel > 0 && current_pixel < DEFAULT_WIDTH * DEFAULT_HEIGHT)
+	{
+		PushEntityId push{};
+		push.id = dataInt[current_pixel];
+		BindPushConstant(push);
+	}
+
+	entityHelperBuffer->Unmap();
+
+}
+
 void Renderer::CopyToSwapChain()
 {
 
@@ -505,12 +528,14 @@ void Renderer::LoadAndCreateShaders()
 	auto fragCode2 = ReadFile(PASSTHROUGH_FRAGMENT_FILE_PATH);
 
 	auto fragCode3 = ReadFile(PHONG_LIGHT_FRAGMENT_FILE_PATH);
+	auto fragCode4 = ReadFile(OUTLINE_ENTITY_FRAGMENT_FILE_PATH);
 
-	CreateShaderModule(vertCode, ShaderType::Vertex, "gbuffervertex", nullptr);
-	CreateShaderModule(fragCode, ShaderType::Fragment, "gbufferfragment", nullptr);
-	CreateShaderModule(vertCode2, ShaderType::Vertex, "passthroughvs", nullptr);
-	CreateShaderModule(fragCode2, ShaderType::Fragment, "passthroughfs", nullptr);
-	CreateShaderModule(fragCode3, ShaderType::Fragment, "phonglightfragment", nullptr);
+	CreateShaderModule(vertCode, ShaderType::Vertex, "VS_GBuffer", nullptr);
+	CreateShaderModule(fragCode, ShaderType::Fragment, "FS_GBuffer", nullptr);
+	CreateShaderModule(vertCode2, ShaderType::Vertex, "VS_PassThrough", nullptr);
+	CreateShaderModule(fragCode2, ShaderType::Fragment, "FS_PassThrough", nullptr);
+	CreateShaderModule(fragCode3, ShaderType::Fragment, "FS_PhongBasicTest", nullptr);
+	CreateShaderModule(fragCode4, ShaderType::Fragment, "FS_OutlineEntity", nullptr);
 }
 
 void Renderer::CreateShaderModule(const std::vector<char>& code, ShaderType type, const char* name, const char* codeEntry)
@@ -519,7 +544,7 @@ void Renderer::CreateShaderModule(const std::vector<char>& code, ShaderType type
 	shaderInfo.CodeEntry = codeEntry;
 	shaderInfo.Type = type;
 	Shader* shader = new Shader(m_VulkanDevice, code.size(), code.data(), shaderInfo, name);
-	m_Shaders.push_back(shader);
+	m_Shaders[{name}] = shader;
 }
 
 void Renderer::createCommandBuffers() 
@@ -655,29 +680,21 @@ void Renderer::UpdateDebugOptions()
 }
 void Renderer::RecordCommandBuffer(int imageIndex)
 {
-	auto inputComponent = testEntity->GetComponent<InputComponent>();
-	auto x = inputComponent->mouse_current_x;
-	auto y = inputComponent->mouse_current_y;
-
 	SetCurrentImageIndex(imageIndex);
 	BeginCommandBuffer();
 
 	GBufferPass gbuffer{};
 	LightingPass lighting{};
+	OutlineEntityPass outlineEntityPass{};
 	CopyToSwapchainPass copytoswapchain{};
 
 	UpdateDebugOptions();
 	ExecuteRenderPass(gbuffer);
-	CopyImageToBuffer(entityHelper, entityHelperBuffer);
-	void* data = entityHelperBuffer->Map();
-	uint32_t* dataInt = (uint32_t*)data;
-
-	int current_pixel = (y) * 1280 + x;
-	if (current_pixel > 0 && current_pixel < 921600)
-		std::cout << dataInt[current_pixel] << std::endl;
-
-	entityHelperBuffer->Unmap(); 
 	ExecuteRenderPass(lighting);
+	if (m_RenderOutlinedEntity)
+	{
+		ExecuteRenderPass(outlineEntityPass);
+	}
 	ExecuteRenderPass(copytoswapchain);
 
 	EndCommandBuffer();

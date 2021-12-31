@@ -37,8 +37,8 @@ void GBufferPass::Setup(Renderer* renderer)
 	renderPassInfo->FinalDepthStencilState = ResourceState::DepthStencilWrite;
 
 	stateManager->SetCullMode(CullMode::Front);//TODO: VULKAN INVERT Y FLIP FIX
-	stateManager->SetVertexShader(renderer->GetShader(0));
-	stateManager->SetPixelShader(renderer->GetShader(1));
+	stateManager->SetVertexShader(renderer->GetShader("VS_GBuffer"));
+	stateManager->SetPixelShader(renderer->GetShader("FS_GBuffer"));
 
 	renderer->BindCameraMatrices(renderer->GetCamera());
 }
@@ -57,8 +57,8 @@ void LightingPass::Setup(Renderer* renderer)
 {
 	VulkanStateManager* stateManager = renderer->GetStateManager();
 
-	stateManager->SetVertexShader(renderer->GetShader(2));
-	stateManager->SetPixelShader(renderer->GetShader(4));
+	stateManager->SetVertexShader(renderer->GetShader("VS_PassThrough"));
+	stateManager->SetPixelShader(renderer->GetShader("FS_PhongBasicTest"));
 
 	auto renderPassInfo = stateManager->GetRenderPassInfo();
 	renderPassInfo->InitialRenderTargetState = ResourceState::None;
@@ -116,8 +116,8 @@ void CopyToSwapchainPass::Setup(Renderer* renderer)
 {
 	VulkanStateManager* stateManager = renderer->GetStateManager();
 
-	stateManager->SetVertexShader(renderer->GetShader(2));
-	stateManager->SetPixelShader(renderer->GetShader(3));
+	stateManager->SetVertexShader(renderer->GetShader("VS_PassThrough"));
+	stateManager->SetPixelShader(renderer->GetShader("FS_PassThrough"));
 
 	renderer->ResourceBarrier(renderer->lightingMain, ResourceState::RenderTarget, ResourceState::GenericRead);
 	stateManager->SetCombinedImageSampler(0, renderer->lightingMain);
@@ -135,6 +135,40 @@ void CopyToSwapchainPass::Setup(Renderer* renderer)
 void CopyToSwapchainPass::Render(Renderer* renderer)
 {
 	renderer->CopyToSwapChain();
+}
+
+void OutlineEntityPass::DeclareResources(Renderer* renderer)
+{
+
+}
+
+void OutlineEntityPass::Setup(Renderer* renderer)
+{
+	VulkanStateManager* stateManager = renderer->GetStateManager();
+
+	stateManager->ShouldCleanColor(false);
+
+	renderer->UpdateEntityPickId();
+
+	auto pipelineInfo = stateManager->GetPipelineInfo();
+	pipelineInfo->SetAttachmentCount(1);
+	pipelineInfo->SetColorWriteMask(0, ColorWriteMaskFlags::RGBA);
+
+	auto renderPassInfo = stateManager->GetRenderPassInfo();
+	renderPassInfo->InitialRenderTargetState = ResourceState::None;
+	renderPassInfo->FinalRenderTargetState = ResourceState::RenderTarget;
+
+	stateManager->SetVertexShader(renderer->GetShader("VS_PassThrough"));
+	stateManager->SetPixelShader(renderer->GetShader("FS_OutlineEntity"));
+
+	stateManager->SetCombinedImageSampler(0, renderer->entityHelper);
+	stateManager->SetRenderTarget0(renderer->lightingMain->GetView());
+
+}
+
+void OutlineEntityPass::Render(Renderer* renderer)
+{
+	renderer->DrawFullScreenQuad();
 }
 
 

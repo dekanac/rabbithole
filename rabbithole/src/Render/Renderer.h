@@ -33,6 +33,11 @@ struct UniformBufferObject
 	rabbitVec3f debugOption;
 };
 
+struct PushEntityId
+{
+	uint32_t id;
+};
+
 struct LightParams
 {
 	rabbitVec4f position;
@@ -44,23 +49,23 @@ class Renderer
     SingletonClass(Renderer)
 
 private:
-	Camera*									MainCamera{};
-	
-	VulkanDevice							m_VulkanDevice{};
-	std::unique_ptr<VulkanSwapchain>		m_VulkanSwapchain;
-	std::unique_ptr<VulkanDescriptorPool>	m_DescriptorPool;
-	std::vector<Shader*>					m_Shaders;
-	std::vector<VkCommandBuffer>			m_CommandBuffers;
-	
-	VulkanBuffer*							m_UniformBuffer;
-	VulkanBuffer*							m_LightParams;
+	Camera* MainCamera{};
 
-	VulkanStateManager*						m_StateManager;
+	VulkanDevice								m_VulkanDevice{};
+	std::unique_ptr<VulkanSwapchain>			m_VulkanSwapchain;
+	std::unique_ptr<VulkanDescriptorPool>		m_DescriptorPool;
+	std::unordered_map<std::string, Shader*>	m_Shaders;
+	std::vector<VkCommandBuffer>				m_CommandBuffers;
 
-	uint8_t									m_CurrentImageIndex = 0;
+	VulkanBuffer* m_UniformBuffer;
+	VulkanBuffer* m_LightParams;
 
-	Entity*									testEntity;
-	std::vector<RabbitModel*>				rabbitmodels;
+	VulkanStateManager* m_StateManager;
+
+	uint8_t m_CurrentImageIndex = 0;
+
+	Entity*						testEntity;
+	std::vector<RabbitModel*>	rabbitmodels;
 	
 	void loadModels();
 	void LoadAndCreateShaders();
@@ -80,7 +85,7 @@ public:
 	void ResourceBarrier(VulkanTexture* texture, ResourceState oldLayout, ResourceState newLayout);
 	void CopyImageToBuffer(VulkanTexture* texture, VulkanBuffer* buffer);
 
-	inline Shader* GetShader(int index) { return m_Shaders[index]; }
+	inline Shader* GetShader(const std::string& name) { return m_Shaders[name]; }
 	inline std::vector<RabbitModel*> GetModels() { return rabbitmodels; }
 	inline Camera* GetCamera() { return MainCamera; }
 
@@ -116,13 +121,15 @@ public:
 	void BindCameraMatrices(Camera* camera);
 
 	void DrawGeometry(std::vector<RabbitModel*> bucket);
+	void DrawFullScreenQuad();
+	void UpdateEntityPickId();
+
 
 	void BeginCommandBuffer();
 	void EndCommandBuffer();
 
 	//helper functions
 	std::vector<char> ReadFile(const std::string& filepath);
-	void DrawFullScreenQuad();
 	void CopyToSwapChain();
 	void ImageTransitionToPresent();
 	void ExecuteRenderPass(RenderPass& renderpass);
@@ -135,6 +142,7 @@ public:
 	VulkanTexture* entityHelper;
 	VulkanBuffer*  entityHelperBuffer;
 
+	bool m_RenderOutlinedEntity = true;
     bool m_FramebufferResized = false;
 
 	bool Init();
