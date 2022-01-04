@@ -455,7 +455,7 @@ VulkanRenderPass* PipelineManager::FindOrCreateRenderPass(VulkanDevice& device, 
 
 	for (size_t i = 0; i < renderTargets.size(); i++)
 	{
-		key.attachmentDescriptions[i].format = renderTargets[i]->GetFormat();
+		key.attachmentDescriptions[i].format = renderTargets[i]->GetVkFormat();
 		key.attachmentDescriptions[i].samples = GetVkSampleFlagsFrom(renderTargets[i]->GetInfo().Resource->GetInfo().MultisampleType);
 		key.attachmentDescriptions[i].loadOp = renderPassInfo.ClearRenderTargets ? VK_ATTACHMENT_LOAD_OP_CLEAR : VK_ATTACHMENT_LOAD_OP_LOAD;
 		key.attachmentDescriptions[i].storeOp = VK_ATTACHMENT_STORE_OP_STORE;
@@ -465,7 +465,7 @@ VulkanRenderPass* PipelineManager::FindOrCreateRenderPass(VulkanDevice& device, 
 	
 	if (depthStencil != nullptr)
 	{
-		key.depthStencilAttachmentDescription.format = depthStencil->GetFormat();
+		key.depthStencilAttachmentDescription.format = depthStencil->GetVkFormat();
 		key.depthStencilAttachmentDescription.samples = GetVkSampleFlagsFrom(depthStencil->GetInfo().Resource->GetInfo().MultisampleType);
 		key.depthStencilAttachmentDescription.loadOp = renderPassInfo.ClearDepth ? VK_ATTACHMENT_LOAD_OP_CLEAR : VK_ATTACHMENT_LOAD_OP_LOAD;
 		key.depthStencilAttachmentDescription.storeOp = VK_ATTACHMENT_STORE_OP_STORE;

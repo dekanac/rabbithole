@@ -67,6 +67,7 @@ public:
 	void				EndSingleTimeCommands(VkCommandBuffer commandBuffer);
 	void				CopyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size);
 	void				CopyBufferToImage(VulkanBuffer* buffer, VulkanTexture* texture);
+	void				CopyBufferToImageCubeMap(VulkanBuffer* buffer, VulkanTexture* texture);
 	void				TransitionImageLayout(VulkanTexture* texture, ResourceState oldLayout, ResourceState newLayout);
 	void				CreateImageWithInfo(const VkImageCreateInfo& imageInfo, VkMemoryPropertyFlags properties, VkImage& image, VkDeviceMemory& imageMemory);
 	void				InitImguiForVulkan(ImGui_ImplVulkan_InitInfo& info);
@@ -149,6 +150,7 @@ VkSamplerAddressMode	GetVkAddressModeFrom(const AddressMode addressMode);
 VkBlendFactor			GetVkBlendFactorFrom(const BlendValue blendValue);
 VkBlendOp				GetVkBlendOpFrom(const BlendOperation blendOperation);
 VkVertexInputRate		GetVkVertexInputRateFrom(const VertexInputRate inputRate);
+VkClearValue			GetVkClearColorValueForFormat(const VkFormat format);
 VkImageUsageFlags		GetVkImageUsageFlagsFrom(const ImageUsageFlags usageFlags);
 VkBorderColor			GetVkBorderColorFrom(const Color color);
 

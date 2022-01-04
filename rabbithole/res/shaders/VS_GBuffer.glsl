@@ -36,13 +36,11 @@ const vec3 lightPosition = vec3(0.0, 0.0, 100.0);
 
 void main() 
 {
-
     vs_out.FragPos = vec3(push.model * vec4(position, 1.0));   
     vs_out.FragUV = uv;
     
-    mat3 mNormal = transpose(inverse(mat3(push.model)));
-	vs_out.FragNormal = mNormal * normalize(normal);	
-	vs_out.FragTangent = mNormal * normalize(tangent);
+	vs_out.FragNormal = mat3(push.model) * normal;
+	vs_out.FragTangent = vec3(mat3(push.model) * tangent.xyz);
 
     vs_out.FragDebugOption = UBO.debugOption;
     

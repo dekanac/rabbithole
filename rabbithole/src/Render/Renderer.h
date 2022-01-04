@@ -33,9 +33,10 @@ struct UniformBufferObject
 	rabbitVec3f debugOption;
 };
 
-struct PushEntityId
+struct PushMousePos
 {
-	uint32_t id;
+	uint32_t x;
+	uint32_t y;
 };
 
 struct LightParams
@@ -52,18 +53,18 @@ private:
 	Camera* MainCamera{};
 
 	VulkanDevice								m_VulkanDevice{};
+	VulkanStateManager*							m_StateManager;
 	std::unique_ptr<VulkanSwapchain>			m_VulkanSwapchain;
 	std::unique_ptr<VulkanDescriptorPool>		m_DescriptorPool;
 	std::unordered_map<std::string, Shader*>	m_Shaders;
 	std::vector<VkCommandBuffer>				m_CommandBuffers;
+	uint8_t										m_CurrentImageIndex = 0;
 
 	VulkanBuffer* m_UniformBuffer;
+	VulkanBuffer* m_VertexUploadBuffer;
 	VulkanBuffer* m_LightParams;
-
-	VulkanStateManager* m_StateManager;
-
-	uint8_t m_CurrentImageIndex = 0;
-
+	
+	//test purpose only
 	Entity*						testEntity;
 	std::vector<RabbitModel*>	rabbitmodels;
 	
@@ -81,6 +82,7 @@ public:
 	inline VulkanStateManager* GetStateManager() { return m_StateManager; }
 	inline VulkanSwapchain* GetSwapchain() { return m_VulkanSwapchain.get(); }
 	inline VulkanImageView* GetSwapchainImage() { return m_VulkanSwapchain->GetImageView(m_CurrentImageIndex); }
+	inline VulkanBuffer* GetVertexUploadBuffer() { return m_VertexUploadBuffer; }
 
 	void ResourceBarrier(VulkanTexture* texture, ResourceState oldLayout, ResourceState newLayout);
 	void CopyImageToBuffer(VulkanTexture* texture, VulkanBuffer* buffer);
@@ -91,11 +93,11 @@ public:
 
 	inline VulkanBuffer* GetUniformBuffer() { return m_UniformBuffer; }
 	inline VulkanBuffer* GetLightParams() { return m_LightParams; }
-	
 
 	void UpdateDebugOptions();
 	void BindViewport(float x, float y, float width, float height);
-
+	void BindVertexData();
+	void DrawVertices(uint64_t count);
 
 	template <typename T>
 	void BindPushConstant(T& push)
@@ -124,7 +126,6 @@ public:
 	void DrawFullScreenQuad();
 	void UpdateEntityPickId();
 
-
 	void BeginCommandBuffer();
 	void EndCommandBuffer();
 
@@ -135,10 +136,12 @@ public:
 	void ExecuteRenderPass(RenderPass& renderpass);
 public:
 
+	//TODO: do something with these
 	VulkanTexture* albedoGBuffer;
 	VulkanTexture* normalGBuffer;
 	VulkanTexture* worldPositionGBuffer;
 	VulkanTexture* lightingMain;
+	VulkanTexture* skyboxTexture;
 	VulkanTexture* entityHelper;
 	VulkanBuffer*  entityHelperBuffer;
 
@@ -156,6 +159,6 @@ private:
 	void InitImgui();
 
 private:
-
 	bool m_ImguiInitialized = false;
+	void InitTextures();
 };

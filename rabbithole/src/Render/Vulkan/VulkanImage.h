@@ -67,7 +67,7 @@ public:
 public:
 	inline const VulkanImageViewInfo GetInfo() const { return m_Info; }
 	VkImageView						 GetImageView() const { return m_ImageView; }
-	VkFormat						 GetFormat() const { return m_Format; }
+	VkFormat						 GetVkFormat() const { return m_Format; }
 	uint32_t						 GetId() const { return m_Id; }
 
 private:

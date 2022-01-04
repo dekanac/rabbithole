@@ -57,57 +57,45 @@ RabbitModel::~RabbitModel()
 
 void RabbitModel::CreateTextures(ModelLoading::MaterialData* material)
 {
-	int texWidth, texHeight, texChannels;
-	unsigned char* pixels = nullptr;
-	if (material->diffuseMap != NULL && material->diffuseMap->pData != NULL)
-	{
-		texWidth = material->diffuseMap->width;
-		texHeight = material->diffuseMap->height;
-		texChannels = material->diffuseMap->bpp;
-		pixels = material->diffuseMap->pData;
+
+	if (material->diffuseMap)
+	{														//casting here because I copied texture declaration to other namespace TODO: fix it
+		m_AlbedoTexture = new VulkanTexture(&m_VulkanDevice, (TextureData*)material->diffuseMap, TextureFlags::Color | TextureFlags::Read | TextureFlags::TransferDst, Format::R8G8B8A8_UNORM_SRGB, "albedo_tex");
 	}
 	else
 	{
-		m_Texture = ms_DefaultWhiteTexture;
-		m_NormalTexture = ms_DefaultWhiteTexture;
-		return;
+		m_AlbedoTexture = ms_DefaultWhiteTexture;
 	}
-	if (!pixels) 
+
+	if (material->normalMap)
 	{
-		LOG_ERROR("failed to load texture image!");
-	}
-	VkDeviceSize imageSize = texWidth * texHeight * 4;
-
-	TextureData texData{};
-	texData.bpp = texChannels;
-	texData.height = texHeight;
-	texData.width = texWidth;
-	texData.pData = pixels;
-
-	m_Texture = new VulkanTexture(&m_VulkanDevice, &texData, TextureFlags::Color | TextureFlags::Read | TextureFlags::TransferDst, Format::R8G8B8A8_UNORM_SRGB, "albedo_tex");
-
-	int texWidth2, texHeight2, texChannels2;
-	unsigned char* pixels2 = nullptr;
-
-	if (material->roughnessMap != NULL)
-	{
-		pixels2 = material->roughnessMap->pData;
-		texWidth2 = material->roughnessMap->width;
-		texHeight2 = material->roughnessMap->height;
-		texChannels2 = material->roughnessMap->bpp;
+															//casting here because I copied texture declaration to other namespace TODO: fix it
+		m_NormalTexture = new VulkanTexture(&m_VulkanDevice, (TextureData*)material->normalMap, TextureFlags::Color | TextureFlags::Read, Format::R8G8B8A8_UNORM, "normal_tex");
 	}
 	else
 	{
 		m_NormalTexture = ms_DefaultWhiteTexture;
-		return;
 	}
-	TextureData texData2{};
-	texData2.bpp = texChannels2;
-	texData2.height = texHeight2;
-	texData2.width = texWidth2;
-	texData2.pData = pixels2;
 
-	m_NormalTexture = new VulkanTexture(&m_VulkanDevice, &texData2, TextureFlags::Color | TextureFlags::Read, Format::R8G8B8A8_UNORM, "normal_tex");
+	if (material->roughnessMap)
+	{
+															//casting here because I copied texture declaration to other namespace TODO: fix it
+		m_RoughnessTexture = new VulkanTexture(&m_VulkanDevice, (TextureData*)material->roughnessMap, TextureFlags::Color | TextureFlags::Read, Format::R8G8B8A8_UNORM, "roughness_tex");
+	}
+	else
+	{
+		m_RoughnessTexture = ms_DefaultWhiteTexture;
+	}
+
+	if (material->metallicMap)
+	{
+															//casting here because I copied texture declaration to other namespace TODO: fix it
+		m_MetalnessTexture = new VulkanTexture(&m_VulkanDevice, (TextureData*)material->metallicMap, TextureFlags::Color | TextureFlags::Read, Format::R8G8B8A8_UNORM, "metalness_tex");
+	}
+	else
+	{
+		m_MetalnessTexture = ms_DefaultWhiteTexture; //should be black
+	}
 }
 
 void RabbitModel::CreateVertexBuffers()
@@ -264,18 +252,11 @@ std::vector<VkVertexInputAttributeDescription> Vertex::GetAttributeDescriptions(
 
 void InitDefaultTextures(VulkanDevice* device)
 {
-	int texWidth, texHeight, texChannels;
-	unsigned char* pixels = nullptr;
+	auto texData = ModelLoading::LoadTexture("res/textures/default_white.jpg");
 
-	pixels = stbi_load("res/textures/default_white.jpg", &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
-	
-	TextureData texData{};
-	texData.bpp = texChannels;
-	texData.height = texHeight;
-	texData.width = texWidth;
-	texData.pData = pixels;
+	RabbitModel::ms_DefaultWhiteTexture = new VulkanTexture(device, (TextureData*)texData, TextureFlags::Color | TextureFlags::Read, Format::R8G8B8A8_UNORM_SRGB, "defaul_white");
 
-	RabbitModel::ms_DefaultWhiteTexture = new VulkanTexture(device, &texData, TextureFlags::Color | TextureFlags::Read, Format::R8G8B8A8_UNORM_SRGB, "defaul_white");
+	ModelLoading::FreeTexture(texData);
 }
 
 void Mesh::CalculateMatrix()

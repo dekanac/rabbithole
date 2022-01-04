@@ -587,6 +587,45 @@ void VulkanDevice::CopyBufferToImage(VulkanBuffer* buffer, VulkanTexture* textur
 	EndSingleTimeCommands(commandBuffer);
 }
 
+void VulkanDevice::CopyBufferToImageCubeMap(VulkanBuffer* buffer, VulkanTexture* texture)
+{
+	VkCommandBuffer commandBuffer = BeginSingleTimeCommands();
+
+	ImageRegion texRegion = texture->GetRegion();
+	auto width = texRegion.Extent.Width;
+	auto height = texRegion.Extent.Height;
+
+	std::vector<VkBufferImageCopy> bufferCopyRegions;
+	uint32_t offset = 0;
+
+	for (uint32_t face = 0; face < 6; face++)
+	{
+		{
+			
+			VkBufferImageCopy bufferCopyRegion = {};
+			bufferCopyRegion.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+			bufferCopyRegion.imageSubresource.mipLevel = 0;
+			bufferCopyRegion.imageSubresource.baseArrayLayer = face;
+			bufferCopyRegion.imageSubresource.layerCount = 1;
+			bufferCopyRegion.imageExtent.width = width;
+			bufferCopyRegion.imageExtent.height = height;
+			bufferCopyRegion.imageExtent.depth = 1;
+			bufferCopyRegion.bufferOffset = face * width * height * 4;
+			bufferCopyRegions.push_back(bufferCopyRegion);
+		}
+	}
+
+	vkCmdCopyBufferToImage(
+		commandBuffer,
+		buffer->GetBuffer(),
+		texture->GetResource()->GetImage(),
+		VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+		6,
+		bufferCopyRegions.data());
+
+	EndSingleTimeCommands(commandBuffer);
+}
+
 
 void VulkanDevice::TransitionImageLayout(VulkanTexture* texture, ResourceState oldLayout, ResourceState newLayout)
 {
@@ -603,7 +642,7 @@ void VulkanDevice::TransitionImageLayout(VulkanTexture* texture, ResourceState o
 	barrier.subresourceRange.baseMipLevel = 0;
 	barrier.subresourceRange.levelCount = 1;
 	barrier.subresourceRange.baseArrayLayer = 0;
-	barrier.subresourceRange.layerCount = 1;
+	barrier.subresourceRange.layerCount = (IsFlagSet(texture->GeFlags() & TextureFlags::CubeMap)) ? 6 : 1;
 
 	VkPipelineStageFlags sourceStage;
 	VkPipelineStageFlags destinationStage;
@@ -1367,5 +1406,30 @@ VkVertexInputRate GetVkVertexInputRateFrom(const VertexInputRate inputRate)
 	default:
 		ASSERT(false, "Not supported VertexInputRate.");
 		return VK_VERTEX_INPUT_RATE_MAX_ENUM;
+	}
+}
+
+VkClearValue GetVkClearColorValueForFormat(const VkFormat format)
+{
+	switch (format)
+	{
+	case VK_FORMAT_R8G8B8A8_SRGB:
+	case VK_FORMAT_B8G8R8A8_SRGB:
+	case VK_FORMAT_B8G8R8A8_UNORM:
+	case VK_FORMAT_R8G8B8A8_UNORM:
+	case VK_FORMAT_R16G16B16A16_SFLOAT:
+	case VK_FORMAT_R32G32B32A32_SFLOAT:
+		return VkClearValue{ 0.5f, 0.9f, 1.f, 1.0f };
+	case VK_FORMAT_R8_UNORM:
+		return VkClearValue{ 0.1f };
+	case VK_FORMAT_R32G32B32_SFLOAT:
+		return VkClearValue{ 0.1f, 0.1f, 0.1f};
+	case VK_FORMAT_R32G32_SFLOAT:
+		return VkClearValue{ 0.1f, 0.1f};
+	case VK_FORMAT_R32_UINT:
+		return VkClearValue{ 0 };
+	default:
+		ASSERT(false, "Not supported format.");
+		break;
 	}
 }

@@ -83,8 +83,10 @@ public:
 	RabbitModel(const RabbitModel&) = delete;
 	RabbitModel& operator=(const RabbitModel&) = delete;
 
-	VulkanTexture*			GetTexture()	const { return m_Texture; }
+	VulkanTexture*			GetAlbedoTexture()	const { return m_AlbedoTexture; }
 	VulkanTexture*			GetNormalTexture()	const { return m_NormalTexture; }
+	VulkanTexture*			GetRoughnessTexture() const { return m_RoughnessTexture; }
+	VulkanTexture*			GetMetalnessTexture() const { return m_MetalnessTexture; }
 
 	VulkanDescriptorSet*	GetDescriptorSet() const { return m_DescriptorSet; }
 	void					SetDescriptorSet(VulkanDescriptorSet* ds) { m_DescriptorSet = ds; }
@@ -115,8 +117,10 @@ private:
 	bool					hasIndexBuffer = false;
 
 	TextureData*			m_TextureData{};
-	VulkanTexture*			m_Texture;
+	VulkanTexture*			m_AlbedoTexture;
 	VulkanTexture*			m_NormalTexture;
+	VulkanTexture*			m_RoughnessTexture;
+	VulkanTexture*			m_MetalnessTexture;
 	VulkanDescriptorSet*	m_DescriptorSet;
 
 	Mesh					m_MeshData;

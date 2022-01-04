@@ -23,7 +23,7 @@ VulkanTexture::VulkanTexture(VulkanDevice* device, const uint32_t width, const u
 	CreateView(device);
 	CreateSampler(device);
 
-	device->SetObjectName((uint64_t)(m_Resource->GetImage()), VK_DEBUG_REPORT_OBJECT_TYPE_IMAGE_EXT, name);
+	//device->SetObjectName((uint64_t)(m_Resource->GetImage()), VK_DEBUG_REPORT_OBJECT_TYPE_IMAGE_EXT, name);
 	//device->SetObjectName((uint64_t)m_View->GetImageView(), VK_DEBUG_REPORT_OBJECT_TYPE_IMAGE_VIEW_EXT, name);
 	//device->SetObjectName((uint64_t)m_Sampler->GetSampler(), VK_DEBUG_REPORT_OBJECT_TYPE_SAMPLER_EXT, name);
 }
@@ -50,7 +50,13 @@ VulkanTexture::~VulkanTexture()
 void VulkanTexture::CreateResource(VulkanDevice* device, TextureData* texData)
 {
 	InitializeRegion(texData->width, texData->height);
+	bool isCubeMap = IsFlagSet(m_Flags & TextureFlags::CubeMap);
+
 	int textureSize = texData->height * texData->width * 4;
+	if (isCubeMap)
+	{
+		textureSize *= 6;
+	}
 
 	VulkanBufferInfo bufferInfo{};
 	bufferInfo.memoryAccess = MemoryAccess::Host;
@@ -64,7 +70,7 @@ void VulkanTexture::CreateResource(VulkanDevice* device, TextureData* texData)
 	stagingBuffer.Unmap();
 
 	VulkanImageInfo textureResourceInfo;
-	textureResourceInfo.Flags = (IsFlagSet(m_Flags & TextureFlags::CubeMap) ? ImageFlags::CubeMap : ImageFlags::None) |
+	textureResourceInfo.Flags = (isCubeMap ? ImageFlags::CubeMap : ImageFlags::None) |
 								(IsFlagSet(m_Flags & TextureFlags::LinearTiling) ? ImageFlags::LinearTiling : ImageFlags::None);
 	textureResourceInfo.UsageFlags = ImageUsageFlags::Resource |
 		(IsFlagSet(m_Flags & TextureFlags::TransferDst) ? ImageUsageFlags::TransferDst : ImageUsageFlags::None) | 
@@ -100,7 +106,16 @@ void VulkanTexture::CreateResource(VulkanDevice* device, TextureData* texData)
 	}
 
 	device->TransitionImageLayout(this, ResourceState::None, ResourceState::TransferDst);
-	device->CopyBufferToImage(&stagingBuffer, this); // TODO: Handle CubeMaps.
+
+	if (isCubeMap)
+	{
+		device->CopyBufferToImageCubeMap(&stagingBuffer, this);
+	}
+	else
+	{
+		device->CopyBufferToImage(&stagingBuffer, this);
+	}
+
 	device->TransitionImageLayout(this, ResourceState::TransferDst, stateAfter);
 }
 

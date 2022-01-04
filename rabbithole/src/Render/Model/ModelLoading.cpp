@@ -188,17 +188,21 @@ namespace ModelLoading
 		// Values
 		MAT_COLOR(AI_MATKEY_COLOR_DIFFUSE, mat.diffuse);
 
-		// Normal
+		// HACKED but ok for now
 		MAT_TEX(aiTextureType_DIFFUSE, mat.diffuseMap);
-		MAT_TEX(aiTextureType_BASE_COLOR, mat.diffuseMap);
+		MAT_TEX(aiTextureType_NORMALS, mat.normalMap);
+		MAT_TEX(aiTextureType_SPECULAR, mat.metallicMap);
+		MAT_TEX(aiTextureType_AMBIENT, mat.roughnessMap);
+		//MAT_TEX(aiTextureType_BASE_COLOR, mat.diffuseMap);
 
-		MAT_TEX(aiTextureType_DIFFUSE_ROUGHNESS, mat.roughnessMap);
-		MAT_TEX(aiTextureType_SPECULAR, mat.roughnessMap);
 
-		MAT_TEX(aiTextureType_METALNESS, mat.metallicMap);
-		MAT_TEX(aiTextureType_REFLECTION, mat.metallicMap);
-
-		MAT_TEX(aiTextureType_AMBIENT_OCCLUSION, mat.aoMap);
+		//MAT_TEX(aiTextureType_DIFFUSE_ROUGHNESS, mat.roughnessMap);
+		//MAT_TEX(aiTextureType_SPECULAR, mat.roughnessMap);
+		//
+		//MAT_TEX(aiTextureType_METALNESS, mat.metallicMap);
+		//MAT_TEX(aiTextureType_REFLECTION, mat.metallicMap);
+		//
+		//MAT_TEX(aiTextureType_AMBIENT_OCCLUSION, mat.aoMap);
 		return mat;
 	}
 
@@ -362,8 +366,8 @@ namespace ModelLoading
 		if (material.roughnessMap)
 			FreeTexture(material.roughnessMap);
 
-		if (material.aoMap)
-			FreeTexture(material.aoMap);
+		if (material.normalMap)
+			FreeTexture(material.normalMap);
 	}
 
 	void FreeMesh(MeshData* mesh)

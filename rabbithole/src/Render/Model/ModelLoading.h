@@ -32,7 +32,8 @@ namespace ModelLoading
 		TextureData* diffuseMap = nullptr;
 		TextureData* metallicMap = nullptr;
 		TextureData* roughnessMap = nullptr;
-		TextureData* aoMap = nullptr;
+		TextureData* normalMap = nullptr;
+		//TextureData* aoMap = nullptr;
 	};
 
 	struct MeshVertex

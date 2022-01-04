@@ -15,4 +15,8 @@ illum 2
 
 map_Kd ./Cottage_Dirt_Base_Color.png
 
-map_Ks ./Cottage_Dirt_Normal.png
+map_Ka ./Cottage_Dirt_Roughness.png
+
+map_Kn ./Cottage_Dirt_Normal.png
+
+map_Ks ./Cottage_Dirt_Metallic.png

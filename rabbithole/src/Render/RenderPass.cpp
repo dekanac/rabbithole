@@ -1,6 +1,46 @@
 #include "RenderPass.h"
 #include "Renderer.h"
 
+float skyboxVertices[] = {
+	// positions				//for now i got only one possible vertex binding and that is 3, 3, 3, 2 TODO: clean this
+	-100.0f,  100.0f, -100.0f,      0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f,
+	-100.0f, -100.0f, -100.0f,		0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f,
+	 100.0f, -100.0f, -100.0f,		0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f,
+	 100.0f, -100.0f, -100.0f,		0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f,
+	 100.0f,  100.0f, -100.0f,		0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f,
+	-100.0f,  100.0f, -100.0f,		0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f,
+	-100.0f, -100.0f,  100.0f,		0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f,
+	-100.0f, -100.0f, -100.0f,		0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f,
+	-100.0f,  100.0f, -100.0f,		0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f,
+	-100.0f,  100.0f, -100.0f,		0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f,
+	-100.0f,  100.0f,  100.0f,		0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f,
+	-100.0f, -100.0f,  100.0f,		0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f,
+	 100.0f, -100.0f, -100.0f,		0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f,
+	 100.0f, -100.0f,  100.0f,		0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f,
+	 100.0f,  100.0f,  100.0f,		0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f,
+	 100.0f,  100.0f,  100.0f,		0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f,
+	 100.0f,  100.0f, -100.0f,		0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f,
+	 100.0f, -100.0f, -100.0f,		0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f,
+	-100.0f, -100.0f,  100.0f,		0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f,
+	-100.0f,  100.0f,  100.0f,		0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f,
+	 100.0f,  100.0f,  100.0f,		0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f,
+	 100.0f,  100.0f,  100.0f,		0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f,
+	 100.0f, -100.0f,  100.0f,		0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f,
+	-100.0f, -100.0f,  100.0f,		0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f,
+	-100.0f,  100.0f, -100.0f,		0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f,
+	 100.0f,  100.0f, -100.0f,		0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f,
+	 100.0f,  100.0f,  100.0f,		0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f,
+	 100.0f,  100.0f,  100.0f,		0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f,
+	-100.0f,  100.0f,  100.0f,		0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f,
+	-100.0f,  100.0f, -100.0f,		0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f,
+	-100.0f, -100.0f, -100.0f,		0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f,
+	-100.0f, -100.0f,  100.0f,		0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f,
+	 100.0f, -100.0f, -100.0f,		0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f,
+	 100.0f, -100.0f, -100.0f,		0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f,
+	-100.0f, -100.0f,  100.0f,		0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f,
+	 100.0f, -100.0f,  100.0f,		0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f
+};
+
 void GBufferPass::DeclareResources(Renderer* renderer)
 {
 
@@ -164,11 +204,57 @@ void OutlineEntityPass::Setup(Renderer* renderer)
 	stateManager->SetCombinedImageSampler(0, renderer->entityHelper);
 	stateManager->SetRenderTarget0(renderer->lightingMain->GetView());
 
+	renderer->ResourceBarrier(renderer->entityHelper, ResourceState::RenderTarget, ResourceState::GenericRead);
+
 }
 
 void OutlineEntityPass::Render(Renderer* renderer)
 {
 	renderer->DrawFullScreenQuad();
+}
+
+void SkyboxPass::DeclareResources(Renderer* renderer)
+{
+
+}
+void SkyboxPass::Setup(Renderer* renderer)
+{
+	VulkanStateManager* stateManager = renderer->GetStateManager();
+	
+	stateManager->ShouldCleanColor(false);
+	stateManager->ShouldCleanDepth(false);
+
+	auto pipelineInfo = stateManager->GetPipelineInfo();
+	pipelineInfo->SetDepthTestEnabled(true);
+
+	stateManager->SetCullMode(CullMode::Front);
+
+	stateManager->SetVertexShader(renderer->GetShader("VS_Skybox"));
+	stateManager->SetPixelShader(renderer->GetShader("FS_Skybox"));
+
+	stateManager->SetConstantBuffer(0, renderer->GetUniformBuffer(), 0, sizeof(UniformBufferObject));
+	stateManager->SetCombinedImageSampler(1, renderer->skyboxTexture);
+
+	stateManager->SetRenderTarget0(renderer->lightingMain->GetView());
+	stateManager->SetDepthStencil(renderer->GetSwapchain()->GetDepthStencil()->GetView());
+
+	auto renderPassInfo = stateManager->GetRenderPassInfo();
+	renderPassInfo->InitialRenderTargetState = ResourceState::None;
+	renderPassInfo->FinalRenderTargetState = ResourceState::RenderTarget;
+	renderPassInfo->InitialDepthStencilState = ResourceState::None;
+	renderPassInfo->FinalDepthStencilState = ResourceState::DepthStencilRead;
+}
+void SkyboxPass::Render(Renderer* renderer)
+{
+	VulkanBuffer* vertexBuffer = renderer->GetVertexUploadBuffer();
+	//TODO: dont do like this, make one big DEVICE LOCAL buffer and calculate offsets
+	void* vertexData = vertexBuffer->Map();
+	memcpy(vertexData, (void*)skyboxVertices, sizeof(float) * 396);
+	vertexBuffer->Unmap();
+
+	renderer->BindVertexData();
+
+	renderer->DrawVertices(36);
 }
 
 
