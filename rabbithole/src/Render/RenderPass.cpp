@@ -98,7 +98,7 @@ void LightingPass::Setup(Renderer* renderer)
 	VulkanStateManager* stateManager = renderer->GetStateManager();
 
 	stateManager->SetVertexShader(renderer->GetShader("VS_PassThrough"));
-	stateManager->SetPixelShader(renderer->GetShader("FS_PhongBasicTest"));
+	stateManager->SetPixelShader(renderer->GetShader("FS_PBR"));
 
 	auto renderPassInfo = stateManager->GetRenderPassInfo();
 	renderPassInfo->InitialRenderTargetState = ResourceState::None;
@@ -118,13 +118,10 @@ void LightingPass::Setup(Renderer* renderer)
 	lightParams[2].colorAndRadius = { 1.0f, 0.6f, 0.2f, 10.0f };
 
 	lightParams[3].position = { 0.0f, 25.0f, 0.0f, 0.0f };
-	lightParams[3].colorAndRadius = { 1.0f, 1.0f, 0.0f, 30.0f };
+	lightParams[3].colorAndRadius = { 1.0f, 1.0f, 1.0f, 30.0f };
 
 	//fill the light buffer
-	auto lightParamsBuffer = renderer->GetLightParams();
-	void* data = lightParamsBuffer->Map();
-	memcpy(data, &lightParams, sizeof(LightParams) * numOfLights);
-	lightParamsBuffer->Unmap();
+	renderer->GetLightParams()->FillBuffer(lightParams, sizeof(LightParams) * numOfLights);
 
 	auto& device = renderer->GetVulkanDevice();
 
@@ -139,7 +136,6 @@ void LightingPass::Setup(Renderer* renderer)
 	stateManager->SetConstantBuffer(4, renderer->GetLightParams(), 0, sizeof(LightParams));
 
 	stateManager->SetRenderTarget0(renderer->lightingMain->GetView());
-
 }
 
 void LightingPass::Render(Renderer* renderer)
@@ -246,14 +242,9 @@ void SkyboxPass::Setup(Renderer* renderer)
 }
 void SkyboxPass::Render(Renderer* renderer)
 {
-	VulkanBuffer* vertexBuffer = renderer->GetVertexUploadBuffer();
 	//TODO: dont do like this, make one big DEVICE LOCAL buffer and calculate offsets
-	void* vertexData = vertexBuffer->Map();
-	memcpy(vertexData, (void*)skyboxVertices, sizeof(float) * 396);
-	vertexBuffer->Unmap();
-
+	renderer->GetVertexUploadBuffer()->FillBuffer(skyboxVertices, 396 * sizeof(float));
 	renderer->BindVertexData();
-
 	renderer->DrawVertices(36);
 }
 

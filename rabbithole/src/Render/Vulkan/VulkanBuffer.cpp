@@ -49,6 +49,13 @@ void VulkanBuffer::Unmap()
 	}
 }
 
+void VulkanBuffer::FillBuffer(void* inputData, size_t size)
+{
+	void* data = Map();
+	memcpy(data, inputData, size);
+	Unmap();
+}
+
 void VulkanBuffer::CreateBufferResource()
 {
 	m_Id = ms_currentId;

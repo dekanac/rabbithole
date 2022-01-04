@@ -107,9 +107,7 @@ void RabbitModel::CreateVertexBuffers()
 
 	VulkanBuffer* stagingBuffer = new VulkanBuffer(&m_VulkanDevice, BufferUsageFlags::TransferSrc, MemoryAccess::Host, bufferSize);
 
-	stagingBuffer->Map();
-	memcpy(stagingBuffer->GetHostVisibleData(), m_Vertices.data(), static_cast<size_t>(bufferSize));
-	stagingBuffer->Unmap();
+	stagingBuffer->FillBuffer(m_Vertices.data(), static_cast<size_t>(bufferSize));
 
 	m_VertexBuffer = new VulkanBuffer(&m_VulkanDevice, BufferUsageFlags::VertexBuffer | BufferUsageFlags::TransferDst, MemoryAccess::Device, bufferSize);
 
@@ -132,9 +130,7 @@ void RabbitModel::CreateIndexBuffers()
 
 	VulkanBuffer* stagingBuffer = new VulkanBuffer(&m_VulkanDevice, BufferUsageFlags::TransferSrc, MemoryAccess::Host, bufferSize);
 
-	stagingBuffer->Map();
-	memcpy(stagingBuffer->GetHostVisibleData(), m_Indices.data(), static_cast<size_t>(bufferSize));
-	stagingBuffer->Unmap();
+	stagingBuffer->FillBuffer(m_Indices.data(), static_cast<size_t>(bufferSize));
 
 	m_IndexBuffer = new VulkanBuffer(&m_VulkanDevice, BufferUsageFlags::IndexBuffer | BufferUsageFlags::TransferDst, MemoryAccess::Device, bufferSize);
 

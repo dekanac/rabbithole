@@ -32,7 +32,7 @@ rabbitVec3f renderDebugOption;
 #define GBUFFER_FRAGMENT_FILE_PATH			"res/shaders/FS_GBuffer.spv"
 #define PASSTHROUGH_VERTEX_FILE_PATH		"res/shaders/VS_PassThrough.spv"
 #define PASSTHROUGH_FRAGMENT_FILE_PATH		"res/shaders/FS_PassThrough.spv"
-#define PHONG_LIGHT_FRAGMENT_FILE_PATH		"res/shaders/FS_PhongBasicTest.spv"
+#define PBR_FRAGMENT_FILE_PATH				"res/shaders/FS_PBR.spv"
 #define OUTLINE_ENTITY_FRAGMENT_FILE_PATH	"res/shaders/FS_OutlineEntity.spv"
 #define SKYBOX_VERTEX_FILE_PATH				"res/shaders/VS_Skybox.spv"
 #define SKYBOX_FRAGMENT_FILE_PATH			"res/shaders/FS_Skybox.spv"
@@ -262,7 +262,7 @@ void Renderer::InitTextures()
 		memcpy(texData.pData + i * imageSize, cubeMapData->pData[i]->pData, imageSize);
 	}
 
-	skyboxTexture = new VulkanTexture(&m_VulkanDevice, (TextureData*)&texData, TextureFlags::Color | TextureFlags::Read | TextureFlags::CubeMap, Format::B8G8R8A8_UNORM_SRGB, "skybox");
+	skyboxTexture = new VulkanTexture(&m_VulkanDevice, (TextureData*)&texData, TextureFlags::Color | TextureFlags::Read | TextureFlags::CubeMap, Format::R8G8B8A8_UNORM_SRGB, "skybox");
 
 	//TODO: pls no
 	ModelLoading::FreeCubemap(cubeMapData);
@@ -272,7 +272,7 @@ void Renderer::InitTextures()
 void Renderer::loadModels()
 {
 	auto testScene = ModelLoading::LoadScene("res/meshes/cottage/Cottage_FREE.obj");
-	auto testScene2 = ModelLoading::LoadScene("res/meshes/terrain/terrain.obj");	
+	//auto testScene2 = ModelLoading::LoadScene("res/meshes/terrain/terrain.obj");
 
 	// improvised to see how is engine rendering 10 models
 	for (unsigned int i = 0; i < testScene->numObjects; i++)
@@ -289,12 +289,11 @@ void Renderer::loadModels()
 		//Mesh mesh{};
 		//mesh.position = { 7.f, 0.1f, 9.f };
 		//model->SetMesh(mesh);
-		//rabbitmodels.push_back(model);
 	}
 
 
 	ModelLoading::FreeScene(testScene);
-	ModelLoading::FreeScene(testScene2);
+	//ModelLoading::FreeScene(testScene2);
 }
 
 void Renderer::BeginRenderPass()
@@ -448,7 +447,7 @@ void Renderer::DrawFullScreenQuad()
 void Renderer::UpdateEntityPickId()
 {
 	//steal input comp from camera to retrieve mouse pos
-	auto& cameras = EntityManager::instance().GetAllEntitiesWithComponent<CameraComponent>();
+	auto cameras = EntityManager::instance().GetAllEntitiesWithComponent<CameraComponent>();
 	auto inputComponent = cameras[0]->GetComponent<InputComponent>();
 	auto x = inputComponent->mouse_current_x;
 	auto y = inputComponent->mouse_current_y;
@@ -561,9 +560,7 @@ void Renderer::BindUBO()
 {	
 	if (m_StateManager->GetUBODirty())
 	{ 
-		void* data = m_UniformBuffer->Map();
-		memcpy(data, m_StateManager->GetUBO(), sizeof(UniformBufferObject));
-		m_UniformBuffer->Unmap();
+		m_UniformBuffer->FillBuffer(m_StateManager->GetUBO(), sizeof(UniformBufferObject));
 		
 		m_StateManager->SetUBODirty(false);
 	}
@@ -584,7 +581,7 @@ void Renderer::LoadAndCreateShaders()
 	auto vertCode2 = ReadFile(PASSTHROUGH_VERTEX_FILE_PATH);
 	auto fragCode2 = ReadFile(PASSTHROUGH_FRAGMENT_FILE_PATH);
 
-	auto fragCode3 = ReadFile(PHONG_LIGHT_FRAGMENT_FILE_PATH);
+	auto fragCode3 = ReadFile(PBR_FRAGMENT_FILE_PATH);
 	auto fragCode4 = ReadFile(OUTLINE_ENTITY_FRAGMENT_FILE_PATH);
 
 	auto vertCode3 = ReadFile(SKYBOX_VERTEX_FILE_PATH);
@@ -594,7 +591,7 @@ void Renderer::LoadAndCreateShaders()
 	CreateShaderModule(fragCode, ShaderType::Fragment, "FS_GBuffer", nullptr);
 	CreateShaderModule(vertCode2, ShaderType::Vertex, "VS_PassThrough", nullptr);
 	CreateShaderModule(fragCode2, ShaderType::Fragment, "FS_PassThrough", nullptr);
-	CreateShaderModule(fragCode3, ShaderType::Fragment, "FS_PhongBasicTest", nullptr);
+	CreateShaderModule(fragCode3, ShaderType::Fragment, "FS_PBR", nullptr);
 	CreateShaderModule(fragCode4, ShaderType::Fragment, "FS_OutlineEntity", nullptr);
 	CreateShaderModule(vertCode3, ShaderType::Vertex, "VS_Skybox", nullptr);
 	CreateShaderModule(fragCode5, ShaderType::Fragment, "FS_Skybox", nullptr);

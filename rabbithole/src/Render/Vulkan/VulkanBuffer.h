@@ -22,6 +22,7 @@ public:
 public:
 	void* Map();
 	void  Unmap();
+	void  FillBuffer(void* data, size_t size);
 
 public:
 	inline const VulkanBufferInfo	GetInfo() const { return m_Info; }
