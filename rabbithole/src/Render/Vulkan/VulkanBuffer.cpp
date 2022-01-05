@@ -13,6 +13,7 @@ VulkanBuffer::VulkanBuffer(const VulkanDevice* device, const VulkanBufferInfo& i
 
 VulkanBuffer::VulkanBuffer(const VulkanDevice* device, BufferUsageFlags flags, MemoryAccess access, uint64_t size)
 	: m_Device(device)
+	, m_Size(size)
 {
 	VulkanBufferInfo info{};
 	info.memoryAccess = access;

@@ -33,6 +33,11 @@ struct UniformBufferObject
 	rabbitVec3f debugOption;
 };
 
+struct SSAOSamples
+{
+	rabbitVec3f samples[64];
+};
+
 struct PushMousePos
 {
 	uint32_t x;
@@ -77,6 +82,7 @@ private:
 	void CreateUniformBuffers();
 	void CreateDescriptorPool();
 
+	void InitSSAO();
 public:
 	inline VulkanDevice& GetVulkanDevice() { return m_VulkanDevice; }
 	inline VulkanStateManager* GetStateManager() { return m_StateManager; }
@@ -143,6 +149,10 @@ public:
 	VulkanTexture* lightingMain;
 	VulkanTexture* skyboxTexture;
 	VulkanTexture* entityHelper;
+	VulkanTexture* SSAOTexture;
+	VulkanTexture* SSAOBluredTexture;
+	VulkanTexture* SSAONoiseTexture;
+	VulkanBuffer*  SSAOSamplesBuffer;
 	VulkanBuffer*  entityHelperBuffer;
 
 	bool m_RenderOutlinedEntity = true;

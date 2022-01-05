@@ -6,5 +6,7 @@ glslc.exe -fshader-stage=fragment FS_PassThrough.glsl -o FS_PassThrough.spv
 glslc.exe -fshader-stage=fragment FS_GBuffer.glsl -o FS_GBuffer.spv
 glslc.exe -fshader-stage=fragment FS_OutlineEntity.glsl -o FS_OutlineEntity.spv
 glslc.exe -fshader-stage=fragment FS_Skybox.glsl -o FS_Skybox.spv
+glslc.exe -fshader-stage=fragment FS_SSAO.glsl -o FS_SSAO.spv
+glslc.exe -fshader-stage=fragment FS_SSAOBlur.glsl -o FS_SSAOBlur.spv
 
 pause

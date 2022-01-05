@@ -29,6 +29,7 @@ public:
 	inline void*					GetHostVisibleData() { return m_HostVisibleData; }
 	inline VkBuffer					GetBuffer() { return m_Buffer; }
 	inline uint32_t					GetId() { return m_Id; }
+	inline size_t					GetSize() { return m_Size; }
 
 private:
 	void CreateBufferResource();
@@ -42,5 +43,6 @@ private:
 
 	uint32_t				m_Id;
 	static uint32_t			ms_currentId;
+	size_t					m_Size;
 
 };

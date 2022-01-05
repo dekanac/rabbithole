@@ -18,8 +18,10 @@
 #include <imgui/backends/imgui_impl_glfw.h>
 #include <imgui/backends/imgui_impl_vulkan.h>
 
+#include <cmath>
 #include <iostream>
 #include <fstream>
+#include <random>
 #include <sstream>
 #include <set>
 
@@ -36,6 +38,8 @@ rabbitVec3f renderDebugOption;
 #define OUTLINE_ENTITY_FRAGMENT_FILE_PATH	"res/shaders/FS_OutlineEntity.spv"
 #define SKYBOX_VERTEX_FILE_PATH				"res/shaders/VS_Skybox.spv"
 #define SKYBOX_FRAGMENT_FILE_PATH			"res/shaders/FS_Skybox.spv"
+#define SSAO_FRAGMENT_FILE_PATH				"res/shaders/FS_SSAO.spv"
+#define SSAOBLUR_FRAGMENT_FILE_PATH			"res/shaders/FS_SSAOBlur.spv"
 
 void Renderer::ExecuteRenderPass(RenderPass& renderpass)
 {
@@ -82,6 +86,8 @@ bool Renderer::Init()
 	entityHelperBuffer = new VulkanBuffer(&m_VulkanDevice, BufferUsageFlags::StorageBuffer, MemoryAccess::Host, DEFAULT_HEIGHT * DEFAULT_WIDTH * 4);
 
 	lightingMain = new VulkanTexture(&m_VulkanDevice, DEFAULT_WIDTH, DEFAULT_HEIGHT, TextureFlags::RenderTarget, Format::R16G16B16A16_FLOAT, "lightingmain");
+
+	InitSSAO();
 
 	InitTextures();
 
@@ -587,6 +593,10 @@ void Renderer::LoadAndCreateShaders()
 	auto vertCode3 = ReadFile(SKYBOX_VERTEX_FILE_PATH);
 	auto fragCode5 = ReadFile(SKYBOX_FRAGMENT_FILE_PATH);
 
+	auto fragCode6 = ReadFile(SSAO_FRAGMENT_FILE_PATH);
+	auto fragCode7 = ReadFile(SSAOBLUR_FRAGMENT_FILE_PATH);
+
+
 	CreateShaderModule(vertCode, ShaderType::Vertex, "VS_GBuffer", nullptr);
 	CreateShaderModule(fragCode, ShaderType::Fragment, "FS_GBuffer", nullptr);
 	CreateShaderModule(vertCode2, ShaderType::Vertex, "VS_PassThrough", nullptr);
@@ -595,6 +605,8 @@ void Renderer::LoadAndCreateShaders()
 	CreateShaderModule(fragCode4, ShaderType::Fragment, "FS_OutlineEntity", nullptr);
 	CreateShaderModule(vertCode3, ShaderType::Vertex, "VS_Skybox", nullptr);
 	CreateShaderModule(fragCode5, ShaderType::Fragment, "FS_Skybox", nullptr);
+	CreateShaderModule(fragCode6, ShaderType::Fragment, "FS_SSAO", nullptr);
+	CreateShaderModule(fragCode7, ShaderType::Fragment, "FS_SSAOBlur", nullptr);
 }
 
 void Renderer::CreateShaderModule(const std::vector<char>& code, ShaderType type, const char* name, const char* codeEntry)
@@ -712,6 +724,14 @@ void Renderer::ResourceBarrier(VulkanTexture* texture, ResourceState oldLayout, 
 		sourceStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
 		destinationStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
 	}
+	else if (oldLayout == ResourceState::GenericRead && newLayout == ResourceState::RenderTarget)
+	{
+		barrier.srcAccessMask = VK_ACCESS_SHADER_READ_BIT;
+		barrier.dstAccessMask = VK_ACCESS_SHADER_WRITE_BIT;
+
+		sourceStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+		destinationStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+	}
 	else
 	{
 		LOG_ERROR("unsupported layout transition!");
@@ -756,14 +776,18 @@ void Renderer::RecordCommandBuffer(int imageIndex)
 	BeginCommandBuffer();
 
 	GBufferPass gbuffer{};
-	SkyboxPass skybox{};
+	SSAOPass ssao{};
+	SSAOBlurPass ssaoBlur{};
 	LightingPass lighting{};
+	SkyboxPass skybox{};
 	OutlineEntityPass outlineEntity{};
 	CopyToSwapchainPass copyToSwapchain{};
 
 	UpdateDebugOptions();
 
 	ExecuteRenderPass(gbuffer);
+	ExecuteRenderPass(ssao);
+	ExecuteRenderPass(ssaoBlur);
 	ExecuteRenderPass(lighting);
 	ExecuteRenderPass(skybox);
 
@@ -802,6 +826,55 @@ void Renderer::CreateDescriptorPool()
 	vulkanDescriptorPoolInfo.MaxSets = 20; //static_cast<uint32_t>(m_VulkanSwapchain->GetImageCount() * 2);
 
 	m_DescriptorPool = std::make_unique<VulkanDescriptorPool>(&m_VulkanDevice, vulkanDescriptorPoolInfo);
+}
+
+//SSAO
+float lerp(float a, float b, float f)
+{
+	return a + f * (b - a);
+}
+void Renderer::InitSSAO()
+{
+	SSAOTexture = new VulkanTexture(&m_VulkanDevice, DEFAULT_WIDTH, DEFAULT_HEIGHT, TextureFlags::RenderTarget, Format::R32_SFLOAT, "SSAO");
+	SSAOBluredTexture = new VulkanTexture(&m_VulkanDevice, DEFAULT_WIDTH, DEFAULT_HEIGHT, TextureFlags::RenderTarget, Format::R32_SFLOAT, "SSAO");
+
+	std::uniform_real_distribution<float> randomFloats(0.0, 1.0); // generates random floats between 0.0 and 1.0
+	std::default_random_engine generator;
+	std::vector<glm::vec3> ssaoKernel;
+	for (unsigned int i = 0; i < 64; ++i)
+	{
+		glm::vec3 sample(randomFloats(generator) * 2.0 - 1.0, randomFloats(generator) * 2.0 - 1.0, randomFloats(generator));
+		sample = glm::normalize(sample);
+		sample *= randomFloats(generator);
+		float scale = float(i) / 64.0;
+
+		// scale samples s.t. they're more aligned to center of kernel
+		scale = lerp(0.1f, 1.0f, scale * scale);
+		sample *= scale;
+		ssaoKernel.push_back(sample);
+	}
+
+	size_t bufferSize = 1024;
+	SSAOSamplesBuffer = new VulkanBuffer(&m_VulkanDevice, BufferUsageFlags::UniformBuffer, MemoryAccess::Host, bufferSize);
+	SSAOSamplesBuffer->FillBuffer(ssaoKernel.data(), 768);
+
+	//generate SSAO Noise texture
+	std::vector<glm::vec3> ssaoNoise;
+	for (unsigned int i = 0; i < 16; i++)
+	{
+		glm::vec3 noise(randomFloats(generator) * 2.0 - 1.0, randomFloats(generator) * 2.0 - 1.0, 0.0f); // rotate around z-axis (in tangent space)
+		ssaoNoise.push_back(noise);
+	}
+
+	TextureData texData{};
+
+	texData.bpp = 4;
+	texData.height = 4;
+	texData.width = 4;
+	texData.pData = (unsigned char*)ssaoNoise.data();
+
+	SSAONoiseTexture = new VulkanTexture(&m_VulkanDevice, &texData, TextureFlags::Color | TextureFlags::Read, Format::R32G32B32A32_FLOAT, "ssaoNoise");
+
 }
 
 void Renderer::BindViewport(float x, float y, float width, float height)

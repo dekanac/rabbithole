@@ -904,6 +904,8 @@ VkFormat GetVkFormatFrom(const Format format)
 		return VK_FORMAT_R8G8B8A8_UNORM;
 	case Format::R8G8B8A8_UNORM_SRGB:
 		return VK_FORMAT_R8G8B8A8_SRGB;
+	case Format::R32_SFLOAT:
+		return VK_FORMAT_R32_SFLOAT;
 	case Format::R8_UNORM:
 		return VK_FORMAT_R8_UNORM;
 	case Format::R16G16B16A16_FLOAT:
@@ -1421,6 +1423,7 @@ VkClearValue GetVkClearColorValueForFormat(const VkFormat format)
 	case VK_FORMAT_R32G32B32A32_SFLOAT:
 		return VkClearValue{ 0.5f, 0.9f, 1.f, 1.0f };
 	case VK_FORMAT_R8_UNORM:
+	case VK_FORMAT_R32_SFLOAT:
 		return VkClearValue{ 0.1f };
 	case VK_FORMAT_R32G32B32_SFLOAT:
 		return VkClearValue{ 0.1f, 0.1f, 0.1f};

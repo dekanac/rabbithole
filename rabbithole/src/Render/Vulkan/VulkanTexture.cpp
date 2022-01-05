@@ -52,7 +52,7 @@ void VulkanTexture::CreateResource(VulkanDevice* device, TextureData* texData)
 	InitializeRegion(texData->width, texData->height);
 	bool isCubeMap = IsFlagSet(m_Flags & TextureFlags::CubeMap);
 
-	int textureSize = texData->height * texData->width * 4;
+	int textureSize = texData->height * texData->width * texData->bpp;
 	if (isCubeMap)
 	{
 		textureSize *= 6;

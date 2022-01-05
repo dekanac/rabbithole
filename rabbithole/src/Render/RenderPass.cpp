@@ -248,4 +248,75 @@ void SkyboxPass::Render(Renderer* renderer)
 	renderer->DrawVertices(36);
 }
 
+void SSAOPass::DeclareResources(Renderer* renderer)
+{
+
+}
+void SSAOPass::Setup(Renderer* renderer)
+{
+	VulkanStateManager* stateManager = renderer->GetStateManager();
+
+	stateManager->SetVertexShader(renderer->GetShader("VS_PassThrough"));
+	stateManager->SetPixelShader(renderer->GetShader("FS_SSAO"));
+
+	auto renderPassInfo = stateManager->GetRenderPassInfo();
+	renderPassInfo->InitialRenderTargetState = ResourceState::None;
+	renderPassInfo->FinalRenderTargetState = ResourceState::RenderTarget;
+	renderPassInfo->InitialDepthStencilState = ResourceState::None;
+	renderPassInfo->FinalDepthStencilState = ResourceState::None;
+	
+	auto pipelineInfo = stateManager->GetPipelineInfo();
+	pipelineInfo->SetAttachmentCount(1);
+	pipelineInfo->SetColorWriteMask(0, ColorWriteMaskFlags::R);
+
+	//fill the samples buffer
+	auto& device = renderer->GetVulkanDevice();
+
+	renderer->ResourceBarrier(renderer->worldPositionGBuffer, ResourceState::RenderTarget, ResourceState::GenericRead);
+	renderer->ResourceBarrier(renderer->normalGBuffer, ResourceState::RenderTarget, ResourceState::GenericRead);
+
+	renderer->ResourceBarrier(renderer->SSAOTexture, ResourceState::GenericRead, ResourceState::RenderTarget);
+
+	stateManager->SetConstantBuffer(0, renderer->GetUniformBuffer(), 0, sizeof(UniformBufferObject));
+	stateManager->SetCombinedImageSampler(1, renderer->normalGBuffer);
+	stateManager->SetCombinedImageSampler(2, renderer->worldPositionGBuffer);
+	stateManager->SetCombinedImageSampler(3, renderer->SSAONoiseTexture);
+	stateManager->SetConstantBuffer(4, renderer->SSAOSamplesBuffer, 0, renderer->SSAOSamplesBuffer->GetSize());
+
+	stateManager->SetRenderTarget0(renderer->SSAOTexture->GetView());
+}
+void SSAOPass::Render(Renderer* renderer) 
+{
+	renderer->DrawFullScreenQuad();
+}
+void SSAOBlurPass::DeclareResources(Renderer* renderer)
+{
+
+}
+void SSAOBlurPass::Setup(Renderer* renderer)
+{
+	VulkanStateManager* stateManager = renderer->GetStateManager();
+
+	stateManager->SetVertexShader(renderer->GetShader("VS_PassThrough"));
+	stateManager->SetPixelShader(renderer->GetShader("FS_SSAOBlur"));
+
+	auto renderPassInfo = stateManager->GetRenderPassInfo();
+	renderPassInfo->InitialRenderTargetState = ResourceState::None;
+	renderPassInfo->FinalRenderTargetState = ResourceState::RenderTarget;
+	renderPassInfo->InitialDepthStencilState = ResourceState::None;
+	renderPassInfo->FinalDepthStencilState = ResourceState::None;
+
+	auto& device = renderer->GetVulkanDevice();
+
+	renderer->ResourceBarrier(renderer->SSAOTexture, ResourceState::RenderTarget, ResourceState::GenericRead);
+
+	stateManager->SetCombinedImageSampler(0, renderer->SSAOTexture);
+	stateManager->SetRenderTarget0(renderer->SSAOBluredTexture->GetView());
+
+}
+void SSAOBlurPass::Render(Renderer* renderer)
+{
+	renderer->DrawFullScreenQuad();
+}
+
 
