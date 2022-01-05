@@ -31,6 +31,7 @@ struct UniformBufferObject
 	rabbitMat4f proj;
 	rabbitVec3f cameraPos;
 	rabbitVec3f debugOption;
+	rabbitMat4f viewProjInverse;
 };
 
 struct SSAOSamples

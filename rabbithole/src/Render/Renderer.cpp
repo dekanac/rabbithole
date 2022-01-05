@@ -548,6 +548,9 @@ void Renderer::BindCameraMatrices(Camera* camera)
 
 	auto cameraPos = camera->GetPosition();
 	m_StateManager->UpdateUBOElement(UBOElement::CameraPosition, 1, &cameraPos);
+
+	rabbitMat4f viewProjInverse = glm::inverse(viewMatrix) * glm::inverse(projMatrix);
+	m_StateManager->UpdateUBOElement(UBOElement::ViewProjInverse, 4, &viewProjInverse);
 }
 
 void Renderer::BindModelMatrix(RabbitModel* model)

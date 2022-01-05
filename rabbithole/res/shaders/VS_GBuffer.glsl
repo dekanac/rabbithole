@@ -25,6 +25,7 @@ layout(binding = 0) uniform UniformBufferObject {
     mat4 proj;
 	vec3 cameraPosition;
     vec3 debugOption;
+    mat4 viewProjInverse;
 } UBO;
 
 layout(push_constant) uniform Push {

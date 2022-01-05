@@ -278,8 +278,8 @@ void SSAOPass::Setup(Renderer* renderer)
 	renderer->ResourceBarrier(renderer->SSAOTexture, ResourceState::GenericRead, ResourceState::RenderTarget);
 
 	stateManager->SetConstantBuffer(0, renderer->GetUniformBuffer(), 0, sizeof(UniformBufferObject));
-	stateManager->SetCombinedImageSampler(1, renderer->normalGBuffer);
-	stateManager->SetCombinedImageSampler(2, renderer->worldPositionGBuffer);
+	stateManager->SetCombinedImageSampler(1, renderer->GetSwapchain()->GetDepthStencil());
+	stateManager->SetCombinedImageSampler(2, renderer->normalGBuffer);
 	stateManager->SetCombinedImageSampler(3, renderer->SSAONoiseTexture);
 	stateManager->SetConstantBuffer(4, renderer->SSAOSamplesBuffer, 0, renderer->SSAOSamplesBuffer->GetSize());
 

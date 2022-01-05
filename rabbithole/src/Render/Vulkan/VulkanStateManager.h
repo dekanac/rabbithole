@@ -10,7 +10,8 @@ enum class UBOElement : uint32_t
 	ViewMatrix = 0,
 	ProjectionMatrix = 4,
 	CameraPosition = 8,
-	DebugOption = 9
+	DebugOption = 9,
+	ViewProjInverse = 10,
 };
 
 class VulkanStateManager

@@ -1,19 +1,20 @@
 
 #version 450
 
-layout (location = 0) out float outColor;
-layout (location = 0) in vec2 inUV;
+layout (location = 0) out float fragColour;
+layout (location = 0) in vec2 ex_TexCoord;
 
 layout(binding = 0) uniform UniformBufferObject {
     mat4 view;
     mat4 proj;
 	vec3 cameraPosition;
     vec3 debugOption;
+	mat4 viewProjInverse;
 } UBO;
 
-layout (binding = 1) uniform sampler2D samplerNormal;
-layout (binding = 2) uniform sampler2D samplerPosition;
-layout (binding = 3) uniform sampler2D samplerNoise;
+layout (binding = 1) uniform sampler2D in_Depth;
+layout (binding = 2) uniform sampler2D in_Normal;
+layout (binding = 3) uniform sampler2D in_Noise;
 
 layout(binding = 4) uniform Samples_ {
     vec3 samples[48];
@@ -27,39 +28,71 @@ float bias = 0.025;
 // tile noise texture over screen based on screen dimensions divided by noise size
 const vec2 noiseScale = vec2(1280.0/4.0, 720.0/4.0); //send theese through the UBO
 
+vec3 reconstructVSPosFromDepth(vec2 uv)
+{
+  float depth = texture(in_Depth, uv).r;
+  float x = uv.x * 2.0 - 1.0;
+  float y = (1.0 - uv.y) * 2.0 - 1.0;
+  vec4 pos = vec4(x, y, depth, 1.0);
+  vec4 posVS = inverse(UBO.proj) * pos;
+  return posVS.xyz / posVS.w;
+}
+
 void main()
 {
-    // get input for SSAO algorithm
-    vec3 fragPos = (texture(samplerPosition, inUV).xyzw * (inverse(UBO.proj))).rgb;
-    vec3 normal = texture(samplerNormal, inUV).rgb;
-    vec3 randomVec = normalize(texture(samplerNoise, inUV * noiseScale).xyz);
-    // create TBN change-of-basis matrix: from tangent-space to view-space
-    vec3 tangent = normalize(randomVec - normal * dot(randomVec, normal));
-    vec3 bitangent = cross(normal, tangent);
-    mat3 TBN = mat3(tangent, bitangent, normal);
-    // iterate over the sample kernel and calculate occlusion factor
-    float occlusion = 0.0;
-    for(int i = 0; i < kernelSize; ++i)
-    {
-        // get sample position
-        vec3 samplePos = TBN * Samples.samples[i]; // from tangent to view-space
-        samplePos = fragPos + samplePos * radius; 
-        
-        // project sample position (to sample texture) (to get position on screen/texture)
-        vec4 offset = vec4(samplePos, 1.0);
-        offset = UBO.proj * offset; // from view to clip-space
-        offset.xyz /= offset.w; // perspective divide
-        offset.xyz = offset.xyz * 0.5 + 0.5; // transform to range 0.0 - 1.0
-        
-        // get sample depth
-        float sampleDepth = texture(samplerPosition, offset.xy).z; // get depth value of kernel sample
-        
-        // range check & accumulate
-        float rangeCheck = smoothstep(0.0, 1.0, radius / abs(fragPos.z - sampleDepth));
-        occlusion += (sampleDepth >= samplePos.z + bias ? 1.0 : 0.0) * rangeCheck;           
-    }
-    occlusion = 1.0 - (occlusion / kernelSize);
-    
-    outColor = occlusion;
+    float depth = texture(in_Depth, ex_TexCoord).r;
+	
+	if (depth == 0.0f)
+	{
+		fragColour = 1.0f;
+		return;
+	}
+
+	vec3 normal = normalize(texture(in_Normal, ex_TexCoord).rgb * 2.0f - 1.0f);
+
+	vec3 posVS = reconstructVSPosFromDepth(ex_TexCoord);
+
+	ivec2 depthTexSize = textureSize(in_Depth, 0); 
+	ivec2 noiseTexSize = textureSize(in_Noise, 0);
+	float renderScale = 0.5; // SSAO is rendered at 0.5x scale
+	vec2 noiseUV = vec2(float(depthTexSize.x)/float(noiseTexSize.x), float(depthTexSize.y)/float(noiseTexSize.y)) * ex_TexCoord * renderScale;
+	// noiseUV += vec2(0.5);
+	vec3 randomVec = texture(in_Noise, noiseUV).xyz;
+	
+	vec3 tangent = normalize(randomVec - normal * dot(randomVec, normal));
+	vec3 bitangent = cross(tangent, normal);
+	mat3 TBN = mat3(tangent, bitangent, normal);
+
+	float bias = 0.01f;
+
+	float occlusion = 0.0f;
+	int sampleCount = 0;
+	for (uint i = 0; i < kernelSize; i++)
+	{
+		vec3 samplePos = TBN * Samples.samples[i].xyz;
+		samplePos = posVS + samplePos * radius; 
+
+		vec4 offset = vec4(samplePos, 1.0f);
+		offset = UBO.proj * offset;
+		offset.xy /= offset.w;
+		offset.xy = offset.xy * 0.5f + 0.5f;
+		offset.y = 1.0f - offset.y;
+		
+		vec3 reconstructedPos = reconstructVSPosFromDepth(offset.xy);
+		vec3 sampledNormal = normalize(texture(in_Normal, offset.xy).xyz * 2.0f - 1.0f);
+		if (dot(sampledNormal, normal) > 0.99)
+		{
+			++sampleCount;
+		}
+		else
+		{
+			float rangeCheck = smoothstep(0.0f, 1.0f, radius / abs(reconstructedPos.z - samplePos.z - bias));
+			occlusion += (reconstructedPos.z <= samplePos.z - bias ? 1.0f : 0.0f) * rangeCheck;
+			++sampleCount;
+		}
+	}
+	occlusion = 1.0 - (occlusion / float(max(sampleCount,1)));
+	
+	fragColour = occlusion;
 }
 

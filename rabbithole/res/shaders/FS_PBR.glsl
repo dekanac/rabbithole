@@ -15,6 +15,7 @@ layout(binding = 3) uniform UniformBufferObject {
     mat4 proj;
 	vec3 cameraPosition;
     vec3 debugOption;
+    mat4 viewProjInverse;
 } UBO;
 
 struct Light
@@ -89,7 +90,7 @@ void main()
 
 	float roughness = normalRoughness.a;
 	float metallic = positionMetallic.a;
-	vec3 position = positionMetallic.rgb;
+	vec3 position = positionMetallic.xyz;
 
     vec3 N = normalRoughness.rgb;
     vec3 V = normalize(UBO.cameraPosition - position);
