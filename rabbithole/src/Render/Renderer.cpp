@@ -764,8 +764,8 @@ void Renderer::RecordCommandBuffer(int imageIndex)
 	UpdateDebugOptions();
 
 	ExecuteRenderPass(gbuffer);
-	ExecuteRenderPass(lighting);
 	ExecuteRenderPass(skybox);
+	ExecuteRenderPass(lighting);
 
 	if (m_RenderOutlinedEntity)
 	{

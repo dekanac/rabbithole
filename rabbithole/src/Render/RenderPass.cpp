@@ -231,14 +231,8 @@ void SkyboxPass::Setup(Renderer* renderer)
 	stateManager->SetConstantBuffer(0, renderer->GetUniformBuffer(), 0, sizeof(UniformBufferObject));
 	stateManager->SetCombinedImageSampler(1, renderer->skyboxTexture);
 
-	stateManager->SetRenderTarget0(renderer->lightingMain->GetView());
+	stateManager->SetRenderTarget0(renderer->albedoGBuffer->GetView());
 	stateManager->SetDepthStencil(renderer->GetSwapchain()->GetDepthStencil()->GetView());
-
-	auto renderPassInfo = stateManager->GetRenderPassInfo();
-	renderPassInfo->InitialRenderTargetState = ResourceState::None;
-	renderPassInfo->FinalRenderTargetState = ResourceState::RenderTarget;
-	renderPassInfo->InitialDepthStencilState = ResourceState::None;
-	renderPassInfo->FinalDepthStencilState = ResourceState::DepthStencilRead;
 }
 void SkyboxPass::Render(Renderer* renderer)
 {
