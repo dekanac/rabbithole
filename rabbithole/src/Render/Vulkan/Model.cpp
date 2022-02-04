@@ -7,6 +7,7 @@
 #include "stb_image/stb_image.h"
 
 VulkanTexture* RabbitModel::ms_DefaultWhiteTexture = nullptr;
+VulkanTexture* RabbitModel::ms_DefaultBlackTexture = nullptr;
 
 uint32_t RabbitModel::m_CurrentId = 1;
 
@@ -58,9 +59,9 @@ RabbitModel::~RabbitModel()
 void RabbitModel::CreateTextures(ModelLoading::MaterialData* material)
 {
 
-	if (material->diffuseMap)
-	{														//casting here because I copied texture declaration to other namespace TODO: fix it
-		m_AlbedoTexture = new VulkanTexture(&m_VulkanDevice, (TextureData*)material->diffuseMap, TextureFlags::Color | TextureFlags::Read | TextureFlags::TransferDst, Format::R8G8B8A8_UNORM_SRGB, "albedo_tex");
+	if (!material->diffuseMap->INVALID)
+	{														
+		m_AlbedoTexture = new VulkanTexture(&m_VulkanDevice, material->diffuseMap, TextureFlags::Color | TextureFlags::Read | TextureFlags::TransferDst, Format::R8G8B8A8_UNORM_SRGB, "albedo_tex");
 	}
 	else
 	{
@@ -69,8 +70,8 @@ void RabbitModel::CreateTextures(ModelLoading::MaterialData* material)
 
 	if (material->normalMap)
 	{
-															//casting here because I copied texture declaration to other namespace TODO: fix it
-		m_NormalTexture = new VulkanTexture(&m_VulkanDevice, (TextureData*)material->normalMap, TextureFlags::Color | TextureFlags::Read, Format::R8G8B8A8_UNORM, "normal_tex");
+															
+		m_NormalTexture = new VulkanTexture(&m_VulkanDevice, material->normalMap, TextureFlags::Color | TextureFlags::Read, Format::R8G8B8A8_UNORM, "normal_tex");
 	}
 	else
 	{
@@ -79,22 +80,22 @@ void RabbitModel::CreateTextures(ModelLoading::MaterialData* material)
 
 	if (material->roughnessMap)
 	{
-															//casting here because I copied texture declaration to other namespace TODO: fix it
-		m_RoughnessTexture = new VulkanTexture(&m_VulkanDevice, (TextureData*)material->roughnessMap, TextureFlags::Color | TextureFlags::Read, Format::R8G8B8A8_UNORM, "roughness_tex");
+															
+		m_RoughnessTexture = new VulkanTexture(&m_VulkanDevice, material->roughnessMap, TextureFlags::Color | TextureFlags::Read, Format::R8G8B8A8_UNORM, "roughness_tex");
 	}
 	else
 	{
-		m_RoughnessTexture = ms_DefaultWhiteTexture;
+		m_RoughnessTexture = ms_DefaultBlackTexture;
 	}
 
 	if (material->metallicMap)
 	{
-															//casting here because I copied texture declaration to other namespace TODO: fix it
-		m_MetalnessTexture = new VulkanTexture(&m_VulkanDevice, (TextureData*)material->metallicMap, TextureFlags::Color | TextureFlags::Read, Format::R8G8B8A8_UNORM, "metalness_tex");
+															
+		m_MetalnessTexture = new VulkanTexture(&m_VulkanDevice, material->metallicMap, TextureFlags::Color | TextureFlags::Read, Format::R8G8B8A8_UNORM, "metalness_tex");
 	}
 	else
 	{
-		m_MetalnessTexture = ms_DefaultWhiteTexture; //should be black
+		m_MetalnessTexture = ms_DefaultBlackTexture;
 	}
 }
 
@@ -248,11 +249,8 @@ std::vector<VkVertexInputAttributeDescription> Vertex::GetAttributeDescriptions(
 
 void InitDefaultTextures(VulkanDevice* device)
 {
-	auto texData = ModelLoading::LoadTexture("res/textures/default_white.jpg");
-
-	RabbitModel::ms_DefaultWhiteTexture = new VulkanTexture(device, (TextureData*)texData, TextureFlags::Color | TextureFlags::Read, Format::R8G8B8A8_UNORM_SRGB, "defaul_white");
-
-	ModelLoading::FreeTexture(texData);
+	RabbitModel::ms_DefaultWhiteTexture = new VulkanTexture(device, "res/textures/default_white.png", TextureFlags::Color | TextureFlags::Read, Format::R8G8B8A8_UNORM_SRGB, "defaul_white");
+	RabbitModel::ms_DefaultBlackTexture = new VulkanTexture(device, "res/textures/default_black.png", TextureFlags::Color | TextureFlags::Read, Format::R8G8B8A8_UNORM_SRGB, "defaul_black");
 }
 
 void Mesh::CalculateMatrix()

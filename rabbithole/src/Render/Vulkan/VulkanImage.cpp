@@ -16,8 +16,8 @@ VulkanImage::VulkanImage(const VulkanDevice* device, const VulkanImageInfo& info
 	}
 
 	uint32_t blockSize = GetBlockSizeFrom(m_Format);
-	uint32_t blockAlignedWidth = m_Info.Extent.Width - m_Info.Extent.Width % blockSize + blockSize;
-	uint32_t blockAlignedHeight = m_Info.Extent.Height - m_Info.Extent.Height % blockSize + blockSize;
+	uint32_t blockAlignedWidth = m_Info.Extent.Width;
+	uint32_t blockAlignedHeight = m_Info.Extent.Height;
 
 	imageCreateInfo.imageType = m_Info.Extent.Depth == 1 ? VK_IMAGE_TYPE_2D : VK_IMAGE_TYPE_3D;
 	imageCreateInfo.format = m_Format;

@@ -54,13 +54,7 @@ struct std::hash<Vertex>
 	}
 };
 
-struct TextureData
-{
-	unsigned char* pData;
-	int width;
-	int height;
-	int bpp;
-};
+using TextureData = ModelLoading::TextureData;
 
 struct Mesh
 {
@@ -96,11 +90,9 @@ public:
 
 	void LoadFromFile();
 	
-	//test purpose, make it private
-
-	Mesh GetMesh() { return m_MeshData; }
-	void SetMesh(Mesh mesh) { m_MeshData = mesh; }
-	inline uint32_t GetId() const { return m_Id; }
+	Mesh GetMesh()					{ return m_MeshData; }
+	void SetMesh(Mesh mesh)			{ m_MeshData = mesh; }
+	inline uint32_t GetId() const	{ return m_Id; }
 
 private:
 	void CreateTextures(ModelLoading::MaterialData* material);
@@ -116,7 +108,6 @@ private:
 	uint32_t				m_IndexCount;
 	bool					hasIndexBuffer = false;
 
-	TextureData*			m_TextureData{};
 	VulkanTexture*			m_AlbedoTexture;
 	VulkanTexture*			m_NormalTexture;
 	VulkanTexture*			m_RoughnessTexture;
@@ -125,7 +116,8 @@ private:
 
 	Mesh					m_MeshData;
 public:
-	static VulkanTexture*	ms_DefaultWhiteTexture;
+	static VulkanTexture* ms_DefaultWhiteTexture;
+	static VulkanTexture* ms_DefaultBlackTexture;
 	static uint32_t			m_CurrentId;
 private:
 	std::string				m_FilePath{};
