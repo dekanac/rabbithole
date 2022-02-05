@@ -151,6 +151,7 @@ VkBlendFactor			GetVkBlendFactorFrom(const BlendValue blendValue);
 VkBlendOp				GetVkBlendOpFrom(const BlendOperation blendOperation);
 VkVertexInputRate		GetVkVertexInputRateFrom(const VertexInputRate inputRate);
 VkClearValue			GetVkClearColorValueForFormat(const VkFormat format);
+size_t					GetBPPFrom(const Format format);
 VkImageUsageFlags		GetVkImageUsageFlagsFrom(const ImageUsageFlags usageFlags);
 VkBorderColor			GetVkBorderColorFrom(const Color color);
 

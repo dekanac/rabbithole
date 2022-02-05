@@ -1,9 +1,10 @@
 #pragma once
 
+
 class VulkanImage;
 class VulkanImageView;
 class VulkanImageSampler;
-struct TextureData;
+struct ModelLoading::TextureData;
 
 class VulkanTexture
 {
