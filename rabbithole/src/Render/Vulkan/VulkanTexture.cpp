@@ -130,16 +130,12 @@ void VulkanTexture::CreateResource(VulkanDevice* device, const uint32_t width, c
 	VulkanImageInfo textureResourceInfo;
 	textureResourceInfo.Flags = (IsFlagSet(m_Flags & TextureFlags::CubeMap) ? ImageFlags::CubeMap : ImageFlags::None) |
 		(IsFlagSet(m_Flags & TextureFlags::LinearTiling) ? ImageFlags::LinearTiling : ImageFlags::None);
-	if (IsFlagSet(m_Flags & TextureFlags::DepthStencil))
-	{
-		textureResourceInfo.UsageFlags = ImageUsageFlags::DepthStencil;
-	}
-	else
-	{
-		textureResourceInfo.UsageFlags = ImageUsageFlags::Storage |
-			(IsFlagSet(m_Flags & TextureFlags::Read) ? ImageUsageFlags::Resource : ImageUsageFlags::None) |
-			(IsFlagSet(m_Flags & TextureFlags::RenderTarget) ? ImageUsageFlags::RenderTarget : ImageUsageFlags::None);
-	}
+
+	textureResourceInfo.UsageFlags = 
+		(IsFlagSet(m_Flags & TextureFlags::DepthStencil) ? ImageUsageFlags::DepthStencil : ImageUsageFlags::Storage) | //TODO: investigate this storage flag
+		(IsFlagSet(m_Flags & TextureFlags::Read) ? ImageUsageFlags::Resource : ImageUsageFlags::None) |
+		(IsFlagSet(m_Flags & TextureFlags::RenderTarget) ? ImageUsageFlags::RenderTarget : ImageUsageFlags::None);
+
 	textureResourceInfo.MemoryAccess = MemoryAccess::Device;
 	textureResourceInfo.Format = m_Format;
 	textureResourceInfo.Extent.Width = width;

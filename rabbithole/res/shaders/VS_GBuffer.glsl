@@ -17,6 +17,7 @@ layout(location = 0) out VS_OUT {
     vec3 FragNormal;
     vec3 FragTangent;
     uint FragId;
+    mat3 FragTBN;
 } vs_out;
 
 //use UBO as a Constant Buffer to provide common stuff to shaders
@@ -40,8 +41,11 @@ void main()
     vs_out.FragPos = vec3(push.model * vec4(position, 1.0));   
     vs_out.FragUV = uv;
     
-	vs_out.FragNormal = mat3(push.model) * normal;
-	vs_out.FragTangent = vec3(mat3(push.model) * tangent.xyz);
+	vec3 bitan = cross(normal, tangent);
+	vs_out.FragTBN = mat3(
+		normalize(mat3(push.model) * tangent), 
+		normalize(mat3(push.model) * bitan), 
+		normalize(mat3(push.model) * normal));
 
     vs_out.FragDebugOption = UBO.debugOption;
     

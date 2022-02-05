@@ -629,6 +629,7 @@ void VulkanDevice::CopyBufferToImageCubeMap(VulkanBuffer* buffer, VulkanTexture*
 
 void VulkanDevice::TransitionImageLayout(VulkanTexture* texture, ResourceState oldLayout, ResourceState newLayout)
 {
+	//TODO: i really was freestyling with these, see whats going on here
 	VkCommandBuffer commandBuffer = BeginSingleTimeCommands();
 
 	VkImageMemoryBarrier barrier{};
@@ -678,6 +679,14 @@ void VulkanDevice::TransitionImageLayout(VulkanTexture* texture, ResourceState o
 		sourceStage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
 		destinationStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
 	}
+	else if (oldLayout == ResourceState::None && newLayout == ResourceState::GenericRead)
+	{
+		barrier.srcAccessMask = 0;
+		barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+
+		sourceStage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+		destinationStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+	}
 	else if (oldLayout == ResourceState::RenderTarget && newLayout == ResourceState::GenericRead)
 	{
 		barrier.srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT;
@@ -685,6 +694,14 @@ void VulkanDevice::TransitionImageLayout(VulkanTexture* texture, ResourceState o
 
 		sourceStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
 		destinationStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+	}
+	else if (oldLayout == ResourceState::None && newLayout == ResourceState::DepthStencilRead)
+	{
+		barrier.srcAccessMask = VK_ACCESS_SHADER_READ_BIT;
+		barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
+
+		sourceStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+		destinationStage = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT;
 	}
 
 	else 

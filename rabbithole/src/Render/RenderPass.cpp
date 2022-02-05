@@ -60,7 +60,7 @@ void GBufferPass::Setup(Renderer* renderer)
 	pipelineInfo->SetColorWriteMask(0, ColorWriteMaskFlags::RGBA);
 	pipelineInfo->SetColorWriteMask(1, ColorWriteMaskFlags::RGBA);
 	pipelineInfo->SetColorWriteMask(2, ColorWriteMaskFlags::RGBA);
-	pipelineInfo->SetColorWriteMask(3, ColorWriteMaskFlags::R);
+	pipelineInfo->SetColorWriteMask(3, ColorWriteMaskFlags::RGBA);
 	
 	stateManager->SetRenderTarget0(renderer->albedoGBuffer->GetView());
 	stateManager->SetRenderTarget1(renderer->normalGBuffer->GetView());
@@ -106,34 +106,42 @@ void LightingPass::Setup(Renderer* renderer)
 	renderPassInfo->InitialDepthStencilState = ResourceState::None;
 	renderPassInfo->FinalDepthStencilState = ResourceState::DepthStencilWrite;
 
-	constexpr size_t numOfLights = 4;
-	LightParams lightParams[numOfLights];
-	lightParams[0].position = { 7.0f, 1.0f, 7.0f, 0.0f };
-	lightParams[0].colorAndRadius = { 0.0f, 0.0f, 1.0f, 5.0f };
-
-	lightParams[1].position = { -7.0f, 1.0f, 7.0f, 0.0f };
-	lightParams[1].colorAndRadius = { 1.0f, 0.0f, 0.0f, 5.0f };
-
-	lightParams[2].position = { -10.0f, 2.0f, -10.0f, 0.0f };
-	lightParams[2].colorAndRadius = { 1.0f, 0.6f, 0.2f, 10.0f };
-
-	lightParams[3].position = { 0.0f, 25.0f, 0.0f, 0.0f };
-	lightParams[3].colorAndRadius = { 1.0f, 1.0f, 1.0f, 30.0f };
-
 	//fill the light buffer
-	renderer->GetLightParams()->FillBuffer(lightParams, sizeof(LightParams) * numOfLights);
+	if (renderer->imguiReady)
+	{
+		ImGui::Begin("Light params");
+
+		auto& lightParams = renderer->lightParams;
+
+		ImGui::ColorEdit3("Light1", lightParams[0].color);
+		ImGui::SliderFloat("Light1 radius: ", &(lightParams[0]).radius, 0.f, 50.f);
+
+		ImGui::ColorEdit3("Light2", lightParams[1].color);
+		ImGui::SliderFloat("Light2 radius: ", &(lightParams[1]).radius, 0.f, 50.f);
+
+		ImGui::ColorEdit3("Light3", lightParams[2].color);
+		ImGui::SliderFloat("Light3 radius: ", &(lightParams[2]).radius, 0.f, 50.f);
+
+		ImGui::ColorEdit3("Light4", lightParams[3].color);
+		ImGui::SliderFloat("Light4 radius: ", &(lightParams[3]).radius, 0.f, 50.f);
+
+		ImGui::End();
+	}
+	renderer->GetLightParams()->FillBuffer(renderer->lightParams, sizeof(LightParams) * numOfLights);
 
 	auto& device = renderer->GetVulkanDevice();
 
 	renderer->ResourceBarrier(renderer->albedoGBuffer, ResourceState::RenderTarget, ResourceState::GenericRead);
-	renderer->ResourceBarrier(renderer->normalGBuffer, ResourceState::RenderTarget, ResourceState::GenericRead);
+	//renderer->ResourceBarrier(renderer->normalGBuffer, ResourceState::RenderTarget, ResourceState::GenericRead);
 	renderer->ResourceBarrier(renderer->worldPositionGBuffer, ResourceState::RenderTarget, ResourceState::GenericRead);
+	renderer->ResourceBarrier(renderer->SSAOBluredTexture, ResourceState::RenderTarget, ResourceState::GenericRead);
 
 	stateManager->SetCombinedImageSampler(0, renderer->albedoGBuffer);
 	stateManager->SetCombinedImageSampler(1, renderer->normalGBuffer);
 	stateManager->SetCombinedImageSampler(2, renderer->worldPositionGBuffer);
 	stateManager->SetConstantBuffer(3, renderer->GetUniformBuffer(), 0, sizeof(UniformBufferObject));
 	stateManager->SetConstantBuffer(4, renderer->GetLightParams(), 0, sizeof(LightParams));
+	stateManager->SetCombinedImageSampler(5, renderer->SSAOBluredTexture);
 
 	stateManager->SetRenderTarget0(renderer->lightingMain->GetView());
 }
@@ -162,7 +170,7 @@ void CopyToSwapchainPass::Setup(Renderer* renderer)
 
 	stateManager->GetPipelineInfo()->SetDepthTestEnabled(false);
 	auto renderPassInfo = stateManager->GetRenderPassInfo();
-	renderPassInfo->InitialRenderTargetState = ResourceState::GenericRead;
+	renderPassInfo->InitialRenderTargetState = ResourceState::None;
 	renderPassInfo->FinalRenderTargetState = ResourceState::Present;
 	renderPassInfo->InitialDepthStencilState = ResourceState::DepthStencilWrite;
 	renderPassInfo->FinalDepthStencilState = ResourceState::None;
@@ -223,6 +231,12 @@ void SkyboxPass::Setup(Renderer* renderer)
 	auto pipelineInfo = stateManager->GetPipelineInfo();
 	pipelineInfo->SetDepthTestEnabled(true);
 
+	auto renderPassInfo = stateManager->GetRenderPassInfo();
+	renderPassInfo->InitialRenderTargetState = ResourceState::RenderTarget;
+	renderPassInfo->FinalRenderTargetState = ResourceState::RenderTarget;
+	renderPassInfo->InitialDepthStencilState = ResourceState::GenericRead;
+	renderPassInfo->FinalDepthStencilState = ResourceState::DepthStencilWrite;
+
 	stateManager->SetCullMode(CullMode::Front);
 
 	stateManager->SetVertexShader(renderer->GetShader("VS_Skybox"));
@@ -263,19 +277,30 @@ void SSAOPass::Setup(Renderer* renderer)
 	pipelineInfo->SetAttachmentCount(1);
 	pipelineInfo->SetColorWriteMask(0, ColorWriteMaskFlags::R);
 
-	//fill the samples buffer
 	auto& device = renderer->GetVulkanDevice();
 
-	renderer->ResourceBarrier(renderer->worldPositionGBuffer, ResourceState::RenderTarget, ResourceState::GenericRead);
-	renderer->ResourceBarrier(renderer->normalGBuffer, ResourceState::RenderTarget, ResourceState::GenericRead);
+	//fill params buffer
+	if (renderer->imguiReady)
+	{
+		ImGui::Begin("SSAOParams");
 
-	renderer->ResourceBarrier(renderer->SSAOTexture, ResourceState::GenericRead, ResourceState::RenderTarget);
+		ImGui::SliderFloat("Radius: ", &renderer->ssaoParams.radius, 0.1f, 1.f);
+		ImGui::SliderFloat("Bias:", &renderer->ssaoParams.bias, 0.0f, 0.0625f);
+		ImGui::SliderInt("Kernel Size: ", &renderer->ssaoParams.kernelSize, 1, 64);
+		ImGui::End();
+	}
+
+	renderer->SSAOParamsBuffer->FillBuffer(&renderer->ssaoParams, sizeof(SSAOParams));
+
+	renderer->ResourceBarrier(renderer->GetSwapchain()->GetDepthStencil(), ResourceState::DepthStencilWrite, ResourceState::GenericRead);
+	renderer->ResourceBarrier(renderer->normalGBuffer, ResourceState::RenderTarget, ResourceState::GenericRead);
 
 	stateManager->SetConstantBuffer(0, renderer->GetUniformBuffer(), 0, sizeof(UniformBufferObject));
 	stateManager->SetCombinedImageSampler(1, renderer->GetSwapchain()->GetDepthStencil());
 	stateManager->SetCombinedImageSampler(2, renderer->normalGBuffer);
 	stateManager->SetCombinedImageSampler(3, renderer->SSAONoiseTexture);
 	stateManager->SetConstantBuffer(4, renderer->SSAOSamplesBuffer, 0, renderer->SSAOSamplesBuffer->GetSize());
+	stateManager->SetConstantBuffer(5, renderer->SSAOParamsBuffer, 0, renderer->SSAOParamsBuffer->GetSize());
 
 	stateManager->SetRenderTarget0(renderer->SSAOTexture->GetView());
 }

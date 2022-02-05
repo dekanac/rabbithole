@@ -78,14 +78,15 @@ bool Renderer::Init()
 
 	CreateGeometryDescriptors();
 
-	albedoGBuffer = new VulkanTexture(&m_VulkanDevice, DEFAULT_WIDTH, DEFAULT_HEIGHT, TextureFlags::RenderTarget, Format::B8G8R8A8_UNORM, "albedo");
-	normalGBuffer = new VulkanTexture(&m_VulkanDevice, DEFAULT_WIDTH, DEFAULT_HEIGHT, TextureFlags::RenderTarget, Format::R16G16B16A16_FLOAT, "normal");
-	worldPositionGBuffer = new VulkanTexture(&m_VulkanDevice, DEFAULT_WIDTH, DEFAULT_HEIGHT, TextureFlags::RenderTarget, Format::R16G16B16A16_FLOAT, "wordlPosition");
-	
+	albedoGBuffer = new VulkanTexture(&m_VulkanDevice, DEFAULT_WIDTH, DEFAULT_HEIGHT, TextureFlags::RenderTarget | TextureFlags::Read, Format::B8G8R8A8_UNORM, "albedo");
+	normalGBuffer = new VulkanTexture(&m_VulkanDevice, DEFAULT_WIDTH, DEFAULT_HEIGHT, TextureFlags::RenderTarget | TextureFlags::Read, Format::R16G16B16A16_FLOAT, "normal");
+	worldPositionGBuffer = new VulkanTexture(&m_VulkanDevice, DEFAULT_WIDTH, DEFAULT_HEIGHT, TextureFlags::RenderTarget | TextureFlags::Read, Format::R16G16B16A16_FLOAT, "wordlPosition");
+	DebugTextureRT = new VulkanTexture(&m_VulkanDevice, DEFAULT_WIDTH, DEFAULT_HEIGHT, TextureFlags::RenderTarget, Format::R16G16B16A16_FLOAT, "debug");
 	entityHelper = new VulkanTexture(&m_VulkanDevice, DEFAULT_WIDTH, DEFAULT_HEIGHT, TextureFlags::RenderTarget | TextureFlags::LinearTiling | TextureFlags::TransferSrc, Format::R32_UINT, "entityHelper");
 	entityHelperBuffer = new VulkanBuffer(&m_VulkanDevice, BufferUsageFlags::StorageBuffer, MemoryAccess::Host, DEFAULT_HEIGHT * DEFAULT_WIDTH * 4);
 
-	lightingMain = new VulkanTexture(&m_VulkanDevice, DEFAULT_WIDTH, DEFAULT_HEIGHT, TextureFlags::RenderTarget, Format::R16G16B16A16_FLOAT, "lightingmain");
+	lightingMain = new VulkanTexture(&m_VulkanDevice, DEFAULT_WIDTH, DEFAULT_HEIGHT, TextureFlags::RenderTarget | TextureFlags::Read, Format::R16G16B16A16_FLOAT, "lightingmain");
+	InitLights();
 
 	InitSSAO();
 
@@ -268,7 +269,7 @@ void Renderer::InitTextures()
 		memcpy(texData.pData + i * imageSize, cubeMapData->pData[i]->pData, imageSize);
 	}
 
-	skyboxTexture = new VulkanTexture(&m_VulkanDevice, (TextureData*)&texData, TextureFlags::Color | TextureFlags::Read | TextureFlags::CubeMap, Format::R8G8B8A8_UNORM_SRGB, "skybox");
+	skyboxTexture = new VulkanTexture(&m_VulkanDevice, (TextureData*)&texData, TextureFlags::Color | TextureFlags::Read | TextureFlags::CubeMap | TextureFlags::TransferDst, Format::R8G8B8A8_UNORM_SRGB, "skybox");
 
 	//TODO: pls no
 	ModelLoading::FreeCubemap(cubeMapData);
@@ -418,6 +419,15 @@ void Renderer::EndCommandBuffer()
 	VULKAN_API_CALL(vkEndCommandBuffer(m_CommandBuffers[m_CurrentImageIndex]), "failed to end recording command buffer!");
 }
 
+void Renderer::FillTheLightParam(LightParams& lightParam, rabbitVec4f position, rabbitVec3f color, float radius)
+{
+	lightParam.position = position;
+	lightParam.color[0] = color.x;
+	lightParam.color[1] = color.y;
+	lightParam.color[2] = color.z;
+	lightParam.radius = radius;
+}
+
 std::vector<char> Renderer::ReadFile(const std::string& filepath)
 {
 	std::ifstream file{ filepath, std::ios::ate | std::ios::binary };
@@ -493,15 +503,8 @@ void Renderer::CopyToSwapChain()
 
 #ifdef RABBITHOLE_USING_IMGUI
 	//DRAW UI(imgui)
-	if (m_ImguiInitialized)
+	if (m_ImguiInitialized && imguiReady)
 	{
-		ImGui_ImplVulkan_NewFrame();
-		ImGui_ImplGlfw_NewFrame();
-		ImGui::NewFrame();
-
-		ImGui::Begin("Test");
-		ImGui::End();
-
 		ImGui::Render();
 		ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), m_CommandBuffers[m_CurrentImageIndex]);
 	}
@@ -658,6 +661,8 @@ void Renderer::ResourceBarrier(VulkanTexture* texture, ResourceState oldLayout, 
 {
 	VkCommandBuffer commandBuffer = m_CommandBuffers[m_CurrentImageIndex];
 
+	bool isDepth = oldLayout == ResourceState::DepthStencilRead || oldLayout == ResourceState::DepthStencilWrite; //TODO: investigate does this need newLayout to be checked
+
 	VkImageMemoryBarrier barrier{};
 	barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
 	barrier.oldLayout = GetVkImageLayoutFrom(oldLayout);
@@ -665,7 +670,7 @@ void Renderer::ResourceBarrier(VulkanTexture* texture, ResourceState oldLayout, 
 	barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
 	barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
 	barrier.image = texture->GetResource()->GetImage();
-	barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+	barrier.subresourceRange.aspectMask = isDepth ? VK_IMAGE_ASPECT_DEPTH_BIT : VK_IMAGE_ASPECT_COLOR_BIT;
 	barrier.subresourceRange.baseMipLevel = 0;
 	barrier.subresourceRange.levelCount = 1;
 	barrier.subresourceRange.baseArrayLayer = 0;
@@ -735,6 +740,22 @@ void Renderer::ResourceBarrier(VulkanTexture* texture, ResourceState oldLayout, 
 		sourceStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
 		destinationStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
 	}
+	else if (oldLayout == ResourceState::DepthStencilWrite && newLayout == ResourceState::GenericRead)
+	{
+		barrier.srcAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+		barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+
+		sourceStage = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
+		destinationStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+	}
+	else if (oldLayout == ResourceState::GenericRead && newLayout == ResourceState::DepthStencilWrite)
+	{
+		barrier.srcAccessMask = VK_ACCESS_SHADER_READ_BIT;
+		barrier.dstAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+
+		sourceStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+		destinationStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+	}
 	else
 	{
 		LOG_ERROR("unsupported layout transition!");
@@ -778,6 +799,17 @@ void Renderer::RecordCommandBuffer(int imageIndex)
 	SetCurrentImageIndex(imageIndex);
 	BeginCommandBuffer();
 
+	if (m_ImguiInitialized)
+	{
+		ImGui_ImplVulkan_NewFrame();
+		ImGui_ImplGlfw_NewFrame();
+		ImGui::NewFrame();
+
+		ImGui::Begin("Main debug frame");
+		ImGui::End();
+
+		imguiReady = true;
+	}
 	GBufferPass gbuffer{};
 	SSAOPass ssao{};
 	SSAOBlurPass ssaoBlur{};
@@ -791,8 +823,8 @@ void Renderer::RecordCommandBuffer(int imageIndex)
 	ExecuteRenderPass(gbuffer);
 	ExecuteRenderPass(ssao);
 	ExecuteRenderPass(ssaoBlur);
-	ExecuteRenderPass(lighting);
 	ExecuteRenderPass(skybox);
+	ExecuteRenderPass(lighting);
 
 	if (m_RenderOutlinedEntity)
 	{
@@ -838,15 +870,17 @@ float lerp(float a, float b, float f)
 }
 void Renderer::InitSSAO()
 {
-	SSAOTexture = new VulkanTexture(&m_VulkanDevice, DEFAULT_WIDTH, DEFAULT_HEIGHT, TextureFlags::RenderTarget, Format::R32_SFLOAT, "SSAO");
-	SSAOBluredTexture = new VulkanTexture(&m_VulkanDevice, DEFAULT_WIDTH, DEFAULT_HEIGHT, TextureFlags::RenderTarget, Format::R32_SFLOAT, "SSAO");
+	SSAOParamsBuffer = new VulkanBuffer(&m_VulkanDevice, BufferUsageFlags::UniformBuffer, MemoryAccess::Host, (uint64_t)sizeof(SSAOParams));
+
+	SSAOTexture = new VulkanTexture(&m_VulkanDevice, DEFAULT_WIDTH, DEFAULT_HEIGHT, TextureFlags::RenderTarget | TextureFlags::Read, Format::R32_SFLOAT, "SSAO");
+	SSAOBluredTexture = new VulkanTexture(&m_VulkanDevice, DEFAULT_WIDTH, DEFAULT_HEIGHT, TextureFlags::RenderTarget | TextureFlags::Read, Format::R32_SFLOAT, "SSAO");
 
 	std::uniform_real_distribution<float> randomFloats(0.0, 1.0); // generates random floats between 0.0 and 1.0
 	std::default_random_engine generator;
-	std::vector<glm::vec3> ssaoKernel;
+	std::vector<glm::vec4> ssaoKernel;
 	for (unsigned int i = 0; i < 64; ++i)
 	{
-		glm::vec3 sample(randomFloats(generator) * 2.0 - 1.0, randomFloats(generator) * 2.0 - 1.0, randomFloats(generator));
+		glm::vec4 sample(randomFloats(generator) * 2.0 - 1.0, randomFloats(generator) * 2.0 - 1.0, randomFloats(generator), 0.0f);
 		sample = glm::normalize(sample);
 		sample *= randomFloats(generator);
 		float scale = float(i) / 64.0;
@@ -859,13 +893,13 @@ void Renderer::InitSSAO()
 
 	size_t bufferSize = 1024;
 	SSAOSamplesBuffer = new VulkanBuffer(&m_VulkanDevice, BufferUsageFlags::UniformBuffer, MemoryAccess::Host, bufferSize);
-	SSAOSamplesBuffer->FillBuffer(ssaoKernel.data(), 768);
+	SSAOSamplesBuffer->FillBuffer(ssaoKernel.data(), bufferSize);
 
 	//generate SSAO Noise texture
-	std::vector<glm::vec3> ssaoNoise;
+	std::vector<glm::vec4> ssaoNoise;
 	for (unsigned int i = 0; i < 16; i++)
 	{
-		glm::vec3 noise(randomFloats(generator) * 2.0 - 1.0, randomFloats(generator) * 2.0 - 1.0, 0.0f); // rotate around z-axis (in tangent space)
+		glm::vec4 noise(randomFloats(generator) * 2.0 - 1.0, randomFloats(generator) * 2.0 - 1.0, 0.0f, 0.0f); // rotate around z-axis (in tangent space)
 		ssaoNoise.push_back(noise);
 	}
 
@@ -876,8 +910,22 @@ void Renderer::InitSSAO()
 	texData.width = 4;
 	texData.pData = (unsigned char*)ssaoNoise.data();
 
-	SSAONoiseTexture = new VulkanTexture(&m_VulkanDevice, &texData, TextureFlags::Color | TextureFlags::Read, Format::R32G32B32A32_FLOAT, "ssaoNoise");
+	SSAONoiseTexture = new VulkanTexture(&m_VulkanDevice, &texData, TextureFlags::Color | TextureFlags::Read | TextureFlags::TransferDst, Format::R32G32B32A32_FLOAT, "ssaoNoise");
+		
+	//init ssao params
+	ssaoParams.radius = 0.531;
+	ssaoParams.bias = 0.025f;
+	ssaoParams.resWidth = Window::instance().GetExtent().width;
+	ssaoParams.resHeight = Window::instance().GetExtent().height;
+	ssaoParams.kernelSize = 64;
+}
 
+void Renderer::InitLights()
+{
+	FillTheLightParam(lightParams[0], { 7.0f, 1.0f, 7.0f, 0.0f }, { 0.f, 0.f, 1.f }, 5.f);
+	FillTheLightParam(lightParams[1], { -7.0f, 1.0f, 7.0f, 0.0f }, { 1.f, 0.f, 0.f }, 5.f);
+	FillTheLightParam(lightParams[2], { -10.0f, 2.0f, -10.0f, 0.0f }, { 1.f, 0.6f, 0.2f }, 10.f);
+	FillTheLightParam(lightParams[3], { 0.0f, 25.0f, 0.0f, 0.0f }, { 1.f, 1.0f, 1.0f }, 30.f);
 }
 
 void Renderer::BindViewport(float x, float y, float width, float height)

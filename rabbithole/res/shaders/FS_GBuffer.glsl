@@ -7,6 +7,7 @@ layout(location = 0) in VS_OUT {
     vec3 FragNormal;
     vec3 FragTangent;
     uint FragId;
+    mat3 FragTBN;
 } fs_in;
 
 layout (location = 0) out vec4 outColor;
@@ -31,12 +32,8 @@ void main()
     float roughness = texture(roughnessSampler, fs_in.FragUV).r;
     float metalness = texture(metalnessSampler, fs_in.FragUV).r;
 
-    vec3 N = normalize(fs_in.FragNormal);
-	vec3 T = normalize(fs_in.FragTangent);
-	vec3 B = cross(N, T);
-	mat3 TBN = mat3(T, B, N);
-	vec3 tnorm = normalize(TBN * (texture(normalSampler, fs_in.FragUV).xyz * 2.0 - vec3(1.0)));
-	outNormal = vec4(tnorm, roughness);
+	vec3 N = fs_in.FragTBN * (texture(normalSampler, fs_in.FragUV).xyz * 2.0 - vec3(1.0));
+	outNormal = vec4(N, roughness);
 
     outWorldPosition = vec4(fs_in.FragPos, metalness);
 

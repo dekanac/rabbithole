@@ -17,16 +17,19 @@ layout (binding = 2) uniform sampler2D in_Normal;
 layout (binding = 3) uniform sampler2D in_Noise;
 
 layout(binding = 4) uniform Samples_ {
-    vec3 samples[48];
+    vec4 samples[64];
 } Samples;
 
-// parameters (you'd probably want to use them as uniforms to more easily tweak the effect)
-int kernelSize = 48;
-float radius = 0.5;
-float bias = 0.025;
+layout(binding = 5) uniform SSAOParams_ {
+	float radius;
+	float bias;
+	float resWidth;
+	float resHeight;
+	int kernelSize;
+} SSAOParams;
 
 // tile noise texture over screen based on screen dimensions divided by noise size
-const vec2 noiseScale = vec2(1280.0/4.0, 720.0/4.0); //send theese through the UBO
+vec2 noiseScale = vec2(SSAOParams.resWidth/4.0, SSAOParams.resHeight/4.0);
 
 vec3 reconstructVSPosFromDepth(vec2 uv)
 {
@@ -48,7 +51,8 @@ void main()
 		return;
 	}
 
-	vec3 normal = normalize(texture(in_Normal, ex_TexCoord).rgb * 2.0f - 1.0f);
+	vec3 normal = (texture(in_Normal, ex_TexCoord)).rgb;
+	normal = normalize(mat3(UBO.view) * normal);
 
 	vec3 posVS = reconstructVSPosFromDepth(ex_TexCoord);
 
@@ -67,10 +71,10 @@ void main()
 
 	float occlusion = 0.0f;
 	int sampleCount = 0;
-	for (uint i = 0; i < kernelSize; i++)
+	for (uint i = 0; i < SSAOParams.kernelSize; i++)
 	{
 		vec3 samplePos = TBN * Samples.samples[i].xyz;
-		samplePos = posVS + samplePos * radius; 
+		samplePos = posVS + samplePos * SSAOParams.radius; 
 
 		vec4 offset = vec4(samplePos, 1.0f);
 		offset = UBO.proj * offset;
@@ -86,12 +90,12 @@ void main()
 		}
 		else
 		{
-			float rangeCheck = smoothstep(0.0f, 1.0f, radius / abs(reconstructedPos.z - samplePos.z - bias));
+			float rangeCheck = smoothstep(0.0f, 1.0f, SSAOParams.radius / abs(reconstructedPos.z - samplePos.z - SSAOParams.bias));
 			occlusion += (reconstructedPos.z <= samplePos.z - bias ? 1.0f : 0.0f) * rangeCheck;
 			++sampleCount;
 		}
 	}
-	occlusion = 1.0 - (occlusion / float(max(sampleCount,1)));
+	occlusion = (occlusion / float(max(sampleCount,1)));
 	
 	fragColour = occlusion;
 }

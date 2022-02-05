@@ -9,7 +9,7 @@ class VulkanBuffer;
 class VulkanRenderPass;
 class VulkanPipeline;
 
-#define MUTE_VALIDATION_ERROR_SPAM
+//#define MUTE_VALIDATION_ERROR_SPAM
 
 struct QueueFamilyIndices 
 {

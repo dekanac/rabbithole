@@ -7,6 +7,7 @@ layout (location = 0) in vec2 inUV;
 layout (binding = 0) uniform sampler2D samplerAlbedo;
 layout (binding = 1) uniform sampler2D samplerNormal;
 layout (binding = 2) uniform sampler2D samplerposition;
+layout (binding = 5) uniform sampler2D samplerSSAO;
 
 layout (location = 0) out vec4 outColor;
 
@@ -21,7 +22,8 @@ layout(binding = 3) uniform UniformBufferObject {
 struct Light
 {
 	vec4 position;
-	vec4 colorAndRadius; //radius is 4th element
+	vec3 color;
+    float radius;
 };
 
 layout(binding = 4) uniform LightParams {
@@ -87,6 +89,9 @@ void main()
     vec4 normalRoughness = texture(samplerNormal, inUV);
 	vec4 positionMetallic = texture(samplerposition, inUV);
     vec3 albedo = pow(texture(samplerAlbedo, inUV).rgb, vec3(2.2));
+     
+     
+    float ssao = texture(samplerSSAO, inUV).r;
 
 	float roughness = normalRoughness.a;
 	float metallic = positionMetallic.a;
@@ -109,8 +114,8 @@ void main()
         vec3 L = normalize(tmp);
         vec3 H = normalize(V + L);
         float distance = length(tmp);
-        float attenuation = Lights.light[i].colorAndRadius.w / (pow(distance, 2.0) + 1.0);
-        vec3 radiance = Lights.light[i].colorAndRadius.xyz * attenuation;
+        float attenuation = Lights.light[i].radius / (pow(distance, 2.0) + 1.0);
+        vec3 radiance = Lights.light[i].color * attenuation;
 
         // Cook-Torrance BRDF
         float NDF = DistributionGGX(N, H, roughness);   
@@ -141,7 +146,7 @@ void main()
     
     // ambient lighting (note that the next IBL tutorial will replace 
     // this ambient lighting with environment lighting).
-    vec3 ambient = vec3(0.03) * albedo ;//* ao;
+    vec3 ambient = vec3(0.03) * albedo * ssao;
 
     vec3 color = ambient + Lo;
 
@@ -166,7 +171,7 @@ void main()
 				outColor.rgb = albedo;
 				break;
 			case 4: 
-				outColor.rgb = albedo;
+				outColor.rgb = color;
 				break;
 		}		
 		outColor.a = 1.0;

@@ -12,8 +12,12 @@
 #include "Model/ModelLoading.h"
 
 #define DYNAMIC_SCISSOR_AND_VIEWPORT_STATES
-#define RABBITHOLE_USING_IMGUI
+
+#ifdef _DEBUG
+	#define RABBITHOLE_USING_IMGUI
+#endif
 #define MAX_NUM_OF_LIGHTS 12
+constexpr size_t numOfLights = 4;
 
 class Camera;
 class EntityManager;
@@ -48,7 +52,17 @@ struct PushMousePos
 struct LightParams
 {
 	rabbitVec4f position;
-	rabbitVec4f colorAndRadius; //4th element of vector is radius
+	float color[3];
+	float radius;
+};
+
+struct SSAOParams
+{
+	float radius;
+	float bias;
+	float resWidth;
+	float resHeight;
+	int kernelSize;
 };
 
 class Renderer
@@ -84,6 +98,7 @@ private:
 	void CreateDescriptorPool();
 
 	void InitSSAO();
+	void InitLights();
 public:
 	inline VulkanDevice& GetVulkanDevice() { return m_VulkanDevice; }
 	inline VulkanStateManager* GetStateManager() { return m_StateManager; }
@@ -137,6 +152,7 @@ public:
 	void EndCommandBuffer();
 
 	//helper functions
+	void FillTheLightParam(LightParams& lightParam, rabbitVec4f position, rabbitVec3f color, float radius);
 	std::vector<char> ReadFile(const std::string& filepath);
 	void CopyToSwapChain();
 	void ImageTransitionToPresent();
@@ -144,20 +160,35 @@ public:
 public:
 
 	//TODO: do something with these
+
+	//gbuffer
 	VulkanTexture* albedoGBuffer;
 	VulkanTexture* normalGBuffer;
 	VulkanTexture* worldPositionGBuffer;
+	
+	//main lighting
 	VulkanTexture* lightingMain;
+	LightParams lightParams[numOfLights];
+	
+	//skybox
 	VulkanTexture* skyboxTexture;
-	VulkanTexture* entityHelper;
+
+	//ssao
 	VulkanTexture* SSAOTexture;
 	VulkanTexture* SSAOBluredTexture;
 	VulkanTexture* SSAONoiseTexture;
 	VulkanBuffer*  SSAOSamplesBuffer;
+	VulkanBuffer*  SSAOParamsBuffer;
+	SSAOParams	   ssaoParams{};
+	
+	//entity helper
+	VulkanTexture* entityHelper;
+	VulkanTexture* DebugTextureRT;
 	VulkanBuffer*  entityHelperBuffer;
 
-	bool m_RenderOutlinedEntity = true;
+	bool m_RenderOutlinedEntity = false;
     bool m_FramebufferResized = false;
+	bool imguiReady = false;
 
 	bool Init();
 	bool Shutdown();
