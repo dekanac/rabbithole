@@ -61,7 +61,7 @@ public:
 	void SetUBODirty(bool dirty) { m_DirtyUBO = dirty; }
 	bool GetUBODirty() { return m_DirtyUBO; }
 
-    std::vector<VulkanImageView*>   GetRenderTargets() const;
+    std::vector<VulkanImageView*>&  GetRenderTargets();
     VulkanImageView*                GetDepthStencil() const { return m_DepthStencil; }
 
     void SetRenderTarget0(VulkanImageView* rt);
@@ -102,6 +102,8 @@ private:
     VulkanImageView* m_RenderTarget1 = nullptr;
     VulkanImageView* m_RenderTarget2 = nullptr;
     VulkanImageView* m_RenderTarget3 = nullptr;
+
+	std::vector<VulkanImageView*> m_RenderTargets;
 
     VulkanImageView* m_DepthStencil = nullptr;
 };

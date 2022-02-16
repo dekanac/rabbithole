@@ -2,8 +2,6 @@
 
 #include "vk_mem_alloc.h"
 
-uint32_t VulkanBuffer::ms_currentId = BUFFER_ID_START_POS;
-
 VulkanBuffer::VulkanBuffer(const VulkanDevice* device, const VulkanBufferInfo& info)
 	: m_Device(device)
 	, m_Info(info)
@@ -59,8 +57,6 @@ void VulkanBuffer::FillBuffer(void* inputData, size_t size)
 
 void VulkanBuffer::CreateBufferResource()
 {
-	m_Id = ms_currentId;
-	ms_currentId++; 
 	VkBufferCreateInfo bufferInfo{};
 	bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
 	bufferInfo.size = m_Info.size;

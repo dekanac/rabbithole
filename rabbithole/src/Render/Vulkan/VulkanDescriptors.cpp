@@ -9,18 +9,16 @@ VulkanDescriptor::VulkanDescriptor(const VulkanDescriptorInfo& info)
 	{
 	case DescriptorType::CombinedSampler:
 	{
-		CombinedImageSampler* combinedImageSampler = m_Info.combinedImageSampler;
 		m_ResourceInfo.m_ResourceInfo.ImageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-		m_ResourceInfo.m_ResourceInfo.ImageInfo.imageView = combinedImageSampler->ImageView->GetImageView();
-		m_ResourceInfo.m_ResourceInfo.ImageInfo.sampler = combinedImageSampler->ImageSampler->GetSampler();
+		m_ResourceInfo.m_ResourceInfo.ImageInfo.imageView = m_Info.combinedImageSampler->ImageView->GetImageView();
+		m_ResourceInfo.m_ResourceInfo.ImageInfo.sampler = m_Info.combinedImageSampler->ImageSampler->GetSampler();
 		break;
 	}
 	case DescriptorType::UniformBuffer:
 	{
-		VulkanBuffer* uniformBuffer = m_Info.buffer;
-		m_ResourceInfo.m_ResourceInfo.BufferInfo.buffer = uniformBuffer->GetBuffer();
+		m_ResourceInfo.m_ResourceInfo.BufferInfo.buffer = m_Info.buffer->GetBuffer();
 		m_ResourceInfo.m_ResourceInfo.BufferInfo.offset = 0;
-		m_ResourceInfo.m_ResourceInfo.BufferInfo.range = uniformBuffer->GetInfo().size;
+		m_ResourceInfo.m_ResourceInfo.BufferInfo.range = m_Info.buffer->GetInfo().size;
 		break;
 	}
 	default:

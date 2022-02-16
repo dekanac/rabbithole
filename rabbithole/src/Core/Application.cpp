@@ -15,7 +15,7 @@
 #include <string>
 #include <memory>
 
-const char* glsl_version = "#version 150";
+const char* glsl_version = "#version 450";
 
 void ErrorCallback(int, const char* err_str)
 {
@@ -98,10 +98,15 @@ void Application::Run()
 		auto frameTime = glfwGetTimerValue();
 		float deltaTime = (frameTime - previousFrameTime)  / static_cast<float>(glfwGetTimerFrequency());
 		
-		if (frameTime - previousOutputTime > 10000000) {
+#ifdef _DEBUG
+		if (frameTime - previousOutputTime > 10000000) 
+        {
 			std::cout << "FPS:" << 1.f / deltaTime << std::endl;
 			previousOutputTime = frameTime;
+
+            PrintUsage();
 		}
+#endif
 		//UPDATE GAME LOOP
 		InputManager::instance().Update(deltaTime);
 		RenderSystem::instance().Update(deltaTime);

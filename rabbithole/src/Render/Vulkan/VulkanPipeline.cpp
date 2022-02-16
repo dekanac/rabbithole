@@ -448,7 +448,7 @@ VulkanPipeline* PipelineManager::FindOrCreateGraphicsPipeline(VulkanDevice& devi
 	}
 }
 
-VulkanRenderPass* PipelineManager::FindOrCreateRenderPass(VulkanDevice& device, const std::vector<VulkanImageView*> renderTargets, const VulkanImageView* depthStencil, RenderPassConfigInfo& renderPassInfo)
+VulkanRenderPass* PipelineManager::FindOrCreateRenderPass(VulkanDevice& device, const std::vector<VulkanImageView*>& renderTargets, const VulkanImageView* depthStencil, RenderPassConfigInfo& renderPassInfo)
 {
     //create hash key
 	RenderPassKey key{};
@@ -488,18 +488,18 @@ VulkanRenderPass* PipelineManager::FindOrCreateRenderPass(VulkanDevice& device, 
 
 }
 
-VulkanFramebuffer* PipelineManager::FindOrCreateFramebuffer(VulkanDevice& device, const std::vector<VulkanImageView*> renderTargets, const VulkanImageView* depthStencil, const VulkanRenderPass* renderpass, uint32_t width, uint32_t height)
+VulkanFramebuffer* PipelineManager::FindOrCreateFramebuffer(VulkanDevice& device, const std::vector<VulkanImageView*>& renderTargets, const VulkanImageView* depthStencil, const VulkanRenderPass* renderpass, uint32_t width, uint32_t height)
 {
 	FramebufferKey key{};
 	key.resize(5);
 
 	for (size_t i = 0; i < renderTargets.size(); i++)
 	{
-		key[i] = renderTargets[i]->GetId();
+		key[i] = renderTargets[i]->GetID();
 	}
 	if (depthStencil != nullptr)
 	{
-		key[4] = depthStencil->GetId();
+		key[4] = depthStencil->GetID();
 	}
 
 	auto framebuffer = m_Framebuffers.find(key);
@@ -520,7 +520,7 @@ VulkanFramebuffer* PipelineManager::FindOrCreateFramebuffer(VulkanDevice& device
 	}
 }
 
-VulkanDescriptorSet* PipelineManager::FindOrCreateDescriptorSet(VulkanDevice& device, const VulkanDescriptorPool* desciptorPool, const VulkanDescriptorSetLayout* descriptorSetLayout, const std::vector<VulkanDescriptor*> descriptors)
+VulkanDescriptorSet* PipelineManager::FindOrCreateDescriptorSet(VulkanDevice& device, const VulkanDescriptorPool* desciptorPool, const VulkanDescriptorSetLayout* descriptorSetLayout, const std::vector<VulkanDescriptor*>& descriptors)
 {
 	DescriptorSetKey key;
 
@@ -529,11 +529,11 @@ VulkanDescriptorSet* PipelineManager::FindOrCreateDescriptorSet(VulkanDevice& de
 		switch (descriptors[i]->GetDescriptorInfo().Type)
 		{
 		case DescriptorType::UniformBuffer:
-			key.push_back(descriptors[i]->GetDescriptorInfo().buffer->GetId());
+			key.push_back(descriptors[i]->GetDescriptorInfo().buffer->GetID());
 			break;
 		case DescriptorType::CombinedSampler:
 			//only views now have unique ID so its a little bit hacky but who cares
-			key.push_back(descriptors[i]->GetDescriptorInfo().combinedImageSampler->ImageView->GetId());
+			key.push_back(descriptors[i]->GetDescriptorInfo().combinedImageSampler->ImageView->GetID());
 			break;
 		}
 	}

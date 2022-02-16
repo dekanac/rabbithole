@@ -110,7 +110,7 @@ public:
 	void CopyImageToBuffer(VulkanTexture* texture, VulkanBuffer* buffer);
 
 	inline Shader* GetShader(const std::string& name) { return m_Shaders[name]; }
-	inline std::vector<RabbitModel*> GetModels() { return rabbitmodels; }
+	inline std::vector<RabbitModel*>& GetModels() { return rabbitmodels; }
 	inline Camera* GetCamera() { return MainCamera; }
 
 	inline VulkanBuffer* GetUniformBuffer() { return m_UniformBuffer; }
@@ -144,7 +144,7 @@ public:
 	void BindModelMatrix(RabbitModel* model);
 	void BindCameraMatrices(Camera* camera);
 
-	void DrawGeometry(std::vector<RabbitModel*> bucket);
+	void DrawGeometry(std::vector<RabbitModel*>& bucket);
 	void DrawFullScreenQuad();
 	void UpdateEntityPickId();
 
@@ -152,8 +152,8 @@ public:
 	void EndCommandBuffer();
 
 	//helper functions
-	void FillTheLightParam(LightParams& lightParam, rabbitVec4f position, rabbitVec3f color, float radius);
 	std::vector<char> ReadFile(const std::string& filepath);
+	void FillTheLightParam(LightParams& lightParam, rabbitVec4f position, rabbitVec3f color, float radius);
 	void CopyToSwapChain();
 	void ImageTransitionToPresent();
 	void ExecuteRenderPass(RenderPass& renderpass);
@@ -188,7 +188,6 @@ public:
 
 	bool m_RenderOutlinedEntity = false;
     bool m_FramebufferResized = false;
-	bool imguiReady = false;
 
 	bool Init();
 	bool Shutdown();
@@ -199,8 +198,11 @@ public:
 private:
 	void CreateGeometryDescriptors();
 	void InitImgui();
+	bool m_ImguiInitialized = false;
+public:
+	//Don't ask, Imgui init wants swapchain renderpass to be ready, but its not. So basically we need 2 init phases..
+	bool imguiReady = false;
 
 private:
-	bool m_ImguiInitialized = false;
 	void InitTextures();
 };

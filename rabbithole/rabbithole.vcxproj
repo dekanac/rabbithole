@@ -147,6 +147,7 @@
     <ClCompile Include="src\Render\Camera.cpp" />
     <ClCompile Include="src\Render\Renderer.cpp" />
     <ClCompile Include="src\Render\RenderSystem.cpp" />
+    <ClCompile Include="src\Render\Vulkan\Resource.cpp" />
     <ClCompile Include="src\Render\Vulkan\Shader.cpp" />
     <ClCompile Include="src\Render\Vulkan\spirv-reflect\spirv_reflect.c" />
     <ClCompile Include="src\Render\Vulkan\utils.cpp" />
@@ -189,6 +190,7 @@
     <ClInclude Include="src\Render\Camera.h" />
     <ClInclude Include="src\Render\Renderer.h" />
     <ClInclude Include="src\Render\RenderSystem.h" />
+    <ClInclude Include="src\Render\Vulkan\Resource.h" />
     <ClInclude Include="src\Render\Vulkan\Shader.h" />
     <ClInclude Include="src\Render\Vulkan\spirv-reflect\spirv_reflect.h" />
     <ClInclude Include="src\Render\Vulkan\utils.h" />

@@ -19,6 +19,7 @@ VulkanStateManager::VulkanStateManager()
 	m_DirtyUBO = false;
 
     m_DescriptorSetManager = new DescriptorSetManager();
+    m_RenderTargets.resize(MaxRenderTargetCount);
 
 	m_UBO = new UniformBufferObject();
 	memset(m_UBO, 0, sizeof(UniformBufferObject));
@@ -69,31 +70,31 @@ void VulkanStateManager::UpdateUBOElement(UBOElement element, uint32_t count, vo
 	m_DirtyUBO = true;
 }
 
-std::vector<VulkanImageView*> VulkanStateManager::GetRenderTargets() const
+std::vector<VulkanImageView*>& VulkanStateManager::GetRenderTargets()
 {
-    std::vector<VulkanImageView*> renderTargets;
+    m_RenderTargets.resize(GetRenderTargetCount());
 
     if (m_RenderTarget0 != nullptr)
     {
-        renderTargets.push_back(m_RenderTarget0);
+        m_RenderTargets[0] = m_RenderTarget0;
 
         if (m_RenderTarget1 != nullptr)
         {
-            renderTargets.push_back(m_RenderTarget1);
+            m_RenderTargets[1] = m_RenderTarget1;
         
             if (m_RenderTarget2 != nullptr)
             {
-                renderTargets.push_back(m_RenderTarget2);
+                m_RenderTargets[2] = m_RenderTarget2;
 
                 if (m_RenderTarget3 != nullptr)
                 {
-                    renderTargets.push_back(m_RenderTarget3);
+                    m_RenderTargets[3] = m_RenderTarget3;
                 }
             }
         }
     }
 
-    return renderTargets;
+    return m_RenderTargets;
 }
 
 void VulkanStateManager::SetRenderTarget0(VulkanImageView* rt)
@@ -141,31 +142,67 @@ void VulkanStateManager::ShouldCleanDepth(bool clean)
 
 void VulkanStateManager::SetCombinedImageSampler(uint32_t slot, VulkanTexture* texture)
 {
-    //TODO: dual implementation, get rid of one
-    VulkanDescriptorInfo info{};
-    info.Binding = slot;
+    //for now descriptor key is vector of uint32_t with following layout:
+    // (slot, bufferId/imageviewId)
+    DescriptorKey k(2);
+    k[0] = slot;
+    k[1] = texture->GetView()->GetID();
 
-    //probably memory leak TODO: see whats going on here
-    info.combinedImageSampler = new CombinedImageSampler();
-    info.combinedImageSampler->ImageSampler = texture->GetSampler();
-    info.combinedImageSampler->ImageView = texture->GetView();
-    info.Type = DescriptorType::CombinedSampler;
+    auto& descriptorsMap = PipelineManager::instance().m_Descriptors;
+    auto descriptor = descriptorsMap.find(k);
 
-    VulkanDescriptor* descriptor = new VulkanDescriptor(info);
+    if (descriptor != descriptorsMap.end())
+    {
+        m_Descriptors.push_back(descriptor->second);
+    }
+    else
+    {
+		//TODO: dual implementation, get rid of one
+		VulkanDescriptorInfo info{};
+		info.Binding = slot;
 
-    m_Descriptors.push_back(descriptor);
+		//probably memory leak TODO: see whats going on here
+		info.combinedImageSampler = new CombinedImageSampler();
+		info.combinedImageSampler->ImageSampler = texture->GetSampler();
+		info.combinedImageSampler->ImageView = texture->GetView();
+		info.Type = DescriptorType::CombinedSampler;
+
+		VulkanDescriptor* descriptor = new VulkanDescriptor(info);
+
+        descriptorsMap[k] = descriptor;
+
+		m_Descriptors.push_back(descriptor);
+    }
 }
 
 void VulkanStateManager::SetConstantBuffer(uint32_t slot, VulkanBuffer* buffer, uint64_t offset, uint64_t range)
 {
-	VulkanDescriptorInfo info{};
-	info.Binding = slot;
-	info.buffer = buffer;
-	info.Type = DescriptorType::UniformBuffer;
+	//for now descriptor key is vector of uint32_t with following layout:
+    // (slot, bufferId/imageviewId)
+	DescriptorKey k(2);
+	k[0] = slot;
+	k[1] = buffer->GetID();
 
-	VulkanDescriptor* descriptor = new VulkanDescriptor(info);
+	auto& descriptorsMap = PipelineManager::instance().m_Descriptors;
+	auto descriptor = descriptorsMap.find(k);
 
-    m_Descriptors.push_back(descriptor);
+	if (descriptor != descriptorsMap.end())
+	{
+		m_Descriptors.push_back(descriptor->second);
+	}
+    else
+    {
+	    VulkanDescriptorInfo info{};
+	    info.Binding = slot;
+	    info.buffer = buffer;
+	    info.Type = DescriptorType::UniformBuffer;
+
+	    VulkanDescriptor* descriptor = new VulkanDescriptor(info);
+
+	    descriptorsMap[k] = descriptor;
+
+        m_Descriptors.push_back(descriptor);
+    }
 }
 
 VulkanDescriptorSet* VulkanStateManager::FinalizeDescriptorSet(VulkanDevice& device, const VulkanDescriptorPool* pool)

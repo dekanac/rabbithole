@@ -110,7 +110,6 @@ void Renderer::Clear() const
 void Renderer::Draw(float dt)
 {
 	MainCamera->Update(dt);
-
     DrawFrame();
 }
 
@@ -142,7 +141,6 @@ void Renderer::DrawFrame()
 	{
 		LOG_ERROR("failed to present swap chain image!");
 	}
-
 }
 
 void Renderer::CreateGeometryDescriptors()
@@ -315,7 +313,7 @@ void Renderer::BeginRenderPass()
 
 	auto renderTargetCount = m_StateManager->GetRenderTargetCount();
 	std::vector<VkClearValue> clearValues(renderTargetCount);
-	auto renderTargets = m_StateManager->GetRenderTargets();
+	auto& renderTargets = m_StateManager->GetRenderTargets();
 
 	for (size_t i = 0; i < renderTargetCount; i++)
 	{
@@ -353,7 +351,7 @@ void Renderer::BindGraphicsPipeline()
 	else
 	{
 		//TODO: take care of this really, optimize for most performance
-		auto attachments = m_StateManager->GetRenderTargets();
+		auto& attachments = m_StateManager->GetRenderTargets();
 		auto depthStencil = m_StateManager->GetDepthStencil();
 		auto renderPassInfo = m_StateManager->GetRenderPassInfo();
 		VulkanRenderPass* renderpass = PipelineManager::instance().FindOrCreateRenderPass(m_VulkanDevice, attachments, depthStencil, *renderPassInfo);
@@ -372,7 +370,7 @@ void Renderer::BindGraphicsPipeline()
 	}
 }
 
-void Renderer::DrawGeometry(std::vector<RabbitModel*> bucket)
+void Renderer::DrawGeometry(std::vector<RabbitModel*>& bucket)
 {
 
 	BindGraphicsPipeline();
@@ -913,11 +911,11 @@ void Renderer::InitSSAO()
 	SSAONoiseTexture = new VulkanTexture(&m_VulkanDevice, &texData, TextureFlags::Color | TextureFlags::Read | TextureFlags::TransferDst, Format::R32G32B32A32_FLOAT, "ssaoNoise");
 		
 	//init ssao params
-	ssaoParams.radius = 0.531;
+	ssaoParams.radius = 0.5f;
 	ssaoParams.bias = 0.025f;
 	ssaoParams.resWidth = Window::instance().GetExtent().width;
 	ssaoParams.resHeight = Window::instance().GetExtent().height;
-	ssaoParams.kernelSize = 64;
+	ssaoParams.kernelSize = 48;
 }
 
 void Renderer::InitLights()

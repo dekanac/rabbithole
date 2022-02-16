@@ -5,7 +5,6 @@ struct ImageRegion
 	ImageSubresourceRange Subresource;
 	Offset3D Offset;
 	Extent3D Extent;
-
 };
 
 struct VulkanImageInfo
@@ -20,7 +19,7 @@ struct VulkanImageInfo
 	MultisampleType MultisampleType;
 };
 
-class VulkanImage
+class VulkanImage : public AllocatedResource
 {
 public:
 	VulkanImage(const VulkanDevice* device,
@@ -37,6 +36,7 @@ public:
 	inline VulkanImageInfo GetInfo() const { return m_Info; }
 	inline VkImageType	   GetImageType() const { return m_ImageType; }
 	inline VkImage		   GetImage() const { return m_Image; }
+	uint32_t			   GetID() const  { return m_Id; }
 
 private:
 	const VulkanDevice* m_VulkanDevice;
@@ -56,7 +56,7 @@ struct VulkanImageViewInfo
 	ImageSubresourceRange Subresource;
 };
 
-class VulkanImageView
+class VulkanImageView : public AllocatedResource
 {
 public:
 	VulkanImageView(const VulkanDevice* device,
@@ -68,7 +68,7 @@ public:
 	inline const VulkanImageViewInfo GetInfo() const { return m_Info; }
 	VkImageView						 GetImageView() const { return m_ImageView; }
 	VkFormat						 GetVkFormat() const { return m_Format; }
-	uint32_t						 GetId() const { return m_Id; }
+	uint32_t						 GetID() const { return m_Id; }
 
 private:
 	const VulkanDevice*			m_VulkanDevice;
@@ -77,9 +77,6 @@ private:
 
 	VkImageView m_ImageView;
 	VkFormat	m_Format;
-
-	uint32_t		m_Id;
-	static uint32_t ms_currentId;
 };
 
 struct VulkanImageSamplerInfo
@@ -98,7 +95,7 @@ struct VulkanImageSamplerInfo
 	float				MaxLOD;
 };
 
-class VulkanImageSampler
+class VulkanImageSampler : public AllocatedResource
 {
 public:
 	VulkanImageSampler(const VulkanDevice* device,
@@ -109,6 +106,8 @@ public:
 public:
 	inline const VulkanImageSamplerInfo GetInfo() const { return m_Info; }
 	VkSampler							GetSampler() const { return m_Sampler; }
+	uint32_t							GetID() const { return m_Id; }
+
 private:
 	const VulkanDevice*				m_VulkanDevice;
 	const VulkanImageSamplerInfo	m_Info;

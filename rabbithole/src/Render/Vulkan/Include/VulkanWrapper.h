@@ -5,6 +5,7 @@
 #include "../VulkanDevice.h"
 #include "../VulkanPipeline.h"
 #include "../Model.h"
+#include "../Resource.h"
 #include "../VulkanBuffer.h"
 #include "../VulkanDescriptors.h"
 #include "../VulkanImage.h"

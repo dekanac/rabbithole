@@ -173,7 +173,7 @@ struct GraphicPipelineDescription
 
 typedef std::vector<uint32_t> FramebufferKey;
 typedef std::vector<uint32_t> DescriptorSetKey;
-
+typedef std::vector<uint32_t> DescriptorKey;
 
 struct VectorHasher {
 
@@ -197,9 +197,10 @@ public:
 	std::unordered_map<RenderPassKey, VulkanRenderPass*>	 m_RenderPasses;
 	std::unordered_map<FramebufferKey, VulkanFramebuffer*, VectorHasher>   m_Framebuffers;
 	std::unordered_map<DescriptorSetKey, VulkanDescriptorSet*, VectorHasher> m_DescriptorSets;
+	std::unordered_map<DescriptorKey, VulkanDescriptor*, VectorHasher> m_Descriptors;
 
 	VulkanPipeline* FindOrCreateGraphicsPipeline(VulkanDevice& device, PipelineConfigInfo& pipelineInfo);
-	VulkanRenderPass* FindOrCreateRenderPass(VulkanDevice& device, const std::vector<VulkanImageView*> renderTargets, const VulkanImageView* depthStencil, RenderPassConfigInfo& renderPassInfo);
-	VulkanFramebuffer* FindOrCreateFramebuffer(VulkanDevice& device, const std::vector<VulkanImageView*> renderTargets, const VulkanImageView* depthStencil, const VulkanRenderPass* renderpass, uint32_t width, uint32_t height);
-	VulkanDescriptorSet* FindOrCreateDescriptorSet(VulkanDevice& device, const VulkanDescriptorPool* desciptorPool, const VulkanDescriptorSetLayout* descriptorSetLayout, const std::vector<VulkanDescriptor*> descriptors);
+	VulkanRenderPass* FindOrCreateRenderPass(VulkanDevice& device, const std::vector<VulkanImageView*>& renderTargets, const VulkanImageView* depthStencil, RenderPassConfigInfo& renderPassInfo);
+	VulkanFramebuffer* FindOrCreateFramebuffer(VulkanDevice& device, const std::vector<VulkanImageView*>& renderTargets, const VulkanImageView* depthStencil, const VulkanRenderPass* renderpass, uint32_t width, uint32_t height);
+	VulkanDescriptorSet* FindOrCreateDescriptorSet(VulkanDevice& device, const VulkanDescriptorPool* desciptorPool, const VulkanDescriptorSetLayout* descriptorSetLayout, const std::vector<VulkanDescriptor*>& descriptors);
 };
