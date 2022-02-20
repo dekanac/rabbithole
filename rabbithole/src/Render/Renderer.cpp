@@ -43,13 +43,13 @@ rabbitVec3f renderDebugOption;
 
 void Renderer::ExecuteRenderPass(RenderPass& renderpass)
 {
-	m_VulkanDevice.BeginLabel(m_CommandBuffers[m_CurrentImageIndex], renderpass.GetName());
+	m_VulkanDevice.BeginLabel(GetCurrentCommandBuffer(), renderpass.GetName());
 
 	renderpass.DeclareResources(this);
 	renderpass.Setup(this);
 	renderpass.Render(this);
 
-	m_VulkanDevice.EndLabel(m_CommandBuffers[m_CurrentImageIndex]);
+	m_VulkanDevice.EndLabel(GetCurrentCommandBuffer());
 }
 
 bool Renderer::Init()
@@ -75,15 +75,17 @@ bool Renderer::Init()
 	recreateSwapchain();
 	createCommandBuffers();
 
-
 	CreateGeometryDescriptors();
+	//for now max 1024 commands
+	geomDataIndirectDraw = new VulkanBuffer(&m_VulkanDevice, BufferUsageFlags::IndirectBuffer | BufferUsageFlags::TransferSrc, MemoryAccess::CPU2GPU, sizeof(IndexIndirectDrawData) * 1024);
+	indexedDataBuffer = (IndexIndirectDrawData*)malloc(sizeof(IndexIndirectDrawData) * 1024);
 
 	albedoGBuffer = new VulkanTexture(&m_VulkanDevice, DEFAULT_WIDTH, DEFAULT_HEIGHT, TextureFlags::RenderTarget | TextureFlags::Read, Format::B8G8R8A8_UNORM, "albedo");
 	normalGBuffer = new VulkanTexture(&m_VulkanDevice, DEFAULT_WIDTH, DEFAULT_HEIGHT, TextureFlags::RenderTarget | TextureFlags::Read, Format::R16G16B16A16_FLOAT, "normal");
 	worldPositionGBuffer = new VulkanTexture(&m_VulkanDevice, DEFAULT_WIDTH, DEFAULT_HEIGHT, TextureFlags::RenderTarget | TextureFlags::Read, Format::R16G16B16A16_FLOAT, "wordlPosition");
 	DebugTextureRT = new VulkanTexture(&m_VulkanDevice, DEFAULT_WIDTH, DEFAULT_HEIGHT, TextureFlags::RenderTarget, Format::R16G16B16A16_FLOAT, "debug");
 	entityHelper = new VulkanTexture(&m_VulkanDevice, DEFAULT_WIDTH, DEFAULT_HEIGHT, TextureFlags::RenderTarget | TextureFlags::LinearTiling | TextureFlags::TransferSrc, Format::R32_UINT, "entityHelper");
-	entityHelperBuffer = new VulkanBuffer(&m_VulkanDevice, BufferUsageFlags::StorageBuffer, MemoryAccess::Host, DEFAULT_HEIGHT * DEFAULT_WIDTH * 4);
+	entityHelperBuffer = new VulkanBuffer(&m_VulkanDevice, BufferUsageFlags::StorageBuffer, MemoryAccess::CPU, DEFAULT_HEIGHT * DEFAULT_WIDTH * 4);
 
 	lightingMain = new VulkanTexture(&m_VulkanDevice, DEFAULT_WIDTH, DEFAULT_HEIGHT, TextureFlags::RenderTarget | TextureFlags::Read, Format::R16G16B16A16_FLOAT, "lightingmain");
 	InitLights();
@@ -277,28 +279,31 @@ void Renderer::InitTextures()
 void Renderer::loadModels()
 {
 	auto testScene = ModelLoading::LoadScene("res/meshes/cottage/Cottage_FREE.obj");
-	//auto testScene2 = ModelLoading::LoadScene("res/meshes/terrain/terrain.obj");
+	auto testScene2 = ModelLoading::LoadScene("res/meshes/terrain/terrain.obj");
 
 	// improvised to see how is engine rendering 10 models
-	for (unsigned int i = 0; i < testScene->numObjects; i++)
+	for (unsigned int j = 0; j < 2; j++)
 	{
-		RabbitModel* model = new RabbitModel(m_VulkanDevice, testScene->pObjects[i]);
+		for (unsigned int i = 0; i < 2; i++)
+		{
+			RabbitModel* model = new RabbitModel(m_VulkanDevice, testScene2->pObjects[0]);
+			Mesh mesh{};
+			mesh.position = { j * 22.f, 0.f, i * 22.f };
+			model->SetMesh(mesh);
+			rabbitmodels.push_back(model);
+		}
+	}
+
+	{
+		RabbitModel* model = new RabbitModel(m_VulkanDevice, testScene2->pObjects[0]);
 		Mesh mesh{};
+		mesh.position = { 0.f, 0.f, 0.f };
 		model->SetMesh(mesh);
 		rabbitmodels.push_back(model);
 	}
-
-	{
-		//RabbitModel* model = new RabbitModel(m_VulkanDevice, testScene2->pObjects[0]);
-		//auto matrix = rabbitMat4f{ 1.f };
-		//Mesh mesh{};
-		//mesh.position = { 7.f, 0.1f, 9.f };
-		//model->SetMesh(mesh);
-	}
-
-
 	ModelLoading::FreeScene(testScene);
-	//ModelLoading::FreeScene(testScene2);
+	
+	ModelLoading::FreeScene(testScene2);
 }
 
 void Renderer::BeginRenderPass()
@@ -332,12 +337,12 @@ void Renderer::BeginRenderPass()
 	renderPassInfo.clearValueCount = static_cast<uint32_t>(renderTargetCount);
 	renderPassInfo.pClearValues = clearValues.data();
 
-	vkCmdBeginRenderPass(m_CommandBuffers[m_CurrentImageIndex], &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
+	vkCmdBeginRenderPass(GetCurrentCommandBuffer(), &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
 }
 
 void Renderer::EndRenderPass()
 {
-	vkCmdEndRenderPass(m_CommandBuffers[m_CurrentImageIndex]);
+	vkCmdEndRenderPass(GetCurrentCommandBuffer());
 	m_StateManager->Reset();
 }
 
@@ -346,7 +351,7 @@ void Renderer::BindGraphicsPipeline()
 
 	if (!m_StateManager->GetPipelineDirty())
 	{
-		m_StateManager->GetPipeline()->Bind(m_CommandBuffers[m_CurrentImageIndex]);
+		m_StateManager->GetPipeline()->Bind(GetCurrentCommandBuffer());
 	}
 	else
 	{
@@ -365,7 +370,7 @@ void Renderer::BindGraphicsPipeline()
 		auto pipeline = PipelineManager::instance().FindOrCreateGraphicsPipeline(m_VulkanDevice, *pipelineInfo);
 		m_StateManager->SetPipeline(pipeline);
 
-		pipeline->Bind(m_CommandBuffers[m_CurrentImageIndex]);
+		pipeline->Bind(GetCurrentCommandBuffer());
 		m_StateManager->SetPipelineDirty(false);
 	}
 }
@@ -378,15 +383,15 @@ void Renderer::DrawGeometry(std::vector<RabbitModel*>& bucket)
 	BeginRenderPass();
 
 	BindUBO();
-	
+
+	int i = 0;
 	for (auto model : bucket)
 	{
-		
-		model->Bind(m_CommandBuffers[m_CurrentImageIndex]);
+		model->Bind(GetCurrentCommandBuffer());
 
 		//bind geometry descriptors from models
 		vkCmdBindDescriptorSets(
-			m_CommandBuffers[m_CurrentImageIndex],
+			GetCurrentCommandBuffer(),
 			VK_PIPELINE_BIND_POINT_GRAPHICS,
 			*m_StateManager->GetPipeline()->GetPipelineLayout(),
 			0,
@@ -397,9 +402,11 @@ void Renderer::DrawGeometry(std::vector<RabbitModel*>& bucket)
 
 		BindModelMatrix(model);
 
-		model->Draw(m_CommandBuffers[m_CurrentImageIndex]);
-
+		DrawIndicesIndirect(model->GetIndexCount(), i);
+		i++;
 	}
+
+	geomDataIndirectDraw->FillBuffer(indexedDataBuffer, i * sizeof(IndexIndirectDrawData));
 
 	EndRenderPass();
 }
@@ -409,12 +416,12 @@ void Renderer::BeginCommandBuffer()
 	VkCommandBufferBeginInfo beginInfo{};
 	beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
 
-	VULKAN_API_CALL(vkBeginCommandBuffer(m_CommandBuffers[m_CurrentImageIndex], &beginInfo), "failed to begin recording command buffer!");
+	VULKAN_API_CALL(vkBeginCommandBuffer(GetCurrentCommandBuffer(), &beginInfo), "failed to begin recording command buffer!");
 }
 
 void Renderer::EndCommandBuffer()
 {
-	VULKAN_API_CALL(vkEndCommandBuffer(m_CommandBuffers[m_CurrentImageIndex]), "failed to end recording command buffer!");
+	VULKAN_API_CALL(vkEndCommandBuffer(GetCurrentCommandBuffer()), "failed to end recording command buffer!");
 }
 
 void Renderer::FillTheLightParam(LightParams& lightParam, rabbitVec4f position, rabbitVec3f color, float radius)
@@ -453,7 +460,7 @@ void Renderer::DrawFullScreenQuad()
 
 	BeginRenderPass();
 
-	vkCmdDraw(m_CommandBuffers[m_CurrentImageIndex], 3, 1, 0, 0);
+	vkCmdDraw(GetCurrentCommandBuffer(), 3, 1, 0, 0);
 
 	EndRenderPass();
 }
@@ -497,14 +504,14 @@ void Renderer::CopyToSwapChain()
 	BeginRenderPass();
 
 	//COPY TO SWAPCHAIN
-	vkCmdDraw(m_CommandBuffers[m_CurrentImageIndex], 3, 1, 0, 0);
+	vkCmdDraw(GetCurrentCommandBuffer(), 3, 1, 0, 0);
 
 #ifdef RABBITHOLE_USING_IMGUI
 	//DRAW UI(imgui)
 	if (m_ImguiInitialized && imguiReady)
 	{
 		ImGui::Render();
-		ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), m_CommandBuffers[m_CurrentImageIndex]);
+		ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), GetCurrentCommandBuffer());
 	}
 #endif
 
@@ -530,7 +537,7 @@ void Renderer::ImageTransitionToPresent()
 	VkPipelineStageFlags destinationStage = VK_ACCESS_TRANSFER_READ_BIT;
 
 	vkCmdPipelineBarrier(
-		m_CommandBuffers[m_CurrentImageIndex],
+		GetCurrentCommandBuffer(),
 		sourceStage, destinationStage,
 		0,
 		0, nullptr,
@@ -580,7 +587,7 @@ void Renderer::BindDescriptorSets()
 {
 	auto descriptorSet = m_StateManager->FinalizeDescriptorSet(m_VulkanDevice, m_DescriptorPool.get());
 	//TODO: decide where to store descriptor sets, models or state manager?
-	vkCmdBindDescriptorSets(m_CommandBuffers[m_CurrentImageIndex], VK_PIPELINE_BIND_POINT_GRAPHICS, *m_StateManager->GetPipeline()->GetPipelineLayout(), 0, 1, descriptorSet->GetVkDescriptorSet(), 0, nullptr);
+	vkCmdBindDescriptorSets(GetCurrentCommandBuffer(), VK_PIPELINE_BIND_POINT_GRAPHICS, *m_StateManager->GetPipeline()->GetPipelineLayout(), 0, 1, descriptorSet->GetVkDescriptorSet(), 0, nullptr);
 }
 
 void Renderer::LoadAndCreateShaders()
@@ -657,7 +664,7 @@ void Renderer::recreateSwapchain()
 
 void Renderer::ResourceBarrier(VulkanTexture* texture, ResourceState oldLayout, ResourceState newLayout)
 {
-	VkCommandBuffer commandBuffer = m_CommandBuffers[m_CurrentImageIndex];
+	VkCommandBuffer commandBuffer = GetCurrentCommandBuffer();
 
 	bool isDepth = oldLayout == ResourceState::DepthStencilRead || oldLayout == ResourceState::DepthStencilWrite; //TODO: investigate does this need newLayout to be checked
 
@@ -837,26 +844,26 @@ void Renderer::RecordCommandBuffer(int imageIndex)
 
 void Renderer::CreateUniformBuffers()
 {
-	m_UniformBuffer = new VulkanBuffer(&m_VulkanDevice, BufferUsageFlags::UniformBuffer, MemoryAccess::Host, (uint64_t)sizeof(UniformBufferObject) + 32/*just to be sure :D*/);
-	m_LightParams = new VulkanBuffer(&m_VulkanDevice, BufferUsageFlags::UniformBuffer, MemoryAccess::Host, (uint64_t)sizeof(LightParams) * MAX_NUM_OF_LIGHTS);
+	m_UniformBuffer = new VulkanBuffer(&m_VulkanDevice, BufferUsageFlags::UniformBuffer, MemoryAccess::CPU, (uint64_t)sizeof(UniformBufferObject) + 32/*just to be sure :D*/);
+	m_LightParams = new VulkanBuffer(&m_VulkanDevice, BufferUsageFlags::UniformBuffer, MemoryAccess::CPU, (uint64_t)sizeof(LightParams) * MAX_NUM_OF_LIGHTS);
 
-	m_VertexUploadBuffer = new VulkanBuffer(&m_VulkanDevice, BufferUsageFlags::VertexBuffer, MemoryAccess::Host, 67108864); //64 mb fixed
+	m_VertexUploadBuffer = new VulkanBuffer(&m_VulkanDevice, BufferUsageFlags::VertexBuffer, MemoryAccess::CPU, 67108864); //64 mb fixed
 }
 
 void Renderer::CreateDescriptorPool()
 {
 	//TODO: see what to do with this, now its hard coded number of descriptors
 	VulkanDescriptorPoolSize uboPoolSize{};
-	uboPoolSize.Count = 20;
+	uboPoolSize.Count = 200;
 	uboPoolSize.Type = DescriptorType::UniformBuffer;
 
 	VulkanDescriptorPoolSize cisPoolSize{};
-	cisPoolSize.Count = 20;
+	cisPoolSize.Count = 200;
 	cisPoolSize.Type = DescriptorType::CombinedSampler;
 
 	VulkanDescriptorPoolInfo vulkanDescriptorPoolInfo{};
 	vulkanDescriptorPoolInfo.DescriptorSizes = { uboPoolSize, cisPoolSize };
-	vulkanDescriptorPoolInfo.MaxSets = 20; //static_cast<uint32_t>(m_VulkanSwapchain->GetImageCount() * 2);
+	vulkanDescriptorPoolInfo.MaxSets = 200; //static_cast<uint32_t>(m_VulkanSwapchain->GetImageCount() * 2);
 
 	m_DescriptorPool = std::make_unique<VulkanDescriptorPool>(&m_VulkanDevice, vulkanDescriptorPoolInfo);
 }
@@ -868,7 +875,7 @@ float lerp(float a, float b, float f)
 }
 void Renderer::InitSSAO()
 {
-	SSAOParamsBuffer = new VulkanBuffer(&m_VulkanDevice, BufferUsageFlags::UniformBuffer, MemoryAccess::Host, (uint64_t)sizeof(SSAOParams));
+	SSAOParamsBuffer = new VulkanBuffer(&m_VulkanDevice, BufferUsageFlags::UniformBuffer, MemoryAccess::CPU, (uint64_t)sizeof(SSAOParams));
 
 	SSAOTexture = new VulkanTexture(&m_VulkanDevice, DEFAULT_WIDTH, DEFAULT_HEIGHT, TextureFlags::RenderTarget | TextureFlags::Read, Format::R32_SFLOAT, "SSAO");
 	SSAOBluredTexture = new VulkanTexture(&m_VulkanDevice, DEFAULT_WIDTH, DEFAULT_HEIGHT, TextureFlags::RenderTarget | TextureFlags::Read, Format::R32_SFLOAT, "SSAO");
@@ -890,7 +897,7 @@ void Renderer::InitSSAO()
 	}
 
 	size_t bufferSize = 1024;
-	SSAOSamplesBuffer = new VulkanBuffer(&m_VulkanDevice, BufferUsageFlags::UniformBuffer, MemoryAccess::Host, bufferSize);
+	SSAOSamplesBuffer = new VulkanBuffer(&m_VulkanDevice, BufferUsageFlags::UniformBuffer, MemoryAccess::CPU, bufferSize);
 	SSAOSamplesBuffer->FillBuffer(ssaoKernel.data(), bufferSize);
 
 	//generate SSAO Noise texture
@@ -941,8 +948,8 @@ void Renderer::BindViewport(float x, float y, float width, float height)
 	scissor.offset = { 0, 0 };
 	scissor.extent = { static_cast<uint32_t>(viewport.width), static_cast<uint32_t>(viewport.height) };
 
-	vkCmdSetViewport(m_CommandBuffers[m_CurrentImageIndex], 0, 1, &viewport);
-	vkCmdSetScissor(m_CommandBuffers[m_CurrentImageIndex], 0, 1, &scissor);
+	vkCmdSetViewport(GetCurrentCommandBuffer(), 0, 1, &viewport);
+	vkCmdSetScissor(GetCurrentCommandBuffer(), 0, 1, &scissor);
 #else
 	m_StateManager->SetViewport(x, y, width, height);
 #endif
@@ -952,7 +959,7 @@ void Renderer::BindVertexData()
 {
 	VkBuffer buffers[] = { m_VertexUploadBuffer->GetBuffer() };
 	VkDeviceSize offsets[] = { 0 };
-	vkCmdBindVertexBuffers(m_CommandBuffers[m_CurrentImageIndex], 0, 1, buffers, offsets);
+	vkCmdBindVertexBuffers(GetCurrentCommandBuffer(), 0, 1, buffers, offsets);
 }
 
 void Renderer::DrawVertices(uint64_t count)
@@ -963,9 +970,20 @@ void Renderer::DrawVertices(uint64_t count)
 
 	BeginRenderPass();
 
-	vkCmdDraw(m_CommandBuffers[m_CurrentImageIndex], count, 1, 0, 0);
+	vkCmdDraw(GetCurrentCommandBuffer(), count, 1, 0, 0);
 
 	EndRenderPass();
+}
+
+void Renderer::DrawIndicesIndirect(uint32_t count, uint32_t offset)
+{
+	vkCmdDrawIndexedIndirect(GetCurrentCommandBuffer(), geomDataIndirectDraw->GetBuffer(), offset, 1, sizeof(IndexIndirectDrawData));
+
+	indexedDataBuffer[offset].firstIndex = 0;
+	indexedDataBuffer[offset].firstInstance = 0;
+	indexedDataBuffer[offset].indexCount = count;
+	indexedDataBuffer[offset].instanceCount = 1;
+	indexedDataBuffer[offset].vertexOffset = 0;
 }
 
 void Renderer::CopyImageToBuffer(VulkanTexture* texture, VulkanBuffer* buffer)

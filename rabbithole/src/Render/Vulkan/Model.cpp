@@ -31,6 +31,7 @@ RabbitModel::RabbitModel(VulkanDevice& device, ModelLoading::ObjectData* objectD
 {
 	m_CurrentId++;
 
+	//TODO:[MEMLEAK] get rid of this unneccessary shit boi, free MeshData 
 	m_Vertices.resize(objectData->mesh->numVertices);
 	m_Indices.resize(objectData->mesh->numIndices);
 	m_VertexCount = objectData->mesh->numVertices;
@@ -106,11 +107,11 @@ void RabbitModel::CreateVertexBuffers()
 
 	uint64_t bufferSize = sizeof(m_Vertices[0]) * m_VertexCount;
 
-	VulkanBuffer* stagingBuffer = new VulkanBuffer(&m_VulkanDevice, BufferUsageFlags::TransferSrc, MemoryAccess::Host, bufferSize);
+	VulkanBuffer* stagingBuffer = new VulkanBuffer(&m_VulkanDevice, BufferUsageFlags::TransferSrc, MemoryAccess::CPU, bufferSize);
 
 	stagingBuffer->FillBuffer(m_Vertices.data(), static_cast<size_t>(bufferSize));
 
-	m_VertexBuffer = new VulkanBuffer(&m_VulkanDevice, BufferUsageFlags::VertexBuffer | BufferUsageFlags::TransferDst, MemoryAccess::Device, bufferSize);
+	m_VertexBuffer = new VulkanBuffer(&m_VulkanDevice, BufferUsageFlags::VertexBuffer | BufferUsageFlags::TransferDst, MemoryAccess::GPU, bufferSize);
 
 	m_VulkanDevice.CopyBuffer(stagingBuffer->GetBuffer(), m_VertexBuffer->GetBuffer(), bufferSize);
 
@@ -129,11 +130,11 @@ void RabbitModel::CreateIndexBuffers()
 
 	VkDeviceSize bufferSize = sizeof(m_Indices[0]) * m_IndexCount;
 
-	VulkanBuffer* stagingBuffer = new VulkanBuffer(&m_VulkanDevice, BufferUsageFlags::TransferSrc, MemoryAccess::Host, bufferSize);
+	VulkanBuffer* stagingBuffer = new VulkanBuffer(&m_VulkanDevice, BufferUsageFlags::TransferSrc, MemoryAccess::CPU, bufferSize);
 
 	stagingBuffer->FillBuffer(m_Indices.data(), static_cast<size_t>(bufferSize));
 
-	m_IndexBuffer = new VulkanBuffer(&m_VulkanDevice, BufferUsageFlags::IndexBuffer | BufferUsageFlags::TransferDst, MemoryAccess::Device, bufferSize);
+	m_IndexBuffer = new VulkanBuffer(&m_VulkanDevice, BufferUsageFlags::IndexBuffer | BufferUsageFlags::TransferDst, MemoryAccess::GPU, bufferSize);
 
 	m_VulkanDevice.CopyBuffer(stagingBuffer->GetBuffer(), m_IndexBuffer->GetBuffer(), bufferSize);
 
@@ -150,6 +151,17 @@ void RabbitModel::Draw(VkCommandBuffer commandBuffer)
 	{
 		vkCmdDraw(commandBuffer, m_VertexCount, 1, 0, 0);
 	}
+}
+
+void RabbitModel::DrawIndexedIndirect(VkCommandBuffer commandBuffer, VulkanBuffer* buffer, uint32_t offset, IndexIndirectDrawData& drawData)
+{
+	vkCmdDrawIndexedIndirect(commandBuffer, buffer->GetBuffer(), offset, 1, sizeof(IndexIndirectDrawData));
+
+	drawData.firstIndex = 0;
+	drawData.firstInstance = 0;
+	drawData.indexCount = m_IndexCount;
+	drawData.instanceCount = 1;
+	drawData.vertexOffset = 0;
 }
 
 void RabbitModel::LoadFromFile()

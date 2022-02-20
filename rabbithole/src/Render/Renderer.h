@@ -119,12 +119,14 @@ public:
 	void UpdateDebugOptions();
 	void BindViewport(float x, float y, float width, float height);
 	void BindVertexData();
+
 	void DrawVertices(uint64_t count);
+	void DrawIndicesIndirect(uint32_t count, uint32_t offset);
 
 	template <typename T>
 	void BindPushConstant(T& push)
 	{
-		vkCmdPushConstants(m_CommandBuffers[m_CurrentImageIndex], 
+		vkCmdPushConstants(GetCurrentCommandBuffer(), 
 			*(m_StateManager->GetPipeline()->GetPipelineLayout()), 
 			VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_VERTEX_BIT, //TODO: HC
 			0, 
@@ -140,6 +142,7 @@ public:
 	void BindGraphicsPipeline();
 	void BindDescriptorSets();
 	void BindUBO();
+	VkCommandBuffer GetCurrentCommandBuffer() { return m_CommandBuffers[m_CurrentImageIndex]; }
 
 	void BindModelMatrix(RabbitModel* model);
 	void BindCameraMatrices(Camera* camera);
@@ -160,6 +163,9 @@ public:
 public:
 
 	//TODO: do something with these
+	//geometry
+	VulkanBuffer* geomDataIndirectDraw;
+	IndexIndirectDrawData* indexedDataBuffer;
 
 	//gbuffer
 	VulkanTexture* albedoGBuffer;

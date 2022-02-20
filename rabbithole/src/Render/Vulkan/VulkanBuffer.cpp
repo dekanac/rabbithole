@@ -31,7 +31,7 @@ void* VulkanBuffer::Map()
 {
 	ASSERT(m_HostVisibleData == nullptr, "Host Visible data pointer is pointing to something!!!");
 
-	if (m_Info.memoryAccess == MemoryAccess::Host)
+	if (m_Info.memoryAccess == MemoryAccess::CPU || m_Info.memoryAccess == MemoryAccess::CPU2GPU)
 	{
 		vmaMapMemory(m_Device->GetVmaAllocator(), m_VmaAllocation, &m_HostVisibleData);
 	}
@@ -52,6 +52,14 @@ void VulkanBuffer::FillBuffer(void* inputData, size_t size)
 {
 	void* data = Map();
 	memcpy(data, inputData, size);
+	Unmap();
+}
+
+void VulkanBuffer::FillBuffer(void* inputData, size_t offset, size_t size)
+{
+	void* data = Map();
+	int* dataOffset = (int*)data + offset;
+	memcpy(dataOffset, inputData, size);
 	Unmap();
 }
 

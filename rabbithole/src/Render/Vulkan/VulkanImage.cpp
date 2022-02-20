@@ -47,7 +47,7 @@ VulkanImage::VulkanImage(const VulkanDevice* device, const VulkanSwapchain* swap
 		ImageUsageFlags::Resource |
 		ImageUsageFlags::Storage |
 		ImageUsageFlags::RenderTarget;
-	m_Info.MemoryAccess = MemoryAccess::Device;
+	m_Info.MemoryAccess = MemoryAccess::GPU;
 	m_Info.Format = Format::B8G8R8A8_UNORM_SRGB; //swapchain->GetSwapChainImageFormat(); //TODO: add proper fields to swapchain class
 	m_Info.Extent.Width = swapchain->GetSwapChainExtent().width;
 	m_Info.Extent.Height = swapchain->GetSwapChainExtent().height;

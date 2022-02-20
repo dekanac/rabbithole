@@ -18,6 +18,15 @@ class VulkanImageSampler;
 
 void InitDefaultTextures(VulkanDevice* device);
 
+struct IndexIndirectDrawData
+{
+	uint32_t    indexCount;
+	uint32_t    instanceCount;
+	uint32_t    firstIndex;
+	int32_t     vertexOffset;
+	uint32_t    firstInstance;
+};
+
 struct SimplePushConstantData
 {
 	rabbitMat4f modelMatrix;
@@ -85,8 +94,11 @@ public:
 	VulkanDescriptorSet*	GetDescriptorSet() const { return m_DescriptorSet; }
 	void					SetDescriptorSet(VulkanDescriptorSet* ds) { m_DescriptorSet = ds; }
 
+	inline uint32_t GetIndexCount() { return m_IndexCount; }
+
 	void Bind(VkCommandBuffer commandBuffer);
 	void Draw(VkCommandBuffer commandBuffer);
+	void DrawIndexedIndirect(VkCommandBuffer commandBuffer, VulkanBuffer* buffer, uint32_t offset, IndexIndirectDrawData& drawData);
 
 	void LoadFromFile();
 	

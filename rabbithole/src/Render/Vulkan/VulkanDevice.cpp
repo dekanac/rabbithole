@@ -847,10 +847,12 @@ VmaMemoryUsage GetVmaMemoryUsageFrom(const MemoryAccess memoryAccess)
 {
 	switch (memoryAccess)
 	{
-	case MemoryAccess::Host:
+	case MemoryAccess::CPU:
 		return VMA_MEMORY_USAGE_CPU_ONLY;
-	case MemoryAccess::Device:
-		return VMA_MEMORY_USAGE_GPU_ONLY;
+	case MemoryAccess::GPU:
+		return VMA_MEMORY_USAGE_GPU_ONLY; 
+	case MemoryAccess::CPU2GPU:
+		return VMA_MEMORY_USAGE_CPU_TO_GPU;
 	default:
 		ASSERT(false, "Not supported MemoryAccessFlags.");
 		return VMA_MEMORY_USAGE_UNKNOWN;

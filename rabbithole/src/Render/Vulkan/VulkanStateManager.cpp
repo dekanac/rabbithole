@@ -18,7 +18,7 @@ VulkanStateManager::VulkanStateManager()
 	m_DirtyPipeline = false; 
 	m_DirtyUBO = false;
 
-    m_DescriptorSetManager = new DescriptorSetManager();
+    //m_DescriptorSetManager = new DescriptorSetManager();
     m_RenderTargets.resize(MaxRenderTargetCount);
 
 	m_UBO = new UniformBufferObject();
@@ -31,7 +31,7 @@ VulkanStateManager::~VulkanStateManager()
 	delete m_Pipeline;
 	delete m_Framebuffer;
 	delete m_UBO;
-    delete m_DescriptorSetManager;
+    //delete m_DescriptorSetManager;
 }
 
 void VulkanStateManager::EnableWireframe(bool enable)

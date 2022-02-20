@@ -20,8 +20,9 @@
 
 enum class MemoryAccess : uint8_t
 {
-	Host,
-	Device,
+	CPU,
+	GPU,
+	CPU2GPU,
 
 	Count
 };

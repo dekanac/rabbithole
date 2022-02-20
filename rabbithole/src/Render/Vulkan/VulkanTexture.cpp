@@ -63,7 +63,7 @@ void VulkanTexture::CreateResource(VulkanDevice* device, TextureData* texData)
 	}
 
 	VulkanBufferInfo bufferInfo{};
-	bufferInfo.memoryAccess = MemoryAccess::Host;
+	bufferInfo.memoryAccess = MemoryAccess::CPU;
 	bufferInfo.usageFlags = BufferUsageFlags::StorageBuffer | BufferUsageFlags::TransferSrc;
 	bufferInfo.size = textureSize;
 
@@ -81,7 +81,7 @@ void VulkanTexture::CreateResource(VulkanDevice* device, TextureData* texData)
 		(IsFlagSet(m_Flags & TextureFlags::TransferSrc) ? ImageUsageFlags::TransferSrc : ImageUsageFlags::None) | 
 		(IsFlagSet(m_Flags & TextureFlags::DepthStencil) ? ImageUsageFlags::DepthStencil : ImageUsageFlags::None) | 
 		(IsFlagSet(m_Flags & TextureFlags::RenderTarget) ? ImageUsageFlags::RenderTarget : ImageUsageFlags::None);
-	textureResourceInfo.MemoryAccess = MemoryAccess::Device;
+	textureResourceInfo.MemoryAccess = MemoryAccess::GPU;
 	textureResourceInfo.Format = m_Format;
 	textureResourceInfo.Extent.Width = texData->width;
 	textureResourceInfo.Extent.Height = texData->height;
@@ -136,7 +136,7 @@ void VulkanTexture::CreateResource(VulkanDevice* device, const uint32_t width, c
 		(IsFlagSet(m_Flags & TextureFlags::Read) ? ImageUsageFlags::Resource : ImageUsageFlags::None) |
 		(IsFlagSet(m_Flags & TextureFlags::RenderTarget) ? ImageUsageFlags::RenderTarget : ImageUsageFlags::None);
 
-	textureResourceInfo.MemoryAccess = MemoryAccess::Device;
+	textureResourceInfo.MemoryAccess = MemoryAccess::GPU;
 	textureResourceInfo.Format = m_Format;
 	textureResourceInfo.Extent.Width = width;
 	textureResourceInfo.Extent.Height = height;
