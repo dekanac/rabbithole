@@ -90,6 +90,18 @@ void main()
 	vec4 positionMetallic = texture(samplerposition, inUV);
     vec3 albedo = pow(texture(samplerAlbedo, inUV).rgb, vec3(2.2));
      
+     //if Z value is equal to 1, then we're hitting the skybox, and we dont want to
+     if (positionMetallic.b == 1.f)
+     {
+     //just tonemap and gamma correct and return albedo (skybox)
+        vec3 color = albedo;
+        color = Uncharted2Tonemap(color * 4.5f);
+	    color = color * (1.0f / Uncharted2Tonemap(vec3(11.2f)));	
+        // gamma correct
+        //color = pow(color, vec3(1.0/1.6)); 
+        outColor = vec4(color, 1.0f);
+        return;
+     }
      
     float ssao = texture(samplerSSAO, inUV).r;
 

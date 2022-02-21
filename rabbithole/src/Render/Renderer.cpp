@@ -279,14 +279,13 @@ void Renderer::InitTextures()
 void Renderer::loadModels()
 {
 	auto testScene = ModelLoading::LoadScene("res/meshes/cottage/Cottage_FREE.obj");
-	auto testScene2 = ModelLoading::LoadScene("res/meshes/terrain/terrain.obj");
 
 	// improvised to see how is engine rendering 10 models
 	for (unsigned int j = 0; j < 2; j++)
 	{
 		for (unsigned int i = 0; i < 2; i++)
 		{
-			RabbitModel* model = new RabbitModel(m_VulkanDevice, testScene2->pObjects[0]);
+			RabbitModel* model = new RabbitModel(m_VulkanDevice, testScene->pObjects[0]);
 			Mesh mesh{};
 			mesh.position = { j * 22.f, 0.f, i * 22.f };
 			model->SetMesh(mesh);
@@ -294,16 +293,7 @@ void Renderer::loadModels()
 		}
 	}
 
-	{
-		RabbitModel* model = new RabbitModel(m_VulkanDevice, testScene2->pObjects[0]);
-		Mesh mesh{};
-		mesh.position = { 0.f, 0.f, 0.f };
-		model->SetMesh(mesh);
-		rabbitmodels.push_back(model);
-	}
 	ModelLoading::FreeScene(testScene);
-	
-	ModelLoading::FreeScene(testScene2);
 }
 
 void Renderer::BeginRenderPass()

@@ -15,8 +15,6 @@
 #include <string>
 #include <memory>
 
-const char* glsl_version = "#version 450";
-
 void ErrorCallback(int, const char* err_str)
 {
     LOG_CRITICAL("GLFW error: {}", err_str);
@@ -111,7 +109,6 @@ void Application::Run()
 		InputManager::instance().Update(deltaTime);
 		RenderSystem::instance().Update(deltaTime);
 
-		//glfwSwapBuffers(m_WindowMain->GetNativeWindowHandle());
 		glfwPollEvents();
 		
 		previousFrameTime = frameTime;

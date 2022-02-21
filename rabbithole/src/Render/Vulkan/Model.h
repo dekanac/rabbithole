@@ -97,8 +97,6 @@ public:
 	inline uint32_t GetIndexCount() { return m_IndexCount; }
 
 	void Bind(VkCommandBuffer commandBuffer);
-	void Draw(VkCommandBuffer commandBuffer);
-	void DrawIndexedIndirect(VkCommandBuffer commandBuffer, VulkanBuffer* buffer, uint32_t offset, IndexIndirectDrawData& drawData);
 
 	void LoadFromFile();
 	

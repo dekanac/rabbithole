@@ -141,29 +141,6 @@ void RabbitModel::CreateIndexBuffers()
 	delete stagingBuffer;
 }
 
-void RabbitModel::Draw(VkCommandBuffer commandBuffer)
-{
-	if (hasIndexBuffer)
-	{
-		vkCmdDrawIndexed(commandBuffer, m_IndexCount, 1, 0, 0, 0);
-	}
-	else
-	{
-		vkCmdDraw(commandBuffer, m_VertexCount, 1, 0, 0);
-	}
-}
-
-void RabbitModel::DrawIndexedIndirect(VkCommandBuffer commandBuffer, VulkanBuffer* buffer, uint32_t offset, IndexIndirectDrawData& drawData)
-{
-	vkCmdDrawIndexedIndirect(commandBuffer, buffer->GetBuffer(), offset, 1, sizeof(IndexIndirectDrawData));
-
-	drawData.firstIndex = 0;
-	drawData.firstInstance = 0;
-	drawData.indexCount = m_IndexCount;
-	drawData.instanceCount = 1;
-	drawData.vertexOffset = 0;
-}
-
 void RabbitModel::LoadFromFile()
 {
 	tinyobj::attrib_t attrib;
