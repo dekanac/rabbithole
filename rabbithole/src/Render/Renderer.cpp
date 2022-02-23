@@ -280,18 +280,8 @@ void Renderer::loadModels()
 {
 	auto testScene = ModelLoading::LoadScene("res/meshes/cottage/Cottage_FREE.obj");
 
-	// improvised to see how is engine rendering 10 models
-	for (unsigned int j = 0; j < 2; j++)
-	{
-		for (unsigned int i = 0; i < 2; i++)
-		{
-			RabbitModel* model = new RabbitModel(m_VulkanDevice, testScene->pObjects[0]);
-			Mesh mesh{};
-			mesh.position = { j * 22.f, 0.f, i * 22.f };
-			model->SetMesh(mesh);
-			rabbitmodels.push_back(model);
-		}
-	}
+	RabbitModel* model = new RabbitModel(m_VulkanDevice, testScene->pObjects[0]);
+	rabbitmodels.push_back(model);
 
 	ModelLoading::FreeScene(testScene);
 }
@@ -367,14 +357,14 @@ void Renderer::BindGraphicsPipeline()
 
 void Renderer::DrawGeometry(std::vector<RabbitModel*>& bucket)
 {
-
 	BindGraphicsPipeline();
 
 	BeginRenderPass();
 
 	BindUBO();
 
-	int i = 0;
+	int currentModel = 0;
+
 	for (auto model : bucket)
 	{
 		model->Bind(GetCurrentCommandBuffer());
@@ -392,11 +382,12 @@ void Renderer::DrawGeometry(std::vector<RabbitModel*>& bucket)
 
 		BindModelMatrix(model);
 
-		DrawIndicesIndirect(model->GetIndexCount(), i);
-		i++;
+		DrawIndicesIndirect(model->GetIndexCount(), currentModel);
+
+		currentModel++;
 	}
 
-	geomDataIndirectDraw->FillBuffer(indexedDataBuffer, i * sizeof(IndexIndirectDrawData));
+	geomDataIndirectDraw->FillBuffer(indexedDataBuffer, currentModel * sizeof(IndexIndirectDrawData));
 
 	EndRenderPass();
 }
@@ -967,7 +958,7 @@ void Renderer::DrawVertices(uint64_t count)
 
 void Renderer::DrawIndicesIndirect(uint32_t count, uint32_t offset)
 {
-	vkCmdDrawIndexedIndirect(GetCurrentCommandBuffer(), geomDataIndirectDraw->GetBuffer(), offset, 1, sizeof(IndexIndirectDrawData));
+	vkCmdDrawIndexedIndirect(GetCurrentCommandBuffer(), geomDataIndirectDraw->GetBuffer(), offset * sizeof(IndexIndirectDrawData), 1, sizeof(IndexIndirectDrawData));
 
 	indexedDataBuffer[offset].firstIndex = 0;
 	indexedDataBuffer[offset].firstInstance = 0;
