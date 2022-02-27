@@ -122,6 +122,7 @@ public:
 
 	void DrawVertices(uint64_t count);
 	void DrawIndicesIndirect(uint32_t count, uint32_t offset);
+	void Dispatch(uint32_t x, uint32_t y, uint32_t z);
 
 	template <typename T>
 	void BindPushConstant(T& push)
@@ -140,6 +141,7 @@ public:
 	void EndRenderPass();
 
 	void BindGraphicsPipeline();
+	void BindComputePipeline();
 	void BindDescriptorSets();
 	void BindUBO();
 	VkCommandBuffer GetCurrentCommandBuffer() { return m_CommandBuffers[m_CurrentImageIndex]; }

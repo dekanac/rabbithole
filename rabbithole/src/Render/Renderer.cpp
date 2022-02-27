@@ -40,6 +40,7 @@ rabbitVec3f renderDebugOption;
 #define SKYBOX_FRAGMENT_FILE_PATH			"res/shaders/FS_Skybox.spv"
 #define SSAO_FRAGMENT_FILE_PATH				"res/shaders/FS_SSAO.spv"
 #define SSAOBLUR_FRAGMENT_FILE_PATH			"res/shaders/FS_SSAOBlur.spv"
+#define COMPUTE_EXAMPLE						"res/shaders/CS_Example.spv"
 
 void Renderer::ExecuteRenderPass(RenderPass& renderpass)
 {
@@ -355,6 +356,22 @@ void Renderer::BindGraphicsPipeline()
 	}
 }
 
+void Renderer::BindComputePipeline()
+{
+	if (m_StateManager->GetPipelineDirty())
+	{ 
+		auto pipelineInfo = m_StateManager->GetPipelineInfo();
+		VulkanPipeline* computePipeline = PipelineManager::instance().FindOrCreateComputePipeline(m_VulkanDevice, *pipelineInfo);
+		m_StateManager->SetPipeline(computePipeline);
+
+		//TODO: need a better way, this is kinda reset for pipeline info because compute bind is happening in the middle of render pass independently
+		m_StateManager->SetComputeShader(nullptr);
+
+		computePipeline->Bind(GetCurrentCommandBuffer());
+		m_StateManager->SetPipelineDirty(false);
+	}
+}
+
 void Renderer::DrawGeometry(std::vector<RabbitModel*>& bucket)
 {
 	BindGraphicsPipeline();
@@ -568,7 +585,11 @@ void Renderer::BindDescriptorSets()
 {
 	auto descriptorSet = m_StateManager->FinalizeDescriptorSet(m_VulkanDevice, m_DescriptorPool.get());
 	//TODO: decide where to store descriptor sets, models or state manager?
-	vkCmdBindDescriptorSets(GetCurrentCommandBuffer(), VK_PIPELINE_BIND_POINT_GRAPHICS, *m_StateManager->GetPipeline()->GetPipelineLayout(), 0, 1, descriptorSet->GetVkDescriptorSet(), 0, nullptr);
+
+	auto pipeline = m_StateManager->GetPipeline();
+	auto bindPoint = pipeline->GetType() == PipelineType::Graphics ? VK_PIPELINE_BIND_POINT_GRAPHICS : VK_PIPELINE_BIND_POINT_COMPUTE;
+
+	vkCmdBindDescriptorSets(GetCurrentCommandBuffer(), bindPoint, *pipeline->GetPipelineLayout(), 0, 1, descriptorSet->GetVkDescriptorSet(), 0, nullptr);
 }
 
 void Renderer::LoadAndCreateShaders()
@@ -588,6 +609,7 @@ void Renderer::LoadAndCreateShaders()
 	auto fragCode6 = ReadFile(SSAO_FRAGMENT_FILE_PATH);
 	auto fragCode7 = ReadFile(SSAOBLUR_FRAGMENT_FILE_PATH);
 
+	auto compCode = ReadFile(COMPUTE_EXAMPLE);
 
 	CreateShaderModule(vertCode, ShaderType::Vertex, "VS_GBuffer", nullptr);
 	CreateShaderModule(fragCode, ShaderType::Fragment, "FS_GBuffer", nullptr);
@@ -599,6 +621,8 @@ void Renderer::LoadAndCreateShaders()
 	CreateShaderModule(fragCode5, ShaderType::Fragment, "FS_Skybox", nullptr);
 	CreateShaderModule(fragCode6, ShaderType::Fragment, "FS_SSAO", nullptr);
 	CreateShaderModule(fragCode7, ShaderType::Fragment, "FS_SSAOBlur", nullptr);
+	CreateShaderModule(fragCode7, ShaderType::Fragment, "FS_SSAOBlur", nullptr);
+	CreateShaderModule(compCode, ShaderType::Compute, "CS_Example", nullptr);
 }
 
 void Renderer::CreateShaderModule(const std::vector<char>& code, ShaderType type, const char* name, const char* codeEntry)
@@ -742,6 +766,38 @@ void Renderer::ResourceBarrier(VulkanTexture* texture, ResourceState oldLayout, 
 		sourceStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
 		destinationStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
 	}
+	else if (oldLayout == ResourceState::GenericRead && newLayout == ResourceState::GeneralCompute)
+	{
+		barrier.srcAccessMask = VK_ACCESS_SHADER_READ_BIT;
+		barrier.dstAccessMask = VK_ACCESS_SHADER_WRITE_BIT;
+
+		sourceStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+		destinationStage = VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT;
+	}
+	else if (oldLayout == ResourceState::RenderTarget && newLayout == ResourceState::GeneralCompute)
+	{
+		barrier.srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT;
+		barrier.dstAccessMask = VK_ACCESS_SHADER_WRITE_BIT;
+
+		sourceStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+		destinationStage = VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT;
+	}
+	else if (oldLayout == ResourceState::GeneralCompute && newLayout == ResourceState::RenderTarget)
+	{
+		barrier.srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT;
+		barrier.dstAccessMask = VK_ACCESS_SHADER_WRITE_BIT;
+		
+		sourceStage = VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT;
+		destinationStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+	}
+	else if (oldLayout == ResourceState::GeneralCompute && newLayout == ResourceState::GenericRead)
+	{
+		barrier.srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT;
+		barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+
+		sourceStage = VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT;
+		destinationStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+	}
 	else
 	{
 		LOG_ERROR("unsupported layout transition!");
@@ -842,8 +898,14 @@ void Renderer::CreateDescriptorPool()
 	cisPoolSize.Count = 200;
 	cisPoolSize.Type = DescriptorType::CombinedSampler;
 
+	VulkanDescriptorPoolSize siPoolSize{};
+	cisPoolSize.Count = 200;
+	cisPoolSize.Type = DescriptorType::StorageImage;
+
 	VulkanDescriptorPoolInfo vulkanDescriptorPoolInfo{};
-	vulkanDescriptorPoolInfo.DescriptorSizes = { uboPoolSize, cisPoolSize };
+
+	vulkanDescriptorPoolInfo.DescriptorSizes = { uboPoolSize, cisPoolSize, siPoolSize };
+
 	vulkanDescriptorPoolInfo.MaxSets = 200; //static_cast<uint32_t>(m_VulkanSwapchain->GetImageCount() * 2);
 
 	m_DescriptorPool = std::make_unique<VulkanDescriptorPool>(&m_VulkanDevice, vulkanDescriptorPoolInfo);
@@ -965,6 +1027,11 @@ void Renderer::DrawIndicesIndirect(uint32_t count, uint32_t offset)
 	indexedDataBuffer[offset].indexCount = count;
 	indexedDataBuffer[offset].instanceCount = 1;
 	indexedDataBuffer[offset].vertexOffset = 0;
+}
+
+void Renderer::Dispatch(uint32_t x, uint32_t y, uint32_t z)
+{
+	vkCmdDispatch(GetCurrentCommandBuffer(), x, y, z);
 }
 
 void Renderer::CopyImageToBuffer(VulkanTexture* texture, VulkanBuffer* buffer)

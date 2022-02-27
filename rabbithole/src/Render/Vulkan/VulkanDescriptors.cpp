@@ -21,6 +21,12 @@ VulkanDescriptor::VulkanDescriptor(const VulkanDescriptorInfo& info)
 		m_ResourceInfo.m_ResourceInfo.BufferInfo.range = m_Info.buffer->GetInfo().size;
 		break;
 	}
+	case DescriptorType::StorageImage:
+	{
+		m_ResourceInfo.m_ResourceInfo.ImageInfo.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
+		m_ResourceInfo.m_ResourceInfo.ImageInfo.imageView = m_Info.imageView->GetImageView();
+		break;
+	}
 	default:
 		ASSERT(false, "Not supported DescriptorType.");
 		break;
@@ -119,6 +125,10 @@ VulkanDescriptorSet::VulkanDescriptorSet(const VulkanDevice* device,const Vulkan
 		case DescriptorType::UniformBuffer:
 			writeDescriptorSet.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
 			writeDescriptorSet.pBufferInfo = new VkDescriptorBufferInfo(descriptors[i]->GetDescriptorResourceInfo().m_ResourceInfo.BufferInfo);
+			break;
+		case DescriptorType::StorageImage:
+			writeDescriptorSet.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+			writeDescriptorSet.pImageInfo = new VkDescriptorImageInfo(descriptors[i]->GetDescriptorResourceInfo().m_ResourceInfo.ImageInfo);
 			break;
 		default:
 			ASSERT(false, "Not supported DescriptorType.");

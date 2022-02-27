@@ -49,6 +49,7 @@ public:
 
 	Shader*									vertexShader;
 	Shader*									pixelShader;
+	Shader*									computeShader;
 
 	VkViewport								viewport;
 	VkRect2D								scissor;
@@ -142,7 +143,7 @@ struct std::hash<RenderPassKey>
 class VulkanPipeline 
 {
 public:
-	VulkanPipeline(VulkanDevice& device, PipelineConfigInfo& configInfo);
+	VulkanPipeline(VulkanDevice& device, PipelineConfigInfo& configInfo, PipelineType type = PipelineType::Graphics);
 	~VulkanPipeline();
 
 	VulkanPipeline(const VulkanPipeline&) = delete;
@@ -152,18 +153,21 @@ public:
 
 	static void						 DefaultPipelineConfigInfo(PipelineConfigInfo*& configInfo, uint32_t width, uint32_t height);
 	const VulkanDescriptorSetLayout* GetDescriptorSetLayout() { return m_DescriptorSetLayout; }
-	VkPipeline						 GetVkPipeline() { return m_GraphicsPipeline; }
+	VkPipeline						 GetVkPipeline() { return m_Pipeline; }
 	const VkPipelineLayout*			 GetPipelineLayout() const { return &m_PipelineLayout; }
-	void							 CreatePipeline();
+	const PipelineType				 GetType() const { return m_Type; }
 
 private:
+	void							 CreateGraphicsPipeline();
+	void							 CreateComputePipeline();
 
 	VulkanDevice&							m_VulkanDevice;
 	PipelineConfigInfo&						m_PipelineInfo;
-	VkPipeline								m_GraphicsPipeline;
+	VkPipeline								m_Pipeline;
 	VkPipelineLayout						m_PipelineLayout;
 	VulkanDescriptorSetLayout*				m_DescriptorSetLayout;
 	VulkanRenderPass*						m_RenderPass;
+	PipelineType							m_Type;
 };
 
 struct GraphicPipelineDescription
@@ -174,6 +178,7 @@ struct GraphicPipelineDescription
 typedef std::vector<uint32_t> FramebufferKey;
 typedef std::vector<uint32_t> DescriptorSetKey;
 typedef std::vector<uint32_t> DescriptorKey;
+typedef std::vector<uint32_t> ComputePipelineKey;
 
 struct VectorHasher {
 
@@ -194,12 +199,15 @@ class PipelineManager
 
 public:
 	std::unordered_map<GraphicsPipelineKey, VulkanPipeline*> m_GraphicPipelines;
+	std::unordered_map<ComputePipelineKey, VulkanPipeline*, VectorHasher> m_ComputePipelines;
 	std::unordered_map<RenderPassKey, VulkanRenderPass*>	 m_RenderPasses;
 	std::unordered_map<FramebufferKey, VulkanFramebuffer*, VectorHasher>   m_Framebuffers;
 	std::unordered_map<DescriptorSetKey, VulkanDescriptorSet*, VectorHasher> m_DescriptorSets;
 	std::unordered_map<DescriptorKey, VulkanDescriptor*, VectorHasher> m_Descriptors;
 
 	VulkanPipeline* FindOrCreateGraphicsPipeline(VulkanDevice& device, PipelineConfigInfo& pipelineInfo);
+	VulkanPipeline* FindOrCreateComputePipeline(VulkanDevice& device, PipelineConfigInfo& pipelineInfo);
+
 	VulkanRenderPass* FindOrCreateRenderPass(VulkanDevice& device, const std::vector<VulkanImageView*>& renderTargets, const VulkanImageView* depthStencil, RenderPassConfigInfo& renderPassInfo);
 	VulkanFramebuffer* FindOrCreateFramebuffer(VulkanDevice& device, const std::vector<VulkanImageView*>& renderTargets, const VulkanImageView* depthStencil, const VulkanRenderPass* renderpass, uint32_t width, uint32_t height);
 	VulkanDescriptorSet* FindOrCreateDescriptorSet(VulkanDevice& device, const VulkanDescriptorPool* desciptorPool, const VulkanDescriptorSetLayout* descriptorSetLayout, const std::vector<VulkanDescriptor*>& descriptors);

@@ -8,5 +8,7 @@ glslc.exe -fshader-stage=fragment FS_OutlineEntity.glsl -o FS_OutlineEntity.spv
 glslc.exe -fshader-stage=fragment FS_Skybox.glsl -o FS_Skybox.spv
 glslc.exe -fshader-stage=fragment FS_SSAO.glsl -o FS_SSAO.spv
 glslc.exe -fshader-stage=fragment FS_SSAOBlur.glsl -o FS_SSAOBlur.spv
+glslc.exe -fshader-stage=compute CS_Example.glsl -o CS_Example.spv
+
 
 pause

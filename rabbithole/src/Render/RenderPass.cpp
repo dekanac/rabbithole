@@ -315,7 +315,22 @@ void SSAOBlurPass::DeclareResources(Renderer* renderer)
 void SSAOBlurPass::Setup(Renderer* renderer)
 {
 	VulkanStateManager* stateManager = renderer->GetStateManager();
+	/////////// Test for COMPUTE SHADER
+	stateManager->SetComputeShader(renderer->GetShader("CS_Example"));
 
+	renderer->BindComputePipeline();
+
+	renderer->ResourceBarrier(renderer->albedoGBuffer, ResourceState::RenderTarget, ResourceState::GeneralCompute);
+
+	stateManager->SetStorageImage(0, renderer->albedoGBuffer);
+	stateManager->SetStorageImage(1, renderer->albedoGBuffer);
+
+	renderer->BindDescriptorSets();
+
+	renderer->Dispatch(1280 / 16, 720 / 16, 1);
+
+	renderer->ResourceBarrier(renderer->albedoGBuffer, ResourceState::GeneralCompute, ResourceState::RenderTarget);
+	///////////
 	stateManager->SetVertexShader(renderer->GetShader("VS_PassThrough"));
 	stateManager->SetPixelShader(renderer->GetShader("FS_SSAOBlur"));
 

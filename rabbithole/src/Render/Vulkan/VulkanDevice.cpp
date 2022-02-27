@@ -867,6 +867,8 @@ VkDescriptorType GetVkDescriptorTypeFrom(const DescriptorType descriptorSetBindi
 		return VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
 	case DescriptorType::UniformBuffer:
 		return VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+	case DescriptorType::StorageImage:
+		return VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
 	default:
 		ASSERT(false, "Not supported DescriptorSetBindingType.");
 		return VK_DESCRIPTOR_TYPE_MAX_ENUM;
@@ -887,6 +889,8 @@ VkShaderStageFlagBits GetVkShaderStageFrom(const ShaderType shaderType)
 		return VK_SHADER_STAGE_TESSELLATION_CONTROL_BIT;
 	case ShaderType::Domain:
 		return VK_SHADER_STAGE_TESSELLATION_EVALUATION_BIT;
+	case ShaderType::Compute:
+		return VK_SHADER_STAGE_COMPUTE_BIT;
 	default:
 		ASSERT(false, "Not supported ShaderType.");
 		return VK_SHADER_STAGE_FLAG_BITS_MAX_ENUM;
@@ -901,6 +905,8 @@ VkDescriptorType GetVkDescriptorTypeFrom(const SpvReflectDescriptorType reflectD
 		return VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
 	case SPV_REFLECT_DESCRIPTOR_TYPE_UNIFORM_BUFFER:
 		return VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+	case SPV_REFLECT_DESCRIPTOR_TYPE_STORAGE_IMAGE:
+		return VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
 	default:
 		ASSERT(false, "Not supported SpvReflectDescriptorBinding.");
 		return VK_DESCRIPTOR_TYPE_MAX_ENUM;
@@ -1097,6 +1103,10 @@ VkImageLayout GetVkImageLayoutFrom(const ResourceState resourceState)
 	else if (resourceState == ResourceState::Present)
 	{
 		return VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+	}
+	else if (resourceState == ResourceState::GeneralCompute)
+	{
+		return VK_IMAGE_LAYOUT_GENERAL;
 	}
 
 	ASSERT(false, "Not supported ResourceState.");

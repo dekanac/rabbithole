@@ -8,23 +8,34 @@
 #include "Shader.h"
 #include "../Renderer.h"
 
-VulkanPipeline::VulkanPipeline(VulkanDevice& device, PipelineConfigInfo& configInfo)
+VulkanPipeline::VulkanPipeline(VulkanDevice& device, PipelineConfigInfo& configInfo, PipelineType type)
 	: m_VulkanDevice{ device } 
 	, m_PipelineInfo(configInfo)
 	, m_RenderPass(configInfo.renderPass)
+	, m_Type(type)
 {
-	CreatePipeline();
+	if (m_Type == PipelineType::Graphics)
+	{
+		CreateGraphicsPipeline();
+	}
+	if (m_Type == PipelineType::Compute)
+	{
+		CreateComputePipeline();
+	}
 }
 
 VulkanPipeline::~VulkanPipeline() 
 {
-	vkDestroyPipeline(m_VulkanDevice.GetGraphicDevice(), m_GraphicsPipeline, nullptr);
+	vkDestroyPipeline(m_VulkanDevice.GetGraphicDevice(), m_Pipeline, nullptr);
 }
 
 
 void VulkanPipeline::Bind(VkCommandBuffer commandBuffer)
 {
-	vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_GraphicsPipeline);
+	vkCmdBindPipeline(
+		commandBuffer, 
+		m_Type == PipelineType::Graphics ? VK_PIPELINE_BIND_POINT_GRAPHICS : VK_PIPELINE_BIND_POINT_COMPUTE, 
+		m_Pipeline);
 }
 
 void VulkanPipeline::DefaultPipelineConfigInfo(PipelineConfigInfo*& configInfo, uint32_t width, uint32_t height) 
@@ -91,7 +102,31 @@ void VulkanPipeline::DefaultPipelineConfigInfo(PipelineConfigInfo*& configInfo, 
 	configInfo->depthStencilInfo.back = {};   // Optional
 }
 
-void VulkanPipeline::CreatePipeline()
+void VulkanPipeline::CreateComputePipeline()
+{
+	VkPipelineShaderStageCreateInfo computeShaderStage{};
+
+	computeShaderStage.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+	computeShaderStage.stage = GetVkShaderStageFrom(m_PipelineInfo.computeShader->GetInfo().Type);
+	computeShaderStage.module = m_PipelineInfo.computeShader->GetModule();
+	computeShaderStage.pName = "main";
+	computeShaderStage.flags = 0;
+	computeShaderStage.pNext = nullptr;
+
+	m_DescriptorSetLayout = new VulkanDescriptorSetLayout(&m_VulkanDevice, { m_PipelineInfo.computeShader }, "Main");
+	m_PipelineLayout = *(m_DescriptorSetLayout->GetPipelineLayout());
+	
+	VkComputePipelineCreateInfo computePipelineInfo{};
+	computePipelineInfo.sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO;
+	computePipelineInfo.stage = computeShaderStage;
+	computePipelineInfo.layout = m_PipelineLayout;
+	computePipelineInfo.flags = 0;
+
+	VULKAN_API_CALL(vkCreateComputePipelines(m_VulkanDevice.GetGraphicDevice(), VK_NULL_HANDLE, 1, &computePipelineInfo, nullptr, &m_Pipeline));
+
+}
+
+void VulkanPipeline::CreateGraphicsPipeline()
 {
 	std::vector<VkPipelineShaderStageCreateInfo> shaderStages{};
 
@@ -165,7 +200,7 @@ void VulkanPipeline::CreatePipeline()
 	pipelineInfo.basePipelineIndex = -1;
 	pipelineInfo.basePipelineHandle = VK_NULL_HANDLE;
 
-	VULKAN_API_CALL(vkCreateGraphicsPipelines(m_VulkanDevice.GetGraphicDevice(), VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &m_GraphicsPipeline));
+	VULKAN_API_CALL(vkCreateGraphicsPipelines(m_VulkanDevice.GetGraphicDevice(), VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &m_Pipeline));
 }
 
 // void PipelineConfigInfo::SetVertexBinding(const VertexBinding* vertexBinding)
@@ -284,6 +319,7 @@ void PipelineConfigInfo::SetWindingOrder(const WindingOrder winding)
  {
 	 vertexShader = nullptr;
 	 pixelShader = nullptr;
+	 computeShader = nullptr;
 
 	 inputAssemblyInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
 
@@ -419,7 +455,7 @@ bool RenderPassKey::operator==(const RenderPassKey& k) const
 
 VulkanPipeline* PipelineManager::FindOrCreateGraphicsPipeline(VulkanDevice& device, PipelineConfigInfo& pipelineInfo)
 {
-	GraphicsPipelineKey key;
+	GraphicsPipelineKey key{};
 
 	key.m_VertexShaderCRC = pipelineInfo.vertexShader ? pipelineInfo.vertexShader->GetHash() : 0;
 	key.m_PixelShaderCRC = pipelineInfo.pixelShader ? pipelineInfo.pixelShader->GetHash() : 0;
@@ -445,6 +481,27 @@ VulkanPipeline* PipelineManager::FindOrCreateGraphicsPipeline(VulkanDevice& devi
 		//add to map
 		m_GraphicPipelines[key] = pipeline;
 		return pipeline;
+	}
+}
+
+VulkanPipeline* PipelineManager::FindOrCreateComputePipeline(VulkanDevice& device, PipelineConfigInfo& pipelineInfo)
+{
+	//for now the key is only CRC of compute shader
+	ComputePipelineKey key(1);
+	
+	key[0] = pipelineInfo.computeShader->GetHash();
+
+	auto pipeline = m_ComputePipelines.find(key);
+
+	if (pipeline != m_ComputePipelines.end())
+	{
+		return pipeline->second;
+	}
+	else
+	{
+		auto newPipeline = new VulkanPipeline(device, pipelineInfo, PipelineType::Compute);
+		m_ComputePipelines[key] = newPipeline;
+		return newPipeline;
 	}
 }
 
@@ -530,11 +587,18 @@ VulkanDescriptorSet* PipelineManager::FindOrCreateDescriptorSet(VulkanDevice& de
 		{
 		case DescriptorType::UniformBuffer:
 			key.push_back(descriptors[i]->GetDescriptorInfo().buffer->GetID());
+			key.push_back((uint32_t)descriptors[i]->GetDescriptorInfo().Type);
 			break;
 		case DescriptorType::CombinedSampler:
 			//only views now have unique ID so its a little bit hacky but who cares
 			key.push_back(descriptors[i]->GetDescriptorInfo().combinedImageSampler->ImageView->GetID());
+			key.push_back((uint32_t)descriptors[i]->GetDescriptorInfo().Type);
 			break;
+		case DescriptorType::StorageImage:
+			key.push_back(descriptors[i]->GetDescriptorInfo().imageView->GetID());
+			key.push_back((uint32_t)descriptors[i]->GetDescriptorInfo().Type);
+			break;
+
 		}
 	}
 

@@ -29,6 +29,7 @@ public:
 
 	void SetVertexShader(Shader* shader);
 	void SetPixelShader(Shader* shader);
+	void SetComputeShader(Shader* shader);
 	void EnableWireframe(bool enable);
 	void SetCullMode(const CullMode mode);
 	void SetWindingOrder(const WindingOrder wo);
@@ -75,6 +76,8 @@ public:
 
 	void SetCombinedImageSampler(uint32_t slot, VulkanTexture* texture);
 	void SetConstantBuffer(uint32_t slot, VulkanBuffer* buffer, uint64_t offset, uint64_t range);
+	void SetStorageImage(uint32_t slot, VulkanTexture* texture);
+
 	VulkanDescriptorSet* FinalizeDescriptorSet(VulkanDevice& device, const VulkanDescriptorPool* pool);
 	uint8_t GetRenderTargetCount();
 	bool HasDepthStencil() { return m_DepthStencil ? true : false; }

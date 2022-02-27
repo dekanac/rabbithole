@@ -142,11 +142,12 @@ void VulkanStateManager::ShouldCleanDepth(bool clean)
 
 void VulkanStateManager::SetCombinedImageSampler(uint32_t slot, VulkanTexture* texture)
 {
-    //for now descriptor key is vector of uint32_t with following layout:
-    // (slot, bufferId/imageviewId)
-    DescriptorKey k(2);
-    k[0] = slot;
-    k[1] = texture->GetView()->GetID();
+	//for now descriptor key is vector of uint32_t with following layout:
+	// (slot, bufferId/imageviewId/type)
+	DescriptorKey k(3);
+	k[0] = slot;
+	k[1] = texture->GetView()->GetID();
+	k[2] = (uint32_t)DescriptorType::CombinedSampler;
 
     auto& descriptorsMap = PipelineManager::instance().m_Descriptors;
     auto descriptor = descriptorsMap.find(k);
@@ -178,10 +179,12 @@ void VulkanStateManager::SetCombinedImageSampler(uint32_t slot, VulkanTexture* t
 void VulkanStateManager::SetConstantBuffer(uint32_t slot, VulkanBuffer* buffer, uint64_t offset, uint64_t range)
 {
 	//for now descriptor key is vector of uint32_t with following layout:
-    // (slot, bufferId/imageviewId)
-	DescriptorKey k(2);
+    // (slot, bufferId/imageviewId/type)
+	DescriptorKey k(3);
 	k[0] = slot;
 	k[1] = buffer->GetID();
+	k[2] = (uint32_t)DescriptorType::UniformBuffer;
+
 
 	auto& descriptorsMap = PipelineManager::instance().m_Descriptors;
 	auto descriptor = descriptorsMap.find(k);
@@ -203,6 +206,38 @@ void VulkanStateManager::SetConstantBuffer(uint32_t slot, VulkanBuffer* buffer, 
 
         m_Descriptors.push_back(descriptor);
     }
+}
+
+void VulkanStateManager::SetStorageImage(uint32_t slot, VulkanTexture* texture)
+{
+	//for now descriptor key is vector of uint32_t with following layout:
+	// (slot, bufferId/imageviewId/type)
+	DescriptorKey k(3);
+	k[0] = slot;
+	k[1] = texture->GetView()->GetID();
+	k[2] = (uint32_t)DescriptorType::StorageImage;
+
+	auto& descriptorsMap = PipelineManager::instance().m_Descriptors;
+	auto descriptor = descriptorsMap.find(k);
+
+	if (descriptor != descriptorsMap.end())
+	{
+		m_Descriptors.push_back(descriptor->second);
+	}
+	else
+	{
+		VulkanDescriptorInfo info{};
+		info.Binding = slot;
+
+		info.imageView = texture->GetView();
+		info.Type = DescriptorType::StorageImage;
+
+		VulkanDescriptor* descriptor = new VulkanDescriptor(info);
+
+		descriptorsMap[k] = descriptor;
+
+		m_Descriptors.push_back(descriptor);
+	}
 }
 
 VulkanDescriptorSet* VulkanStateManager::FinalizeDescriptorSet(VulkanDevice& device, const VulkanDescriptorPool* pool)
@@ -240,5 +275,11 @@ void VulkanStateManager::SetVertexShader(Shader* shader)
 void VulkanStateManager::SetPixelShader(Shader* shader)
 {
 	m_PipelineConfig->pixelShader = shader;
+	m_DirtyPipeline = true;
+}
+
+void VulkanStateManager::SetComputeShader(Shader* shader)
+{
+	m_PipelineConfig->computeShader = shader;
 	m_DirtyPipeline = true;
 }

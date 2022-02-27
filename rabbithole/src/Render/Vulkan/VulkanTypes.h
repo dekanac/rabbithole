@@ -37,6 +37,14 @@ enum class QueueType : uint8_t
 	Count
 };
 
+enum class PipelineType : uint8_t
+{
+	Graphics,
+	Compute,
+
+	Count
+};
+
 enum class PresentResult : uint8_t
 {
 	Valid,
@@ -92,6 +100,7 @@ enum class ResourceState : uint8_t
 	GenericRead,
 	RenderTarget,
 	Present,
+	GeneralCompute,
 
 	Count
 };
@@ -241,6 +250,7 @@ enum class DescriptorType : uint8_t
 {
 	CombinedSampler,
 	UniformBuffer,
+	StorageImage,
 
 	Count
 };
