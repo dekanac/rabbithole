@@ -13,8 +13,8 @@ struct VulkanBufferInfo
 class VulkanBuffer : public AllocatedResource
 {
 public:
-	VulkanBuffer(const VulkanDevice* device, const VulkanBufferInfo& info);
-	VulkanBuffer(const VulkanDevice* device, BufferUsageFlags flags, MemoryAccess access, uint64_t size);
+	VulkanBuffer(VulkanDevice* device, const VulkanBufferInfo& info);
+	VulkanBuffer(VulkanDevice* device, BufferUsageFlags flags, MemoryAccess access, uint64_t size);
 	~VulkanBuffer();
 
 public:
@@ -34,7 +34,7 @@ private:
 	void CreateBufferResource();
 	
 private:
-	const VulkanDevice*		m_Device;
+	VulkanDevice*			m_Device;
 	VulkanBufferInfo		m_Info;
 	VkBuffer				m_Buffer;
 	VmaAllocation			m_VmaAllocation;

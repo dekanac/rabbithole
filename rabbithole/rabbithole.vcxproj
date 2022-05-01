@@ -136,6 +136,7 @@
   <ItemGroup>
     <ClCompile Include="src\Render\Model\ModelLoading.cpp" />
     <ClCompile Include="src\Render\RenderPass.cpp" />
+    <ClCompile Include="src\Render\SuperResolutionManager.cpp" />
     <ClCompile Include="src\Render\Vulkan\precomp.cpp" />
     <ClCompile Include="src\Core\Application.cpp" />
     <ClCompile Include="src\Core\main.cpp" />
@@ -178,6 +179,7 @@
     <ClInclude Include="src\Render\Model\Core.h" />
     <ClInclude Include="src\Render\Model\ModelLoading.h" />
     <ClInclude Include="src\Render\RenderPass.h" />
+    <ClInclude Include="src\Render\SuperResolutionManager.h" />
     <ClInclude Include="src\Render\Vulkan\precomp.h" />
     <ClInclude Include="src\common.h" />
     <ClInclude Include="src\Core\Application.h" />
@@ -209,6 +211,8 @@
     <ClInclude Include="src\Render\Vulkan\VulkanTypes.h" />
     <ClInclude Include="src\Render\Window.h" />
     <ClInclude Include="src\vendor\crc32\Crc32.h" />
+    <ClInclude Include="src\vendor\fsr\ffx_a.h" />
+    <ClInclude Include="src\vendor\fsr\ffx_fsr1.h" />
     <ClInclude Include="src\vendor\glm\common.hpp" />
     <ClInclude Include="src\vendor\glm\detail\compute_common.hpp" />
     <ClInclude Include="src\vendor\glm\detail\compute_vector_relational.hpp" />

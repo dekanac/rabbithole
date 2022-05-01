@@ -132,6 +132,8 @@ void VulkanTexture::CreateResource(VulkanDevice* device, const uint32_t width, c
 		(IsFlagSet(m_Flags & TextureFlags::LinearTiling) ? ImageFlags::LinearTiling : ImageFlags::None);
 
 	textureResourceInfo.UsageFlags = 
+		(IsFlagSet(m_Flags & TextureFlags::TransferDst) ? ImageUsageFlags::TransferDst : ImageUsageFlags::None) |
+		(IsFlagSet(m_Flags & TextureFlags::TransferSrc) ? ImageUsageFlags::TransferSrc : ImageUsageFlags::None) |
 		(IsFlagSet(m_Flags & TextureFlags::DepthStencil) ? ImageUsageFlags::DepthStencil : ImageUsageFlags::Storage) | //TODO: investigate this storage flag
 		(IsFlagSet(m_Flags & TextureFlags::Read) ? ImageUsageFlags::Resource : ImageUsageFlags::None) |
 		(IsFlagSet(m_Flags & TextureFlags::RenderTarget) ? ImageUsageFlags::RenderTarget : ImageUsageFlags::None);
@@ -216,8 +218,8 @@ void VulkanTexture::CreateSampler(VulkanDevice* device)
 	imageSamplerInfo.BorderColor.value[2] = 0.0f;
 	imageSamplerInfo.BorderColor.value[3] = 0.0f;
 	imageSamplerInfo.MipLODBias = 0.0f;
-	imageSamplerInfo.MinLOD = 0.0f;
-	imageSamplerInfo.MaxLOD = 0.0f;
+	imageSamplerInfo.MinLOD = -1000.0f;
+	imageSamplerInfo.MaxLOD = 1000.0f;
 	m_Sampler = new VulkanImageSampler(device, imageSamplerInfo, m_Name.c_str());
 }
 

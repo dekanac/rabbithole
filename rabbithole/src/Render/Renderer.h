@@ -8,10 +8,9 @@
 #include <optional>
 
 #include "Vulkan/Include/VulkanWrapper.h"
+#include "SuperResolutionManager.h"
 #include "Window.h"
 #include "Model/ModelLoading.h"
-
-#define DYNAMIC_SCISSOR_AND_VIEWPORT_STATES
 
 #ifdef _DEBUG
 	#define RABBITHOLE_USING_IMGUI
@@ -29,13 +28,23 @@ class Entity;
 class Shader;
 class RenderPass;
 
+enum SimpleMeshType
+{
+	BoxMesh,
+	SphereMesh,
+
+	Count
+};
+
 struct UniformBufferObject
 {
 	rabbitMat4f view;
 	rabbitMat4f proj;
-	rabbitVec3f cameraPos;
-	rabbitVec3f debugOption;
+	rabbitVec4f cameraPos;
+	rabbitVec4f debugOption;
 	rabbitMat4f viewProjInverse;
+	rabbitMat4f viewProjMatrix;
+	rabbitMat4f prevViewProjMatrix;
 };
 
 struct SSAOSamples
@@ -51,7 +60,7 @@ struct PushMousePos
 
 struct LightParams
 {
-	rabbitVec4f position;
+	float position[4];
 	float color[3];
 	float radius;
 };
@@ -63,6 +72,7 @@ struct SSAOParams
 	float resWidth;
 	float resHeight;
 	int kernelSize;
+	bool ssaoOn;
 };
 
 class Renderer
@@ -80,12 +90,14 @@ private:
 	std::vector<VkCommandBuffer>				m_CommandBuffers;
 	uint8_t										m_CurrentImageIndex = 0;
 
-	VulkanBuffer* m_UniformBuffer;
+	VulkanBuffer* m_MainConstBuffer;
 	VulkanBuffer* m_VertexUploadBuffer;
 	VulkanBuffer* m_LightParams;
 	
 	//test purpose only
 	Entity*						testEntity;
+	ModelLoading::SceneData* defaultBoxModel;
+	ModelLoading::SceneData* defaultSphereModel;
 	std::vector<RabbitModel*>	rabbitmodels;
 	
 	void loadModels();
@@ -99,6 +111,7 @@ private:
 
 	void InitSSAO();
 	void InitLights();
+	void InitMeshDataForCompute();
 public:
 	inline VulkanDevice& GetVulkanDevice() { return m_VulkanDevice; }
 	inline VulkanStateManager* GetStateManager() { return m_StateManager; }
@@ -108,17 +121,18 @@ public:
 
 	void ResourceBarrier(VulkanTexture* texture, ResourceState oldLayout, ResourceState newLayout);
 	void CopyImageToBuffer(VulkanTexture* texture, VulkanBuffer* buffer);
+	void CopyImage(VulkanTexture* src, VulkanTexture* dst);
 
 	inline Shader* GetShader(const std::string& name) { return m_Shaders[name]; }
 	inline std::vector<RabbitModel*>& GetModels() { return rabbitmodels; }
 	inline Camera* GetCamera() { return MainCamera; }
 
-	inline VulkanBuffer* GetUniformBuffer() { return m_UniformBuffer; }
+	inline VulkanBuffer* GetMainConstBuffer() { return m_MainConstBuffer; }
 	inline VulkanBuffer* GetLightParams() { return m_LightParams; }
 
 	void UpdateDebugOptions();
 	void BindViewport(float x, float y, float width, float height);
-	void BindVertexData();
+	void BindVertexData(size_t offset);
 
 	void DrawVertices(uint64_t count);
 	void DrawIndicesIndirect(uint32_t count, uint32_t offset);
@@ -137,10 +151,10 @@ public:
 
 	void SetCurrentImageIndex(int imageIndex) { m_CurrentImageIndex = imageIndex; }
 	
-	void BeginRenderPass();
+	void BeginRenderPass(VkExtent2D extent);
 	void EndRenderPass();
 
-	void BindGraphicsPipeline();
+	void BindGraphicsPipeline(bool isCopyToSwapChain = false);
 	void BindComputePipeline();
 	void BindDescriptorSets();
 	void BindUBO();
@@ -150,6 +164,7 @@ public:
 	void BindCameraMatrices(Camera* camera);
 
 	void DrawGeometry(std::vector<RabbitModel*>& bucket);
+	void DrawBoundingBoxes(std::vector<RabbitModel*>& bucket);
 	void DrawFullScreenQuad();
 	void UpdateEntityPickId();
 
@@ -162,9 +177,13 @@ public:
 	void CopyToSwapChain();
 	void ImageTransitionToPresent();
 	void ExecuteRenderPass(RenderPass& renderpass);
+
+	void AddSimpleMesh(SimpleMeshType type, rabbitVec3f position = rabbitVec3f{}, float size = 1.f, rabbitVec3f rotation = rabbitVec3f{});
 public:
 
 	//TODO: do something with these
+	VulkanTexture* depthStencil;
+
 	//geometry
 	VulkanBuffer* geomDataIndirectDraw;
 	IndexIndirectDrawData* indexedDataBuffer;
@@ -173,6 +192,7 @@ public:
 	VulkanTexture* albedoGBuffer;
 	VulkanTexture* normalGBuffer;
 	VulkanTexture* worldPositionGBuffer;
+	VulkanTexture* velocityGBuffer;
 	
 	//main lighting
 	VulkanTexture* lightingMain;
@@ -193,9 +213,27 @@ public:
 	VulkanTexture* entityHelper;
 	VulkanTexture* DebugTextureRT;
 	VulkanBuffer*  entityHelperBuffer;
+	
+	//RT shadows helper
+	VulkanBuffer* vertexBuffer;
+	VulkanBuffer* trianglesBuffer;
+	VulkanBuffer* triangleIndxsBuffer;
+	VulkanBuffer* cfbvhNodesBuffer;
+	VulkanTexture* shadowMap;
+
+	//FSR
+	VulkanBuffer* fsrParamsBuffer;
+	VulkanTexture* fsrOutputTexture;
+	VulkanTexture* fsrIntermediateRes;
+
+	//TAA
+	VulkanTexture* TAAOutput;
+	VulkanTexture* historyBuffer;
 
 	bool m_RenderOutlinedEntity = false;
     bool m_FramebufferResized = false;
+
+	bool m_DrawBoundingBox = false;
 
 	bool Init();
 	bool Shutdown();

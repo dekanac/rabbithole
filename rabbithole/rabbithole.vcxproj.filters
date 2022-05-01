@@ -132,6 +132,9 @@
     <ClCompile Include="src\Render\Vulkan\Resource.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="src\Render\SuperResolutionManager.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\Core\Application.h">
@@ -1089,6 +1092,15 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="src\Render\Vulkan\Resource.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\vendor\fsr\ffx_a.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\vendor\fsr\ffx_fsr1.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Render\SuperResolutionManager.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

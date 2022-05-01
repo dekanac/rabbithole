@@ -12,6 +12,8 @@ enum class UBOElement : uint32_t
 	CameraPosition = 8,
 	DebugOption = 9,
 	ViewProjInverse = 10,
+	ViewProjMatrix = 14,
+	PrevViewProjMatrix = 18
 };
 
 class VulkanStateManager
@@ -33,7 +35,6 @@ public:
 	void EnableWireframe(bool enable);
 	void SetCullMode(const CullMode mode);
 	void SetWindingOrder(const WindingOrder wo);
-	void SetViewport(float x, float y, float width, float height);
 
 	//renderpass
 	VulkanRenderPass*	    GetRenderPass() const { return m_RenderPass; }
@@ -69,7 +70,8 @@ public:
     void SetRenderTarget1(VulkanImageView* rt);
     void SetRenderTarget2(VulkanImageView* rt);
     void SetRenderTarget3(VulkanImageView* rt);
-    void SetDepthStencil(VulkanImageView* ds);
+	void SetRenderTarget4(VulkanImageView* rt);
+	void SetDepthStencil(VulkanImageView* ds);
 
 	void ShouldCleanColor(bool clean);
 	void ShouldCleanDepth(bool clean);
@@ -77,6 +79,10 @@ public:
 	void SetCombinedImageSampler(uint32_t slot, VulkanTexture* texture);
 	void SetConstantBuffer(uint32_t slot, VulkanBuffer* buffer, uint64_t offset, uint64_t range);
 	void SetStorageImage(uint32_t slot, VulkanTexture* texture);
+	void SetStorageBuffer(uint32_t slot, VulkanBuffer* buffer, uint64_t offset, uint64_t range);
+	void SetSampledImage(uint32_t slot, VulkanTexture* texture);
+	void SetSampler(uint32_t slot, VulkanTexture* texture);
+	void SetSampler(uint32_t slot, VulkanImageSampler* sampler);
 
 	VulkanDescriptorSet* FinalizeDescriptorSet(VulkanDevice& device, const VulkanDescriptorPool* pool);
 	uint8_t GetRenderTargetCount();
@@ -104,7 +110,8 @@ private:
     VulkanImageView* m_RenderTarget0 = nullptr;
     VulkanImageView* m_RenderTarget1 = nullptr;
     VulkanImageView* m_RenderTarget2 = nullptr;
-    VulkanImageView* m_RenderTarget3 = nullptr;
+	VulkanImageView* m_RenderTarget3 = nullptr;
+	VulkanImageView* m_RenderTarget4 = nullptr;
 
 	std::vector<VulkanImageView*> m_RenderTargets;
 

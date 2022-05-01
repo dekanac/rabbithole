@@ -2,17 +2,27 @@
 
 #include "vk_mem_alloc.h"
 
-VulkanBuffer::VulkanBuffer(const VulkanDevice* device, const VulkanBufferInfo& info)
+VulkanBuffer::VulkanBuffer(VulkanDevice* device, const VulkanBufferInfo& info)
 	: m_Device(device)
 	, m_Info(info)
 {
+	if (info.memoryAccess == MemoryAccess::GPU)
+	{
+		//if the access is only gpu we need to copy from staging buffer
+		m_Info.usageFlags = m_Info.usageFlags | BufferUsageFlags::TransferDst;
+	}
 	CreateBufferResource();
 }
 
-VulkanBuffer::VulkanBuffer(const VulkanDevice* device, BufferUsageFlags flags, MemoryAccess access, uint64_t size)
+VulkanBuffer::VulkanBuffer(VulkanDevice* device, BufferUsageFlags flags, MemoryAccess access, uint64_t size)
 	: m_Device(device)
 	, m_Size(size)
 {
+	if (access == MemoryAccess::GPU)
+	{
+		//if the access is only gpu we need to copy from staging buffer
+		flags = flags | BufferUsageFlags::TransferDst;
+	}
 	VulkanBufferInfo info{};
 	info.memoryAccess = access;
 	info.size = size;
@@ -50,15 +60,27 @@ void VulkanBuffer::Unmap()
 
 void VulkanBuffer::FillBuffer(void* inputData, size_t size)
 {
-	void* data = Map();
-	memcpy(data, inputData, size);
-	Unmap();
+	if (m_Info.memoryAccess != MemoryAccess::GPU)
+	{
+		void* data = Map();
+		memcpy(data, inputData, size);
+		Unmap();
+	}
+	else
+	{
+		VulkanBuffer stagingBuffer = VulkanBuffer(m_Device, BufferUsageFlags::TransferSrc, MemoryAccess::CPU, size);
+
+		stagingBuffer.FillBuffer(inputData, static_cast<size_t>(size));
+
+		m_Device->CopyBuffer(stagingBuffer.GetBuffer(), m_Buffer, size);
+
+	}
 }
 
 void VulkanBuffer::FillBuffer(void* inputData, size_t offset, size_t size)
 {
 	void* data = Map();
-	int* dataOffset = (int*)data + offset;
+	char* dataOffset = (char*)data + offset;
 	memcpy(dataOffset, inputData, size);
 	Unmap();
 }

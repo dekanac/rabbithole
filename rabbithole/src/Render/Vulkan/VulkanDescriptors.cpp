@@ -14,6 +14,18 @@ VulkanDescriptor::VulkanDescriptor(const VulkanDescriptorInfo& info)
 		m_ResourceInfo.m_ResourceInfo.ImageInfo.sampler = m_Info.combinedImageSampler->ImageSampler->GetSampler();
 		break;
 	}
+	case DescriptorType::SampledImage:
+	{
+		m_ResourceInfo.m_ResourceInfo.ImageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+		m_ResourceInfo.m_ResourceInfo.ImageInfo.imageView = m_Info.imageView->GetImageView();
+		break;
+	}
+	case DescriptorType::Sampler:
+	{
+		m_ResourceInfo.m_ResourceInfo.ImageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+		m_ResourceInfo.m_ResourceInfo.ImageInfo.sampler = m_Info.imageSampler->GetSampler();
+		break;
+	}
 	case DescriptorType::UniformBuffer:
 	{
 		m_ResourceInfo.m_ResourceInfo.BufferInfo.buffer = m_Info.buffer->GetBuffer();
@@ -25,6 +37,13 @@ VulkanDescriptor::VulkanDescriptor(const VulkanDescriptorInfo& info)
 	{
 		m_ResourceInfo.m_ResourceInfo.ImageInfo.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
 		m_ResourceInfo.m_ResourceInfo.ImageInfo.imageView = m_Info.imageView->GetImageView();
+		break;
+	}
+	case DescriptorType::StorageBuffer:
+	{
+		m_ResourceInfo.m_ResourceInfo.BufferInfo.buffer = m_Info.buffer->GetBuffer();
+		m_ResourceInfo.m_ResourceInfo.BufferInfo.offset = 0;
+		m_ResourceInfo.m_ResourceInfo.BufferInfo.range = m_Info.buffer->GetInfo().size;
 		break;
 	}
 	default:
@@ -122,6 +141,14 @@ VulkanDescriptorSet::VulkanDescriptorSet(const VulkanDevice* device,const Vulkan
  			writeDescriptorSet.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
  			writeDescriptorSet.pImageInfo = new VkDescriptorImageInfo(descriptors[i]->GetDescriptorResourceInfo().m_ResourceInfo.ImageInfo);
 			break;
+		case DescriptorType::SampledImage:
+			writeDescriptorSet.descriptorType = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE;
+			writeDescriptorSet.pImageInfo = new VkDescriptorImageInfo(descriptors[i]->GetDescriptorResourceInfo().m_ResourceInfo.ImageInfo);
+			break;
+		case DescriptorType::Sampler:
+			writeDescriptorSet.descriptorType = VK_DESCRIPTOR_TYPE_SAMPLER;
+			writeDescriptorSet.pImageInfo = new VkDescriptorImageInfo(descriptors[i]->GetDescriptorResourceInfo().m_ResourceInfo.ImageInfo);
+			break;
 		case DescriptorType::UniformBuffer:
 			writeDescriptorSet.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
 			writeDescriptorSet.pBufferInfo = new VkDescriptorBufferInfo(descriptors[i]->GetDescriptorResourceInfo().m_ResourceInfo.BufferInfo);
@@ -129,6 +156,10 @@ VulkanDescriptorSet::VulkanDescriptorSet(const VulkanDevice* device,const Vulkan
 		case DescriptorType::StorageImage:
 			writeDescriptorSet.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
 			writeDescriptorSet.pImageInfo = new VkDescriptorImageInfo(descriptors[i]->GetDescriptorResourceInfo().m_ResourceInfo.ImageInfo);
+			break;
+		case DescriptorType::StorageBuffer:
+			writeDescriptorSet.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+			writeDescriptorSet.pBufferInfo = new VkDescriptorBufferInfo(descriptors[i]->GetDescriptorResourceInfo().m_ResourceInfo.BufferInfo);
 			break;
 		default:
 			ASSERT(false, "Not supported DescriptorType.");

@@ -1,6 +1,7 @@
 #version 450
 
-layout(push_constant) uniform Push {
+layout(push_constant) uniform Push 
+{
     uint xMousePos;
     uint yMousePos;
 } push;

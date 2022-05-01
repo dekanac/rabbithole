@@ -78,7 +78,7 @@ void Camera::Update(float dt)
 		glm::vec2 delta = { inputComp->mouse_x * cameraSpeed, inputComp->mouse_y * cameraSpeed };
 
 		if (InputManager::IsActionActive(cameraInput, "ActivateCameraPan"))
-			MousePan(delta/3.f);
+			MousePan(delta);
 		else if (InputManager::IsActionActive(cameraInput, "ActivateCameraOrbit"))
 			MouseRotate(delta);
 		else if (InputManager::IsActionActive(cameraInput, "ActivateCameraZoom"))
@@ -121,10 +121,10 @@ float Camera::GetFieldOfView() const
 	return m_FieldOfView;
 }
 
-void Camera::setFieldOfView(float fieldOfView_) 
+void Camera::SetFieldOfView(float fieldOfView) 
 {
-	ASSERT(fieldOfView_ > 0.0f && fieldOfView_ < 180.0f, "Field of view mus be between 0 adn 180 degrees!");
-	m_FieldOfView = fieldOfView_;
+	ASSERT(fieldOfView > 0.0f && fieldOfView < 180.0f, "Field of view mus be between 0 adn 180 degrees!");
+	m_FieldOfView = fieldOfView;
 }
 
 float Camera::GetNearPlane() const
@@ -137,18 +137,18 @@ float Camera::GetfarPlane() const
 	return m_FarPlane;
 }
 
-void Camera::setNearAndFarPlanes(float nearPlane_, float farPlane_)
+void Camera::SetNearAndFarPlanes(float nearPlane, float farPlane)
 {
-	ASSERT(nearPlane_ > 0.0f, "Near plane must be greater than 0!");
-	ASSERT(farPlane_ > nearPlane_, "Far plane must be greater then near plane!");
-	m_NearPlane = nearPlane_;
-	m_FarPlane = farPlane_;
+	ASSERT(nearPlane > 0.0f, "Near plane must be greater than 0!");
+	ASSERT(farPlane > nearPlane, "Far plane must be greater then near plane!");
+	m_NearPlane = nearPlane;
+	m_FarPlane = farPlane;
 }
 
-void Camera::setViewportAspectRatio(float vpaspect_)
+void Camera::SetViewportAspectRatio(float vpaspect)
 {
-	ASSERT(vpaspect_ > 0.0, "");
-	m_Aspect = vpaspect_;
+	ASSERT(vpaspect > 0.0, "");
+	m_Aspect = vpaspect;
 }
 
 glm::quat Camera::GetOrientation() const

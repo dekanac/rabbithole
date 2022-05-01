@@ -1,6 +1,8 @@
 #include <glm/glm.hpp>
 #include <vulkan/vulkan.h>
 
+#include <limits>
+
 #pragma once
 
 #define SingletonClass(className) \
@@ -43,4 +45,8 @@ typedef glm::mat4 rabbitMat4f;
 #define GREEN_COLOR		rabbitVec4f{0.f, 1.f, 0.f, 1.f}
 
 #define MB_16 16777216
+#define MB_64 67108864
+
+const float Epsilon = 1e-8;
+const float Infinity = std::numeric_limits<float>::max();
 

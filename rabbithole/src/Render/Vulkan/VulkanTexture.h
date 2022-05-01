@@ -1,6 +1,5 @@
 #pragma once
 
-
 class VulkanImage;
 class VulkanImageView;
 class VulkanImageSampler;
@@ -21,6 +20,9 @@ public:
 	Format					GetFormat() const{ return m_Format; }
 	TextureFlags			GeFlags() const { return m_Flags; }
 	ImageRegion				GetRegion() const { return m_Region; }
+
+	uint32_t				GetWidth() const { return m_Region.Extent.Width; }
+	uint32_t				GetHeight() const { return m_Region.Extent.Height; }
 
 private:
 	void CreateResource(VulkanDevice* device);

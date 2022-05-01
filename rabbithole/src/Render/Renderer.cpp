@@ -9,6 +9,7 @@
 #include "ECS/EntityManager.h"
 #include "Core/Application.h"
 #include "Vulkan/Include/VulkanWrapper.h"
+#include "SuperResolutionManager.h"
 
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
@@ -40,7 +41,13 @@ rabbitVec3f renderDebugOption;
 #define SKYBOX_FRAGMENT_FILE_PATH			"res/shaders/FS_Skybox.spv"
 #define SSAO_FRAGMENT_FILE_PATH				"res/shaders/FS_SSAO.spv"
 #define SSAOBLUR_FRAGMENT_FILE_PATH			"res/shaders/FS_SSAOBlur.spv"
-#define COMPUTE_EXAMPLE						"res/shaders/CS_Example.spv"
+#define RAY_TRACING_COMPUTE_FILE_PATH		"res/shaders/CS_RayTracingShadows.spv"
+#define SIMPLE_GEOMETRY_FRAGMENT_PATH		"res/shaders/FS_SimpleGeometry.spv"
+#define SIMPLE_GEOMETRY_VERTEX_PATH			"res/shaders/VS_SimpleGeometry.spv"
+#define FSREASU_COMPUTE_FILE_PATH			"res/shaders/CS_FSR_EASU.spv"
+#define FSRRCAS_COMPUTE_FILE_PATH			"res/shaders/CS_FSR_RCAS.spv"
+#define TAA_COMPUTE_FILE_PATH				"res/shaders/CS_TAA.spv"
+#define TAA_SHARPENER_COMPUTE_FILE_PATH		"res/shaders/CS_TAASharpener.spv"
 
 void Renderer::ExecuteRenderPass(RenderPass& renderpass)
 {
@@ -53,12 +60,36 @@ void Renderer::ExecuteRenderPass(RenderPass& renderpass)
 	m_VulkanDevice.EndLabel(GetCurrentCommandBuffer());
 }
 
+void Renderer::AddSimpleMesh(SimpleMeshType type, rabbitVec3f position, float size, rabbitVec3f rotation)
+{
+	RabbitModel* model =nullptr;
+
+	if (type == SimpleMeshType::BoxMesh)
+	{
+		model = new RabbitModel(m_VulkanDevice, defaultBoxModel->pObjects[0]);
+	}
+	else if (type == SimpleMeshType::SphereMesh)
+	{
+		model = new RabbitModel(m_VulkanDevice, defaultSphereModel->pObjects[0]);
+	}
+
+	auto mesh = model->GetMesh();
+	mesh.position = position;
+	mesh.rotation = rotation;
+	mesh.scale = { size, size, size };
+
+	model->SetMesh(mesh);
+	rabbitmodels.push_back(model);
+}
+
 bool Renderer::Init()
 {
 	MainCamera = new Camera();
 	MainCamera->Init();
 	testEntity = new Entity();
 	testEntity->AddComponent<InputComponent>();
+
+	SuperResolutionManager::instance().Init();
 
 	EntityManager::instance().AddEntity(testEntity);
 
@@ -78,18 +109,38 @@ bool Renderer::Init()
 
 	CreateGeometryDescriptors();
 	//for now max 1024 commands
+	depthStencil = new VulkanTexture(&m_VulkanDevice, GetNativeWidth, GetNativeHeight, TextureFlags::DepthStencil | TextureFlags::Read, Format::D32_SFLOAT, "swapchainDepthstencil");
+
 	geomDataIndirectDraw = new VulkanBuffer(&m_VulkanDevice, BufferUsageFlags::IndirectBuffer | BufferUsageFlags::TransferSrc, MemoryAccess::CPU2GPU, sizeof(IndexIndirectDrawData) * 1024);
 	indexedDataBuffer = (IndexIndirectDrawData*)malloc(sizeof(IndexIndirectDrawData) * 1024);
 
-	albedoGBuffer = new VulkanTexture(&m_VulkanDevice, DEFAULT_WIDTH, DEFAULT_HEIGHT, TextureFlags::RenderTarget | TextureFlags::Read, Format::B8G8R8A8_UNORM, "albedo");
-	normalGBuffer = new VulkanTexture(&m_VulkanDevice, DEFAULT_WIDTH, DEFAULT_HEIGHT, TextureFlags::RenderTarget | TextureFlags::Read, Format::R16G16B16A16_FLOAT, "normal");
-	worldPositionGBuffer = new VulkanTexture(&m_VulkanDevice, DEFAULT_WIDTH, DEFAULT_HEIGHT, TextureFlags::RenderTarget | TextureFlags::Read, Format::R16G16B16A16_FLOAT, "wordlPosition");
-	DebugTextureRT = new VulkanTexture(&m_VulkanDevice, DEFAULT_WIDTH, DEFAULT_HEIGHT, TextureFlags::RenderTarget, Format::R16G16B16A16_FLOAT, "debug");
-	entityHelper = new VulkanTexture(&m_VulkanDevice, DEFAULT_WIDTH, DEFAULT_HEIGHT, TextureFlags::RenderTarget | TextureFlags::LinearTiling | TextureFlags::TransferSrc, Format::R32_UINT, "entityHelper");
-	entityHelperBuffer = new VulkanBuffer(&m_VulkanDevice, BufferUsageFlags::StorageBuffer, MemoryAccess::CPU, DEFAULT_HEIGHT * DEFAULT_WIDTH * 4);
+	albedoGBuffer = new VulkanTexture(&m_VulkanDevice, GetNativeWidth, GetNativeHeight, TextureFlags::RenderTarget | TextureFlags::Read, Format::B8G8R8A8_UNORM, "albedo");
+	normalGBuffer = new VulkanTexture(&m_VulkanDevice, GetNativeWidth, GetNativeHeight, TextureFlags::RenderTarget | TextureFlags::Read, Format::R16G16B16A16_FLOAT, "normal");
+	worldPositionGBuffer = new VulkanTexture(&m_VulkanDevice, GetNativeWidth, GetNativeHeight, TextureFlags::RenderTarget | TextureFlags::Read, Format::R16G16B16A16_FLOAT, "wordlPosition");
+	velocityGBuffer = new VulkanTexture(&m_VulkanDevice, GetNativeWidth, GetNativeHeight, TextureFlags::RenderTarget | TextureFlags::Read, Format::R32G32_FLOAT, "velocity");
+	DebugTextureRT = new VulkanTexture(&m_VulkanDevice, GetNativeWidth, GetNativeHeight, TextureFlags::RenderTarget, Format::R16G16B16A16_FLOAT, "debug");
+	entityHelper = new VulkanTexture(&m_VulkanDevice, GetNativeWidth, GetNativeHeight, TextureFlags::RenderTarget | TextureFlags::LinearTiling | TextureFlags::TransferSrc, Format::R32_UINT, "entityHelper");
+	entityHelperBuffer = new VulkanBuffer(&m_VulkanDevice, BufferUsageFlags::StorageBuffer, MemoryAccess::CPU, GetNativeWidth * GetNativeHeight * 4);
 
-	lightingMain = new VulkanTexture(&m_VulkanDevice, DEFAULT_WIDTH, DEFAULT_HEIGHT, TextureFlags::RenderTarget | TextureFlags::Read, Format::R16G16B16A16_FLOAT, "lightingmain");
+	TAAOutput = new VulkanTexture(&m_VulkanDevice, GetNativeWidth, GetNativeHeight, TextureFlags::RenderTarget | TextureFlags::Read, Format::R16G16B16A16_FLOAT, "TAA");
+	historyBuffer = new VulkanTexture(&m_VulkanDevice, GetNativeWidth, GetNativeHeight, TextureFlags::RenderTarget | TextureFlags::Read | TextureFlags::TransferDst, Format::R16G16B16A16_FLOAT, "historyBuffer");
+
+	shadowMap = new VulkanTexture(&m_VulkanDevice, GetNativeWidth, GetNativeHeight, TextureFlags::Read, Format::R8_UNORM, "shadowMap");
+	
+	InitMeshDataForCompute();
+
+	lightingMain = new VulkanTexture(&m_VulkanDevice, GetNativeWidth, GetNativeHeight, TextureFlags::RenderTarget | TextureFlags::Read | TextureFlags::TransferSrc, Format::R16G16B16A16_FLOAT, "lightingMain");
 	InitLights();
+
+	//init fsr
+	FSRParams fsrParams{};
+	SuperResolutionManager::instance().CalculateFSRParamsEASU(fsrParams);
+	SuperResolutionManager::instance().CalculateFSRParamsRCAS(fsrParams);
+	//fsrParams.Sample[0] = 1;
+	fsrParamsBuffer = new VulkanBuffer(&m_VulkanDevice, BufferUsageFlags::UniformBuffer, MemoryAccess::CPU2GPU, sizeof(FSRParams));
+	fsrIntermediateRes = new VulkanTexture(&m_VulkanDevice, GetUpscaledWidth, GetUpscaledHeight, TextureFlags::RenderTarget | TextureFlags::Read, Format::R16G16B16A16_FLOAT, "fsrIntermediate");
+	fsrOutputTexture = new VulkanTexture(&m_VulkanDevice, GetUpscaledWidth, GetUpscaledHeight, TextureFlags::RenderTarget | TextureFlags::Read, Format::R16G16B16A16_FLOAT, "fsrOutput");
+	fsrParamsBuffer->FillBuffer(&fsrParams, sizeof(FSRParams));
 
 	InitSSAO();
 
@@ -153,7 +204,7 @@ void Renderer::CreateGeometryDescriptors()
 	VulkanDescriptorInfo descriptorinfo{};
 	descriptorinfo.Type = DescriptorType::UniformBuffer;
 	descriptorinfo.Binding = 0;
-	descriptorinfo.buffer = m_UniformBuffer;
+	descriptorinfo.buffer = m_MainConstBuffer;
 
 	VulkanDescriptor* bufferDescr = new VulkanDescriptor(descriptorinfo);
 
@@ -279,15 +330,49 @@ void Renderer::InitTextures()
 
 void Renderer::loadModels()
 {
-	auto testScene = ModelLoading::LoadScene("res/meshes/cottage/Cottage_FREE.obj");
+	defaultBoxModel = ModelLoading::LoadScene("res/meshes/simpleShapes/box.obj");
+	defaultSphereModel = ModelLoading::LoadScene("res/meshes/simpleShapes/sphere.obj");
 
-	RabbitModel* model = new RabbitModel(m_VulkanDevice, testScene->pObjects[0]);
-	rabbitmodels.push_back(model);
+	{
+		auto testScene2 = ModelLoading::LoadScene("res/meshes/terrain/terrain.obj");
+		RabbitModel* model = new RabbitModel(m_VulkanDevice, testScene2->pObjects[0]);
+		auto mesh2 = model->GetMesh();
+		mesh2.scale = { 30.f, 1.f, 30.f };
+		mesh2.position = { 0.f, -2.f, 0.f };
+		model->SetMesh(mesh2);
+		rabbitmodels.push_back(model);
+	}
 
-	ModelLoading::FreeScene(testScene);
+	auto testScene2 = ModelLoading::LoadScene("res/meshes/cottage/Cottage_FREE.obj");
+	{
+		RabbitModel* model = new RabbitModel(m_VulkanDevice, testScene2->pObjects[0]);
+		auto mesh2 = model->GetMesh();
+		mesh2.position = { 5.f, -2.f, 0.f };
+		model->SetMesh(mesh2);
+		rabbitmodels.push_back(model);
+	}
+
+	//those first 4 represent lights :D
+ 	//AddSimpleMesh(SimpleMeshType::SphereMesh, { 7.0f, 1.0f, 7.0f }, 0.15f);
+ 	//AddSimpleMesh(SimpleMeshType::SphereMesh, { -7.0f, 1.0f, 7.0f }, 0.15f);
+ 	//AddSimpleMesh(SimpleMeshType::SphereMesh, { -10.0f, 2.0f, -10.0f }, 0.15f);
+ 	//AddSimpleMesh(SimpleMeshType::SphereMesh, { -14, 3, 13 }, 1.5f);
+// 	//
+// 	//
+ 	AddSimpleMesh(SimpleMeshType::SphereMesh, { -8, 1.8, 7.6 }, 2.5f);
+// 	////
+ 	AddSimpleMesh(SimpleMeshType::BoxMesh, { -1, 1.8, 1 }, 0.5f);
+// 	//
+ 	AddSimpleMesh(SimpleMeshType::BoxMesh, { -2.5, 1.8, 1 }, 0.5f);
+// 	////
+ 	AddSimpleMesh(SimpleMeshType::BoxMesh, { -3, 1.8, -1.5 }, 0.5f);
+
+	AddSimpleMesh(SimpleMeshType::BoxMesh, { 3, 10, 12 }, 1.3f);
+	//ModelLoading::FreeScene(testScene2);
+	//ModelLoading::FreeScene(testScene);
 }
 
-void Renderer::BeginRenderPass()
+void Renderer::BeginRenderPass(VkExtent2D extent)
 {
 	VkRenderPassBeginInfo renderPassInfo{};
 	renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
@@ -295,7 +380,7 @@ void Renderer::BeginRenderPass()
 	renderPassInfo.framebuffer = m_StateManager->GetFramebuffer()->GetVkFramebuffer();
 
 	renderPassInfo.renderArea.offset = { 0, 0 };
-	renderPassInfo.renderArea.extent = m_VulkanSwapchain->GetSwapChainExtent(); //only fullscreen draw for now
+	renderPassInfo.renderArea.extent = extent;
 
 	auto renderTargetCount = m_StateManager->GetRenderTargetCount();
 	std::vector<VkClearValue> clearValues(renderTargetCount);
@@ -327,7 +412,7 @@ void Renderer::EndRenderPass()
 	m_StateManager->Reset();
 }
 
-void Renderer::BindGraphicsPipeline()
+void Renderer::BindGraphicsPipeline(bool isCopyToSwapChain)
 {
 
 	if (!m_StateManager->GetPipelineDirty())
@@ -337,16 +422,25 @@ void Renderer::BindGraphicsPipeline()
 	else
 	{
 		//TODO: take care of this really, optimize for most performance
+		auto pipelineInfo = m_StateManager->GetPipelineInfo();
+
 		auto& attachments = m_StateManager->GetRenderTargets();
 		auto depthStencil = m_StateManager->GetDepthStencil();
 		auto renderPassInfo = m_StateManager->GetRenderPassInfo();
 		VulkanRenderPass* renderpass = PipelineManager::instance().FindOrCreateRenderPass(m_VulkanDevice, attachments, depthStencil, *renderPassInfo);
 		m_StateManager->SetRenderPass(renderpass);
 
-		VulkanFramebuffer* framebuffer = PipelineManager::instance().FindOrCreateFramebuffer(m_VulkanDevice, attachments, depthStencil, renderpass, Window::instance().GetExtent().width, Window::instance().GetExtent().height);
+		VulkanFramebuffer* framebuffer;
+		if (isCopyToSwapChain)
+		{
+			framebuffer = PipelineManager::instance().FindOrCreateFramebuffer(m_VulkanDevice, attachments, depthStencil, renderpass, GetUpscaledWidth, GetUpscaledHeight);
+		}
+		else
+		{
+			framebuffer = PipelineManager::instance().FindOrCreateFramebuffer(m_VulkanDevice, attachments, depthStencil, renderpass, GetNativeWidth, GetNativeHeight);
+		}
 		m_StateManager->SetFramebuffer(framebuffer);
 
-		auto pipelineInfo = m_StateManager->GetPipelineInfo();
 		pipelineInfo->renderPass = m_StateManager->GetRenderPass();
 		auto pipeline = PipelineManager::instance().FindOrCreateGraphicsPipeline(m_VulkanDevice, *pipelineInfo);
 		m_StateManager->SetPipeline(pipeline);
@@ -365,9 +459,9 @@ void Renderer::BindComputePipeline()
 		m_StateManager->SetPipeline(computePipeline);
 
 		//TODO: need a better way, this is kinda reset for pipeline info because compute bind is happening in the middle of render pass independently
-		m_StateManager->SetComputeShader(nullptr);
-
 		computePipeline->Bind(GetCurrentCommandBuffer());
+
+		m_StateManager->SetComputeShader(nullptr);
 		m_StateManager->SetPipelineDirty(false);
 	}
 }
@@ -376,7 +470,7 @@ void Renderer::DrawGeometry(std::vector<RabbitModel*>& bucket)
 {
 	BindGraphicsPipeline();
 
-	BeginRenderPass();
+	BeginRenderPass({ GetNativeWidth, GetNativeHeight });
 
 	BindUBO();
 
@@ -409,6 +503,76 @@ void Renderer::DrawGeometry(std::vector<RabbitModel*>& bucket)
 	EndRenderPass();
 }
 
+
+void Renderer::DrawBoundingBoxes(std::vector<RabbitModel*>& bucket)
+{
+	BindGraphicsPipeline();
+
+	BindDescriptorSets();
+
+	BeginRenderPass({ GetNativeWidth, GetNativeHeight });
+
+	BindUBO();
+
+	for (auto model : bucket)
+	{
+		//TODO: implement this
+		std::vector<Vertex> vertex;
+
+		rabbitVec3f a = model->m_BoundingBox.bounds[0];
+		rabbitVec3f f = model->m_BoundingBox.bounds[1];
+
+		//TODO: what are you doin' boi
+		{
+			vertex.push_back(Vertex{ a });
+			vertex.push_back(Vertex{ {f.x, a.y, a.z} }); //b
+
+			vertex.push_back(Vertex{ {f.x, a.y, a.z} }); //b
+			vertex.push_back(Vertex{ {f.x, a.y, f.z} }); //c
+
+			vertex.push_back(Vertex{ {f.x, a.y, f.z} }); //c
+			vertex.push_back(Vertex{ {a.x, a.y, f.z} }); //d
+
+			vertex.push_back(Vertex{ {a.x, a.y, f.z} }); //d
+			vertex.push_back(Vertex{ a });
+
+			vertex.push_back(Vertex{ f });
+			vertex.push_back(Vertex{ {a.x, f.y, f.z} }); //e
+
+			vertex.push_back(Vertex{ {a.x, f.y, f.z} }); //e
+			vertex.push_back(Vertex{ {a.x, f.y, a.z} }); //h
+
+			vertex.push_back(Vertex{ {a.x, f.y, a.z} }); //h
+			vertex.push_back(Vertex{ {f.x, f.y, a.z} }); //g
+
+			vertex.push_back(Vertex{ {f.x, f.y, a.z} }); //g
+			vertex.push_back(Vertex{ f });
+
+			vertex.push_back(Vertex{ a });
+			vertex.push_back(Vertex{ {a.x, f.y, a.z} }); //h
+
+			vertex.push_back(Vertex{ {f.x, a.y, a.z} }); //b
+			vertex.push_back(Vertex{ {f.x, f.y, a.z} }); //g
+
+			vertex.push_back(Vertex{ {f.x, a.y, f.z} }); //c
+			vertex.push_back(Vertex{ f });
+
+			vertex.push_back(Vertex{ {a.x, a.y, f.z} }); //d
+			vertex.push_back(Vertex{ {a.x, f.y, f.z} }); //e
+		}
+		
+		m_VertexUploadBuffer->FillBuffer(vertex.data(), /*this offset is from skybox, TODO: automate this*/ sizeof(Vertex) * 36, vertex.size() * sizeof(Vertex));
+
+		BindVertexData(sizeof(Vertex) * 36);
+
+		BindModelMatrix(model);
+
+		vkCmdDraw(GetCurrentCommandBuffer(), 24, 1, 0, 0);
+	}
+
+	EndRenderPass();
+}
+
 void Renderer::BeginCommandBuffer()
 {
 	VkCommandBufferBeginInfo beginInfo{};
@@ -424,7 +588,10 @@ void Renderer::EndCommandBuffer()
 
 void Renderer::FillTheLightParam(LightParams& lightParam, rabbitVec4f position, rabbitVec3f color, float radius)
 {
-	lightParam.position = position;
+	lightParam.position[0] = position.x;
+	lightParam.position[1] = position.y;
+	lightParam.position[2] = position.z;
+	lightParam.position[3] = position.w;
 	lightParam.color[0] = color.x;
 	lightParam.color[1] = color.y;
 	lightParam.color[2] = color.z;
@@ -456,7 +623,7 @@ void Renderer::DrawFullScreenQuad()
 
 	BindDescriptorSets();
 
-	BeginRenderPass();
+	BeginRenderPass({ GetNativeWidth, GetNativeHeight });
 
 	vkCmdDraw(GetCurrentCommandBuffer(), 3, 1, 0, 0);
 
@@ -471,7 +638,7 @@ void Renderer::UpdateEntityPickId()
 	auto x = inputComponent->mouse_current_x;
 	auto y = inputComponent->mouse_current_y;
 
-	if (!(x >= 0 && y >= 0 && x <= DEFAULT_WIDTH && y <= DEFAULT_HEIGHT))
+	if (!(x >= 0 && y >= 0 && x <= GetNativeWidth && y <= GetNativeHeight))
 	{
 		x = 0; //TODO: fix this. not a great solution but ok
 		y = 0;
@@ -487,7 +654,7 @@ void Renderer::UpdateEntityPickId()
 void Renderer::CopyToSwapChain()
 {
 
-	BindGraphicsPipeline();
+	BindGraphicsPipeline(true);
 
 #ifdef RABBITHOLE_USING_IMGUI
 	if (!m_ImguiInitialized)
@@ -499,7 +666,7 @@ void Renderer::CopyToSwapChain()
 
 	BindDescriptorSets();
 
-	BeginRenderPass();
+	BeginRenderPass({ GetUpscaledWidth, GetUpscaledHeight });
 
 	//COPY TO SWAPCHAIN
 	vkCmdDraw(GetCurrentCommandBuffer(), 3, 1, 0, 0);
@@ -544,19 +711,27 @@ void Renderer::ImageTransitionToPresent()
 	);
 }
 
+rabbitMat4f prevViewProjMatrix;
 void Renderer::BindCameraMatrices(Camera* camera)
-{
-	auto viewMatrix = camera->View();
+{	
+	m_StateManager->UpdateUBOElement(UBOElement::PrevViewProjMatrix, 4, &prevViewProjMatrix);
+
+	rabbitMat4f viewMatrix = camera->View();
 	m_StateManager->UpdateUBOElement(UBOElement::ViewMatrix, 4, &viewMatrix);
 
-	auto projMatrix = camera->Projection();
+	rabbitMat4f projMatrix = camera->Projection();
 	m_StateManager->UpdateUBOElement(UBOElement::ProjectionMatrix, 4, &projMatrix);
 
-	auto cameraPos = camera->GetPosition();
+	rabbitMat4f viewProjMatrix = projMatrix * viewMatrix;
+	m_StateManager->UpdateUBOElement(UBOElement::ViewProjMatrix, 4, &viewProjMatrix);
+
+	rabbitVec3f cameraPos = camera->GetPosition();
 	m_StateManager->UpdateUBOElement(UBOElement::CameraPosition, 1, &cameraPos);
 
 	rabbitMat4f viewProjInverse = glm::inverse(viewMatrix) * glm::inverse(projMatrix);
 	m_StateManager->UpdateUBOElement(UBOElement::ViewProjInverse, 4, &viewProjInverse);
+
+	prevViewProjMatrix = viewProjMatrix;
 }
 
 void Renderer::BindModelMatrix(RabbitModel* model)
@@ -568,6 +743,9 @@ void Renderer::BindModelMatrix(RabbitModel* model)
 	SimplePushConstantData push{};
 	push.modelMatrix = modelMatrix;
 	push.id = model->GetId();
+
+	push.useNormalMap = model->GetUseNormalMap();
+
 	BindPushConstant(push);
 }
 
@@ -575,7 +753,7 @@ void Renderer::BindUBO()
 {	
 	if (m_StateManager->GetUBODirty())
 	{ 
-		m_UniformBuffer->FillBuffer(m_StateManager->GetUBO(), sizeof(UniformBufferObject));
+		m_MainConstBuffer->FillBuffer(m_StateManager->GetUBO(), sizeof(UniformBufferObject));
 		
 		m_StateManager->SetUBODirty(false);
 	}
@@ -594,6 +772,7 @@ void Renderer::BindDescriptorSets()
 
 void Renderer::LoadAndCreateShaders()
 {
+	//TODO: implement real shader compiler and stuff
 	auto vertCode = ReadFile(GBUFFER_VERTEX_FILE_PATH);
 	auto fragCode = ReadFile(GBUFFER_FRAGMENT_FILE_PATH);
 
@@ -609,7 +788,15 @@ void Renderer::LoadAndCreateShaders()
 	auto fragCode6 = ReadFile(SSAO_FRAGMENT_FILE_PATH);
 	auto fragCode7 = ReadFile(SSAOBLUR_FRAGMENT_FILE_PATH);
 
-	auto compCode = ReadFile(COMPUTE_EXAMPLE);
+	auto fragCode8 = ReadFile(SIMPLE_GEOMETRY_FRAGMENT_PATH);
+	auto vertCode4 = ReadFile(SIMPLE_GEOMETRY_VERTEX_PATH);
+
+	auto compCode = ReadFile(RAY_TRACING_COMPUTE_FILE_PATH);
+	auto compCode2 = ReadFile(FSREASU_COMPUTE_FILE_PATH);
+	auto compCode3 = ReadFile(FSRRCAS_COMPUTE_FILE_PATH);
+
+	auto compCode4 = ReadFile(TAA_COMPUTE_FILE_PATH);
+	auto compCode5 = ReadFile(TAA_SHARPENER_COMPUTE_FILE_PATH);
 
 	CreateShaderModule(vertCode, ShaderType::Vertex, "VS_GBuffer", nullptr);
 	CreateShaderModule(fragCode, ShaderType::Fragment, "FS_GBuffer", nullptr);
@@ -622,7 +809,13 @@ void Renderer::LoadAndCreateShaders()
 	CreateShaderModule(fragCode6, ShaderType::Fragment, "FS_SSAO", nullptr);
 	CreateShaderModule(fragCode7, ShaderType::Fragment, "FS_SSAOBlur", nullptr);
 	CreateShaderModule(fragCode7, ShaderType::Fragment, "FS_SSAOBlur", nullptr);
-	CreateShaderModule(compCode, ShaderType::Compute, "CS_Example", nullptr);
+	CreateShaderModule(fragCode8, ShaderType::Fragment, "FS_SimpleGeometry", nullptr);
+	CreateShaderModule(vertCode4, ShaderType::Vertex, "VS_SimpleGeometry", nullptr);
+	CreateShaderModule(compCode, ShaderType::Compute, "CS_RayTracingShadows", nullptr);
+	CreateShaderModule(compCode2, ShaderType::Compute, "CS_FSR_EASU", nullptr);
+	CreateShaderModule(compCode3, ShaderType::Compute, "CS_FSR_RCAS", nullptr);
+	CreateShaderModule(compCode4, ShaderType::Compute, "CS_TAA", nullptr);
+	CreateShaderModule(compCode5, ShaderType::Compute, "CS_TAASharpener", nullptr);
 }
 
 void Renderer::CreateShaderModule(const std::vector<char>& code, ShaderType type, const char* name, const char* codeEntry)
@@ -653,12 +846,9 @@ void Renderer::createCommandBuffers()
 
 void Renderer::recreateSwapchain()
 {
-	auto extent = Window::instance().GetExtent();
-	while (extent.width == 0 || extent.height == 0)
-	{
-		extent = Window::instance().GetExtent();
-		glfwWaitEvents();
-	}
+	VkExtent2D extent{};
+	extent.width = GetUpscaledWidth;
+	extent.height = GetUpscaledHeight;
 
 	vkDeviceWaitIdle(m_VulkanDevice.GetGraphicDevice());
 	m_VulkanSwapchain = std::make_unique<VulkanSwapchain>(m_VulkanDevice, extent);
@@ -710,6 +900,28 @@ void Renderer::ResourceBarrier(VulkanTexture* texture, ResourceState oldLayout, 
 		sourceStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
 		destinationStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
 	}
+
+	else if (oldLayout == ResourceState::GenericRead && newLayout == ResourceState::TransferSrc) {
+		barrier.srcAccessMask = VK_ACCESS_SHADER_READ_BIT;
+		barrier.dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
+
+		sourceStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+		destinationStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
+	}
+	else if (oldLayout == ResourceState::TransferSrc && newLayout == ResourceState::GenericRead) {
+		barrier.srcAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
+		barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+
+		sourceStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
+		destinationStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+	}
+	else if (oldLayout == ResourceState::GenericRead && newLayout == ResourceState::TransferDst) {
+		barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+		barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+
+		sourceStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
+		destinationStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+	}
 	else if (oldLayout == ResourceState::None && newLayout == ResourceState::DepthStencilWrite)
 	{
 		barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
@@ -725,6 +937,14 @@ void Renderer::ResourceBarrier(VulkanTexture* texture, ResourceState oldLayout, 
 
 		sourceStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
 		destinationStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+	}
+	else if (oldLayout == ResourceState::TransferDst && newLayout == ResourceState::GeneralCompute)
+	{
+		barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+		barrier.dstAccessMask = VK_ACCESS_SHADER_WRITE_BIT;
+
+		sourceStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
+		destinationStage = VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT;
 	}
 	else if (oldLayout == ResourceState::None && newLayout == ResourceState::RenderTarget)
 	{
@@ -848,16 +1068,24 @@ void Renderer::RecordCommandBuffer(int imageIndex)
 		ImGui::NewFrame();
 
 		ImGui::Begin("Main debug frame");
+		ImGui::Checkbox("Draw Bounding Box", &m_DrawBoundingBox);
+		ImGui::Checkbox("Enable Entity picking", &m_RenderOutlinedEntity);
 		ImGui::End();
 
 		imguiReady = true;
 	}
+
 	GBufferPass gbuffer{};
+	BoundingBoxPass bbPass{};
 	SSAOPass ssao{};
 	SSAOBlurPass ssaoBlur{};
+	RTShadowsPass RTShadows{};
 	LightingPass lighting{};
 	SkyboxPass skybox{};
 	OutlineEntityPass outlineEntity{};
+	TAAPass taa{};
+	TAASharpenerPass taaSharpener{};
+	FSRPass fsr{};
 	CopyToSwapchainPass copyToSwapchain{};
 
 	UpdateDebugOptions();
@@ -865,6 +1093,7 @@ void Renderer::RecordCommandBuffer(int imageIndex)
 	ExecuteRenderPass(gbuffer);
 	ExecuteRenderPass(ssao);
 	ExecuteRenderPass(ssaoBlur);
+	ExecuteRenderPass(RTShadows);
 	ExecuteRenderPass(skybox);
 	ExecuteRenderPass(lighting);
 
@@ -872,6 +1101,14 @@ void Renderer::RecordCommandBuffer(int imageIndex)
 	{
 		ExecuteRenderPass(outlineEntity);
 	}
+	if (m_DrawBoundingBox)
+	{ 
+		ExecuteRenderPass(bbPass);
+	}
+
+	ExecuteRenderPass(taa);
+	ExecuteRenderPass(taaSharpener);
+	ExecuteRenderPass(fsr);
 
 	ExecuteRenderPass(copyToSwapchain);
 
@@ -881,32 +1118,44 @@ void Renderer::RecordCommandBuffer(int imageIndex)
 
 void Renderer::CreateUniformBuffers()
 {
-	m_UniformBuffer = new VulkanBuffer(&m_VulkanDevice, BufferUsageFlags::UniformBuffer, MemoryAccess::CPU, (uint64_t)sizeof(UniformBufferObject) + 32/*just to be sure :D*/);
+	m_MainConstBuffer = new VulkanBuffer(&m_VulkanDevice, BufferUsageFlags::UniformBuffer, MemoryAccess::CPU, (uint64_t)sizeof(UniformBufferObject));
 	m_LightParams = new VulkanBuffer(&m_VulkanDevice, BufferUsageFlags::UniformBuffer, MemoryAccess::CPU, (uint64_t)sizeof(LightParams) * MAX_NUM_OF_LIGHTS);
 
-	m_VertexUploadBuffer = new VulkanBuffer(&m_VulkanDevice, BufferUsageFlags::VertexBuffer, MemoryAccess::CPU, 67108864); //64 mb fixed
+	m_VertexUploadBuffer = new VulkanBuffer(&m_VulkanDevice, BufferUsageFlags::VertexBuffer, MemoryAccess::CPU, MB_16); //64 mb fixed
 }
 
 void Renderer::CreateDescriptorPool()
 {
 	//TODO: see what to do with this, now its hard coded number of descriptors
 	VulkanDescriptorPoolSize uboPoolSize{};
-	uboPoolSize.Count = 200;
+	uboPoolSize.Count = 30;
 	uboPoolSize.Type = DescriptorType::UniformBuffer;
 
+	VulkanDescriptorPoolSize samImgPoolSize{};
+	samImgPoolSize.Count = 30;
+	samImgPoolSize.Type = DescriptorType::SampledImage;
+
+	VulkanDescriptorPoolSize sPoolSize{};
+	sPoolSize.Count = 30;
+	sPoolSize.Type = DescriptorType::Sampler;
+
 	VulkanDescriptorPoolSize cisPoolSize{};
-	cisPoolSize.Count = 200;
+	cisPoolSize.Count = 30;
 	cisPoolSize.Type = DescriptorType::CombinedSampler;
 
 	VulkanDescriptorPoolSize siPoolSize{};
-	cisPoolSize.Count = 200;
-	cisPoolSize.Type = DescriptorType::StorageImage;
+	siPoolSize.Count = 30;
+	siPoolSize.Type = DescriptorType::StorageImage;
+
+	VulkanDescriptorPoolSize sbPoolSize{};
+	sbPoolSize.Count = 30;
+	sbPoolSize.Type = DescriptorType::StorageBuffer;
 
 	VulkanDescriptorPoolInfo vulkanDescriptorPoolInfo{};
 
-	vulkanDescriptorPoolInfo.DescriptorSizes = { uboPoolSize, cisPoolSize, siPoolSize };
+	vulkanDescriptorPoolInfo.DescriptorSizes = { uboPoolSize, cisPoolSize, siPoolSize, sbPoolSize, samImgPoolSize, sPoolSize };
 
-	vulkanDescriptorPoolInfo.MaxSets = 200; //static_cast<uint32_t>(m_VulkanSwapchain->GetImageCount() * 2);
+	vulkanDescriptorPoolInfo.MaxSets = 200;
 
 	m_DescriptorPool = std::make_unique<VulkanDescriptorPool>(&m_VulkanDevice, vulkanDescriptorPoolInfo);
 }
@@ -920,8 +1169,8 @@ void Renderer::InitSSAO()
 {
 	SSAOParamsBuffer = new VulkanBuffer(&m_VulkanDevice, BufferUsageFlags::UniformBuffer, MemoryAccess::CPU, (uint64_t)sizeof(SSAOParams));
 
-	SSAOTexture = new VulkanTexture(&m_VulkanDevice, DEFAULT_WIDTH, DEFAULT_HEIGHT, TextureFlags::RenderTarget | TextureFlags::Read, Format::R32_SFLOAT, "SSAO");
-	SSAOBluredTexture = new VulkanTexture(&m_VulkanDevice, DEFAULT_WIDTH, DEFAULT_HEIGHT, TextureFlags::RenderTarget | TextureFlags::Read, Format::R32_SFLOAT, "SSAO");
+	SSAOTexture = new VulkanTexture(&m_VulkanDevice, GetNativeWidth, GetNativeHeight, TextureFlags::RenderTarget | TextureFlags::Read, Format::R32_SFLOAT, "SSAO");
+	SSAOBluredTexture = new VulkanTexture(&m_VulkanDevice, GetNativeWidth, GetNativeHeight, TextureFlags::RenderTarget | TextureFlags::Read, Format::R32_SFLOAT, "SSAO");
 
 	std::uniform_real_distribution<float> randomFloats(0.0, 1.0); // generates random floats between 0.0 and 1.0
 	std::default_random_engine generator;
@@ -963,9 +1212,10 @@ void Renderer::InitSSAO()
 	//init ssao params
 	ssaoParams.radius = 0.5f;
 	ssaoParams.bias = 0.025f;
-	ssaoParams.resWidth = Window::instance().GetExtent().width;
-	ssaoParams.resHeight = Window::instance().GetExtent().height;
+	ssaoParams.resWidth = GetNativeWidth;
+	ssaoParams.resHeight = GetNativeHeight;
 	ssaoParams.kernelSize = 48;
+	ssaoParams.ssaoOn = false;
 }
 
 void Renderer::InitLights()
@@ -973,12 +1223,72 @@ void Renderer::InitLights()
 	FillTheLightParam(lightParams[0], { 7.0f, 1.0f, 7.0f, 0.0f }, { 0.f, 0.f, 1.f }, 5.f);
 	FillTheLightParam(lightParams[1], { -7.0f, 1.0f, 7.0f, 0.0f }, { 1.f, 0.f, 0.f }, 5.f);
 	FillTheLightParam(lightParams[2], { -10.0f, 2.0f, -10.0f, 0.0f }, { 1.f, 0.6f, 0.2f }, 10.f);
-	FillTheLightParam(lightParams[3], { 0.0f, 25.0f, 0.0f, 0.0f }, { 1.f, 1.0f, 1.0f }, 30.f);
+	FillTheLightParam(lightParams[3], { -14.f, 3.f, 13.f, 0.0f }, { 1.f, 1.0f, 1.0f }, 30.f);
+}
+
+void Renderer::InitMeshDataForCompute()
+{
+	std::vector<Triangle> triangles;
+	std::vector<rabbitVec4f> verticesFinal;
+
+	uint32_t offset = 0;
+	for (int i = 1; i < rabbitmodels.size(); i++)
+	{
+		auto& model = rabbitmodels[i];
+		auto vertices = model->GetVertices();
+		auto indices = model->GetIndices();
+
+		auto modelMesh = model->GetMesh();
+		modelMesh.CalculateMatrix();	//Update model matrix
+		auto modelMatrix = modelMesh.modelMatrix;
+
+		for (int k = 0; k < vertices.size(); k++)
+		{
+			rabbitVec4f position = modelMatrix * rabbitVec4f{ vertices[k].position, 1 };
+			verticesFinal.push_back(position);
+		}
+
+		//will not work for multiple objects, need to calculate offset of vertex buffer all vertices + current index
+		for (int j = 0; j < indices.size(); j+=3)
+		{
+			Triangle tri;
+			tri.indices[0] = offset + indices[j];
+			tri.indices[1] = offset + indices[j+1];
+			tri.indices[2] = offset + indices[j+2];
+
+			triangles.push_back(tri);
+		}
+
+		offset += vertices.size();
+	}
+
+	auto node = CreateBVH(verticesFinal, triangles);
+	
+	uint32_t* triIndices;
+	uint32_t indicesNum = 0;
+
+	CacheFriendlyBVHNode* root;
+	uint32_t nodeNum = 0;
+
+	CreateCFBVH(triangles.data(), node, &triIndices, &indicesNum, &root, &nodeNum);
+
+	vertexBuffer = new VulkanBuffer(&m_VulkanDevice, BufferUsageFlags::StorageBuffer, MemoryAccess::GPU, verticesFinal.size() * sizeof(rabbitVec4f));
+	trianglesBuffer = new VulkanBuffer(&m_VulkanDevice, BufferUsageFlags::StorageBuffer, MemoryAccess::GPU, triangles.size() * sizeof(Triangle));
+	triangleIndxsBuffer = new VulkanBuffer(&m_VulkanDevice, BufferUsageFlags::StorageBuffer, MemoryAccess::GPU, indicesNum * sizeof(uint32_t));
+	cfbvhNodesBuffer = new VulkanBuffer(&m_VulkanDevice, BufferUsageFlags::StorageBuffer, MemoryAccess::GPU, nodeNum * sizeof(CacheFriendlyBVHNode));
+	
+	vertexBuffer->FillBuffer(verticesFinal.data(), verticesFinal.size() * sizeof(rabbitVec4f));
+	trianglesBuffer->FillBuffer(triangles.data(), triangles.size() * sizeof(Triangle));
+	triangleIndxsBuffer->FillBuffer(triIndices, indicesNum * sizeof(uint32_t));
+	cfbvhNodesBuffer->FillBuffer(root, nodeNum * sizeof(CacheFriendlyBVHNode));
+
+	//meshDataSSBO->FillBuffer(meshdata.data(), meshdata.size() * sizeof(rabbitVec4f));
+	//meshOffsetsSSBO->FillBuffer(offsets.data(), offsets.size() * sizeof(int));
+
 }
 
 void Renderer::BindViewport(float x, float y, float width, float height)
 {
-#ifdef DYNAMIC_SCISSOR_AND_VIEWPORT_STATES
 	VkViewport viewport;
 	viewport.x = x;
 	viewport.y = y;
@@ -993,15 +1303,12 @@ void Renderer::BindViewport(float x, float y, float width, float height)
 
 	vkCmdSetViewport(GetCurrentCommandBuffer(), 0, 1, &viewport);
 	vkCmdSetScissor(GetCurrentCommandBuffer(), 0, 1, &scissor);
-#else
-	m_StateManager->SetViewport(x, y, width, height);
-#endif
 }
 
-void Renderer::BindVertexData()
+void Renderer::BindVertexData(size_t offset)
 {
 	VkBuffer buffers[] = { m_VertexUploadBuffer->GetBuffer() };
-	VkDeviceSize offsets[] = { 0 };
+	VkDeviceSize offsets[] = { (VkDeviceSize)offset };
 	vkCmdBindVertexBuffers(GetCurrentCommandBuffer(), 0, 1, buffers, offsets);
 }
 
@@ -1011,7 +1318,7 @@ void Renderer::DrawVertices(uint64_t count)
 
 	BindDescriptorSets();
 
-	BeginRenderPass();
+	BeginRenderPass({ GetNativeWidth, GetNativeHeight });
 
 	vkCmdDraw(GetCurrentCommandBuffer(), count, 1, 0, 0);
 
@@ -1055,4 +1362,27 @@ void Renderer::CopyImageToBuffer(VulkanTexture* texture, VulkanBuffer* buffer)
 
 	vkCmdCopyImageToBuffer(commandBuffer, texture->GetResource()->GetImage(), VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, buffer->GetBuffer(), 1, &region);
 	m_VulkanDevice.EndSingleTimeCommands(commandBuffer);
+}
+
+void Renderer::CopyImage(VulkanTexture* src, VulkanTexture* dst)
+{
+	VkCommandBuffer commandBuffer = GetCurrentCommandBuffer();
+
+	VkImageCopy imageCopyRegion{};
+	imageCopyRegion.srcSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+	imageCopyRegion.srcSubresource.layerCount = 1;
+	imageCopyRegion.dstSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+	imageCopyRegion.dstSubresource.layerCount = 1;
+	imageCopyRegion.extent.width = src->GetWidth();
+	imageCopyRegion.extent.height = src->GetHeight();
+	imageCopyRegion.extent.depth = 1;
+
+	vkCmdCopyImage(
+		commandBuffer, 
+		src->GetResource()->GetImage(), 
+		VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, 
+		dst->GetResource()->GetImage(), 
+		VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 
+		1, 
+		&imageCopyRegion);
 }

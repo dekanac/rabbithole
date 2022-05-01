@@ -1,6 +1,7 @@
 #include "precomp.h"
 
 #include "Render/Renderer.h"
+#include "../SuperResolutionManager.h"
 
 #define DEFAULT_UBO_ELEMENT_SIZE (uint32_t)16
 
@@ -11,8 +12,7 @@ VulkanStateManager::VulkanStateManager()
 	m_Framebuffer = nullptr;
 	m_PipelineConfig = new PipelineConfigInfo();
     m_RenderPassConfig = new RenderPassConfigInfo();
-    //dont need this line because the values are already set in constructor
-	//VulkanPipeline::DefaultPipelineConfigInfo(m_PipelineConfig, DEFAULT_WIDTH, DEFAULT_HEIGHT);
+
     VulkanRenderPass::DefaultRenderPassInfo(m_RenderPassConfig);
 
 	m_DirtyPipeline = false; 
@@ -52,16 +52,6 @@ void VulkanStateManager::SetWindingOrder(const WindingOrder wo)
     m_DirtyPipeline = true;
 }
 
-void VulkanStateManager::SetViewport(float x, float y, float width, float height)
-{
-	m_PipelineConfig->viewport.x = x;
-	m_PipelineConfig->viewport.y = y;
-	m_PipelineConfig->viewport.width = width;
-	m_PipelineConfig->viewport.height = height;
-
-    m_DirtyPipeline = true;
-}
-
 void VulkanStateManager::UpdateUBOElement(UBOElement element, uint32_t count, void* data)
 {
 	uint32_t sizeOfElement = DEFAULT_UBO_ELEMENT_SIZE * count;
@@ -89,6 +79,11 @@ std::vector<VulkanImageView*>& VulkanStateManager::GetRenderTargets()
                 if (m_RenderTarget3 != nullptr)
                 {
                     m_RenderTargets[3] = m_RenderTarget3;
+
+					if (m_RenderTarget4 != nullptr)
+					{
+						m_RenderTargets[4] = m_RenderTarget4;
+					}
                 }
             }
         }
@@ -121,6 +116,12 @@ void VulkanStateManager::SetRenderTarget3(VulkanImageView* rt)
     m_DirtyPipeline = true;
 }
 
+void VulkanStateManager::SetRenderTarget4(VulkanImageView* rt)
+{
+	m_RenderTarget4 = rt;
+	m_DirtyPipeline = true;
+}
+
 void VulkanStateManager::SetDepthStencil(VulkanImageView* ds)
 {
     m_DepthStencil = ds;
@@ -140,10 +141,10 @@ void VulkanStateManager::ShouldCleanDepth(bool clean)
     m_DirtyPipeline = true;
 }
 
+// for now descriptor key is vector of uint32_t with following layout:
+// (slot, bufferId/imageviewId, type)
 void VulkanStateManager::SetCombinedImageSampler(uint32_t slot, VulkanTexture* texture)
 {
-	//for now descriptor key is vector of uint32_t with following layout:
-	// (slot, bufferId/imageviewId/type)
 	DescriptorKey k(3);
 	k[0] = slot;
 	k[1] = texture->GetView()->GetID();
@@ -158,7 +159,6 @@ void VulkanStateManager::SetCombinedImageSampler(uint32_t slot, VulkanTexture* t
     }
     else
     {
-		//TODO: dual implementation, get rid of one
 		VulkanDescriptorInfo info{};
 		info.Binding = slot;
 
@@ -178,8 +178,6 @@ void VulkanStateManager::SetCombinedImageSampler(uint32_t slot, VulkanTexture* t
 
 void VulkanStateManager::SetConstantBuffer(uint32_t slot, VulkanBuffer* buffer, uint64_t offset, uint64_t range)
 {
-	//for now descriptor key is vector of uint32_t with following layout:
-    // (slot, bufferId/imageviewId/type)
 	DescriptorKey k(3);
 	k[0] = slot;
 	k[1] = buffer->GetID();
@@ -210,8 +208,6 @@ void VulkanStateManager::SetConstantBuffer(uint32_t slot, VulkanBuffer* buffer, 
 
 void VulkanStateManager::SetStorageImage(uint32_t slot, VulkanTexture* texture)
 {
-	//for now descriptor key is vector of uint32_t with following layout:
-	// (slot, bufferId/imageviewId/type)
 	DescriptorKey k(3);
 	k[0] = slot;
 	k[1] = texture->GetView()->GetID();
@@ -240,6 +236,101 @@ void VulkanStateManager::SetStorageImage(uint32_t slot, VulkanTexture* texture)
 	}
 }
 
+void VulkanStateManager::SetStorageBuffer(uint32_t slot, VulkanBuffer* buffer, uint64_t offset, uint64_t range)
+{
+	DescriptorKey k(3);
+	k[0] = slot;
+	k[1] = buffer->GetID();
+	k[2] = (uint32_t)DescriptorType::StorageBuffer;
+
+
+	auto& descriptorsMap = PipelineManager::instance().m_Descriptors;
+	auto descriptor = descriptorsMap.find(k);
+
+	if (descriptor != descriptorsMap.end())
+	{
+		m_Descriptors.push_back(descriptor->second);
+	}
+	else
+	{
+		VulkanDescriptorInfo info{};
+		info.Binding = slot;
+		info.buffer = buffer;
+		info.Type = DescriptorType::StorageBuffer;
+
+		VulkanDescriptor* descriptor = new VulkanDescriptor(info);
+
+		descriptorsMap[k] = descriptor;
+
+		m_Descriptors.push_back(descriptor);
+	}
+}
+
+void VulkanStateManager::SetSampledImage(uint32_t slot, VulkanTexture* texture)
+{
+	DescriptorKey k(3);
+	k[0] = slot;
+	k[1] = texture->GetView()->GetID();
+	k[2] = (uint32_t)DescriptorType::SampledImage;
+
+	auto& descriptorsMap = PipelineManager::instance().m_Descriptors;
+	auto descriptor = descriptorsMap.find(k);
+
+	if (descriptor != descriptorsMap.end())
+	{
+		m_Descriptors.push_back(descriptor->second);
+	}
+	else
+	{
+		VulkanDescriptorInfo info{};
+		info.Binding = slot;
+
+		info.imageView= texture->GetView();
+		info.Type = DescriptorType::SampledImage;
+
+		VulkanDescriptor* descriptor = new VulkanDescriptor(info);
+
+		descriptorsMap[k] = descriptor;
+
+		m_Descriptors.push_back(descriptor);
+	}
+}
+
+void VulkanStateManager::SetSampler(uint32_t slot, VulkanTexture* texture)
+{
+	SetSampler(slot, texture->GetSampler());
+}
+
+void VulkanStateManager::SetSampler(uint32_t slot, VulkanImageSampler* sampler)
+{
+	DescriptorKey k(3);
+	k[0] = slot;
+	k[1] = sampler->GetID();
+	k[2] = (uint32_t)DescriptorType::Sampler;
+
+	auto& descriptorsMap = PipelineManager::instance().m_Descriptors;
+	auto descriptor = descriptorsMap.find(k);
+
+	if (descriptor != descriptorsMap.end())
+	{
+		m_Descriptors.push_back(descriptor->second);
+	}
+	else
+	{
+		VulkanDescriptorInfo info{};
+		info.Binding = slot;
+
+		info.imageSampler = sampler;
+		info.Type = DescriptorType::Sampler;
+
+		VulkanDescriptor* descriptor = new VulkanDescriptor(info);
+
+		descriptorsMap[k] = descriptor;
+
+		m_Descriptors.push_back(descriptor);
+	}
+}
+
 VulkanDescriptorSet* VulkanStateManager::FinalizeDescriptorSet(VulkanDevice& device, const VulkanDescriptorPool* pool)
 {
     VulkanDescriptorSet* descriptorset = PipelineManager::instance().FindOrCreateDescriptorSet(device, pool, m_Pipeline->GetDescriptorSetLayout(), m_Descriptors);
@@ -250,7 +341,7 @@ VulkanDescriptorSet* VulkanStateManager::FinalizeDescriptorSet(VulkanDevice& dev
 uint8_t VulkanStateManager::GetRenderTargetCount()
 {
     //man, this line makes me proud :'D
-    return m_RenderTarget0 ? (m_RenderTarget1 ? (m_RenderTarget2 ? (m_RenderTarget3 ? 4 : 3) : 2) : 1) : 0;
+    return m_RenderTarget0 ? (m_RenderTarget1 ? (m_RenderTarget2 ? (m_RenderTarget3 ? ( m_RenderTarget4 ? 5 : 4) : 3) : 2) : 1) : 0;
 }
 
 void VulkanStateManager::Reset()
@@ -259,10 +350,11 @@ void VulkanStateManager::Reset()
     m_RenderTarget1 = nullptr;
 	m_RenderTarget2 = nullptr;
 	m_RenderTarget3 = nullptr;
+	m_RenderTarget4 = nullptr;
 
     m_DepthStencil = nullptr;
 
-    VulkanPipeline::DefaultPipelineConfigInfo(m_PipelineConfig, Window::instance().GetExtent().width, Window::instance().GetExtent().height);
+    VulkanPipeline::DefaultPipelineConfigInfo(m_PipelineConfig, GetNativeWidth, GetNativeHeight);
     VulkanRenderPass::DefaultRenderPassInfo(m_RenderPassConfig);
 }
 

@@ -9,12 +9,13 @@
 #include <set>
 #include <stdexcept>
 
+#include "../SuperResolutionManager.h"
+
 VulkanSwapchain::VulkanSwapchain(VulkanDevice& deviceRef, VkExtent2D extent)
 	: m_VulkanDevice{ deviceRef }, m_WindowExtent{ extent } 
 {
 	CreateSwapChain();
 	CreateImageViews();
-	CreateDepthResources();
 	CreateRenderPass();
 	CreateFramebuffers();
 	CreateSyncObjects();
@@ -30,7 +31,6 @@ VulkanSwapchain::~VulkanSwapchain()
 	}
 
 	delete(m_RenderPass);
-	delete(m_DepthStencil);
 	// cleanup synchronization objects
 	for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) 
 	{
@@ -220,13 +220,13 @@ void VulkanSwapchain::CreateRenderPass()
 	renderPassInfo.ClearStencil = true;
 	renderPassInfo.InitialRenderTargetState = ResourceState::None;
 	renderPassInfo.FinalRenderTargetState = ResourceState::Present;
-    renderPassInfo.InitialDepthStencilState = ResourceState::DepthStencilWrite;
-    renderPassInfo.FinalDepthStencilState = ResourceState::DepthStencilWrite;
+    renderPassInfo.InitialDepthStencilState = ResourceState::None;
+    renderPassInfo.FinalDepthStencilState = ResourceState::None;
 
 	std::vector<VulkanImageView*> renderTargetViews;
 	renderTargetViews.push_back(m_SwapChainVulkanImageViews[0]);
 
-	m_RenderPass = new VulkanRenderPass(&m_VulkanDevice, renderTargetViews, m_DepthStencil->GetView(), renderPassInfo, "swapchain");
+	m_RenderPass = new VulkanRenderPass(&m_VulkanDevice, renderTargetViews, nullptr, renderPassInfo, "swapchain");
 	m_VulkanDevice.AddRenderPassToCollection(m_RenderPass, "swapchain");
 	
 }
@@ -240,13 +240,8 @@ void VulkanSwapchain::CreateFramebuffers()
 		framebufferInfo.height = GetSwapChainExtent().height;
 		framebufferInfo.width = GetSwapChainExtent().width;
 			
-		m_SwapChainFramebuffers[i] = new VulkanFramebuffer(&m_VulkanDevice, framebufferInfo, m_RenderPass, { m_SwapChainVulkanImageViews[i] }, m_DepthStencil->GetView());
+		m_SwapChainFramebuffers[i] = new VulkanFramebuffer(&m_VulkanDevice, framebufferInfo, m_RenderPass, { m_SwapChainVulkanImageViews[i] }, nullptr);
 	}
-}
-
-void VulkanSwapchain::CreateDepthResources() 
-{
-	m_DepthStencil = new VulkanTexture(&m_VulkanDevice, m_SwapChainExtent.width, m_SwapChainExtent.height, TextureFlags::DepthStencil | TextureFlags::Read, Format::D32_SFLOAT, "swapchain depthstencil");
 }
 
 void VulkanSwapchain::CreateSyncObjects() 

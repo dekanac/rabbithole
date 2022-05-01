@@ -1,9 +1,6 @@
 #version 450
 
-#define LAYOUT_IN_VEC3(x) layout(location = x) in vec3
-#define LAYOUT_IN_VEC2(x) layout(location = x) in vec2
-#define LAYOUT_OUT_VEC3(x) layout(location = x) out vec3
-#define LAYOUT_OUT_VEC2(x) layout(location = x) out vec2
+#include "common.h"
 
 LAYOUT_IN_VEC3(0) position;
 LAYOUT_IN_VEC3(1) normal;
@@ -12,7 +9,8 @@ LAYOUT_IN_VEC2(3) uv;
 
 layout(location = 0) out vec3 FragTexCoords;
 
-layout(binding = 0) uniform UniformBufferObject {
+layout(binding = 0) uniform UniformBufferObject 
+{
     mat4 view;
     mat4 proj;
 	vec3 cameraPosition;

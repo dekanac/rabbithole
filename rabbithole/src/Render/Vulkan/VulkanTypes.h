@@ -251,6 +251,9 @@ enum class DescriptorType : uint8_t
 	CombinedSampler,
 	UniformBuffer,
 	StorageImage,
+	StorageBuffer,
+	SampledImage,
+	Sampler,
 
 	Count
 };

@@ -1,6 +1,6 @@
 #version 450
 
-#define lightCount 4
+#include "common.h"
 
 layout (location = 0) in vec2 inUV;
 
@@ -8,10 +8,13 @@ layout (binding = 0) uniform sampler2D samplerAlbedo;
 layout (binding = 1) uniform sampler2D samplerNormal;
 layout (binding = 2) uniform sampler2D samplerposition;
 layout (binding = 5) uniform sampler2D samplerSSAO;
+layout (binding = 6) uniform sampler2D shadowMap;
+layout (binding = 7) uniform sampler2D samplerVelocity;
 
 layout (location = 0) out vec4 outColor;
 
-layout(binding = 3) uniform UniformBufferObject {
+layout(binding = 3) uniform UniformBufferObject 
+{
     mat4 view;
     mat4 proj;
 	vec3 cameraPosition;
@@ -19,14 +22,8 @@ layout(binding = 3) uniform UniformBufferObject {
     mat4 viewProjInverse;
 } UBO;
 
-struct Light
+layout(binding = 4) uniform LightParams 
 {
-	vec4 position;
-	vec3 color;
-    float radius;
-};
-
-layout(binding = 4) uniform LightParams {
 	Light[lightCount] light;
 } Lights;
 
@@ -89,19 +86,21 @@ void main()
     vec4 normalRoughness = texture(samplerNormal, inUV);
 	vec4 positionMetallic = texture(samplerposition, inUV);
     vec3 albedo = pow(texture(samplerAlbedo, inUV).rgb, vec3(2.2));
+    vec2 velocity = texture(samplerVelocity, inUV).rg; 
      
-     //if Z value is equal to 1, then we're hitting the skybox, and we dont want to
-     if (positionMetallic.b == 1.f)
-     {
-     //just tonemap and gamma correct and return albedo (skybox)
-        vec3 color = albedo;
-        color = Uncharted2Tonemap(color * 4.5f);
-	    color = color * (1.0f / Uncharted2Tonemap(vec3(11.2f)));	
-        // gamma correct
-        //color = pow(color, vec3(1.0/1.6)); 
-        outColor = vec4(color, 1.0f);
-        return;
-     }
+    float shadows = texture(shadowMap, inUV).r;
+     //HAAAACK// if normal is equal to clear value then skip, it means that we hit the skybox
+     //if (normalRoughness == vec4(0.0, 0.0, 0.0, 1.0))
+     //{
+     ////just tonemap and gamma correct and return albedo (skybox)
+     //   vec3 color = albedo;
+     //   color = Uncharted2Tonemap(color * 4.5f);
+	 //   color = color * (1.0f / Uncharted2Tonemap(vec3(11.2f)));	
+     //   // gamma correct
+     //   //color = pow(color, vec3(1.0/1.6)); 
+     //   outColor = vec4(color, 1.0f);
+     //   return;
+     //}
      
     float ssao = texture(samplerSSAO, inUV).r;
 
@@ -158,7 +157,7 @@ void main()
     
     // ambient lighting (note that the next IBL tutorial will replace 
     // this ambient lighting with environment lighting).
-    vec3 ambient = vec3(0.03) * albedo * ssao;
+    vec3 ambient = vec3(0.03) * albedo * ssao * shadows;
 
     vec3 color = ambient + Lo;
 
@@ -180,7 +179,7 @@ void main()
 				outColor.rgb = N;
 				break;
 			case 3: 
-				outColor.rgb = albedo;
+				outColor.rgb = vec3(velocity, 0);
 				break;
 			case 4: 
 				outColor.rgb = color;

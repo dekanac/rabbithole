@@ -8,6 +8,8 @@
 #include "Shader.h"
 #include "../Renderer.h"
 
+#include "../SuperResolutionManager.h"
+
 VulkanPipeline::VulkanPipeline(VulkanDevice& device, PipelineConfigInfo& configInfo, PipelineType type)
 	: m_VulkanDevice{ device } 
 	, m_PipelineInfo(configInfo)
@@ -176,7 +178,6 @@ void VulkanPipeline::CreateGraphicsPipeline()
 	pipelineInfo.pColorBlendState = &m_PipelineInfo.colorBlendInfo;
 	pipelineInfo.pDepthStencilState = &m_PipelineInfo.depthStencilInfo;
 
-#ifdef DYNAMIC_SCISSOR_AND_VIEWPORT_STATES
 	VkDynamicState dynamicStates[2];
 	VkDynamicState viewportState = VK_DYNAMIC_STATE_VIEWPORT;
 	VkDynamicState scissorState = VK_DYNAMIC_STATE_SCISSOR;
@@ -189,9 +190,6 @@ void VulkanPipeline::CreateGraphicsPipeline()
 	dynamicStateInfo.pDynamicStates = &dynamicStates[0];
 
 	pipelineInfo.pDynamicState = &dynamicStateInfo;
-#else
-	pipelineInfo.pDynamicState = nullptr;
-#endif
 
 	pipelineInfo.layout = *(m_DescriptorSetLayout->GetPipelineLayout());
 	pipelineInfo.renderPass = m_RenderPass->GetVkRenderPass();
@@ -327,8 +325,8 @@ void PipelineConfigInfo::SetWindingOrder(const WindingOrder winding)
 
 	 viewport.x = 0.0f;
 	 viewport.y = 0.0f;
-	 viewport.width = static_cast<float>(Window::instance().GetExtent().width);
-	 viewport.height = static_cast<float>(Window::instance().GetExtent().height);
+	 viewport.width = static_cast<float>(GetNativeWidth);
+	 viewport.height = static_cast<float>(GetNativeHeight);
 	 viewport.minDepth = 0.0f;
 	 viewport.maxDepth = 1.0f;
 
@@ -385,7 +383,7 @@ void PipelineConfigInfo::SetWindingOrder(const WindingOrder winding)
 
 void PipelineConfigInfo::SetAttachmentCount(const uint32_t attachmentCount)
 {
-	ASSERT(attachmentCount < MaxRenderTargetCount, "mrtIndex must be lower then MaxRenderTargetCount");
+	ASSERT(attachmentCount <= MaxRenderTargetCount, "mrtIndex must be lower then MaxRenderTargetCount");
 
 	colorBlendInfo.attachmentCount = attachmentCount;
 }
@@ -594,11 +592,24 @@ VulkanDescriptorSet* PipelineManager::FindOrCreateDescriptorSet(VulkanDevice& de
 			key.push_back(descriptors[i]->GetDescriptorInfo().combinedImageSampler->ImageView->GetID());
 			key.push_back((uint32_t)descriptors[i]->GetDescriptorInfo().Type);
 			break;
+		case DescriptorType::SampledImage:
+			//only views now have unique ID so its a little bit hacky but who cares
+			key.push_back(descriptors[i]->GetDescriptorInfo().imageView->GetID());
+			key.push_back((uint32_t)descriptors[i]->GetDescriptorInfo().Type);
+			break;
+		case DescriptorType::Sampler:
+			//only views now have unique ID so its a little bit hacky but who cares
+			key.push_back(descriptors[i]->GetDescriptorInfo().imageSampler->GetID());
+			key.push_back((uint32_t)descriptors[i]->GetDescriptorInfo().Type);
+			break;
 		case DescriptorType::StorageImage:
 			key.push_back(descriptors[i]->GetDescriptorInfo().imageView->GetID());
 			key.push_back((uint32_t)descriptors[i]->GetDescriptorInfo().Type);
 			break;
-
+		case DescriptorType::StorageBuffer:
+			key.push_back(descriptors[i]->GetDescriptorInfo().buffer->GetID());
+			key.push_back((uint32_t)descriptors[i]->GetDescriptorInfo().Type);
+			break;
 		}
 	}
 

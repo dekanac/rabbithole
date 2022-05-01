@@ -31,6 +31,7 @@ struct SimplePushConstantData
 {
 	rabbitMat4f modelMatrix;
 	uint32_t	id;
+	bool		useNormalMap;
 };
 
 struct Vertex
@@ -47,6 +48,12 @@ struct Vertex
 	{
 		return position == other.position && normal == other.normal && tangent == other.tangent && uv == other.uv;
 	}
+};
+
+struct AABB
+{
+	rabbitVec3f bounds[2];
+	inline rabbitVec3f centroid() const { return (bounds[0] + bounds[1]) * 0.5f; }
 };
 
 template <>
@@ -88,8 +95,12 @@ public:
 
 	VulkanTexture*			GetAlbedoTexture()	const { return m_AlbedoTexture; }
 	VulkanTexture*			GetNormalTexture()	const { return m_NormalTexture; }
+	inline bool				GetUseNormalMap()   const { return m_UseNormalMap; }
 	VulkanTexture*			GetRoughnessTexture() const { return m_RoughnessTexture; }
 	VulkanTexture*			GetMetalnessTexture() const { return m_MetalnessTexture; }
+
+	const std::vector<Vertex>& GetVertices() const { return m_Vertices; }
+	const std::vector<uint32_t>& GetIndices() const { return m_Indices; }
 
 	VulkanDescriptorSet*	GetDescriptorSet() const { return m_DescriptorSet; }
 	void					SetDescriptorSet(VulkanDescriptorSet* ds) { m_DescriptorSet = ds; }
@@ -120,22 +131,28 @@ private:
 
 	VulkanTexture*			m_AlbedoTexture;
 	VulkanTexture*			m_NormalTexture;
+	bool					m_UseNormalMap = true;
 	VulkanTexture*			m_RoughnessTexture;
 	VulkanTexture*			m_MetalnessTexture;
 	VulkanDescriptorSet*	m_DescriptorSet;
 
 	Mesh					m_MeshData;
 public:
-	static VulkanTexture* ms_DefaultWhiteTexture;
-	static VulkanTexture* ms_DefaultBlackTexture;
+	AABB					m_BoundingBox{};
+	static VulkanTexture*	ms_DefaultWhiteTexture;
+	static VulkanTexture*	ms_DefaultBlackTexture;
 	static uint32_t			m_CurrentId;
 private:
 	std::string				m_FilePath{};
 	std::string				m_Name{};
 	uint32_t				m_Id;
+
+//BVH move to separate class
+private:
+	void CalculateAABB();
+
+
 };
-
-
 
 struct SceneNode 
 {
@@ -169,3 +186,84 @@ struct Scene
 	// Collection of debug material names
 	std::vector<std::string> materialNames;
 };
+
+struct Triangle
+{
+	int indices[3];
+};
+
+struct BVHNode 
+{
+	rabbitVec3f bottom;
+	rabbitVec3f top;
+	virtual bool IsLeaf() = 0;
+};
+
+struct BVHInner : BVHNode 
+{
+	BVHNode* left;
+	BVHNode* right;
+	virtual bool IsLeaf() { return false; }
+};
+
+struct BVHLeaf : BVHNode 
+{
+	std::list<const Triangle*> triangles;
+	virtual bool IsLeaf() { return true; }
+};
+
+struct BBoxTmp
+{
+	rabbitVec3f bottom;
+	rabbitVec3f top;
+	rabbitVec3f center;
+
+	const Triangle* pTri;
+
+	BBoxTmp()
+		:
+		bottom(FLT_MAX, FLT_MAX, FLT_MAX),
+		top(-FLT_MAX, -FLT_MAX, -FLT_MAX),
+		pTri(NULL)
+	{}
+};
+typedef std::vector<BBoxTmp> BBoxEntries;  // vector of triangle bounding boxes needed during BVH construction
+
+BVHNode* Recurse(BBoxEntries& work, int depth = 0);
+BVHNode* CreateBVH(std::vector<rabbitVec4f>& vertices, std::vector<Triangle>& triangles);
+
+struct CacheFriendlyBVHNode {
+	// bounding box
+	rabbitVec3f bottom;
+	uint32_t pad1;
+	rabbitVec3f top;
+	
+
+	// parameters for leafnodes and innernodes occupy same space (union) to save memory
+	// top bit discriminates between leafnode and innernode
+	// no pointers, but indices (int): faster
+
+	union {
+		// inner node - stores indexes to array of CacheFriendlyBVHNode
+		struct {
+			uint32_t idxLeft;
+			uint32_t idxRight;
+			uint32_t isLeaf;
+		} inner;
+		// leaf node: stores triangle count and starting index in triangle list
+		struct {
+			uint32_t count; // Top-most bit set, leafnode if set, innernode otherwise
+			uint32_t startIndexInTriIndexList;
+			uint32_t isLeaf;
+		} leaf;
+	} u;
+
+	uint32_t pad2[2];
+};
+
+// The ugly, cache-friendly form of the BVH: 32 bytes
+void CreateCFBVH(const Triangle* triangles, BVHNode* rootBVH, uint32_t** triIndexList, uint32_t* triIndexListNum, CacheFriendlyBVHNode** nodeList, uint32_t* nodeListNum);
+int CountBoxes(BVHNode* root);
+unsigned CountTriangles(BVHNode* root);
+void CountDepth(BVHNode* root, int depth, int& maxDepth);
+void PopulateCacheFriendlyBVH(const Triangle* pFirstTriangle, BVHNode* root, unsigned& idxBoxes, unsigned& idxTriList, uint32_t* triIndexList, CacheFriendlyBVHNode* nodeList);

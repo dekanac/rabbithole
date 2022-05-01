@@ -28,7 +28,6 @@ public:
 	VulkanFramebuffer*	  GetFrameBuffer(int index) const { return m_SwapChainFramebuffers[index]; }
 	VulkanRenderPass*	  GetRenderPass() const { return m_RenderPass; }
 	VulkanImageView*	  GetImageView(int index) const { return m_SwapChainVulkanImageViews[index]; }
-    VulkanTexture*        GetDepthStencil() const { return m_DepthStencil; }
 	size_t			const GetImageCount() const { return m_SwapChainVulkanImages.size(); }
 	Format				  GetSwapChainImageFormat() const { return m_SwapChainImageFormat; }
 	VkExtent2D		const GetSwapChainExtent() const { return m_SwapChainExtent; }
@@ -45,7 +44,6 @@ public:
 private:
 	void CreateSwapChain();
 	void CreateImageViews();
-	void CreateDepthResources();
 	void CreateRenderPass();
 	void CreateFramebuffers();
 	void CreateSyncObjects();
@@ -64,8 +62,6 @@ private:
 
 	std::vector<VulkanFramebuffer*>	m_SwapChainFramebuffers;
 	VulkanRenderPass*				m_RenderPass;
-
-	VulkanTexture*					m_DepthStencil;
 
 	std::vector<VulkanImage*>		m_SwapChainVulkanImages;
 	std::vector<VulkanImageView*>   m_SwapChainVulkanImageViews;

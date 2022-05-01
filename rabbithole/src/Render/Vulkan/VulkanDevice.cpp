@@ -869,6 +869,12 @@ VkDescriptorType GetVkDescriptorTypeFrom(const DescriptorType descriptorSetBindi
 		return VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
 	case DescriptorType::StorageImage:
 		return VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+	case DescriptorType::StorageBuffer:
+		return VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+	case DescriptorType::SampledImage:
+		return VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE;
+	case DescriptorType::Sampler:
+		return VK_DESCRIPTOR_TYPE_SAMPLER;
 	default:
 		ASSERT(false, "Not supported DescriptorSetBindingType.");
 		return VK_DESCRIPTOR_TYPE_MAX_ENUM;
@@ -907,6 +913,12 @@ VkDescriptorType GetVkDescriptorTypeFrom(const SpvReflectDescriptorType reflectD
 		return VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
 	case SPV_REFLECT_DESCRIPTOR_TYPE_STORAGE_IMAGE:
 		return VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+	case SPV_REFLECT_DESCRIPTOR_TYPE_STORAGE_BUFFER:
+		return VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+	case SPV_REFLECT_DESCRIPTOR_TYPE_SAMPLED_IMAGE:
+		return VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE;
+	case SPV_REFLECT_DESCRIPTOR_TYPE_SAMPLER:
+		return VK_DESCRIPTOR_TYPE_SAMPLER;
 	default:
 		ASSERT(false, "Not supported SpvReflectDescriptorBinding.");
 		return VK_DESCRIPTOR_TYPE_MAX_ENUM;
@@ -1450,7 +1462,7 @@ VkClearValue GetVkClearColorValueForFormat(const VkFormat format)
 	case VK_FORMAT_R8G8B8A8_UNORM:
 	case VK_FORMAT_R16G16B16A16_SFLOAT:
 	case VK_FORMAT_R32G32B32A32_SFLOAT:
-		return VkClearValue{ 0.5f, 0.9f, 1.f, 1.0f };
+		return VkClearValue{ 0.5, 0.5, 0.5, 1.0 };
 	case VK_FORMAT_R8_UNORM:
 	case VK_FORMAT_R32_SFLOAT:
 		return VkClearValue{ 0.1f };

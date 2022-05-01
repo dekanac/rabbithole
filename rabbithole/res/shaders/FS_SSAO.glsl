@@ -16,16 +16,19 @@ layout (binding = 1) uniform sampler2D in_Depth;
 layout (binding = 2) uniform sampler2D in_Normal;
 layout (binding = 3) uniform sampler2D in_Noise;
 
-layout(binding = 4) uniform Samples_ {
+layout(binding = 4) uniform Samples_ 
+{
     vec4 samples[64];
 } Samples;
 
-layout(binding = 5) uniform SSAOParams_ {
+layout(binding = 5) uniform SSAOParams_ 
+{
 	float radius;
 	float bias;
 	float resWidth;
 	float resHeight;
 	int kernelSize;
+	bool ssaoOn;
 } SSAOParams;
 
 // tile noise texture over screen based on screen dimensions divided by noise size
@@ -43,8 +46,14 @@ vec3 reconstructVSPosFromDepth(vec2 uv)
 
 void main()
 {
+	if (!SSAOParams.ssaoOn)
+	{
+		fragColour = 1.0f;
+		return;
+	}
+
     float depth = texture(in_Depth, ex_TexCoord).r;
-	
+
 	if (depth == 1.0f)
 	{
 		fragColour = 1.0f;

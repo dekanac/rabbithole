@@ -27,18 +27,15 @@ public:
 	void Update(float dt);
 
 	const rabbitVec3f& GetPosition() const;
-	const rabbitVec3f& getFront() const;
-	const rabbitVec3f& getUpVector() const;
-	void setPosition(const rabbitVec3f& position_);
-	void setFront(rabbitVec3f front_);
-	void setUpVector(rabbitVec3f upvec_);
+	const rabbitVec3f& GetFront() const;
+	const rabbitVec3f& GetUpVector() const;
 
-	float GetFieldOfView() const;
-	float GetNearPlane() const;
-	float GetfarPlane() const;
-	void setFieldOfView(float fieldOfView_);
-	void setNearAndFarPlanes(float nearPlane_, float farPlane_);
-	void setViewportAspectRatio(float vpaspect_);
+	float	GetFieldOfView() const;
+	float	GetNearPlane() const;
+	float	GetfarPlane() const;
+	void	SetFieldOfView(float fieldOfView);
+	void	SetNearAndFarPlanes(float nearPlane, float farPlane);
+	void	SetViewportAspectRatio(float vpaspect);
 
 	glm::quat GetOrientation() const;
 	glm::vec3 GetUpDirection() const;

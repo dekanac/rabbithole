@@ -21,6 +21,7 @@ struct VulkanDescriptorInfo
 	VulkanBuffer*			buffer; 
 	CombinedImageSampler*	combinedImageSampler;
 	VulkanImageView*		imageView;
+	VulkanImageSampler*		imageSampler;
 };
 
 struct DescriptorResourceInfo
