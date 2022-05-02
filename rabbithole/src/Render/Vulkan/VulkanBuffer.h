@@ -13,8 +13,8 @@ struct VulkanBufferInfo
 class VulkanBuffer : public AllocatedResource
 {
 public:
-	VulkanBuffer(VulkanDevice* device, const VulkanBufferInfo& info);
-	VulkanBuffer(VulkanDevice* device, BufferUsageFlags flags, MemoryAccess access, uint64_t size);
+	VulkanBuffer(VulkanDevice* device, const VulkanBufferInfo& info, const char* name);
+	VulkanBuffer(VulkanDevice* device, BufferUsageFlags flags, MemoryAccess access, uint64_t size, const char* name);
 	~VulkanBuffer();
 
 public:
@@ -40,5 +40,6 @@ private:
 	VmaAllocation			m_VmaAllocation;
 	void*					m_HostVisibleData = nullptr;
 
+	std::string				m_Name;
 	size_t					m_Size;
 };

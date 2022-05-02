@@ -73,7 +73,7 @@ public:
 	void				InitImguiForVulkan(ImGui_ImplVulkan_InitInfo& info);
 	
 	//debug utils
-	void SetObjectName(uint64_t object, VkDebugReportObjectTypeEXT objectType, const char* name);
+	void SetObjectName(uint64_t object, VkObjectType objectType, const char* name);
 	void BeginLabel(VkCommandBuffer commandBuffer, const char* name);
 	void EndLabel(VkCommandBuffer commandBuffer);
 

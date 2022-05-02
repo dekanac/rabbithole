@@ -81,7 +81,7 @@ void RabbitModel::CreateTextures(ModelLoading::MaterialData* material)
 
 	if (!material->diffuseMap->INVALID && !(material->diffuseMap == nullptr))
 	{														
-		m_AlbedoTexture = new VulkanTexture(&m_VulkanDevice, material->diffuseMap, TextureFlags::Color | TextureFlags::Read | TextureFlags::TransferDst, Format::R8G8B8A8_UNORM_SRGB, "albedo_tex");
+		m_AlbedoTexture = new VulkanTexture(&m_VulkanDevice, material->diffuseMap, TextureFlags::Color | TextureFlags::Read | TextureFlags::TransferDst, Format::R8G8B8A8_UNORM_SRGB, "Albedo");
 	}
 	else
 	{
@@ -90,7 +90,7 @@ void RabbitModel::CreateTextures(ModelLoading::MaterialData* material)
 
 	if (material->normalMap)
 	{												
-		m_NormalTexture = new VulkanTexture(&m_VulkanDevice, material->normalMap, TextureFlags::Color | TextureFlags::Read | TextureFlags::TransferDst, Format::R8G8B8A8_UNORM, "normal_tex");
+		m_NormalTexture = new VulkanTexture(&m_VulkanDevice, material->normalMap, TextureFlags::Color | TextureFlags::Read | TextureFlags::TransferDst, Format::R8G8B8A8_UNORM, "Normal");
 	}
 	else
 	{
@@ -100,7 +100,7 @@ void RabbitModel::CreateTextures(ModelLoading::MaterialData* material)
 
 	if (material->roughnessMap)
 	{													
-		m_RoughnessTexture = new VulkanTexture(&m_VulkanDevice, material->roughnessMap, TextureFlags::Color | TextureFlags::Read | TextureFlags::TransferDst, Format::R8G8B8A8_UNORM, "roughness_tex");
+		m_RoughnessTexture = new VulkanTexture(&m_VulkanDevice, material->roughnessMap, TextureFlags::Color | TextureFlags::Read | TextureFlags::TransferDst, Format::R8G8B8A8_UNORM, "Roughness");
 	}
 	else
 	{
@@ -110,7 +110,7 @@ void RabbitModel::CreateTextures(ModelLoading::MaterialData* material)
 	if (material->metallicMap)
 	{
 															
-		m_MetalnessTexture = new VulkanTexture(&m_VulkanDevice, material->metallicMap, TextureFlags::Color | TextureFlags::Read | TextureFlags::TransferDst, Format::R8G8B8A8_UNORM, "metalness_tex");
+		m_MetalnessTexture = new VulkanTexture(&m_VulkanDevice, material->metallicMap, TextureFlags::Color | TextureFlags::Read | TextureFlags::TransferDst, Format::R8G8B8A8_UNORM, "Metalness");
 	}
 	else
 	{
@@ -125,11 +125,11 @@ void RabbitModel::CreateVertexBuffers()
 
 	uint64_t bufferSize = sizeof(m_Vertices[0]) * m_VertexCount;
 
-	VulkanBuffer* stagingBuffer = new VulkanBuffer(&m_VulkanDevice, BufferUsageFlags::TransferSrc, MemoryAccess::CPU, bufferSize);
+	VulkanBuffer* stagingBuffer = new VulkanBuffer(&m_VulkanDevice, BufferUsageFlags::TransferSrc, MemoryAccess::CPU, bufferSize, "StagingBuffer");
 
 	stagingBuffer->FillBuffer(m_Vertices.data(), static_cast<size_t>(bufferSize));
 
-	m_VertexBuffer = new VulkanBuffer(&m_VulkanDevice, BufferUsageFlags::VertexBuffer, MemoryAccess::GPU, bufferSize);
+	m_VertexBuffer = new VulkanBuffer(&m_VulkanDevice, BufferUsageFlags::VertexBuffer, MemoryAccess::GPU, bufferSize, "VertexBuffer");
 
 	m_VulkanDevice.CopyBuffer(stagingBuffer->GetBuffer(), m_VertexBuffer->GetBuffer(), bufferSize);
 
@@ -148,11 +148,11 @@ void RabbitModel::CreateIndexBuffers()
 
 	VkDeviceSize bufferSize = sizeof(m_Indices[0]) * m_IndexCount;
 
-	VulkanBuffer* stagingBuffer = new VulkanBuffer(&m_VulkanDevice, BufferUsageFlags::TransferSrc, MemoryAccess::CPU, bufferSize);
+	VulkanBuffer* stagingBuffer = new VulkanBuffer(&m_VulkanDevice, BufferUsageFlags::TransferSrc, MemoryAccess::CPU, bufferSize, "StagingBuffer");
 
 	stagingBuffer->FillBuffer(m_Indices.data(), static_cast<size_t>(bufferSize));
 
-	m_IndexBuffer = new VulkanBuffer(&m_VulkanDevice, BufferUsageFlags::IndexBuffer, MemoryAccess::GPU, bufferSize);
+	m_IndexBuffer = new VulkanBuffer(&m_VulkanDevice, BufferUsageFlags::IndexBuffer, MemoryAccess::GPU, bufferSize, "IndexBuffer");
 
 	m_VulkanDevice.CopyBuffer(stagingBuffer->GetBuffer(), m_IndexBuffer->GetBuffer(), bufferSize);
 
@@ -256,8 +256,8 @@ std::vector<VkVertexInputAttributeDescription> Vertex::GetAttributeDescriptions(
 
 void InitDefaultTextures(VulkanDevice* device)
 {
-	RabbitModel::ms_DefaultWhiteTexture = new VulkanTexture(device, "res/textures/default_white.png", TextureFlags::Color | TextureFlags::Read | TextureFlags::TransferDst, Format::R8G8B8A8_UNORM_SRGB, "defaul_white");
-	RabbitModel::ms_DefaultBlackTexture = new VulkanTexture(device, "res/textures/default_black.png", TextureFlags::Color | TextureFlags::Read | TextureFlags::TransferDst, Format::R8G8B8A8_UNORM_SRGB, "defaul_black");
+	RabbitModel::ms_DefaultWhiteTexture = new VulkanTexture(device, "res/textures/default_white.png", TextureFlags::Color | TextureFlags::Read | TextureFlags::TransferDst, Format::R8G8B8A8_UNORM_SRGB, "Defaul_White");
+	RabbitModel::ms_DefaultBlackTexture = new VulkanTexture(device, "res/textures/default_black.png", TextureFlags::Color | TextureFlags::Read | TextureFlags::TransferDst, Format::R8G8B8A8_UNORM_SRGB, "Defaul_Black");
 }
 
 void Mesh::CalculateMatrix()

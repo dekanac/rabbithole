@@ -27,9 +27,9 @@ VulkanTexture::VulkanTexture(VulkanDevice* device, const uint32_t width, const u
 	CreateView(device);
 	CreateSampler(device);
 
-	//device->SetObjectName((uint64_t)(m_Resource->GetImage()), VK_DEBUG_REPORT_OBJECT_TYPE_IMAGE_EXT, name);
-	//device->SetObjectName((uint64_t)m_View->GetImageView(), VK_DEBUG_REPORT_OBJECT_TYPE_IMAGE_VIEW_EXT, name);
-	//device->SetObjectName((uint64_t)m_Sampler->GetSampler(), VK_DEBUG_REPORT_OBJECT_TYPE_SAMPLER_EXT, name);
+	device->SetObjectName((uint64_t)(m_Resource->GetImage()), VK_OBJECT_TYPE_IMAGE, name);
+	device->SetObjectName((uint64_t)m_View->GetImageView(), VK_OBJECT_TYPE_IMAGE_VIEW, name);
+	device->SetObjectName((uint64_t)m_Sampler->GetSampler(), VK_OBJECT_TYPE_SAMPLER, name);
 }
 
 VulkanTexture::VulkanTexture(VulkanDevice* device, TextureData* texData, TextureFlags flags, Format format, std::string name)
@@ -67,7 +67,7 @@ void VulkanTexture::CreateResource(VulkanDevice* device, TextureData* texData)
 	bufferInfo.usageFlags = BufferUsageFlags::StorageBuffer | BufferUsageFlags::TransferSrc;
 	bufferInfo.size = textureSize;
 
-	VulkanBuffer stagingBuffer(device, bufferInfo);
+	VulkanBuffer stagingBuffer(device, bufferInfo, "StagingBuffer");
 
 	void* data = stagingBuffer.Map();
 	memcpy(data, texData->pData, textureSize);

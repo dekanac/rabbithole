@@ -2,8 +2,9 @@
 
 #include "vk_mem_alloc.h"
 
-VulkanBuffer::VulkanBuffer(VulkanDevice* device, const VulkanBufferInfo& info)
-	: m_Device(device)
+VulkanBuffer::VulkanBuffer(VulkanDevice* device, const VulkanBufferInfo& info, const char* name)
+	: m_Name(name)
+	, m_Device(device)
 	, m_Info(info)
 {
 	if (info.memoryAccess == MemoryAccess::GPU)
@@ -12,10 +13,13 @@ VulkanBuffer::VulkanBuffer(VulkanDevice* device, const VulkanBufferInfo& info)
 		m_Info.usageFlags = m_Info.usageFlags | BufferUsageFlags::TransferDst;
 	}
 	CreateBufferResource();
+
+	device->SetObjectName((uint64_t)m_Buffer, VK_OBJECT_TYPE_BUFFER, name);
 }
 
-VulkanBuffer::VulkanBuffer(VulkanDevice* device, BufferUsageFlags flags, MemoryAccess access, uint64_t size)
-	: m_Device(device)
+VulkanBuffer::VulkanBuffer(VulkanDevice* device, BufferUsageFlags flags, MemoryAccess access, uint64_t size, const char* name)
+	: m_Name(name)
+	, m_Device(device)
 	, m_Size(size)
 {
 	if (access == MemoryAccess::GPU)
@@ -29,6 +33,8 @@ VulkanBuffer::VulkanBuffer(VulkanDevice* device, BufferUsageFlags flags, MemoryA
 	info.usageFlags = flags;
 	m_Info = info;
 	CreateBufferResource();
+
+	device->SetObjectName((uint64_t)m_Buffer, VK_OBJECT_TYPE_BUFFER, name);
 }
 
 
@@ -68,7 +74,7 @@ void VulkanBuffer::FillBuffer(void* inputData, size_t size)
 	}
 	else
 	{
-		VulkanBuffer stagingBuffer = VulkanBuffer(m_Device, BufferUsageFlags::TransferSrc, MemoryAccess::CPU, size);
+		VulkanBuffer stagingBuffer = VulkanBuffer(m_Device, BufferUsageFlags::TransferSrc, MemoryAccess::CPU, size, "StagingBuffer");
 
 		stagingBuffer.FillBuffer(inputData, static_cast<size_t>(size));
 

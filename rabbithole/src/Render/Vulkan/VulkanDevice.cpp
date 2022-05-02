@@ -36,7 +36,7 @@ static VKAPI_ATTR VkBool32 VKAPI_CALL DebugCallback(
 PFN_vkCmdBeginDebugUtilsLabelEXT pfnCmdBeginDebugUtilsLabelEXT;
 PFN_vkCmdEndDebugUtilsLabelEXT pfnCmdEndDebugUtilsLabelEXT;
 PFN_vkDebugMarkerSetObjectTagEXT pfnDebugMarkerSetObjectTag;
-PFN_vkDebugMarkerSetObjectNameEXT pfnDebugMarkerSetObjectName;
+PFN_vkSetDebugUtilsObjectNameEXT pfnDebugUtilsObjectName;
 
 VkResult CreateDebugUtilsMessengerEXT(
 	VkInstance instance,
@@ -469,7 +469,7 @@ SwapChainSupportDetails VulkanDevice::QuerySwapChainSupport(VkPhysicalDevice dev
 void VulkanDevice::InitializeFunctionsThroughProcAddr()
 {
 	pfnDebugMarkerSetObjectTag = (PFN_vkDebugMarkerSetObjectTagEXT)vkGetInstanceProcAddr(m_Instance, "vkDebugMarkerSetObjectTagEXT");
-	pfnDebugMarkerSetObjectName = (PFN_vkDebugMarkerSetObjectNameEXT)vkGetDeviceProcAddr(m_Device, "vkDebugMarkerSetObjectNameEXT");
+	pfnDebugUtilsObjectName = (PFN_vkSetDebugUtilsObjectNameEXT)vkGetDeviceProcAddr(m_Device, "vkSetDebugUtilsObjectNameEXT");
 	pfnCmdBeginDebugUtilsLabelEXT = (PFN_vkCmdBeginDebugUtilsLabelEXT)vkGetInstanceProcAddr(m_Instance, "vkCmdBeginDebugUtilsLabelEXT");
 	pfnCmdEndDebugUtilsLabelEXT = (PFN_vkCmdEndDebugUtilsLabelEXT)vkGetInstanceProcAddr(m_Instance, "vkCmdEndDebugUtilsLabelEXT");
 }
@@ -758,18 +758,20 @@ void VulkanDevice::InitImguiForVulkan(ImGui_ImplVulkan_InitInfo& info)
 	info.Queue = m_GraphicsQueue;
 }
 
-void VulkanDevice::SetObjectName(uint64_t object, VkDebugReportObjectTypeEXT objectType, const char* name)
+void VulkanDevice::SetObjectName(uint64_t object, VkObjectType objectType, const char* name)
 {
+#ifdef _DEBUG
 	// Check for a valid function pointer
-	if (pfnDebugMarkerSetObjectName)
+	if (pfnDebugUtilsObjectName)
 	{
-		VkDebugMarkerObjectNameInfoEXT nameInfo = {};
-		nameInfo.sType = VK_STRUCTURE_TYPE_DEBUG_MARKER_OBJECT_NAME_INFO_EXT;
+		VkDebugUtilsObjectNameInfoEXT nameInfo = {};
+		nameInfo.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT;
 		nameInfo.objectType = objectType;
-		nameInfo.object = object;
+		nameInfo.objectHandle = object;
 		nameInfo.pObjectName = name;
-		pfnDebugMarkerSetObjectName(m_Device, &nameInfo);
+		pfnDebugUtilsObjectName(m_Device, &nameInfo);
 	}
+#endif
 }
 
 void VulkanDevice::BeginLabel(VkCommandBuffer commandBuffer, const char* name)
