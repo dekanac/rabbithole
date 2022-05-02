@@ -77,9 +77,9 @@ public:
 	void ShouldCleanDepth(bool clean);
 
 	void SetCombinedImageSampler(uint32_t slot, VulkanTexture* texture);
-	void SetConstantBuffer(uint32_t slot, VulkanBuffer* buffer, uint64_t offset, uint64_t range);
+	void SetConstantBuffer(uint32_t slot, VulkanBuffer* buffer);
 	void SetStorageImage(uint32_t slot, VulkanTexture* texture);
-	void SetStorageBuffer(uint32_t slot, VulkanBuffer* buffer, uint64_t offset, uint64_t range);
+	void SetStorageBuffer(uint32_t slot, VulkanBuffer* buffer);
 	void SetSampledImage(uint32_t slot, VulkanTexture* texture);
 	void SetSampler(uint32_t slot, VulkanTexture* texture);
 	void SetSampler(uint32_t slot, VulkanImageSampler* sampler);

@@ -135,6 +135,9 @@
     <ClCompile Include="src\Render\SuperResolutionManager.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="src\Render\ResourceStateTracking.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\Core\Application.h">
@@ -1101,6 +1104,9 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="src\Render\SuperResolutionManager.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Render\ResourceStateTracking.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

@@ -121,6 +121,8 @@ void VulkanTexture::CreateResource(VulkanDevice* device, TextureData* texData)
 	}
 
 	device->TransitionImageLayout(this, ResourceState::TransferDst, stateAfter);
+
+	m_ShouldBeResourceState = m_CurrentResourceState = stateAfter;
 }
 
 void VulkanTexture::CreateResource(VulkanDevice* device, const uint32_t width, const uint32_t height)
@@ -167,6 +169,8 @@ void VulkanTexture::CreateResource(VulkanDevice* device, const uint32_t width, c
 	}
 
 	device->TransitionImageLayout(this, ResourceState::None, stateAfter);
+
+	m_ShouldBeResourceState = m_CurrentResourceState = stateAfter;
 }
 
 void VulkanTexture::CreateResource(VulkanDevice* device)

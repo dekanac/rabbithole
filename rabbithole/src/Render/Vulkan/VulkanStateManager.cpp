@@ -176,7 +176,7 @@ void VulkanStateManager::SetCombinedImageSampler(uint32_t slot, VulkanTexture* t
     }
 }
 
-void VulkanStateManager::SetConstantBuffer(uint32_t slot, VulkanBuffer* buffer, uint64_t offset, uint64_t range)
+void VulkanStateManager::SetConstantBuffer(uint32_t slot, VulkanBuffer* buffer)
 {
 	DescriptorKey k(3);
 	k[0] = slot;
@@ -236,7 +236,7 @@ void VulkanStateManager::SetStorageImage(uint32_t slot, VulkanTexture* texture)
 	}
 }
 
-void VulkanStateManager::SetStorageBuffer(uint32_t slot, VulkanBuffer* buffer, uint64_t offset, uint64_t range)
+void VulkanStateManager::SetStorageBuffer(uint32_t slot, VulkanBuffer* buffer)
 {
 	DescriptorKey k(3);
 	k[0] = slot;

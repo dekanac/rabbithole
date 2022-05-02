@@ -5,7 +5,7 @@ class VulkanImageView;
 class VulkanImageSampler;
 struct ModelLoading::TextureData;
 
-class VulkanTexture
+class VulkanTexture : public ManagableResource
 {
 public:
 	VulkanTexture(VulkanDevice* device, const uint32_t width, const uint32_t height, TextureFlags flags, Format format, const char* name);
@@ -20,6 +20,12 @@ public:
 	Format					GetFormat() const{ return m_Format; }
 	TextureFlags			GeFlags() const { return m_Flags; }
 	ImageRegion				GetRegion() const { return m_Region; }
+
+	virtual ResourceState			GetResourceState() const { return m_CurrentResourceState; };
+	virtual void					SetResourceState(ResourceState state) { m_CurrentResourceState = state; }
+
+	virtual ResourceState			GetShouldBeResourceState() const { return m_ShouldBeResourceState; }
+	virtual void					SetShouldBeResourceState(ResourceState state) { m_ShouldBeResourceState = state; }
 
 	uint32_t				GetWidth() const { return m_Region.Extent.Width; }
 	uint32_t				GetHeight() const { return m_Region.Extent.Height; }
@@ -43,4 +49,7 @@ private:
 	std::string				m_FilePath;
 	std::string				m_Name;
 	TextureData*			m_TexData;
+
+	ResourceState			m_CurrentResourceState;
+	ResourceState			m_ShouldBeResourceState;
 };

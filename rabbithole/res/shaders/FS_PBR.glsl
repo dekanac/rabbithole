@@ -51,6 +51,9 @@ float DistributionGGX(vec3 N, vec3 H, float roughness)
     float denom = (NdotH2 * (a2 - 1.0) + 1.0);
     denom = PI * denom * denom;
 
+    if (denom == 0)
+        denom += EPSILON;
+
     return nom / denom;
 }
 // ----------------------------------------------------------------------------

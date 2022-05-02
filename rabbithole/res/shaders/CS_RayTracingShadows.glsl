@@ -37,7 +37,6 @@ layout(binding = 7) uniform LightParams
 	Light[lightCount] light;
 } Lights;
 
-#define EPSILON 0.0001
 #define MAXLEN 1000.0
 #define SHADOW 0.5
 #define CULLING

@@ -9,6 +9,7 @@
 #include "ECS/EntityManager.h"
 #include "Core/Application.h"
 #include "Vulkan/Include/VulkanWrapper.h"
+#include "ResourceStateTracking.h"
 #include "SuperResolutionManager.h"
 
 #include <glm/glm.hpp>
@@ -55,14 +56,18 @@ void Renderer::ExecuteRenderPass(RenderPass& renderpass)
 
 	renderpass.DeclareResources(this);
 	renderpass.Setup(this);
+
+	RSTManager.TransitionResources();
 	renderpass.Render(this);
+
+	RSTManager.Reset();
 
 	m_VulkanDevice.EndLabel(GetCurrentCommandBuffer());
 }
 
 void Renderer::AddSimpleMesh(SimpleMeshType type, rabbitVec3f position, float size, rabbitVec3f rotation)
 {
-	RabbitModel* model =nullptr;
+	RabbitModel* model = nullptr;
 
 	if (type == SimpleMeshType::BoxMesh)
 	{
@@ -185,6 +190,7 @@ void Renderer::DrawFrame()
 	RecordCommandBuffer(imageIndex);
 
 	result = m_VulkanSwapchain->SubmitCommandBuffers(&m_CommandBuffers[imageIndex], &imageIndex);
+
 	if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR || m_FramebufferResized)
 	{
 		m_FramebufferResized = false;
@@ -343,14 +349,14 @@ void Renderer::loadModels()
 		rabbitmodels.push_back(model);
 	}
 
-	auto testScene2 = ModelLoading::LoadScene("res/meshes/cottage/Cottage_FREE.obj");
-	{
-		RabbitModel* model = new RabbitModel(m_VulkanDevice, testScene2->pObjects[0]);
-		auto mesh2 = model->GetMesh();
-		mesh2.position = { 5.f, -2.f, 0.f };
-		model->SetMesh(mesh2);
-		rabbitmodels.push_back(model);
-	}
+	//auto testScene2 = ModelLoading::LoadScene("res/meshes/cottage/Cottage_FREE.obj");
+	//{
+	//	RabbitModel* model = new RabbitModel(m_VulkanDevice, testScene2->pObjects[0]);
+	//	auto mesh2 = model->GetMesh();
+	//	mesh2.position = { 5.f, -2.f, 0.f };
+	//	model->SetMesh(mesh2);
+	//	rabbitmodels.push_back(model);
+	//}
 
 	//those first 4 represent lights :D
  	//AddSimpleMesh(SimpleMeshType::SphereMesh, { 7.0f, 1.0f, 7.0f }, 0.15f);
@@ -763,7 +769,6 @@ void Renderer::BindDescriptorSets()
 {
 	auto descriptorSet = m_StateManager->FinalizeDescriptorSet(m_VulkanDevice, m_DescriptorPool.get());
 	//TODO: decide where to store descriptor sets, models or state manager?
-
 	auto pipeline = m_StateManager->GetPipeline();
 	auto bindPoint = pipeline->GetType() == PipelineType::Graphics ? VK_PIPELINE_BIND_POINT_GRAPHICS : VK_PIPELINE_BIND_POINT_COMPUTE;
 
@@ -978,6 +983,22 @@ void Renderer::ResourceBarrier(VulkanTexture* texture, ResourceState oldLayout, 
 		sourceStage = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
 		destinationStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
 	}
+	else if (oldLayout == ResourceState::DepthStencilRead && newLayout == ResourceState::GenericRead)
+	{
+		barrier.srcAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT;
+		barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+
+		sourceStage = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
+		destinationStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+	}
+	else if (oldLayout == ResourceState::DepthStencilRead && newLayout == ResourceState::DepthStencilWrite)
+	{
+		barrier.srcAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT;
+		barrier.dstAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+
+		sourceStage = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
+		destinationStage = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
+	}
 	else if (oldLayout == ResourceState::GenericRead && newLayout == ResourceState::DepthStencilWrite)
 	{
 		barrier.srcAccessMask = VK_ACCESS_SHADER_READ_BIT;
@@ -1032,6 +1053,7 @@ void Renderer::ResourceBarrier(VulkanTexture* texture, ResourceState oldLayout, 
 		1, &barrier
 	);
 
+	texture->SetResourceState(newLayout);
 }
 
 void Renderer::UpdateDebugOptions()
@@ -1085,7 +1107,9 @@ void Renderer::RecordCommandBuffer(int imageIndex)
 	OutlineEntityPass outlineEntity{};
 	TAAPass taa{};
 	TAASharpenerPass taaSharpener{};
-	FSRPass fsr{};
+	FSREASUPass easuFSR{};
+	FSRRCASPass rcasFSR{};
+
 	CopyToSwapchainPass copyToSwapchain{};
 
 	UpdateDebugOptions();
@@ -1108,7 +1132,8 @@ void Renderer::RecordCommandBuffer(int imageIndex)
 
 	ExecuteRenderPass(taa);
 	ExecuteRenderPass(taaSharpener);
-	ExecuteRenderPass(fsr);
+	ExecuteRenderPass(easuFSR);
+	ExecuteRenderPass(rcasFSR);
 
 	ExecuteRenderPass(copyToSwapchain);
 

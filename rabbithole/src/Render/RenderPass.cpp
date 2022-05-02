@@ -1,5 +1,6 @@
 #include "RenderPass.h"
 #include "Renderer.h"
+#include "ResourceStateTracking.h"
 
 #include "SuperResolutionManager.h"
 
@@ -60,10 +61,10 @@ void BoundingBoxPass::Setup(Renderer* renderer)
 	pipelineInfo->SetTopology(Topology::LineList);
 	pipelineInfo->SetCullMode(CullMode::None);
 
-	stateManager->SetConstantBuffer(0, renderer->GetMainConstBuffer(), 0, sizeof(UniformBufferObject));
+	stateManager->SetConstantBuffer(0, renderer->GetMainConstBuffer());
 
-	stateManager->SetRenderTarget0(renderer->lightingMain->GetView());
-	stateManager->SetDepthStencil(renderer->depthStencil->GetView());
+	SetRenderTarget(renderer, 0, renderer->lightingMain);
+	SetDepthStencil(renderer, renderer->depthStencil);
 
 	auto renderPassInfo = stateManager->GetRenderPassInfo();
 
@@ -105,12 +106,12 @@ void GBufferPass::Setup(Renderer* renderer)
 	pipelineInfo->SetColorWriteMask(3, ColorWriteMaskFlags::RGBA);
 	pipelineInfo->SetColorWriteMask(4, ColorWriteMaskFlags::RGBA);
 
-	stateManager->SetRenderTarget0(renderer->albedoGBuffer->GetView());
-	stateManager->SetRenderTarget1(renderer->normalGBuffer->GetView());
-	stateManager->SetRenderTarget2(renderer->worldPositionGBuffer->GetView());
-	stateManager->SetRenderTarget3(renderer->entityHelper->GetView());
-	stateManager->SetRenderTarget4(renderer->velocityGBuffer->GetView());
-	stateManager->SetDepthStencil(renderer->depthStencil->GetView());
+	SetRenderTarget(renderer, 0, renderer->albedoGBuffer);
+	SetRenderTarget(renderer, 1, renderer->normalGBuffer);
+	SetRenderTarget(renderer, 2, renderer->worldPositionGBuffer);
+	SetRenderTarget(renderer, 3, renderer->entityHelper);
+	SetRenderTarget(renderer, 4, renderer->velocityGBuffer);
+	SetDepthStencil(renderer, renderer->depthStencil);
 
 	auto renderPassInfo = stateManager->GetRenderPassInfo();
 
@@ -146,12 +147,6 @@ void LightingPass::Setup(Renderer* renderer)
 
 	stateManager->ShouldCleanColor(true);
 
-	auto renderPassInfo = stateManager->GetRenderPassInfo();
-	renderPassInfo->InitialRenderTargetState = ResourceState::None;
-	renderPassInfo->FinalRenderTargetState = ResourceState::RenderTarget;
-	renderPassInfo->InitialDepthStencilState = ResourceState::None;
-	renderPassInfo->FinalDepthStencilState = ResourceState::DepthStencilWrite;
-
 	//fill the light buffer
 	if (renderer->imguiReady)
 	{
@@ -181,20 +176,16 @@ void LightingPass::Setup(Renderer* renderer)
 
 	auto& device = renderer->GetVulkanDevice();
 
-	renderer->ResourceBarrier(renderer->albedoGBuffer, ResourceState::RenderTarget, ResourceState::GenericRead);
-	renderer->ResourceBarrier(renderer->SSAOBluredTexture, ResourceState::RenderTarget, ResourceState::GenericRead);
-	renderer->ResourceBarrier(renderer->velocityGBuffer, ResourceState::RenderTarget, ResourceState::GenericRead);
+	SetCombinedImageSampler(renderer, 0, renderer->albedoGBuffer);
+	SetCombinedImageSampler(renderer, 1, renderer->normalGBuffer);
+	SetCombinedImageSampler(renderer, 2, renderer->worldPositionGBuffer);
+	stateManager->SetConstantBuffer(3, renderer->GetMainConstBuffer());
+	stateManager->SetConstantBuffer(4, renderer->GetLightParams());
+	SetCombinedImageSampler(renderer, 5, renderer->SSAOBluredTexture);
+	SetCombinedImageSampler(renderer, 6, renderer->shadowMap);
+	SetCombinedImageSampler(renderer, 7, renderer->velocityGBuffer);
 
-	stateManager->SetCombinedImageSampler(0, renderer->albedoGBuffer);
-	stateManager->SetCombinedImageSampler(1, renderer->normalGBuffer);
-	stateManager->SetCombinedImageSampler(2, renderer->worldPositionGBuffer);
-	stateManager->SetConstantBuffer(3, renderer->GetMainConstBuffer(), 0, sizeof(UniformBufferObject));
-	stateManager->SetConstantBuffer(4, renderer->GetLightParams(), 0, sizeof(LightParams));
-	stateManager->SetCombinedImageSampler(5, renderer->SSAOBluredTexture);
-	stateManager->SetCombinedImageSampler(6, renderer->shadowMap);
-	stateManager->SetCombinedImageSampler(7, renderer->velocityGBuffer);
-
-	stateManager->SetRenderTarget0(renderer->lightingMain->GetView());
+	SetRenderTarget(renderer, 0, renderer->lightingMain);
 }
 
 void LightingPass::Render(Renderer* renderer)
@@ -215,7 +206,7 @@ void CopyToSwapchainPass::Setup(Renderer* renderer)
 	stateManager->SetVertexShader(renderer->GetShader("VS_PassThrough"));
 	stateManager->SetPixelShader(renderer->GetShader("FS_PassThrough"));
 
-	stateManager->SetCombinedImageSampler(0, renderer->fsrOutputTexture);
+	SetCombinedImageSampler(renderer, 0, renderer->fsrOutputTexture);
 
 	stateManager->SetRenderTarget0(renderer->GetSwapchainImage());
 
@@ -258,10 +249,8 @@ void OutlineEntityPass::Setup(Renderer* renderer)
 	stateManager->SetVertexShader(renderer->GetShader("VS_PassThrough"));
 	stateManager->SetPixelShader(renderer->GetShader("FS_OutlineEntity"));
 
-	stateManager->SetCombinedImageSampler(0, renderer->entityHelper);
-	stateManager->SetRenderTarget0(renderer->lightingMain->GetView());
-
-	renderer->ResourceBarrier(renderer->entityHelper, ResourceState::RenderTarget, ResourceState::GenericRead);
+	SetCombinedImageSampler(renderer, 0, renderer->entityHelper);
+	SetRenderTarget(renderer, 0, renderer->lightingMain);
 
 }
 
@@ -295,11 +284,11 @@ void SkyboxPass::Setup(Renderer* renderer)
 	stateManager->SetVertexShader(renderer->GetShader("VS_Skybox"));
 	stateManager->SetPixelShader(renderer->GetShader("FS_Skybox"));
 
-	stateManager->SetConstantBuffer(0, renderer->GetMainConstBuffer(), 0, sizeof(UniformBufferObject));
-	stateManager->SetCombinedImageSampler(1, renderer->skyboxTexture);
+	stateManager->SetConstantBuffer(0, renderer->GetMainConstBuffer());
+	SetCombinedImageSampler(renderer, 1, renderer->skyboxTexture);
 
-	stateManager->SetRenderTarget0(renderer->albedoGBuffer->GetView());
-	stateManager->SetDepthStencil(renderer->depthStencil->GetView());
+	SetRenderTarget(renderer, 0, renderer->albedoGBuffer);
+	SetDepthStencil(renderer, renderer->depthStencil);
 }
 void SkyboxPass::Render(Renderer* renderer)
 {
@@ -347,16 +336,15 @@ void SSAOPass::Setup(Renderer* renderer)
 	renderer->SSAOParamsBuffer->FillBuffer(&renderer->ssaoParams, sizeof(SSAOParams));
 
 	renderer->ResourceBarrier(renderer->depthStencil, ResourceState::DepthStencilWrite, ResourceState::GenericRead);
-	renderer->ResourceBarrier(renderer->normalGBuffer, ResourceState::RenderTarget, ResourceState::GenericRead);
 
-	stateManager->SetConstantBuffer(0, renderer->GetMainConstBuffer(), 0, sizeof(UniformBufferObject));
-	stateManager->SetCombinedImageSampler(1, renderer->depthStencil);
-	stateManager->SetCombinedImageSampler(2, renderer->normalGBuffer);
-	stateManager->SetCombinedImageSampler(3, renderer->SSAONoiseTexture);
-	stateManager->SetConstantBuffer(4, renderer->SSAOSamplesBuffer, 0, renderer->SSAOSamplesBuffer->GetSize());
-	stateManager->SetConstantBuffer(5, renderer->SSAOParamsBuffer, 0, renderer->SSAOParamsBuffer->GetSize());
+	stateManager->SetConstantBuffer(0, renderer->GetMainConstBuffer());
+	SetCombinedImageSampler(renderer, 1, renderer->depthStencil);
+	SetCombinedImageSampler(renderer, 2, renderer->normalGBuffer);
+	SetCombinedImageSampler(renderer, 3, renderer->SSAONoiseTexture);
+	stateManager->SetConstantBuffer(4, renderer->SSAOSamplesBuffer);
+	stateManager->SetConstantBuffer(5, renderer->SSAOParamsBuffer);
 
-	stateManager->SetRenderTarget0(renderer->SSAOTexture->GetView());
+	SetRenderTarget(renderer, 0, renderer->SSAOTexture);
 }
 void SSAOPass::Render(Renderer* renderer) 
 {
@@ -381,10 +369,8 @@ void SSAOBlurPass::Setup(Renderer* renderer)
 
 	auto& device = renderer->GetVulkanDevice();
 
-	renderer->ResourceBarrier(renderer->SSAOTexture, ResourceState::RenderTarget, ResourceState::GenericRead);
-
-	stateManager->SetCombinedImageSampler(0, renderer->SSAOTexture);
-	stateManager->SetRenderTarget0(renderer->SSAOBluredTexture->GetView());
+	SetCombinedImageSampler(renderer, 0, renderer->SSAOTexture);
+	SetRenderTarget(renderer, 0, renderer->SSAOBluredTexture);
 
 }
 void SSAOBlurPass::Render(Renderer* renderer)
@@ -403,18 +389,14 @@ void RTShadowsPass::Setup(Renderer* renderer)
 
 	stateManager->SetComputeShader(renderer->GetShader("CS_RayTracingShadows"));
 
-	renderer->ResourceBarrier(renderer->shadowMap, ResourceState::GenericRead, ResourceState::GeneralCompute);
-	renderer->ResourceBarrier(renderer->worldPositionGBuffer, ResourceState::RenderTarget, ResourceState::GeneralCompute);
-	renderer->ResourceBarrier(renderer->normalGBuffer, ResourceState::GenericRead, ResourceState::GeneralCompute);
-
-	stateManager->SetStorageImage(0, renderer->worldPositionGBuffer);
-	stateManager->SetStorageImage(1, renderer->normalGBuffer);
-	stateManager->SetStorageImage(2, renderer->shadowMap);
-	stateManager->SetStorageBuffer(3, renderer->vertexBuffer, 0, renderer->vertexBuffer->GetSize());
-	stateManager->SetStorageBuffer(4, renderer->trianglesBuffer, 0, renderer->trianglesBuffer->GetSize());
-	stateManager->SetStorageBuffer(5, renderer->triangleIndxsBuffer, 0, renderer->triangleIndxsBuffer->GetSize());
-	stateManager->SetStorageBuffer(6, renderer->cfbvhNodesBuffer, 0, renderer->cfbvhNodesBuffer->GetSize());
-	stateManager->SetConstantBuffer(7, renderer->GetLightParams(), 0, sizeof(LightParams));
+	SetStorageImage(renderer, 0, renderer->worldPositionGBuffer);
+	SetStorageImage(renderer, 1, renderer->normalGBuffer);
+	SetStorageImage(renderer, 2, renderer->shadowMap);
+	stateManager->SetStorageBuffer(3, renderer->vertexBuffer);
+	stateManager->SetStorageBuffer(4, renderer->trianglesBuffer);
+	stateManager->SetStorageBuffer(5, renderer->triangleIndxsBuffer);
+	stateManager->SetStorageBuffer(6, renderer->cfbvhNodesBuffer);
+	stateManager->SetConstantBuffer(7, renderer->GetLightParams());
 }
 
 void RTShadowsPass::Render(Renderer* renderer)
@@ -428,34 +410,25 @@ void RTShadowsPass::Render(Renderer* renderer)
 	int dispatchY = (GetNativeHeight + (threadGroupWorkRegionDim - 1)) / threadGroupWorkRegionDim;
 	renderer->Dispatch(dispatchX, dispatchY, 1);
 
-	renderer->ResourceBarrier(renderer->shadowMap, ResourceState::GeneralCompute, ResourceState::GenericRead);
-	renderer->ResourceBarrier(renderer->worldPositionGBuffer, ResourceState::GeneralCompute, ResourceState::GenericRead);
-	renderer->ResourceBarrier(renderer->normalGBuffer, ResourceState::GeneralCompute, ResourceState::GenericRead);
 }
 
-void FSRPass::DeclareResources(Renderer* renderer)
+void FSREASUPass::DeclareResources(Renderer* renderer)
 {}
 
-void FSRPass::Setup(Renderer* renderer)
-{
-
-}
-
-void FSRPass::Render(Renderer* renderer)
+void FSREASUPass::Setup(Renderer* renderer)
 {
 	VulkanStateManager* stateManager = renderer->GetStateManager();
 
-	//EASU pass
 	stateManager->SetComputeShader(renderer->GetShader("CS_FSR_EASU"));
 
-	renderer->ResourceBarrier(renderer->lightingMain, ResourceState::GeneralCompute, ResourceState::GenericRead);
-	renderer->ResourceBarrier(renderer->fsrIntermediateRes, ResourceState::GenericRead, ResourceState::GeneralCompute);
-
-	stateManager->SetConstantBuffer(0, renderer->fsrParamsBuffer, 0, renderer->fsrParamsBuffer->GetSize());
-	stateManager->SetSampledImage(1, renderer->lightingMain);
-	stateManager->SetStorageImage(2, renderer->fsrIntermediateRes);
+	stateManager->SetConstantBuffer(0, renderer->fsrParamsBuffer);
+	SetSampledImage(renderer, 1, renderer->lightingMain);
+	SetStorageImage(renderer, 2, renderer->fsrIntermediateRes);
 	stateManager->SetSampler(3, renderer->lightingMain);
+}
 
+void FSREASUPass::Render(Renderer* renderer)
+{
 	renderer->BindComputePipeline();
 	renderer->BindDescriptorSets();
 
@@ -464,25 +437,33 @@ void FSRPass::Render(Renderer* renderer)
 	int dispatchY = (GetUpscaledHeight + (threadGroupWorkRegionDim - 1)) / threadGroupWorkRegionDim;
 
 	renderer->Dispatch(dispatchX, dispatchY, 1);
+}
 
-	//RCAS pass
+void FSRRCASPass::DeclareResources(Renderer* renderer)
+{}
+
+void FSRRCASPass::Setup(Renderer* renderer)
+{
+	VulkanStateManager* stateManager = renderer->GetStateManager();
+
 	stateManager->SetComputeShader(renderer->GetShader("CS_FSR_RCAS"));
 
-	renderer->ResourceBarrier(renderer->fsrIntermediateRes, ResourceState::GeneralCompute, ResourceState::GenericRead);
-	renderer->ResourceBarrier(renderer->fsrOutputTexture, ResourceState::GenericRead, ResourceState::GeneralCompute);
-
-	stateManager->SetConstantBuffer(0, renderer->fsrParamsBuffer, 0, renderer->fsrParamsBuffer->GetSize());
-	stateManager->SetSampledImage(1, renderer->fsrIntermediateRes);
-	stateManager->SetStorageImage(2, renderer->fsrOutputTexture);
+	stateManager->SetConstantBuffer(0, renderer->fsrParamsBuffer);
+	SetSampledImage(renderer, 1, renderer->fsrIntermediateRes);
+	SetStorageImage(renderer, 2, renderer->fsrOutputTexture);
 	stateManager->SetSampler(3, renderer->fsrIntermediateRes);
+}
 
+void FSRRCASPass::Render(Renderer* renderer)
+{
 	renderer->BindComputePipeline();
 	renderer->BindDescriptorSets();
 
+	static const int threadGroupWorkRegionDim = 16;
+	int dispatchX = (GetUpscaledWidth + (threadGroupWorkRegionDim - 1)) / threadGroupWorkRegionDim;
+	int dispatchY = (GetUpscaledHeight + (threadGroupWorkRegionDim - 1)) / threadGroupWorkRegionDim;
+
 	renderer->Dispatch(dispatchX, dispatchY, 1);
-
-	renderer->ResourceBarrier(renderer->fsrOutputTexture, ResourceState::GeneralCompute, ResourceState::GenericRead);
-
 }
 
 void TAAPass::DeclareResources(Renderer* renderer)
@@ -496,21 +477,20 @@ void TAAPass::Setup(Renderer* renderer)
 
 	stateManager->SetComputeShader(renderer->GetShader("CS_TAA"));
 
-	stateManager->SetSampledImage(0, renderer->lightingMain);
-	stateManager->SetSampledImage(1, renderer->depthStencil);
-	stateManager->SetSampledImage(2, renderer->historyBuffer);
-	stateManager->SetSampledImage(3, renderer->velocityGBuffer);
+	SetSampledImage(renderer, 0, renderer->lightingMain);
+	SetSampledImage(renderer, 1, renderer->depthStencil);
+	SetSampledImage(renderer, 2, renderer->historyBuffer);
+	SetSampledImage(renderer, 3, renderer->velocityGBuffer);
 
-	stateManager->SetStorageImage(4, renderer->TAAOutput);
+	SetStorageImage(renderer, 4, renderer->TAAOutput);
 
 	stateManager->SetSampler(5, renderer->lightingMain);
 	stateManager->SetSampler(6, renderer->depthStencil);
 	stateManager->SetSampler(7, renderer->historyBuffer);
 	stateManager->SetSampler(8, renderer->velocityGBuffer);
 
-	renderer->ResourceBarrier(renderer->TAAOutput, ResourceState::GenericRead, ResourceState::GeneralCompute);
-	renderer->ResourceBarrier(renderer->lightingMain, ResourceState::RenderTarget, ResourceState::GenericRead);
 	renderer->ResourceBarrier(renderer->depthStencil, ResourceState::DepthStencilWrite, ResourceState::GenericRead);
+
 }
 
 void TAAPass::Render(Renderer* renderer)
@@ -535,14 +515,10 @@ void TAASharpenerPass::Setup(Renderer* renderer)
 
 	stateManager->SetComputeShader(renderer->GetShader("CS_TAASharpener"));
 
-	stateManager->SetSampledImage(0, renderer->TAAOutput);
+	SetSampledImage(renderer, 0, renderer->TAAOutput);
 
-	stateManager->SetStorageImage(1, renderer->lightingMain);
-	stateManager->SetStorageImage(2, renderer->historyBuffer);
-
-	renderer->ResourceBarrier(renderer->TAAOutput, ResourceState::GeneralCompute, ResourceState::GenericRead);
-	renderer->ResourceBarrier(renderer->lightingMain, ResourceState::GenericRead, ResourceState::GeneralCompute);
-	renderer->ResourceBarrier(renderer->historyBuffer, ResourceState::GenericRead, ResourceState::GeneralCompute);
+	SetStorageImage(renderer, 1, renderer->lightingMain);
+	SetStorageImage(renderer, 2, renderer->historyBuffer);
 }
 
 void TAASharpenerPass::Render(Renderer* renderer) 
@@ -555,7 +531,63 @@ void TAASharpenerPass::Render(Renderer* renderer)
 	int dispatchY = (GetNativeHeight + (threadGroupWorkRegionDim - 1)) / threadGroupWorkRegionDim;
 
 	renderer->Dispatch(dispatchX, dispatchY, 1);
-
-	renderer->ResourceBarrier(renderer->historyBuffer, ResourceState::GeneralCompute, ResourceState::GenericRead);
 }
 
+
+void RenderPass::SetCombinedImageSampler(Renderer* renderer, int slot, VulkanTexture* texture)
+{
+	texture->SetShouldBeResourceState(ResourceState::GenericRead);
+	RSTManager.AddResourceForTransition(texture);
+	renderer->GetStateManager()->SetCombinedImageSampler(slot, texture);
+}
+
+void RenderPass::SetSampledImage(Renderer* renderer, int slot, VulkanTexture* texture)
+{
+	texture->SetShouldBeResourceState(ResourceState::GenericRead);
+	RSTManager.AddResourceForTransition(texture);
+	renderer->GetStateManager()->SetSampledImage(slot, texture);
+}
+
+void RenderPass::SetStorageImage(Renderer* renderer, int slot, VulkanTexture* texture)
+{
+	texture->SetShouldBeResourceState(ResourceState::GeneralCompute);
+	RSTManager.AddResourceForTransition(texture);
+	renderer->GetStateManager()->SetStorageImage(slot, texture);
+}
+
+void RenderPass::SetRenderTarget(Renderer* renderer, int slot, VulkanTexture* texture)
+{
+	VulkanStateManager* stateManager = renderer->GetStateManager();
+
+	texture->SetShouldBeResourceState(ResourceState::RenderTarget);
+	RSTManager.AddResourceForTransition(texture);
+
+	switch (slot)
+	{
+	case 0:
+		stateManager->SetRenderTarget0(texture->GetView());
+		break;
+	case 1:
+		stateManager->SetRenderTarget1(texture->GetView());
+		break;
+	case 2:
+		stateManager->SetRenderTarget2(texture->GetView());
+		break;
+	case 3:
+		stateManager->SetRenderTarget3(texture->GetView());
+		break;
+	case 4:
+		stateManager->SetRenderTarget4(texture->GetView());
+		break;
+	default:
+		ASSERT(false, "Render Target number exceeded!");
+		break;
+	}
+}
+
+void RenderPass::SetDepthStencil(Renderer* renderer, VulkanTexture* texture)
+{
+	//TODO: missing transition handling
+	VulkanStateManager* stateManager = renderer->GetStateManager();
+	stateManager->SetDepthStencil(texture->GetView());
+}

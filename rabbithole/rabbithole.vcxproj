@@ -136,6 +136,7 @@
   <ItemGroup>
     <ClCompile Include="src\Render\Model\ModelLoading.cpp" />
     <ClCompile Include="src\Render\RenderPass.cpp" />
+    <ClCompile Include="src\Render\ResourceStateTracking.cpp" />
     <ClCompile Include="src\Render\SuperResolutionManager.cpp" />
     <ClCompile Include="src\Render\Vulkan\precomp.cpp" />
     <ClCompile Include="src\Core\Application.cpp" />
@@ -179,6 +180,7 @@
     <ClInclude Include="src\Render\Model\Core.h" />
     <ClInclude Include="src\Render\Model\ModelLoading.h" />
     <ClInclude Include="src\Render\RenderPass.h" />
+    <ClInclude Include="src\Render\ResourceStateTracking.h" />
     <ClInclude Include="src\Render\SuperResolutionManager.h" />
     <ClInclude Include="src\Render\Vulkan\precomp.h" />
     <ClInclude Include="src\common.h" />

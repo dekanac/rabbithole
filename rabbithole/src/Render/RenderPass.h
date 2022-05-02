@@ -1,6 +1,10 @@
 #pragma once
 
+#include <vector>
+
 class Renderer;
+class VulkanTexture;
+
 class RenderPass
 {
 public:
@@ -8,6 +12,13 @@ public:
 	virtual void Setup(Renderer* renderer) = 0;
 	virtual void Render(Renderer* renderer) = 0;
 	virtual const char* GetName() = 0;
+
+	void SetCombinedImageSampler(Renderer* renderer, int slot, VulkanTexture* texture);
+	void SetSampledImage(Renderer* renderer, int slot, VulkanTexture* texture);
+	void SetStorageImage(Renderer* renderer, int slot, VulkanTexture* texture);
+
+	void SetRenderTarget(Renderer* renderer, int slot, VulkanTexture* texture);
+	void SetDepthStencil(Renderer* renderer, VulkanTexture* texture);
 };
 
 #define DECLARE_RENDERPASS(name) \
@@ -31,6 +42,7 @@ DECLARE_RENDERPASS(SSAOPass);
 DECLARE_RENDERPASS(SSAOBlurPass); 
 DECLARE_RENDERPASS(BoundingBoxPass); 
 DECLARE_RENDERPASS(RTShadowsPass);
-DECLARE_RENDERPASS(FSRPass); 
+DECLARE_RENDERPASS(FSREASUPass);
+DECLARE_RENDERPASS(FSRRCASPass);
 DECLARE_RENDERPASS(TAAPass); 
 DECLARE_RENDERPASS(TAASharpenerPass);
