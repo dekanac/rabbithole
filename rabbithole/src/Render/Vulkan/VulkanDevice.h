@@ -154,4 +154,5 @@ VkClearValue			GetVkClearColorValueForFormat(const VkFormat format);
 size_t					GetBPPFrom(const Format format);
 VkImageUsageFlags		GetVkImageUsageFlagsFrom(const ImageUsageFlags usageFlags);
 VkBorderColor			GetVkBorderColorFrom(const Color color);
+bool					IsDepthFormat(const Format format);
 

@@ -866,7 +866,9 @@ void Renderer::ResourceBarrier(VulkanTexture* texture, ResourceState oldLayout, 
 {
 	VkCommandBuffer commandBuffer = GetCurrentCommandBuffer();
 
-	bool isDepth = oldLayout == ResourceState::DepthStencilRead || oldLayout == ResourceState::DepthStencilWrite; //TODO: investigate does this need newLayout to be checked
+	bool isDepth = 
+		(oldLayout == ResourceState::DepthStencilRead || oldLayout == ResourceState::DepthStencilWrite) ||
+		(newLayout == ResourceState::DepthStencilRead || newLayout == ResourceState::DepthStencilWrite);
 
 	VkImageMemoryBarrier barrier{};
 	barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
@@ -1005,7 +1007,7 @@ void Renderer::ResourceBarrier(VulkanTexture* texture, ResourceState oldLayout, 
 		barrier.dstAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
 
 		sourceStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
-		destinationStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+		destinationStage = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
 	}
 	else if (oldLayout == ResourceState::GenericRead && newLayout == ResourceState::GeneralCompute)
 	{

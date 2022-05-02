@@ -1374,6 +1374,11 @@ VkBorderColor GetVkBorderColorFrom(const Color color)
 	}
 }
 
+bool IsDepthFormat(const Format format)
+{
+	return (format == Format::D32_SFLOAT || format == Format::D32_SFLOAT);
+}
+
 VkBlendFactor GetVkBlendFactorFrom(const BlendValue blendValue)
 {
 	switch (blendValue)

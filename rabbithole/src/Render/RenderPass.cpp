@@ -4,6 +4,66 @@
 
 #include "SuperResolutionManager.h"
 
+void RenderPass::SetCombinedImageSampler(Renderer* renderer, int slot, VulkanTexture* texture)
+{
+	texture->SetShouldBeResourceState(ResourceState::GenericRead);
+	RSTManager.AddResourceForTransition(texture);
+	renderer->GetStateManager()->SetCombinedImageSampler(slot, texture);
+}
+
+void RenderPass::SetSampledImage(Renderer* renderer, int slot, VulkanTexture* texture)
+{
+	texture->SetShouldBeResourceState(ResourceState::GenericRead);
+	RSTManager.AddResourceForTransition(texture);
+	renderer->GetStateManager()->SetSampledImage(slot, texture);
+}
+
+void RenderPass::SetStorageImage(Renderer* renderer, int slot, VulkanTexture* texture)
+{
+	texture->SetShouldBeResourceState(ResourceState::GeneralCompute);
+	RSTManager.AddResourceForTransition(texture);
+	renderer->GetStateManager()->SetStorageImage(slot, texture);
+}
+
+void RenderPass::SetRenderTarget(Renderer* renderer, int slot, VulkanTexture* texture)
+{
+	VulkanStateManager* stateManager = renderer->GetStateManager();
+
+	texture->SetShouldBeResourceState(ResourceState::RenderTarget);
+	RSTManager.AddResourceForTransition(texture);
+
+	switch (slot)
+	{
+	case 0:
+		stateManager->SetRenderTarget0(texture->GetView());
+		break;
+	case 1:
+		stateManager->SetRenderTarget1(texture->GetView());
+		break;
+	case 2:
+		stateManager->SetRenderTarget2(texture->GetView());
+		break;
+	case 3:
+		stateManager->SetRenderTarget3(texture->GetView());
+		break;
+	case 4:
+		stateManager->SetRenderTarget4(texture->GetView());
+		break;
+	default:
+		ASSERT(false, "Render Target number exceeded!");
+		break;
+	}
+}
+
+void RenderPass::SetDepthStencil(Renderer* renderer, VulkanTexture* texture)
+{
+	//TODO: missing transition handling
+	VulkanStateManager* stateManager = renderer->GetStateManager();
+	texture->SetShouldBeResourceState(ResourceState::DepthStencilWrite);
+	RSTManager.AddResourceForTransition(texture);
+	stateManager->SetDepthStencil(texture->GetView());
+}
+
 float skyboxVertices[] = {
 	// positions				//for now i got only one possible vertex binding and that is 3, 3, 3, 2 TODO: clean this
 	-1000.0f,  1000.0f, -1000.0f,       0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f,
@@ -267,17 +327,12 @@ void SkyboxPass::Setup(Renderer* renderer)
 {
 	VulkanStateManager* stateManager = renderer->GetStateManager();
 	
-	stateManager->ShouldCleanColor(false);
 	stateManager->ShouldCleanDepth(false);
 
 	auto pipelineInfo = stateManager->GetPipelineInfo();
 	pipelineInfo->SetDepthTestEnabled(true);
 
 	auto renderPassInfo = stateManager->GetRenderPassInfo();
-	renderPassInfo->InitialRenderTargetState = ResourceState::RenderTarget;
-	renderPassInfo->FinalRenderTargetState = ResourceState::RenderTarget;
-	renderPassInfo->InitialDepthStencilState = ResourceState::GenericRead;
-	renderPassInfo->FinalDepthStencilState = ResourceState::DepthStencilWrite;
 
 	stateManager->SetCullMode(CullMode::Front);
 
@@ -334,8 +389,6 @@ void SSAOPass::Setup(Renderer* renderer)
 	}
 
 	renderer->SSAOParamsBuffer->FillBuffer(&renderer->ssaoParams, sizeof(SSAOParams));
-
-	renderer->ResourceBarrier(renderer->depthStencil, ResourceState::DepthStencilWrite, ResourceState::GenericRead);
 
 	stateManager->SetConstantBuffer(0, renderer->GetMainConstBuffer());
 	SetCombinedImageSampler(renderer, 1, renderer->depthStencil);
@@ -488,9 +541,6 @@ void TAAPass::Setup(Renderer* renderer)
 	stateManager->SetSampler(6, renderer->depthStencil);
 	stateManager->SetSampler(7, renderer->historyBuffer);
 	stateManager->SetSampler(8, renderer->velocityGBuffer);
-
-	renderer->ResourceBarrier(renderer->depthStencil, ResourceState::DepthStencilWrite, ResourceState::GenericRead);
-
 }
 
 void TAAPass::Render(Renderer* renderer)
@@ -531,63 +581,4 @@ void TAASharpenerPass::Render(Renderer* renderer)
 	int dispatchY = (GetNativeHeight + (threadGroupWorkRegionDim - 1)) / threadGroupWorkRegionDim;
 
 	renderer->Dispatch(dispatchX, dispatchY, 1);
-}
-
-
-void RenderPass::SetCombinedImageSampler(Renderer* renderer, int slot, VulkanTexture* texture)
-{
-	texture->SetShouldBeResourceState(ResourceState::GenericRead);
-	RSTManager.AddResourceForTransition(texture);
-	renderer->GetStateManager()->SetCombinedImageSampler(slot, texture);
-}
-
-void RenderPass::SetSampledImage(Renderer* renderer, int slot, VulkanTexture* texture)
-{
-	texture->SetShouldBeResourceState(ResourceState::GenericRead);
-	RSTManager.AddResourceForTransition(texture);
-	renderer->GetStateManager()->SetSampledImage(slot, texture);
-}
-
-void RenderPass::SetStorageImage(Renderer* renderer, int slot, VulkanTexture* texture)
-{
-	texture->SetShouldBeResourceState(ResourceState::GeneralCompute);
-	RSTManager.AddResourceForTransition(texture);
-	renderer->GetStateManager()->SetStorageImage(slot, texture);
-}
-
-void RenderPass::SetRenderTarget(Renderer* renderer, int slot, VulkanTexture* texture)
-{
-	VulkanStateManager* stateManager = renderer->GetStateManager();
-
-	texture->SetShouldBeResourceState(ResourceState::RenderTarget);
-	RSTManager.AddResourceForTransition(texture);
-
-	switch (slot)
-	{
-	case 0:
-		stateManager->SetRenderTarget0(texture->GetView());
-		break;
-	case 1:
-		stateManager->SetRenderTarget1(texture->GetView());
-		break;
-	case 2:
-		stateManager->SetRenderTarget2(texture->GetView());
-		break;
-	case 3:
-		stateManager->SetRenderTarget3(texture->GetView());
-		break;
-	case 4:
-		stateManager->SetRenderTarget4(texture->GetView());
-		break;
-	default:
-		ASSERT(false, "Render Target number exceeded!");
-		break;
-	}
-}
-
-void RenderPass::SetDepthStencil(Renderer* renderer, VulkanTexture* texture)
-{
-	//TODO: missing transition handling
-	VulkanStateManager* stateManager = renderer->GetStateManager();
-	stateManager->SetDepthStencil(texture->GetView());
 }
