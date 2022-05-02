@@ -328,11 +328,13 @@ void SkyboxPass::Setup(Renderer* renderer)
 	VulkanStateManager* stateManager = renderer->GetStateManager();
 	
 	stateManager->ShouldCleanDepth(false);
+	stateManager->ShouldCleanColor(false);
 
 	auto pipelineInfo = stateManager->GetPipelineInfo();
 	pipelineInfo->SetDepthTestEnabled(true);
 
 	auto renderPassInfo = stateManager->GetRenderPassInfo();
+	renderPassInfo->InitialRenderTargetState = ResourceState::RenderTarget;
 
 	stateManager->SetCullMode(CullMode::Front);
 
