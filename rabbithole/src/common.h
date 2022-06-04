@@ -47,6 +47,8 @@ typedef glm::mat4 rabbitMat4f;
 #define MB_16 16777216
 #define MB_64 67108864
 
+#define MAX_FRAMES_IN_FLIGHT (2)
+
 const float Epsilon = 1e-8;
 const float Infinity = std::numeric_limits<float>::max();
 

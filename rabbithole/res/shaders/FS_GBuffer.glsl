@@ -14,13 +14,14 @@ layout(location = 0) in VS_OUT {
 layout (location = 0) out vec4 outColor;
 layout (location = 1) out vec4 outNormal;
 layout (location = 2) out vec4 outWorldPosition;
-layout (location = 3) out uint outEntityId;
-layout (location = 4) out vec2 velocity;
-
+layout (location = 3) out vec2 velocity;
+//find solution to define things from cpp
+#ifdef USE_TOOLS
+layout (location = 4) out uint outEntityId;
+#endif
 layout (binding = 1) uniform sampler2D albedoSampler;
 layout (binding = 2) uniform sampler2D normalSampler;
-layout (binding = 3) uniform sampler2D roughnessSampler;
-layout (binding = 4) uniform sampler2D metalnessSampler;
+layout (binding = 3) uniform sampler2D metallicRoughnessSampler;
 //metalness roughness HERE
 
 layout(push_constant) uniform Push {
@@ -32,10 +33,10 @@ layout(push_constant) uniform Push {
 void main() 
 {
     outColor = vec4(texture(albedoSampler, fs_in.FragUV).rgb, 1.0);
-    float roughness = texture(roughnessSampler, fs_in.FragUV).r;
-    float metalness = texture(metalnessSampler, fs_in.FragUV).r;
+    float roughness = texture(metallicRoughnessSampler, fs_in.FragUV).g;
+    float metalness = texture(metallicRoughnessSampler, fs_in.FragUV).b;
 
-	vec3 N = fs_in.FragTBN * (texture(normalSampler, fs_in.FragUV).xyz * 2.0 - vec3(1.0));
+	vec3 N = normalize(fs_in.FragTBN * (normalize(texture(normalSampler, fs_in.FragUV).xyz * 2.0 - vec3(1.0))));
 	
     outNormal = push.useNormalMap ? vec4(N, roughness) :  vec4(fs_in.FragNormal, roughness);
 
@@ -43,7 +44,9 @@ void main()
 
     //metalness roughness HERE
 
+#ifdef USE_TOOLS
     outEntityId = push.id;
+#endif
 
     velocity = fs_in.FragVelocity;
 

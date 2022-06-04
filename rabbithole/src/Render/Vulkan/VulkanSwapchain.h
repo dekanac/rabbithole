@@ -17,8 +17,6 @@ class VulkanTexture;
 
 class VulkanSwapchain {
 public:
-	static constexpr int MAX_FRAMES_IN_FLIGHT = 2;
-
 	VulkanSwapchain(VulkanDevice& deviceRef, VkExtent2D windowExtent);
 	~VulkanSwapchain();
 

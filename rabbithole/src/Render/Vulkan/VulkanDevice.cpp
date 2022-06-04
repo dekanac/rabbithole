@@ -557,10 +557,8 @@ void VulkanDevice::CopyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSi
 	EndSingleTimeCommands(commandBuffer);
 }
 
-void VulkanDevice::CopyBufferToImage(VulkanBuffer* buffer, VulkanTexture* texture)
+void VulkanDevice::CopyBufferToImage(VkCommandBuffer commandBuffer, VulkanBuffer* buffer, VulkanTexture* texture, bool copyFirstMipOnly)
 {
-	VkCommandBuffer commandBuffer = BeginSingleTimeCommands();
-
 	ImageRegion texRegion = texture->GetRegion();
 
 	VkBufferImageCopy region{};
@@ -571,7 +569,7 @@ void VulkanDevice::CopyBufferToImage(VulkanBuffer* buffer, VulkanTexture* textur
 	region.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
 	region.imageSubresource.mipLevel = texRegion.Subresource.MipSlice;
 	region.imageSubresource.baseArrayLayer = texRegion.Subresource.ArraySlice;
-	region.imageSubresource.layerCount = texRegion.Subresource.MipSize;
+	region.imageSubresource.layerCount = copyFirstMipOnly ? 1 : texRegion.Subresource.MipSize;
 
 	region.imageOffset = { texRegion.Offset.X, texRegion.Offset.Y, texRegion.Offset.Z };
 	region.imageExtent = { texRegion.Extent.Width, texRegion.Extent.Height, 1 };
@@ -583,14 +581,10 @@ void VulkanDevice::CopyBufferToImage(VulkanBuffer* buffer, VulkanTexture* textur
 		VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
 		1,
 		&region);
-
-	EndSingleTimeCommands(commandBuffer);
 }
 
-void VulkanDevice::CopyBufferToImageCubeMap(VulkanBuffer* buffer, VulkanTexture* texture)
+void VulkanDevice::CopyBufferToImageCubeMap(VkCommandBuffer commandBuffer, VulkanBuffer* buffer, VulkanTexture* texture)
 {
-	VkCommandBuffer commandBuffer = BeginSingleTimeCommands();
-
 	ImageRegion texRegion = texture->GetRegion();
 	auto width = texRegion.Extent.Width;
 	auto height = texRegion.Extent.Height;
@@ -601,7 +595,6 @@ void VulkanDevice::CopyBufferToImageCubeMap(VulkanBuffer* buffer, VulkanTexture*
 	for (uint32_t face = 0; face < 6; face++)
 	{
 		{
-			
 			VkBufferImageCopy bufferCopyRegion = {};
 			bufferCopyRegion.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
 			bufferCopyRegion.imageSubresource.mipLevel = 0;
@@ -622,15 +615,12 @@ void VulkanDevice::CopyBufferToImageCubeMap(VulkanBuffer* buffer, VulkanTexture*
 		VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
 		6,
 		bufferCopyRegions.data());
-
-	EndSingleTimeCommands(commandBuffer);
 }
 
 
-void VulkanDevice::TransitionImageLayout(VulkanTexture* texture, ResourceState oldLayout, ResourceState newLayout)
+void VulkanDevice::TransitionImageLayout(VkCommandBuffer commandBuffer, VulkanTexture* texture, ResourceState oldLayout, ResourceState newLayout, uint32_t mipLevel, uint32_t mipCount)
 {
-	//TODO: i really was freestyling with these, see whats going on here
-	VkCommandBuffer commandBuffer = BeginSingleTimeCommands();
+	uint32_t arraySize = texture->GetResource()->GetInfo().ArraySize;
 
 	VkImageMemoryBarrier barrier{};
 	barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
@@ -640,10 +630,10 @@ void VulkanDevice::TransitionImageLayout(VulkanTexture* texture, ResourceState o
 	barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
 	barrier.image = texture->GetResource()->GetImage();
 	barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-	barrier.subresourceRange.baseMipLevel = 0;
-	barrier.subresourceRange.levelCount = 1;
+	barrier.subresourceRange.baseMipLevel = mipLevel;
+	barrier.subresourceRange.levelCount = mipCount;
 	barrier.subresourceRange.baseArrayLayer = 0;
-	barrier.subresourceRange.layerCount = (IsFlagSet(texture->GeFlags() & TextureFlags::CubeMap)) ? 6 : 1;
+	barrier.subresourceRange.layerCount = arraySize;
 
 	VkPipelineStageFlags sourceStage;
 	VkPipelineStageFlags destinationStage;
@@ -670,6 +660,22 @@ void VulkanDevice::TransitionImageLayout(VulkanTexture* texture, ResourceState o
 
 		sourceStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
 		destinationStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+	}
+	else if (oldLayout == ResourceState::TransferSrc && newLayout == ResourceState::GenericRead)
+	{
+		barrier.srcAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
+		barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+
+		sourceStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
+		destinationStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+	}
+	else if (oldLayout == ResourceState::TransferDst && newLayout == ResourceState::TransferSrc)
+	{
+		barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+		barrier.dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
+
+		sourceStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
+		destinationStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
 	}
 	else if (oldLayout == ResourceState::None && newLayout == ResourceState::RenderTarget)
 	{
@@ -717,8 +723,6 @@ void VulkanDevice::TransitionImageLayout(VulkanTexture* texture, ResourceState o
 		0, nullptr,
 		1, &barrier
 	);
-
-	EndSingleTimeCommands(commandBuffer);
 }
 
 void VulkanDevice::CreateImageWithInfo(

@@ -1,10 +1,15 @@
 #include "precomp.h"
 
 #include <stddef.h>
+#include <iostream>
 
 #define TINYOBJLOADER_IMPLEMENTATION
 #include "tiny_obj_loader/tiny_obj_loader.h"
+#include "tinygltf/tiny_gltf.h"
 #include "stb_image/stb_image.h"
+#include <glm/glm.hpp>
+#include <glm/gtc/type_ptr.hpp>
+#include "../Renderer.h"
 
 VulkanTexture* RabbitModel::ms_DefaultWhiteTexture = nullptr;
 VulkanTexture* RabbitModel::ms_DefaultBlackTexture = nullptr;
@@ -668,4 +673,352 @@ void PopulateCacheFriendlyBVH(
 			triIndexList[idxTriList++] = *it - pFirstTriangle;
 		}
 	}
+}
+
+void VulkanglTFModel::LoadModelFromFile(VulkanDevice* device, std::string filename)
+{
+	this->m_Device = device;
+	tinygltf::Model glTFInput;
+	tinygltf::TinyGLTF gltfContext;
+	std::string error, warning;
+
+	bool fileLoaded = gltfContext.LoadASCIIFromFile(&glTFInput, &error, &warning, filename);
+
+	std::vector<uint32_t> indexBuffer;
+	std::vector<Vertex> vertexBuffer;
+
+	if (fileLoaded)
+	{
+		this->LoadImages(glTFInput);
+		this->LoadMaterials(glTFInput);
+		this->LoadTextures(glTFInput);
+		const tinygltf::Scene& scene = glTFInput.scenes[0];
+		for (size_t i = 0; i < scene.nodes.size(); i++)
+		{
+			const tinygltf::Node node = glTFInput.nodes[scene.nodes[i]];
+			this->LoadNode(node, glTFInput, nullptr, indexBuffer, vertexBuffer);
+		}
+	}
+	else
+	{
+		ASSERT(false, "Could not open the glTF file");
+	}
+
+	size_t vertexBufferSize = vertexBuffer.size() * sizeof(Vertex);
+	size_t indexBufferSize = indexBuffer.size() * sizeof(uint32_t);
+	this->m_IndexCount = static_cast<uint32_t>(indexBuffer.size());
+
+	VulkanBuffer* vertexBufferGPU = new VulkanBuffer(device, BufferUsageFlags::VertexBuffer | BufferUsageFlags::TransferSrc, MemoryAccess::GPU, vertexBufferSize, "ModelVertexBuffer");
+	vertexBufferGPU->FillBuffer(vertexBuffer.data(), vertexBufferSize);
+
+	VulkanBuffer* indexBufferGPU = new VulkanBuffer(device, BufferUsageFlags::IndexBuffer | BufferUsageFlags::TransferSrc, MemoryAccess::GPU, indexBufferSize, "ModelIndexBuffer");
+	indexBufferGPU->FillBuffer(indexBuffer.data(), indexBufferSize);
+
+	this->m_VertexBuffer = vertexBufferGPU;
+	this->m_IndexBuffer = indexBufferGPU;
+}
+
+VulkanglTFModel::VulkanglTFModel(VulkanDevice* device, std::string filename)
+{
+	LoadModelFromFile(device, filename);
+}
+
+VulkanglTFModel::~VulkanglTFModel()
+{
+	delete m_VertexBuffer;
+	delete m_IndexBuffer;
+	
+	m_Textures.clear();
+}
+
+/*
+	glTF loading functions
+
+	The following functions take a glTF input model loaded via tinyglTF and convert all required data into our own structure
+*/
+
+void VulkanglTFModel::LoadImages(tinygltf::Model& input)
+{
+	// Images can be stored inside the glTF (which is the case for the sample model), so instead of directly
+	// loading them from disk, we fetch them from the glTF loader and upload the buffers
+	m_Textures.resize(input.images.size());
+	for (size_t i = 0; i < input.images.size(); i++) 
+	{
+		tinygltf::Image& glTFImage = input.images[i];
+		// Get the image data from the glTF loader
+		unsigned char* buffer = nullptr;
+		VkDeviceSize bufferSize = 0;
+		bool deleteBuffer = false;
+		// We convert RGB-only images to RGBA, as most devices don't support RGB-formats in Vulkan
+		if (glTFImage.component == 3) 
+		{
+			bufferSize = glTFImage.width * glTFImage.height * 4;
+			buffer = new unsigned char[bufferSize];
+			unsigned char* rgba = buffer;
+			unsigned char* rgb = &glTFImage.image[0];
+			for (size_t i = 0; i < glTFImage.width * glTFImage.height; ++i) 
+			{
+				memcpy(rgba, rgb, sizeof(unsigned char) * 3);
+				rgba += 4;
+				rgb += 3;
+			}
+			deleteBuffer = true;
+		}
+		else 
+		{
+			buffer = &glTFImage.image[0];
+			bufferSize = glTFImage.image.size();
+		}
+
+		TextureData textureData{};
+		textureData.bpp = glTFImage.component;
+		textureData.height = input.images[i].height;
+		textureData.width = input.images[i].width;
+		textureData.pData = buffer;
+
+		VulkanTexture* texture = new VulkanTexture(m_Device, &textureData, TextureFlags::Color | TextureFlags::Read | TextureFlags::TransferDst | TextureFlags::TransferSrc, Format::R8G8B8A8_UNORM, "InputTexture", true);
+		m_Textures[i] = texture;
+
+		if (deleteBuffer) 
+		{
+			delete buffer;
+		}
+	}
+}
+
+void VulkanglTFModel::LoadTextures(tinygltf::Model& input)
+{
+	m_TextureIndices.resize(input.textures.size());
+	for (size_t i = 0; i < input.textures.size(); i++) {
+		m_TextureIndices[i] = input.textures[i].source;
+	}
+}
+
+void VulkanglTFModel::LoadMaterials(tinygltf::Model& input)
+{
+	m_Materials.resize(input.materials.size());
+	for (size_t i = 0; i < input.materials.size(); i++) {
+		// We only read the most basic properties required for our sample
+		tinygltf::Material glTFMaterial = input.materials[i];
+		// Get the base color factor
+		if (glTFMaterial.values.find("baseColorFactor") != glTFMaterial.values.end()) {
+			m_Materials[i].baseColorFactor = glm::make_vec4(glTFMaterial.values["baseColorFactor"].ColorFactor().data());
+		}
+		// Get base color texture index
+		if (glTFMaterial.values.find("baseColorTexture") != glTFMaterial.values.end()) {
+			m_Materials[i].baseColorTextureIndex = glTFMaterial.values["baseColorTexture"].TextureIndex();
+		}
+		// Get metaliic and roughness texture index
+		if (glTFMaterial.values.find("metallicRoughnessTexture") != glTFMaterial.values.end()) {
+			m_Materials[i].metallicRoughnessTextureIndex = glTFMaterial.values["metallicRoughnessTexture"].TextureIndex();
+		}
+		// Get normal texture index
+		m_Materials[i].normalTextureIndex = glTFMaterial.normalTexture.index;
+	}
+}
+
+void VulkanglTFModel::LoadNode(const tinygltf::Node& inputNode, const tinygltf::Model& input, VulkanglTFModel::Node* parent, std::vector<uint32_t>& indexBuffer, std::vector<Vertex>& vertexBuffer)
+{
+	VulkanglTFModel::Node node{};
+	node.matrix = glm::mat4(1.0f);
+
+	// Get the local node matrix
+	// It's either made up from translation, rotation, scale or a 4x4 matrix
+	if (inputNode.translation.size() == 3) {
+		node.matrix = glm::translate(node.matrix, glm::vec3(glm::make_vec3(inputNode.translation.data())));
+	}
+	if (inputNode.rotation.size() == 4) {
+		glm::quat q = glm::make_quat(inputNode.rotation.data());
+		node.matrix *= glm::mat4(q);
+	}
+	if (inputNode.scale.size() == 3) {
+		node.matrix = glm::scale(node.matrix, glm::vec3(glm::make_vec3(inputNode.scale.data())));
+	}
+	if (inputNode.matrix.size() == 16) {
+		node.matrix = glm::make_mat4x4(inputNode.matrix.data());
+	};
+
+	// Load node's children
+	if (inputNode.children.size() > 0) {
+		for (size_t i = 0; i < inputNode.children.size(); i++) {
+			LoadNode(input.nodes[inputNode.children[i]], input, &node, indexBuffer, vertexBuffer);
+		}
+	}
+
+	// If the node contains mesh data, we load vertices and indices from the buffers
+	// In glTF this is done via accessors and buffer views
+	if (inputNode.mesh > -1) {
+		const tinygltf::Mesh mesh = input.meshes[inputNode.mesh];
+		// Iterate through all primitives of this node's mesh
+		for (size_t i = 0; i < mesh.primitives.size(); i++) {
+			const tinygltf::Primitive& glTFPrimitive = mesh.primitives[i];
+			uint32_t firstIndex = static_cast<uint32_t>(indexBuffer.size());
+			uint32_t vertexStart = static_cast<uint32_t>(vertexBuffer.size());
+			uint32_t indexCount = 0;
+			// Vertices
+			{
+				const float* positionBuffer = nullptr;
+				const float* normalsBuffer = nullptr;
+				const float* texCoordsBuffer = nullptr;
+				const float* tangentBuffer = nullptr;
+				size_t vertexCount = 0;
+
+				// Get buffer data for vertex normals
+				if (glTFPrimitive.attributes.find("POSITION") != glTFPrimitive.attributes.end()) {
+					const tinygltf::Accessor& accessor = input.accessors[glTFPrimitive.attributes.find("POSITION")->second];
+					const tinygltf::BufferView& view = input.bufferViews[accessor.bufferView];
+					positionBuffer = reinterpret_cast<const float*>(&(input.buffers[view.buffer].data[accessor.byteOffset + view.byteOffset]));
+					vertexCount = accessor.count;
+				}
+				// Get buffer data for vertex normals
+				if (glTFPrimitive.attributes.find("NORMAL") != glTFPrimitive.attributes.end()) {
+					const tinygltf::Accessor& accessor = input.accessors[glTFPrimitive.attributes.find("NORMAL")->second];
+					const tinygltf::BufferView& view = input.bufferViews[accessor.bufferView];
+					normalsBuffer = reinterpret_cast<const float*>(&(input.buffers[view.buffer].data[accessor.byteOffset + view.byteOffset]));
+				}
+				// Get buffer data for vertex texture coordinates
+				// glTF supports multiple sets, we only load the first one
+				if (glTFPrimitive.attributes.find("TEXCOORD_0") != glTFPrimitive.attributes.end()) {
+					const tinygltf::Accessor& accessor = input.accessors[glTFPrimitive.attributes.find("TEXCOORD_0")->second];
+					const tinygltf::BufferView& view = input.bufferViews[accessor.bufferView];
+					texCoordsBuffer = reinterpret_cast<const float*>(&(input.buffers[view.buffer].data[accessor.byteOffset + view.byteOffset]));
+				}
+
+				if (glTFPrimitive.attributes.find("TANGENT") != glTFPrimitive.attributes.end()) {
+					const tinygltf::Accessor& accessor = input.accessors[glTFPrimitive.attributes.find("TANGENT")->second];
+					const tinygltf::BufferView& view = input.bufferViews[accessor.bufferView];
+					tangentBuffer = reinterpret_cast<const float*>(&(input.buffers[view.buffer].data[accessor.byteOffset + view.byteOffset]));
+				}
+
+				// Append data to model's vertex buffer
+				for (size_t v = 0; v < vertexCount; v++) {
+					Vertex vert{};
+					vert.position = glm::make_vec3(&positionBuffer[v * 3]);
+					vert.normal = glm::normalize(glm::vec3(normalsBuffer ? glm::make_vec3(&normalsBuffer[v * 3]) : glm::vec3(0.0f)));
+					vert.uv = texCoordsBuffer ? glm::make_vec2(&texCoordsBuffer[v * 2]) : glm::vec2(0.0f);
+					vert.tangent = tangentBuffer ? glm::make_vec3(&tangentBuffer[v * 3]) : glm::vec3(0.0f);
+					vertexBuffer.push_back(vert);
+				}
+			}
+			// Indices
+			{
+				const tinygltf::Accessor& accessor = input.accessors[glTFPrimitive.indices];
+				const tinygltf::BufferView& bufferView = input.bufferViews[accessor.bufferView];
+				const tinygltf::Buffer& buffer = input.buffers[bufferView.buffer];
+
+				indexCount += static_cast<uint32_t>(accessor.count);
+
+				// glTF supports different component types of indices
+				switch (accessor.componentType) {
+				case TINYGLTF_PARAMETER_TYPE_UNSIGNED_INT: {
+					uint32_t* buf = new uint32_t[accessor.count];
+					memcpy(buf, &buffer.data[accessor.byteOffset + bufferView.byteOffset], accessor.count * sizeof(uint32_t));
+					for (size_t index = 0; index < accessor.count; index++) {
+						indexBuffer.push_back(buf[index] + vertexStart);
+					}
+					break;
+				}
+				case TINYGLTF_PARAMETER_TYPE_UNSIGNED_SHORT: {
+					uint16_t* buf = new uint16_t[accessor.count];
+					memcpy(buf, &buffer.data[accessor.byteOffset + bufferView.byteOffset], accessor.count * sizeof(uint16_t));
+					for (size_t index = 0; index < accessor.count; index++) {
+						indexBuffer.push_back(buf[index] + vertexStart);
+					}
+					break;
+				}
+				case TINYGLTF_PARAMETER_TYPE_UNSIGNED_BYTE: {
+					uint8_t* buf = new uint8_t[accessor.count];
+					memcpy(buf, &buffer.data[accessor.byteOffset + bufferView.byteOffset], accessor.count * sizeof(uint8_t));
+					for (size_t index = 0; index < accessor.count; index++) {
+						indexBuffer.push_back(buf[index] + vertexStart);
+					}
+					break;
+				}
+				default:
+					std::cerr << "Index component type " << accessor.componentType << " not supported!" << std::endl;
+					return;
+				}
+			}
+			Primitive primitive{};
+			primitive.firstIndex = firstIndex;
+			primitive.indexCount = indexCount;
+			primitive.materialIndex = glTFPrimitive.material;
+			node.mesh.primitives.push_back(primitive);
+		}
+	}
+
+	if (parent) {
+		parent->children.push_back(node);
+	}
+	else {
+		m_Nodes.push_back(node);
+	}
+}
+
+void VulkanglTFModel::DrawNode(VkCommandBuffer commandBuffer, const VkPipelineLayout* pipelineLayout, VulkanglTFModel::Node node, uint8_t backBufferIndex, IndexedIndirectBuffer* indirectBuffer)
+{
+	if (node.mesh.primitives.size() > 0) 
+	{
+		// Pass the node's matrix via push constants
+		// Traverse the node hierarchy to the top-most parent to get the final matrix of the current node
+		glm::mat4 nodeMatrix = node.matrix;
+		VulkanglTFModel::Node* currentParent = node.parent;
+		while (currentParent) 
+		{
+			nodeMatrix = currentParent->matrix * nodeMatrix;
+			currentParent = currentParent->parent;
+		}
+		// Pass the final matrix to the vertex shader using push constants
+
+		for (VulkanglTFModel::Primitive& primitive : node.mesh.primitives) 
+		{
+			SimplePushConstantData pushData{};
+			//TODO: add primitive id
+			pushData.id = 1;
+			pushData.modelMatrix = nodeMatrix;
+			pushData.useNormalMap = m_Materials[primitive.materialIndex].normalTextureIndex != 0xFFFF;
+
+			vkCmdPushConstants(commandBuffer, *pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(SimplePushConstantData), &pushData);
+
+			//TODO: decrease num of descriptor set binding to number of different materials
+			//sort primitives by materialIndexNumber
+			if (primitive.indexCount > 0) 
+			{
+				VulkanDescriptorSet* materialDescriptorSet = m_Materials[primitive.materialIndex].materialDescriptorSet[backBufferIndex];
+				// Bind the descriptor for the current primitive's texture
+				vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, *pipelineLayout, 0, 1, materialDescriptorSet->GetVkDescriptorSet(), 0, nullptr);
+
+				IndexIndirectDrawData indexIndirectDrawCommand{};
+                indexIndirectDrawCommand.firstIndex = primitive.firstIndex;
+                indexIndirectDrawCommand.firstInstance = 0;
+                indexIndirectDrawCommand.indexCount = primitive.indexCount;
+                indexIndirectDrawCommand.instanceCount = 1;
+                indexIndirectDrawCommand.vertexOffset = 0;
+
+				indirectBuffer->AddIndirectDrawCommand(commandBuffer, indexIndirectDrawCommand);
+			}
+		}
+	}
+	for (auto& child : node.children) 
+	{
+		DrawNode(commandBuffer, pipelineLayout, child, backBufferIndex, indirectBuffer);
+	}
+}
+
+
+
+void VulkanglTFModel::Draw(VkCommandBuffer commandBuffer, const VkPipelineLayout* pipeLayout, uint8_t backBufferIndex, IndexedIndirectBuffer* indirectBuffer)
+{
+	for (auto& node : m_Nodes)
+	{
+		DrawNode(commandBuffer, pipeLayout, node, backBufferIndex, indirectBuffer);
+	}
+}
+
+void VulkanglTFModel::BindBuffers(VkCommandBuffer commandBuffer)
+{
+	VkDeviceSize offsets[1] = { 0 };
+	VkBuffer vertexBuffer = m_VertexBuffer->GetBuffer();
+	vkCmdBindVertexBuffers(commandBuffer, 0, 1, &vertexBuffer, offsets);
+	vkCmdBindIndexBuffer(commandBuffer, m_IndexBuffer->GetBuffer(), 0, VK_INDEX_TYPE_UINT32);
 }

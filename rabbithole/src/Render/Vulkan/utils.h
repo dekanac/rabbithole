@@ -13,4 +13,9 @@ struct AllocationTrack
 };
 
 void PrintUsage();
+namespace Utils
+{
+	long long SetStartTime();
+	void SetEndtimeAndPrint(long long start);
+}
 AllocationTrack GetAllocationTrack();

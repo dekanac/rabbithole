@@ -25,3 +25,15 @@ struct CFBVHNode
 	uint isLeaf;
 };
 
+struct Ray
+{
+	vec3 origin;
+	vec3 direction;
+	float t;
+};
+
+float ScalarTriple(vec3 a, vec3 b, vec3 c)
+{
+	return dot(cross(a, b), c);
+}
+

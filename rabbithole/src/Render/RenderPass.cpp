@@ -25,6 +25,21 @@ void RenderPass::SetStorageImage(Renderer* renderer, int slot, VulkanTexture* te
 	renderer->GetStateManager()->SetStorageImage(slot, texture);
 }
 
+void RenderPass::SetConstantBuffer(Renderer* renderer, int slot, VulkanBuffer* buffer)
+{
+	renderer->GetStateManager()->SetConstantBuffer(slot, buffer);
+}
+
+void RenderPass::SetStorageBuffer(Renderer* renderer, int slot, VulkanBuffer* buffer)
+{
+    renderer->GetStateManager()->SetStorageBuffer(slot, buffer);
+}
+
+void RenderPass::SetSampler(Renderer* renderer, int slot, VulkanTexture* texture)
+{
+	renderer->GetStateManager()->SetSampler(slot, texture);
+}
+
 void RenderPass::SetRenderTarget(Renderer* renderer, int slot, VulkanTexture* texture)
 {
 	VulkanStateManager* stateManager = renderer->GetStateManager();
@@ -121,7 +136,7 @@ void BoundingBoxPass::Setup(Renderer* renderer)
 	pipelineInfo->SetTopology(Topology::LineList);
 	pipelineInfo->SetCullMode(CullMode::None);
 
-	stateManager->SetConstantBuffer(0, renderer->GetMainConstBuffer());
+	SetConstantBuffer(renderer, 0, renderer->GetMainConstBuffer());
 
 	SetRenderTarget(renderer, 0, renderer->lightingMain);
 	SetDepthStencil(renderer, renderer->depthStencil);
@@ -159,18 +174,24 @@ void GBufferPass::Setup(Renderer* renderer)
 
 	auto pipelineInfo = stateManager->GetPipelineInfo();
 
+#ifdef USE_RABBITHOLE_TOOLS
 	pipelineInfo->SetAttachmentCount(5);
+	pipelineInfo->SetColorWriteMask(4, ColorWriteMaskFlags::RGBA);
+#else
+	pipelineInfo->SetAttachmentCount(4);
+#endif
 	pipelineInfo->SetColorWriteMask(0, ColorWriteMaskFlags::RGBA);
 	pipelineInfo->SetColorWriteMask(1, ColorWriteMaskFlags::RGBA);
 	pipelineInfo->SetColorWriteMask(2, ColorWriteMaskFlags::RGBA);
 	pipelineInfo->SetColorWriteMask(3, ColorWriteMaskFlags::RGBA);
-	pipelineInfo->SetColorWriteMask(4, ColorWriteMaskFlags::RGBA);
 
 	SetRenderTarget(renderer, 0, renderer->albedoGBuffer);
 	SetRenderTarget(renderer, 1, renderer->normalGBuffer);
 	SetRenderTarget(renderer, 2, renderer->worldPositionGBuffer);
-	SetRenderTarget(renderer, 3, renderer->entityHelper);
-	SetRenderTarget(renderer, 4, renderer->velocityGBuffer);
+	SetRenderTarget(renderer, 3, renderer->velocityGBuffer);
+#ifdef RABBITHOLE_TOOLS
+	SetRenderTarget(renderer, 4, renderer->entityHelper);
+#endif
 	SetDepthStencil(renderer, renderer->depthStencil);
 
 	auto renderPassInfo = stateManager->GetRenderPassInfo();
@@ -181,7 +202,7 @@ void GBufferPass::Setup(Renderer* renderer)
 	renderPassInfo->InitialDepthStencilState = ResourceState::None;
 	renderPassInfo->FinalDepthStencilState = ResourceState::DepthStencilWrite;
 
-	stateManager->SetCullMode(CullMode::Front);//TODO: VULKAN INVERT Y FLIP FIX
+	stateManager->SetCullMode(CullMode::Front);
 	stateManager->SetVertexShader(renderer->GetShader("VS_GBuffer"));
 	stateManager->SetPixelShader(renderer->GetShader("FS_GBuffer"));
 
@@ -190,7 +211,8 @@ void GBufferPass::Setup(Renderer* renderer)
 
 void GBufferPass::Render(Renderer* renderer)
 {
-	renderer->DrawGeometry(renderer->GetModels());
+	//renderer->DrawGeometry(renderer->GetModels());
+	renderer->DrawGeometryGLTF(renderer->gltfModels);
 }
 
 void LightingPass::DeclareResources(Renderer* renderer)
@@ -216,31 +238,29 @@ void LightingPass::Setup(Renderer* renderer)
 
 		ImGui::ColorEdit3("Light1", lightParams[0].color);
 		ImGui::SliderFloat("Light1 radius: ", &(lightParams[0]).radius, 0.f, 50.f);
-		ImGui::SliderFloat3("Light1 position: ", lightParams[0].position, -10.f, 10.f);
+		ImGui::SliderFloat3("Light1 position: ", lightParams[0].position, -20.f, 20.f);
 
 		ImGui::ColorEdit3("Light2", lightParams[1].color);
 		ImGui::SliderFloat("Light2 radius: ", &(lightParams[1]).radius, 0.f, 50.f);
-		ImGui::SliderFloat3("Light2 position: ", lightParams[1].position, -10.f, 10.f);
+		ImGui::SliderFloat3("Light2 position: ", lightParams[1].position, -20.f, 20.f);
 
 		ImGui::ColorEdit3("Light3", lightParams[2].color);
 		ImGui::SliderFloat("Light3 radius: ", &(lightParams[2]).radius, 0.f, 50.f);
-		ImGui::SliderFloat3("Light3 position: ", lightParams[2].position, -10.f, 10.f);
+		ImGui::SliderFloat3("Light3 position: ", lightParams[2].position, -20.f, 20.f);
 
 		ImGui::ColorEdit3("Light4", lightParams[3].color);
 		ImGui::SliderFloat("Light4 radius: ", &(lightParams[3]).radius, 0.f, 50.f);
-		ImGui::SliderFloat3("Light4 position: ", lightParams[3].position, -10.f, 10.f);
+		ImGui::SliderFloat3("Light4 position: ", lightParams[3].position, -20.f, 20.f);
 
 		ImGui::End();
 	}
 	renderer->GetLightParams()->FillBuffer(renderer->lightParams, sizeof(LightParams) * numOfLights);
 
-	auto& device = renderer->GetVulkanDevice();
-
 	SetCombinedImageSampler(renderer, 0, renderer->albedoGBuffer);
 	SetCombinedImageSampler(renderer, 1, renderer->normalGBuffer);
 	SetCombinedImageSampler(renderer, 2, renderer->worldPositionGBuffer);
-	stateManager->SetConstantBuffer(3, renderer->GetMainConstBuffer());
-	stateManager->SetConstantBuffer(4, renderer->GetLightParams());
+	SetConstantBuffer(renderer, 3, renderer->GetMainConstBuffer());
+	SetConstantBuffer(renderer, 4, renderer->GetLightParams());
 	SetCombinedImageSampler(renderer, 5, renderer->SSAOBluredTexture);
 	SetCombinedImageSampler(renderer, 6, renderer->shadowMap);
 	SetCombinedImageSampler(renderer, 7, renderer->velocityGBuffer);
@@ -341,7 +361,7 @@ void SkyboxPass::Setup(Renderer* renderer)
 	stateManager->SetVertexShader(renderer->GetShader("VS_Skybox"));
 	stateManager->SetPixelShader(renderer->GetShader("FS_Skybox"));
 
-	stateManager->SetConstantBuffer(0, renderer->GetMainConstBuffer());
+	SetConstantBuffer(renderer, 0, renderer->GetMainConstBuffer());
 	SetCombinedImageSampler(renderer, 1, renderer->skyboxTexture);
 
 	SetRenderTarget(renderer, 0, renderer->albedoGBuffer);
@@ -385,6 +405,7 @@ void SSAOPass::Setup(Renderer* renderer)
 
 		ImGui::SliderFloat("Radius: ", &renderer->ssaoParams.radius, 0.1f, 1.f);
 		ImGui::SliderFloat("Bias:", &renderer->ssaoParams.bias, 0.0f, 0.0625f);
+		ImGui::SliderFloat("Power:", &renderer->ssaoParams.power, 1.0f, 3.f);
 		ImGui::SliderInt("Kernel Size: ", &renderer->ssaoParams.kernelSize, 1, 64);
 		ImGui::Checkbox("SSSAO On: ", &renderer->ssaoParams.ssaoOn);
 		ImGui::End();
@@ -392,12 +413,12 @@ void SSAOPass::Setup(Renderer* renderer)
 
 	renderer->SSAOParamsBuffer->FillBuffer(&renderer->ssaoParams, sizeof(SSAOParams));
 
-	stateManager->SetConstantBuffer(0, renderer->GetMainConstBuffer());
-	SetCombinedImageSampler(renderer, 1, renderer->depthStencil);
+	SetConstantBuffer(renderer, 0, renderer->GetMainConstBuffer());
+	SetCombinedImageSampler(renderer, 1, renderer->worldPositionGBuffer);
 	SetCombinedImageSampler(renderer, 2, renderer->normalGBuffer);
 	SetCombinedImageSampler(renderer, 3, renderer->SSAONoiseTexture);
-	stateManager->SetConstantBuffer(4, renderer->SSAOSamplesBuffer);
-	stateManager->SetConstantBuffer(5, renderer->SSAOParamsBuffer);
+    SetConstantBuffer(renderer, 4, renderer->SSAOSamplesBuffer);
+    SetConstantBuffer(renderer, 5, renderer->SSAOParamsBuffer);
 
 	SetRenderTarget(renderer, 0, renderer->SSAOTexture);
 }
@@ -447,11 +468,11 @@ void RTShadowsPass::Setup(Renderer* renderer)
 	SetStorageImage(renderer, 0, renderer->worldPositionGBuffer);
 	SetStorageImage(renderer, 1, renderer->normalGBuffer);
 	SetStorageImage(renderer, 2, renderer->shadowMap);
-	stateManager->SetStorageBuffer(3, renderer->vertexBuffer);
-	stateManager->SetStorageBuffer(4, renderer->trianglesBuffer);
-	stateManager->SetStorageBuffer(5, renderer->triangleIndxsBuffer);
-	stateManager->SetStorageBuffer(6, renderer->cfbvhNodesBuffer);
-	stateManager->SetConstantBuffer(7, renderer->GetLightParams());
+	SetStorageBuffer(renderer, 3, renderer->vertexBuffer);
+	SetStorageBuffer(renderer, 4, renderer->trianglesBuffer);
+	SetStorageBuffer(renderer, 5, renderer->triangleIndxsBuffer);
+	SetStorageBuffer(renderer, 6, renderer->cfbvhNodesBuffer);
+	SetConstantBuffer(renderer, 7, renderer->GetLightParams());
 }
 
 void RTShadowsPass::Render(Renderer* renderer)
@@ -476,10 +497,10 @@ void FSREASUPass::Setup(Renderer* renderer)
 
 	stateManager->SetComputeShader(renderer->GetShader("CS_FSR_EASU"));
 
-	stateManager->SetConstantBuffer(0, renderer->fsrParamsBuffer);
+	SetConstantBuffer(renderer, 0, renderer->fsrParamsBuffer);
 	SetSampledImage(renderer, 1, renderer->lightingMain);
 	SetStorageImage(renderer, 2, renderer->fsrIntermediateRes);
-	stateManager->SetSampler(3, renderer->lightingMain);
+	SetSampler(renderer, 3, renderer->lightingMain);
 }
 
 void FSREASUPass::Render(Renderer* renderer)
@@ -503,10 +524,10 @@ void FSRRCASPass::Setup(Renderer* renderer)
 
 	stateManager->SetComputeShader(renderer->GetShader("CS_FSR_RCAS"));
 
-	stateManager->SetConstantBuffer(0, renderer->fsrParamsBuffer);
+	SetConstantBuffer(renderer, 0, renderer->fsrParamsBuffer);
 	SetSampledImage(renderer, 1, renderer->fsrIntermediateRes);
 	SetStorageImage(renderer, 2, renderer->fsrOutputTexture);
-	stateManager->SetSampler(3, renderer->fsrIntermediateRes);
+	SetSampler(renderer, 3, renderer->fsrIntermediateRes);
 }
 
 void FSRRCASPass::Render(Renderer* renderer)
@@ -539,10 +560,10 @@ void TAAPass::Setup(Renderer* renderer)
 
 	SetStorageImage(renderer, 4, renderer->TAAOutput);
 
-	stateManager->SetSampler(5, renderer->lightingMain);
-	stateManager->SetSampler(6, renderer->depthStencil);
-	stateManager->SetSampler(7, renderer->historyBuffer);
-	stateManager->SetSampler(8, renderer->velocityGBuffer);
+    SetSampler(renderer, 5, renderer->lightingMain);
+    SetSampler(renderer, 6, renderer->depthStencil);
+    SetSampler(renderer, 7, renderer->historyBuffer);
+    SetSampler(renderer, 8, renderer->velocityGBuffer);
 }
 
 void TAAPass::Render(Renderer* renderer)

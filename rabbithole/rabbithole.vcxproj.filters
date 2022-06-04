@@ -138,6 +138,12 @@
     <ClCompile Include="src\Render\ResourceStateTracking.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="src\Render\Model\ModelLoaderGLTF.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Render\BVH.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\Core\Application.h">
@@ -1109,6 +1115,12 @@
     <ClInclude Include="src\Render\ResourceStateTracking.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="src\Render\Model\ModelLoaderGLTF.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Render\BVH.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="src\vendor\glm\detail\func_common.inl">
@@ -1519,5 +1531,19 @@
     <None Include="src\vendor\glm\gtx\wrap.inl">
       <Filter>Header Files</Filter>
     </None>
+    <None Include="res\shaders\CS_FSR.glsl" />
+    <None Include="res\shaders\CS_RayTracingShadows.glsl" />
+    <None Include="res\shaders\FS_GBuffer.glsl" />
+    <None Include="res\shaders\FS_OutlineEntity.glsl" />
+    <None Include="res\shaders\FS_PassThrough.glsl" />
+    <None Include="res\shaders\FS_PBR.glsl" />
+    <None Include="res\shaders\FS_SimpleGeometry.glsl" />
+    <None Include="res\shaders\FS_Skybox.glsl" />
+    <None Include="res\shaders\FS_SSAO.glsl" />
+    <None Include="res\shaders\FS_SSAOBlur.glsl" />
+    <None Include="res\shaders\VS_GBuffer.glsl" />
+    <None Include="res\shaders\VS_PassThrough.glsl" />
+    <None Include="res\shaders\VS_SimpleGeometry.glsl" />
+    <None Include="res\shaders\VS_Skybox.glsl" />
   </ItemGroup>
 </Project>

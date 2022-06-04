@@ -23,5 +23,4 @@ void main()
     FragTexCoords = position;
     vec4 pos = UBO.proj * UBO.view * vec4(position, 1.0);
     gl_Position = pos.xyww;
-    gl_Position.y = -gl_Position.y;
 } 

@@ -39,6 +39,7 @@ bool RenderSystem::Shutdown()
         LOG_CRITICAL("Renderer failed to shutdown!");
         return false;
     }
+
 	return true;
 }
 

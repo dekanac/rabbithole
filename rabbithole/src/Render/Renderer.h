@@ -11,11 +11,13 @@
 #include "SuperResolutionManager.h"
 #include "Window.h"
 #include "Model/ModelLoading.h"
+#include "BVH.h"
 
-#ifdef _DEBUG
+//#ifdef _DEBUG
+	//#define  USE_RABBITHOLE_TOOLS
 	#define RABBITHOLE_USING_IMGUI
-#endif
-#define MAX_NUM_OF_LIGHTS 12
+//#endif
+#define MAX_NUM_OF_LIGHTS 4
 constexpr size_t numOfLights = 4;
 
 class Camera;
@@ -71,8 +73,21 @@ struct SSAOParams
 	float bias;
 	float resWidth;
 	float resHeight;
+	float power;
 	int kernelSize;
 	bool ssaoOn;
+};
+
+struct IndexedIndirectBuffer
+{
+    VulkanBuffer* gpuBuffer = nullptr;
+    IndexIndirectDrawData* localBuffer = nullptr;
+
+	uint64_t currentSize = 0;
+	uint64_t currentOffset = 0;
+
+	void SubmitToGPU();
+	void AddIndirectDrawCommand(VkCommandBuffer commandBuffer, IndexIndirectDrawData& drawData);
 };
 
 class Renderer
@@ -90,9 +105,8 @@ private:
 	std::vector<VkCommandBuffer>				m_CommandBuffers;
 	uint8_t										m_CurrentImageIndex = 0;
 
-	VulkanBuffer* m_MainConstBuffer;
+	VulkanBuffer* m_MainConstBuffer[MAX_FRAMES_IN_FLIGHT];
 	VulkanBuffer* m_VertexUploadBuffer;
-	VulkanBuffer* m_LightParams;
 	
 	//test purpose only
 	Entity*						testEntity;
@@ -100,11 +114,11 @@ private:
 	ModelLoading::SceneData* defaultSphereModel;
 	std::vector<RabbitModel*>	rabbitmodels;
 	
-	void loadModels();
+	void LoadModels();
 	void LoadAndCreateShaders();
 	void CreateShaderModule(const std::vector<char>& code, ShaderType type, const char* name, const char* codeEntry);
-	void createCommandBuffers();
-	void recreateSwapchain();
+	void CreateCommandBuffers();
+	void RecreateSwapchain();
 	void RecordCommandBuffer(int imageIndex);
 	void CreateUniformBuffers();
 	void CreateDescriptorPool();
@@ -127,7 +141,7 @@ public:
 	inline std::vector<RabbitModel*>& GetModels() { return rabbitmodels; }
 	inline Camera* GetCamera() { return MainCamera; }
 
-	inline VulkanBuffer* GetMainConstBuffer() { return m_MainConstBuffer; }
+	inline VulkanBuffer* GetMainConstBuffer() { return m_MainConstBuffer[m_CurrentImageIndex]; }
 	inline VulkanBuffer* GetLightParams() { return m_LightParams; }
 
 	void UpdateDebugOptions();
@@ -164,6 +178,7 @@ public:
 	void BindCameraMatrices(Camera* camera);
 
 	void DrawGeometry(std::vector<RabbitModel*>& bucket);
+	void DrawGeometryGLTF(std::vector<VulkanglTFModel>& bucket);
 	void DrawBoundingBoxes(std::vector<RabbitModel*>& bucket);
 	void DrawFullScreenQuad();
 	void UpdateEntityPickId();
@@ -175,18 +190,16 @@ public:
 	std::vector<char> ReadFile(const std::string& filepath);
 	void FillTheLightParam(LightParams& lightParam, rabbitVec4f position, rabbitVec3f color, float radius);
 	void CopyToSwapChain();
-	void ImageTransitionToPresent();
 	void ExecuteRenderPass(RenderPass& renderpass);
 
 	void AddSimpleMesh(SimpleMeshType type, rabbitVec3f position = rabbitVec3f{}, float size = 1.f, rabbitVec3f rotation = rabbitVec3f{});
 public:
+	std::vector<VulkanglTFModel> gltfModels;
 
 	//TODO: do something with these
 	VulkanTexture* depthStencil;
-
 	//geometry
-	VulkanBuffer* geomDataIndirectDraw;
-	IndexIndirectDrawData* indexedDataBuffer;
+	IndexedIndirectBuffer* geomDataIndirectDraw;
 
 	//gbuffer
 	VulkanTexture* albedoGBuffer;
@@ -197,6 +210,7 @@ public:
 	//main lighting
 	VulkanTexture* lightingMain;
 	LightParams lightParams[numOfLights];
+	VulkanBuffer* m_LightParams;
 	
 	//skybox
 	VulkanTexture* skyboxTexture;
@@ -232,7 +246,7 @@ public:
 
 	bool m_RenderOutlinedEntity = false;
     bool m_FramebufferResized = false;
-
+	bool m_RenderTAA = true;
 	bool m_DrawBoundingBox = false;
 
 	bool Init();
@@ -242,7 +256,8 @@ public:
     void DrawFrame();
 
 private:
-	void CreateGeometryDescriptors();
+	void CreateGeometryDescriptors(std::vector<VulkanglTFModel>& models, uint32_t imageIndex);
+
 	void InitImgui();
 	bool m_ImguiInitialized = false;
 public:

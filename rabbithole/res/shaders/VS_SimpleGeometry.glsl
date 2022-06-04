@@ -33,5 +33,4 @@ void main()
     vs_out.FragPos = vec3(push.model * vec4(position, 1.0));   
 
     gl_Position = UBO.proj * UBO.view * push.model * vec4(position, 1.0);
-    gl_Position.y = -gl_Position.y; //TODO: VULKAN INVERT Y FLIP FIX
 }

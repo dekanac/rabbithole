@@ -9,12 +9,14 @@
 #include <type_traits>
 #include <unordered_map>
 #include <glm/gtx/hash.hpp>
+#include "tinygltf/tiny_gltf.h"
 
 #include "../Model/ModelLoading.h"
 
 class VulkanImage;
 class VulkanImageView;
 class VulkanImageSampler;
+class IndexedIndirectBuffer;
 
 void InitDefaultTextures(VulkanDevice* device);
 
@@ -102,8 +104,8 @@ public:
 	const std::vector<Vertex>& GetVertices() const { return m_Vertices; }
 	const std::vector<uint32_t>& GetIndices() const { return m_Indices; }
 
-	VulkanDescriptorSet*	GetDescriptorSet() const { return m_DescriptorSet; }
-	void					SetDescriptorSet(VulkanDescriptorSet* ds) { m_DescriptorSet = ds; }
+	VulkanDescriptorSet*	GetDescriptorSet(uint32_t imageIndex) const { return m_DescriptorSet[imageIndex]; }
+	void					SetDescriptorSet(VulkanDescriptorSet* ds, uint32_t imageIndex) { m_DescriptorSet[imageIndex] = ds; }
 
 	inline uint32_t GetIndexCount() { return m_IndexCount; }
 
@@ -134,7 +136,7 @@ private:
 	bool					m_UseNormalMap = true;
 	VulkanTexture*			m_RoughnessTexture;
 	VulkanTexture*			m_MetalnessTexture;
-	VulkanDescriptorSet*	m_DescriptorSet;
+	VulkanDescriptorSet*	m_DescriptorSet[MAX_FRAMES_IN_FLIGHT];
 
 	Mesh					m_MeshData;
 public:
@@ -267,3 +269,88 @@ int CountBoxes(BVHNode* root);
 unsigned CountTriangles(BVHNode* root);
 void CountDepth(BVHNode* root, int depth, int& maxDepth);
 void PopulateCacheFriendlyBVH(const Triangle* pFirstTriangle, BVHNode* root, unsigned& idxBoxes, unsigned& idxTriList, uint32_t* triIndexList, CacheFriendlyBVHNode* nodeList);
+
+
+
+class VulkanglTFModel
+{
+public:
+	VulkanglTFModel(VulkanDevice* device, std::string filename);
+	VulkanglTFModel(const VulkanglTFModel& other) = delete;
+	VulkanglTFModel(VulkanglTFModel&& other) = default;
+
+	~VulkanglTFModel();
+
+private:
+	VulkanDevice*	m_Device;
+
+	VulkanBuffer*	m_VertexBuffer;
+	VulkanBuffer*	m_IndexBuffer;
+	uint32_t		m_IndexCount;
+
+public:
+	inline VulkanBuffer*	GetVertexBuffer()	{ return m_VertexBuffer; }
+	inline VulkanBuffer*	GetIndexBuffer()	{ return m_IndexBuffer; }
+	uint32_t				GetIndexCount()		{ return m_IndexCount; }
+
+private:
+	// A primitive contains the data for a single draw call
+	struct Primitive 
+	{
+		uint32_t firstIndex;
+		uint32_t indexCount;
+		int32_t	 materialIndex;
+	};
+
+	struct Mesh 
+	{
+		std::vector<Primitive> primitives;
+	};
+
+public:
+	struct Node 
+	{
+		Node* parent;
+		std::vector<Node> children;
+		Mesh mesh;
+		glm::mat4 matrix;
+
+		void SetMatrix(glm::mat4 matrix_) { matrix = matrix_; }
+	};
+public:
+	struct Material 
+	{
+		glm::vec4	baseColorFactor = glm::vec4(1.0f);
+		uint32_t	baseColorTextureIndex;
+		uint32_t	normalTextureIndex;
+		uint32_t	metallicRoughnessTextureIndex;
+
+		//TODO: split descriptors into 3 levels PER_OBJECT, PER_PASS and PER_FRAME, then you should get rid of this
+		VulkanDescriptorSet* materialDescriptorSet[MAX_FRAMES_IN_FLIGHT];
+	};
+
+private:
+	std::vector<VulkanTexture*>		m_Textures;
+	std::vector<uint32_t>			m_TextureIndices;
+	std::vector<Material>			m_Materials;
+	std::vector<Node>				m_Nodes;
+
+public:
+	std::vector<Node>&				GetNodes() { return m_Nodes; }
+	std::vector<VulkanTexture*>&	GetTextures() { return m_Textures; }
+	std::vector<Material>&			GetMaterials() { return m_Materials; }
+	std::vector<uint32_t>&			GetTextureIndices() { return m_TextureIndices; }
+
+
+private:
+	void LoadImages(tinygltf::Model& input);
+	void LoadTextures(tinygltf::Model& input);
+	void LoadMaterials(tinygltf::Model& input);
+	void LoadNode(const tinygltf::Node& inputNode, const tinygltf::Model& input, VulkanglTFModel::Node* parent, std::vector<uint32_t>& indexBuffer, std::vector<Vertex>& vertexBuffer);
+	void LoadModelFromFile(VulkanDevice* device, std::string filename);
+
+public:
+	void DrawNode(VkCommandBuffer commandBuffer, const VkPipelineLayout* pipelineLayout, VulkanglTFModel::Node node, uint8_t backBufferIndex, IndexedIndirectBuffer* indirectBuffer);
+	void Draw(VkCommandBuffer commandBuffer, const VkPipelineLayout* pipeLayout, uint8_t backBufferIndex, IndexedIndirectBuffer* indirectBuffer);
+	void BindBuffers(VkCommandBuffer commandBuffer);
+};

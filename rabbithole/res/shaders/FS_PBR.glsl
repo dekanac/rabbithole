@@ -6,9 +6,9 @@ layout (location = 0) in vec2 inUV;
 
 layout (binding = 0) uniform sampler2D samplerAlbedo;
 layout (binding = 1) uniform sampler2D samplerNormal;
-layout (binding = 2) uniform sampler2D samplerposition;
+layout (binding = 2) uniform sampler2D samplerPosition;
 layout (binding = 5) uniform sampler2D samplerSSAO;
-layout (binding = 6) uniform sampler2D shadowMap;
+layout (binding = 6) uniform sampler2DArray samplerShadowMap;
 layout (binding = 7) uniform sampler2D samplerVelocity;
 
 layout (location = 0) out vec4 outColor;
@@ -87,24 +87,9 @@ void main()
 {		
 
     vec4 normalRoughness = texture(samplerNormal, inUV);
-	vec4 positionMetallic = texture(samplerposition, inUV);
+	vec4 positionMetallic = texture(samplerPosition, inUV);
     vec3 albedo = pow(texture(samplerAlbedo, inUV).rgb, vec3(2.2));
     vec2 velocity = texture(samplerVelocity, inUV).rg; 
-     
-    float shadows = texture(shadowMap, inUV).r;
-     //HAAAACK// if normal is equal to clear value then skip, it means that we hit the skybox
-     //if (normalRoughness == vec4(0.0, 0.0, 0.0, 1.0))
-     //{
-     ////just tonemap and gamma correct and return albedo (skybox)
-     //   vec3 color = albedo;
-     //   color = Uncharted2Tonemap(color * 4.5f);
-	 //   color = color * (1.0f / Uncharted2Tonemap(vec3(11.2f)));	
-     //   // gamma correct
-     //   //color = pow(color, vec3(1.0/1.6)); 
-     //   outColor = vec4(color, 1.0f);
-     //   return;
-     //}
-     
     float ssao = texture(samplerSSAO, inUV).r;
 
 	float roughness = normalRoughness.a;
@@ -123,6 +108,7 @@ void main()
     vec3 Lo = vec3(0.0);
     for(int i = 0; i < lightCount; ++i) 
     {
+        float shadows = texture(samplerShadowMap, vec3(inUV, i)).r;
         // calculate per-light radiance
 		vec3 tmp = Lights.light[i].position.xyz - position;
         vec3 L = normalize(tmp);
@@ -138,7 +124,7 @@ void main()
            
         vec3 numerator    = NDF * G * F; 
         float denominator = 4 * max(dot(N, V), 0.0) * max(dot(N, L), 0.0) + 0.0001; // + 0.0001 to prevent divide by zero
-        vec3 specular = numerator / denominator;
+        vec3 specular = (numerator / denominator) * shadows;
         
         // kS is equal to Fresnel
         vec3 kS = F;
@@ -154,27 +140,29 @@ void main()
         // scale light by NdotL
         float NdotL = max(dot(N, L), 0.0);        
 
+        vec3 diffuse = kD * albedo * shadows;
         // add to outgoing radiance Lo
-        Lo += (kD * albedo / PI + specular) * radiance * NdotL;  // note that we already multiplied the BRDF by the Fresnel (kS) so we won't multiply by kS again
+        Lo += (diffuse / PI + specular) * radiance * NdotL;  // note that we already multiplied the BRDF by the Fresnel (kS) so we won't multiply by kS again
     }   
     
     // ambient lighting (note that the next IBL tutorial will replace 
     // this ambient lighting with environment lighting).
-    vec3 ambient = vec3(0.03) * albedo * ssao * shadows;
+    vec3 ambient = vec3(0.03) * albedo * ssao;
 
     vec3 color = ambient + Lo;
 
     // HDR tonemapping
-    //color = color / (color + vec3(1.0));
-
+    color = color / (color + vec3(1.0));
 
 	color = Uncharted2Tonemap(color * 4.5f);
 	color = color * (1.0f / Uncharted2Tonemap(vec3(11.2f)));	
     // gamma correct
-    color = pow(color, vec3(1.0/1.6)); 
+    color = pow(color, vec3(1.0/1.8)); 
 
-    if (int(UBO.debugOption.x) > 0) {
-		switch (int(UBO.debugOption.x)) {
+    if (int(UBO.debugOption.x) > 0) 
+    {
+		switch (int(UBO.debugOption.x)) 
+        {
 			case 1: 
 				outColor.rgb = position;
 				break;

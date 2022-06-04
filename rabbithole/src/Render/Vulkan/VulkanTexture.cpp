@@ -2,7 +2,7 @@
 
 #include "Model.h"
 
-VulkanTexture::VulkanTexture(VulkanDevice* device, std::string filePath, TextureFlags flags, Format format, std::string name)
+VulkanTexture::VulkanTexture(VulkanDevice* device, std::string filePath, TextureFlags flags, Format format, std::string name, bool generateMips)
 	: m_Format(format)
 	, m_Flags(flags)
 	, m_FilePath(filePath)
@@ -10,7 +10,7 @@ VulkanTexture::VulkanTexture(VulkanDevice* device, std::string filePath, Texture
 {
 	auto texData = ModelLoading::LoadTexture(filePath);
 
-	CreateResource(device, texData);
+	CreateResource(device, texData, generateMips);
 	CreateView(device);
 	CreateSampler(device);
 
@@ -32,14 +32,28 @@ VulkanTexture::VulkanTexture(VulkanDevice* device, const uint32_t width, const u
 	device->SetObjectName((uint64_t)m_Sampler->GetSampler(), VK_OBJECT_TYPE_SAMPLER, name);
 }
 
-VulkanTexture::VulkanTexture(VulkanDevice* device, TextureData* texData, TextureFlags flags, Format format, std::string name)
+VulkanTexture::VulkanTexture(VulkanDevice* device, const uint32_t width, const uint32_t height, TextureFlags flags, Format format, uint32_t arraySize, const char* name)
 	: m_Format(format)
 	, m_Flags(flags)
 	, m_FilePath("")
 	, m_Name(name)
 {
-	
-	CreateResource(device, texData);
+	CreateResource(device, width, height, arraySize);
+	CreateView(device);
+	CreateSampler(device);
+
+	device->SetObjectName((uint64_t)(m_Resource->GetImage()), VK_OBJECT_TYPE_IMAGE, name);
+	device->SetObjectName((uint64_t)m_View->GetImageView(), VK_OBJECT_TYPE_IMAGE_VIEW, name);
+	device->SetObjectName((uint64_t)m_Sampler->GetSampler(), VK_OBJECT_TYPE_SAMPLER, name);
+}
+
+VulkanTexture::VulkanTexture(VulkanDevice* device, TextureData* texData, TextureFlags flags, Format format, std::string name, bool generateMips)
+	: m_Format(format)
+	, m_Flags(flags)
+	, m_FilePath("")
+	, m_Name(name)
+{
+	CreateResource(device, texData, generateMips);
 	CreateView(device);
 	CreateSampler(device);
 }
@@ -51,16 +65,16 @@ VulkanTexture::~VulkanTexture()
 	delete(m_Resource);
 }
 
-void VulkanTexture::CreateResource(VulkanDevice* device, TextureData* texData)
+void VulkanTexture::CreateResource(VulkanDevice* device, TextureData* texData, bool generateMips)
 {
-	InitializeRegion(texData->width, texData->height);
 	bool isCubeMap = IsFlagSet(m_Flags & TextureFlags::CubeMap);
 
-	int textureSize = texData->height * texData->width * GetBPPFrom(m_Format);
-	if (isCubeMap)
-	{
-		textureSize *= 6;
-	}
+	uint32_t mipCount = generateMips ? (static_cast<uint32_t>(std::floor(std::log2(std::max(texData->width, texData->height)))) + 1) : 1;
+	uint32_t arraySize = 1 * (isCubeMap ? 6 : 1);
+
+	InitializeRegion(texData->width, texData->height, arraySize, mipCount);
+
+	int textureSize = texData->height * texData->width * GetBPPFrom(m_Format) * arraySize;
 
 	VulkanBufferInfo bufferInfo{};
 	bufferInfo.memoryAccess = MemoryAccess::CPU;
@@ -86,9 +100,10 @@ void VulkanTexture::CreateResource(VulkanDevice* device, TextureData* texData)
 	textureResourceInfo.Extent.Width = texData->width;
 	textureResourceInfo.Extent.Height = texData->height;
 	textureResourceInfo.Extent.Depth = 1;
-	textureResourceInfo.ArraySize = 1;
-	textureResourceInfo.MipLevels = 1;
+	textureResourceInfo.ArraySize = arraySize;
+	textureResourceInfo.MipLevels = mipCount;
 	textureResourceInfo.MultisampleType = MultisampleType::Sample_1;
+
 	m_Resource = new VulkanImage(device, textureResourceInfo, m_Name.c_str());
 
 	ResourceState stateAfter = ResourceState::None;
@@ -109,25 +124,36 @@ void VulkanTexture::CreateResource(VulkanDevice* device, TextureData* texData)
 		stateAfter = ResourceState::RenderTarget;
 	}
 
-	device->TransitionImageLayout(this, ResourceState::None, ResourceState::TransferDst);
+	VkCommandBuffer commandBuffer = device->BeginSingleTimeCommands();
+
+	device->TransitionImageLayout(commandBuffer, this, ResourceState::None, ResourceState::TransferDst, 0, mipCount);
 
 	if (isCubeMap)
 	{
-		device->CopyBufferToImageCubeMap(&stagingBuffer, this);
+		device->CopyBufferToImageCubeMap(commandBuffer, &stagingBuffer, this);
 	}
 	else
 	{
-		device->CopyBufferToImage(&stagingBuffer, this);
+		device->CopyBufferToImage(commandBuffer, &stagingBuffer, this, true);
 	}
 
-	device->TransitionImageLayout(this, ResourceState::TransferDst, stateAfter);
-
 	m_ShouldBeResourceState = m_CurrentResourceState = stateAfter;
+
+	if (generateMips)
+	{
+		GenerateMips(commandBuffer, device, texData->width, texData->height, mipCount);
+	}
+	else
+	{
+		device->TransitionImageLayout(commandBuffer, this, ResourceState::TransferDst, stateAfter, 0, mipCount);
+	}
+
+	device->EndSingleTimeCommands(commandBuffer);
 }
 
-void VulkanTexture::CreateResource(VulkanDevice* device, const uint32_t width, const uint32_t height)
+void VulkanTexture::CreateResource(VulkanDevice* device, const uint32_t width, const uint32_t height, uint32_t arraySize)
 {
-	InitializeRegion(width, height);
+	InitializeRegion(width, height, arraySize, 1);
 
 	VulkanImageInfo textureResourceInfo;
 	textureResourceInfo.Flags = (IsFlagSet(m_Flags & TextureFlags::CubeMap) ? ImageFlags::CubeMap : ImageFlags::None) |
@@ -145,7 +171,7 @@ void VulkanTexture::CreateResource(VulkanDevice* device, const uint32_t width, c
 	textureResourceInfo.Extent.Width = width;
 	textureResourceInfo.Extent.Height = height;
 	textureResourceInfo.Extent.Depth = 1;
-	textureResourceInfo.ArraySize = 1;
+	textureResourceInfo.ArraySize = arraySize;
 	textureResourceInfo.MipLevels = 1;
 	textureResourceInfo.MultisampleType = MultisampleType::Sample_1;
 	m_Resource = new VulkanImage(device, textureResourceInfo, m_Name.c_str());
@@ -168,14 +194,13 @@ void VulkanTexture::CreateResource(VulkanDevice* device, const uint32_t width, c
 		stateAfter = ResourceState::RenderTarget;
 	}
 
-	device->TransitionImageLayout(this, ResourceState::None, stateAfter);
+	VkCommandBuffer commandBuffer = device->BeginSingleTimeCommands();
+
+	device->TransitionImageLayout(commandBuffer, this, ResourceState::None, stateAfter);
 
 	m_ShouldBeResourceState = m_CurrentResourceState = stateAfter;
-}
 
-void VulkanTexture::CreateResource(VulkanDevice* device)
-{
-	ASSERT(false, "Not implemented");
+	device->EndSingleTimeCommands(commandBuffer);
 }
 
 void VulkanTexture::CreateView(VulkanDevice* device)
@@ -199,10 +224,11 @@ void VulkanTexture::CreateView(VulkanDevice* device)
 	imageViewInfo.Format = Format::UNDEFINED;
 	imageViewInfo.Flags = ImageViewFlags::Color;
 	imageViewInfo.Subresource.MipSlice = 0;
-	imageViewInfo.Subresource.MipSize = 1;
+	imageViewInfo.Subresource.MipSize = m_Region.Subresource.MipSize;
 	imageViewInfo.Subresource.ArraySlice = 0;
-	imageViewInfo.Subresource.ArraySize = 1;
+	imageViewInfo.Subresource.ArraySize = m_Region.Subresource.ArraySize;
 	imageViewInfo.ClearValue = clearValue;
+
 	m_View = new VulkanImageView(device, imageViewInfo, m_Name.c_str());
 }
 
@@ -222,12 +248,13 @@ void VulkanTexture::CreateSampler(VulkanDevice* device)
 	imageSamplerInfo.BorderColor.value[2] = 0.0f;
 	imageSamplerInfo.BorderColor.value[3] = 0.0f;
 	imageSamplerInfo.MipLODBias = 0.0f;
-	imageSamplerInfo.MinLOD = -1000.0f;
-	imageSamplerInfo.MaxLOD = 1000.0f;
+	imageSamplerInfo.MinLOD = 0.f;
+	imageSamplerInfo.MaxLOD = static_cast<float>(m_Region.Subresource.MipSize);
+
 	m_Sampler = new VulkanImageSampler(device, imageSamplerInfo, m_Name.c_str());
 }
 
-void VulkanTexture::InitializeRegion(const uint32_t width, const uint32_t height)
+void VulkanTexture::InitializeRegion(const uint32_t width, const uint32_t height, uint32_t arraySize, uint32_t mipCount)
 {
 	m_Region.Extent.Width = width;
 	m_Region.Extent.Height = height;
@@ -236,7 +263,53 @@ void VulkanTexture::InitializeRegion(const uint32_t width, const uint32_t height
 	m_Region.Offset.Y = 0;
 	m_Region.Offset.Z = 0;
 	m_Region.Subresource.MipSlice = 0;
-	m_Region.Subresource.MipSize = 1;
+	m_Region.Subresource.MipSize = mipCount;
 	m_Region.Subresource.ArraySlice = 0;
-	m_Region.Subresource.ArraySize = IsFlagSet(m_Flags & TextureFlags::CubeMap) ? 6 : 1;
+	m_Region.Subresource.ArraySize = arraySize;
+}
+
+void VulkanTexture::GenerateMips(VkCommandBuffer commandBuffer, VulkanDevice* device, const uint32_t width, const uint32_t height, uint32_t mipCount)
+{
+	// Check if image format supports linear blitting
+// 	VkFormatProperties formatProperties;
+// 	vkGetPhysicalDeviceFormatProperties(physicalDevice, imageFormat, &formatProperties);
+
+	//if (!(formatProperties.optimalTilingFeatures & VK_FORMAT_FEATURE_SAMPLED_IMAGE_FILTER_LINEAR_BIT)) {
+	//	throw std::runtime_error("texture image format does not support linear blitting!");
+	//}
+
+	int32_t mipWidth = width;
+	int32_t mipHeight = height;
+
+	for (uint32_t i = 1; i < mipCount; i++) 
+	{
+		device->TransitionImageLayout(commandBuffer, this, ResourceState::TransferDst, ResourceState::TransferSrc, i - 1);
+
+		VkImageBlit blit{};
+		blit.srcOffsets[0] = { 0, 0, 0 };
+		blit.srcOffsets[1] = { mipWidth, mipHeight, 1 };
+		blit.srcSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+		blit.srcSubresource.mipLevel = i - 1;
+		blit.srcSubresource.baseArrayLayer = 0;
+		blit.srcSubresource.layerCount = 1;
+		blit.dstOffsets[0] = { 0, 0, 0 };
+		blit.dstOffsets[1] = { mipWidth > 1 ? mipWidth / 2 : 1, mipHeight > 1 ? mipHeight / 2 : 1, 1 };
+		blit.dstSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+		blit.dstSubresource.mipLevel = i;
+		blit.dstSubresource.baseArrayLayer = 0;
+		blit.dstSubresource.layerCount = 1;
+
+		vkCmdBlitImage(commandBuffer,
+			m_Resource->GetImage(), VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+			m_Resource->GetImage(), VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+			1, &blit,
+			VK_FILTER_LINEAR);
+
+		device->TransitionImageLayout(commandBuffer, this, ResourceState::TransferSrc, m_ShouldBeResourceState, i - 1);
+
+		if (mipWidth > 1) mipWidth /= 2;
+		if (mipHeight > 1) mipHeight /= 2;
+	}
+
+	device->TransitionImageLayout(commandBuffer, this, ResourceState::TransferDst, m_ShouldBeResourceState, mipCount - 1);
 }

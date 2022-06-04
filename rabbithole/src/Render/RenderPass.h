@@ -4,6 +4,7 @@
 
 class Renderer;
 class VulkanTexture;
+class VulkanBuffer;
 
 class RenderPass
 {
@@ -13,9 +14,14 @@ public:
 	virtual void Render(Renderer* renderer) = 0;
 	virtual const char* GetName() = 0;
 
+protected:
 	void SetCombinedImageSampler(Renderer* renderer, int slot, VulkanTexture* texture);
 	void SetSampledImage(Renderer* renderer, int slot, VulkanTexture* texture);
 	void SetStorageImage(Renderer* renderer, int slot, VulkanTexture* texture);
+
+    void SetConstantBuffer(Renderer* renderer, int slot, VulkanBuffer* buffer);
+    void SetStorageBuffer(Renderer* renderer, int slot, VulkanBuffer* buffer);
+	void SetSampler(Renderer* renderer, int slot, VulkanTexture* texture);
 
 	void SetRenderTarget(Renderer* renderer, int slot, VulkanTexture* texture);
 	void SetDepthStencil(Renderer* renderer, VulkanTexture* texture);

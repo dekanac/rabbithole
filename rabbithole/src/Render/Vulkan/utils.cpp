@@ -1,7 +1,10 @@
 #include "precomp.h"
 
 #include "VulkanTypes.h"
+
 #include <iostream>
+#include <chrono>
+#include <ctime>
 
 AllocationTrack s_Allocations;
 
@@ -29,4 +32,19 @@ void operator delete(void* memory, size_t size)
 	s_Allocations.TotalFreed += size;
 	free(memory);
 }
+
 #endif
+namespace Utils
+{
+	long long SetStartTime()
+	{
+		return std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
+	}
+
+	void SetEndtimeAndPrint(long long start)
+	{
+		auto endtime = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
+		std::cout << endtime - start << "ms" << std::endl;
+	}
+}
+

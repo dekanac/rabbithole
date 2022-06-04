@@ -103,7 +103,9 @@ rabbitMat4f Camera::GetMatrix() const
 
 rabbitMat4f Camera::Projection() const 
 {
-	return glm::perspective(glm::radians(m_FieldOfView), m_Aspect, m_NearPlane, m_FarPlane);
+	auto matrix = glm::perspective(glm::radians(m_FieldOfView), m_Aspect, m_NearPlane, m_FarPlane);
+	matrix[1][1] *= -1;
+	return matrix;
 }
 
 rabbitMat4f Camera::View() const

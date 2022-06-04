@@ -115,7 +115,7 @@ void VulkanSwapchain::CreateSwapChain()
 	VkPresentModeKHR presentMode = ChooseSwapPresentMode(swapChainSupport.presentModes);
 	VkExtent2D extent = ChooseSwapExtent(swapChainSupport.capabilities);
 
-	uint32_t imageCount = swapChainSupport.capabilities.minImageCount + 1;
+	uint32_t imageCount = MAX_FRAMES_IN_FLIGHT;
 	if (swapChainSupport.capabilities.maxImageCount > 0 && imageCount > swapChainSupport.capabilities.maxImageCount) 
 	{
 		imageCount = swapChainSupport.capabilities.maxImageCount;
@@ -144,8 +144,8 @@ void VulkanSwapchain::CreateSwapChain()
 	else
 	{
 		createInfo.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;
-		createInfo.queueFamilyIndexCount = 0;      // Optional
-		createInfo.pQueueFamilyIndices = nullptr;  // Optional
+		createInfo.queueFamilyIndexCount = 0;
+		createInfo.pQueueFamilyIndices = nullptr;
 	}
 
 	createInfo.preTransform = swapChainSupport.capabilities.currentTransform;
@@ -157,11 +157,6 @@ void VulkanSwapchain::CreateSwapChain()
 	createInfo.oldSwapchain = VK_NULL_HANDLE;
 
 	VULKAN_API_CALL(vkCreateSwapchainKHR(m_VulkanDevice.GetGraphicDevice(), &createInfo, nullptr, &m_SwapChain), "failed to create swap chain!");
-
-	// we only specified a minimum number of images in the swap chain, so the implementation is
-	// allowed to create a swap chain with more. That's why we'll first query the final number of
-	// images with vkGetSwapchainImagesKHR, then resize the container and finally call it again to
-	// retrieve the handles.
 
 	vkGetSwapchainImagesKHR(m_VulkanDevice.GetGraphicDevice(), m_SwapChain, &imageCount, nullptr);
 	m_SwapChainImages.resize(imageCount);
@@ -289,19 +284,21 @@ VkPresentModeKHR VulkanSwapchain::ChooseSwapPresentMode(const std::vector<VkPres
 {
 	for (const auto& availablePresentMode : availablePresentModes)
 	{
-		if (availablePresentMode == VK_PRESENT_MODE_IMMEDIATE_KHR)
+		if (availablePresentMode == VK_PRESENT_MODE_MAILBOX_KHR)
 		{
 			std::cout << "Present mode: Mailbox" << std::endl;
 			return availablePresentMode;
 		}
 	}
 
-	// for (const auto &availablePresentMode : availablePresentModes) {
-	//   if (availablePresentMode == VK_PRESENT_MODE_IMMEDIATE_KHR) {
-	//     std::cout << "Present mode: Immediate" << std::endl;
-	//     return availablePresentMode;
-	//   }
-	// }
+	for (const auto &availablePresentMode : availablePresentModes) 
+	{
+	  if (availablePresentMode == VK_PRESENT_MODE_IMMEDIATE_KHR) 
+	  {
+	    std::cout << "Present mode: Immediate" << std::endl;
+	    return availablePresentMode;
+	  }
+	}
 
 	std::cout << "Present mode: V-Sync" << std::endl;
 	return VK_PRESENT_MODE_FIFO_KHR;

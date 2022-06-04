@@ -8,24 +8,20 @@ VulkanImage::VulkanImage(const VulkanDevice* device, const VulkanImageInfo& info
 {
 	VkImageCreateInfo imageCreateInfo = { VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO };
 
-	uint32_t arraySizeMultiplier = 1;
-	if (IsFlagSet(m_Info.Flags & ImageFlags::CubeMap))
-	{
-		arraySizeMultiplier = 6;
-		imageCreateInfo.flags |= VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT;
-	}
-
 	uint32_t blockSize = GetBlockSizeFrom(m_Format);
 	uint32_t blockAlignedWidth = m_Info.Extent.Width;
 	uint32_t blockAlignedHeight = m_Info.Extent.Height;
 
+	bool isCubeMap = IsFlagSet(m_Info.Flags & ImageFlags::CubeMap);
+
+	imageCreateInfo.flags |= isCubeMap ? VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT : 0;
 	imageCreateInfo.imageType = m_Info.Extent.Depth == 1 ? VK_IMAGE_TYPE_2D : VK_IMAGE_TYPE_3D;
 	imageCreateInfo.format = m_Format;
 	imageCreateInfo.extent.width = blockAlignedWidth;
 	imageCreateInfo.extent.height = blockAlignedHeight;
 	imageCreateInfo.extent.depth = m_Info.Extent.Depth;
 	imageCreateInfo.mipLevels = m_Info.MipLevels;
-	imageCreateInfo.arrayLayers = arraySizeMultiplier * m_Info.ArraySize;
+	imageCreateInfo.arrayLayers = m_Info.ArraySize;
 	imageCreateInfo.samples = GetVkSampleFlagsFrom(m_Info.MultisampleType);
 	imageCreateInfo.tiling = IsFlagSet(m_Info.Flags & ImageFlags::LinearTiling) ?
 		VK_IMAGE_TILING_LINEAR : VK_IMAGE_TILING_OPTIMAL;
@@ -75,23 +71,21 @@ VulkanImageView::VulkanImageView(const VulkanDevice* device, const VulkanImageVi
 	: m_VulkanDevice(device)
 	, m_Info(info)
 {
-	VulkanImage* image = m_Info.Resource;
-	m_Format = GetVkFormatFrom(m_Info.Format == Format::UNDEFINED ? image->GetInfo().Format : m_Info.Format);
+	m_Image = m_Info.Resource;
+	m_Format = GetVkFormatFrom(m_Info.Format == Format::UNDEFINED ? m_Image->GetInfo().Format : m_Info.Format);
 
 	VkImageViewCreateInfo imageViewCreateInfo = { VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO };
 	imageViewCreateInfo.format = m_Format;
 
-	uint32_t arraySizeMult = 1;
-	if (IsFlagSet(image->GetInfo().Flags & ImageFlags::CubeMap))
+	if (IsFlagSet(m_Image->GetInfo().Flags & ImageFlags::CubeMap))
 	{
-		arraySizeMult = 6;
-		imageViewCreateInfo.viewType = image->GetInfo().ArraySize > 1 ? VK_IMAGE_VIEW_TYPE_CUBE_ARRAY : VK_IMAGE_VIEW_TYPE_CUBE;
+		imageViewCreateInfo.viewType = VK_IMAGE_VIEW_TYPE_CUBE;
 	}
-	else if (image->GetImageType() == VK_IMAGE_TYPE_2D)
+	else if (m_Image->GetImageType() == VK_IMAGE_TYPE_2D)
 	{
-		imageViewCreateInfo.viewType = image->GetInfo().ArraySize > 1 ? VK_IMAGE_VIEW_TYPE_2D_ARRAY : VK_IMAGE_VIEW_TYPE_2D;
+		imageViewCreateInfo.viewType = m_Image->GetInfo().ArraySize > 1 ? VK_IMAGE_VIEW_TYPE_2D_ARRAY : VK_IMAGE_VIEW_TYPE_2D;
 	}
-	else if (image->GetImageType() == VK_IMAGE_TYPE_3D)
+	else if (m_Image->GetImageType() == VK_IMAGE_TYPE_3D)
 	{
 		imageViewCreateInfo.viewType = VK_IMAGE_VIEW_TYPE_3D;
 	}
@@ -103,10 +97,10 @@ VulkanImageView::VulkanImageView(const VulkanDevice* device, const VulkanImageVi
 	imageViewCreateInfo.subresourceRange.aspectMask = GetVkImageAspectFlagsFrom(m_Format);
 	imageViewCreateInfo.subresourceRange.baseMipLevel = m_Info.Subresource.MipSlice;
 	imageViewCreateInfo.subresourceRange.levelCount = m_Info.Subresource.MipSize;
-	imageViewCreateInfo.subresourceRange.baseArrayLayer = m_Info.Subresource.ArraySlice * arraySizeMult;
-	imageViewCreateInfo.subresourceRange.layerCount = m_Info.Subresource.ArraySize * arraySizeMult;
+	imageViewCreateInfo.subresourceRange.baseArrayLayer = m_Info.Subresource.ArraySlice;
+	imageViewCreateInfo.subresourceRange.layerCount = m_Info.Subresource.ArraySize;
 	imageViewCreateInfo.components = { VK_COMPONENT_SWIZZLE_R, VK_COMPONENT_SWIZZLE_G, VK_COMPONENT_SWIZZLE_B, VK_COMPONENT_SWIZZLE_A };
-	imageViewCreateInfo.image = image->GetImage();
+	imageViewCreateInfo.image = m_Image->GetImage();
 
 	VULKAN_API_CALL(vkCreateImageView(m_VulkanDevice->GetGraphicDevice(), &imageViewCreateInfo, nullptr, &m_ImageView));
 }

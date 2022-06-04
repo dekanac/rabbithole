@@ -56,22 +56,23 @@ void main()
     vs_out.FragPos = worldPosition;
     vs_out.FragUV = uv;
     
-    vs_out.FragNormal = normal;
+    mat3 mNormal = transpose(inverse(mat3(push.model)));
 
-	vec3 bitan = cross(normal, tangent);
-	vs_out.FragTBN = mat3(
-		normalize(mat3(push.model) * tangent), 
-		normalize(mat3(push.model) * bitan), 
-		normalize(mat3(push.model) * normal));
+	vs_out.FragNormal = normalize(mNormal * normalize(normal));
+    vs_out.FragTangent = normalize(mNormal * normalize(tangent));
+
+	vec3 N = vs_out.FragNormal;
+	vec3 T = vs_out.FragTangent;
+	vec3 B = cross(N, T);
+	mat3 TBN = mat3(T, B, N);
+    
+    vs_out.FragTBN = TBN;  
 
     vs_out.FragDebugOption = UBO.debugOption;
     
-    //TODO: implement velocity buffer 
     //TODO: this works only for non moving objects, need to provide previous model matrix as well
     vec4 currentPos = UBO.viewProjMatrix * vec4(worldPosition, 1);    
     vec4 previousPos = UBO.prevViewProjMatrix * vec4(worldPosition, 1); 
-    currentPos.y = -currentPos.y; //TODO: VULKAN INVERT Y FLIP FIX
-    previousPos.y = -previousPos.y; //TODO: VULKAN INVERT Y FLIP FIX
 
     vs_out.FragVelocity = CalcVelocity(currentPos, previousPos);
 

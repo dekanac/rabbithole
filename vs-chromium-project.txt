@@ -17,6 +17,8 @@
 *.bff
 *.ini
 *.txt
+*.glsl
+*.hlsl
 
 
 [SearchableFiles.ignore]

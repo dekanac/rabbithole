@@ -9,8 +9,9 @@ class VulkanTexture : public ManagableResource
 {
 public:
 	VulkanTexture(VulkanDevice* device, const uint32_t width, const uint32_t height, TextureFlags flags, Format format, const char* name);
-	VulkanTexture(VulkanDevice* device, std::string filePath, TextureFlags flags, Format format, std::string name);
-	VulkanTexture(VulkanDevice* device, TextureData* texData, TextureFlags flags, Format format, std::string name);
+	VulkanTexture(VulkanDevice* device, const uint32_t width, const uint32_t height, TextureFlags flags, Format format, uint32_t arraySize, const char* name);
+	VulkanTexture(VulkanDevice* device, std::string filePath, TextureFlags flags, Format format, std::string name, bool generateMips = false);
+	VulkanTexture(VulkanDevice* device, TextureData* texData, TextureFlags flags, Format format, std::string name, bool generateMips = false);
 	~VulkanTexture();
 
 public:
@@ -31,12 +32,12 @@ public:
 	uint32_t				GetHeight() const { return m_Region.Extent.Height; }
 
 private:
-	void CreateResource(VulkanDevice* device);
-	void CreateResource(VulkanDevice* device, TextureData* texData);
-	void CreateResource(VulkanDevice* device, const uint32_t width, const uint32_t height);
+	void CreateResource(VulkanDevice* device, TextureData* texData, bool generateMips = false);
+	void CreateResource(VulkanDevice* device, const uint32_t width, const uint32_t height, uint32_t arraySize = 1);
 	void CreateView(VulkanDevice* device);
 	void CreateSampler(VulkanDevice* device);
-	void InitializeRegion(const uint32_t width, const uint32_t height);
+	void InitializeRegion(const uint32_t width, const uint32_t height, uint32_t arraySize = 1, uint32_t mipCount = 1);
+	void GenerateMips(VkCommandBuffer commandBuffer, VulkanDevice* device, const uint32_t width, const uint32_t height, uint32_t mipCount);
 
 private:
 	VulkanImage*			m_Resource;

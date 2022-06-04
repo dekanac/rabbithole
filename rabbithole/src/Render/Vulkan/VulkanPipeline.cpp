@@ -458,12 +458,10 @@ VulkanPipeline* PipelineManager::FindOrCreateGraphicsPipeline(VulkanDevice& devi
 	key.m_VertexShaderCRC = pipelineInfo.vertexShader ? pipelineInfo.vertexShader->GetHash() : 0;
 	key.m_PixelShaderCRC = pipelineInfo.pixelShader ? pipelineInfo.pixelShader->GetHash() : 0;
 	key.m_Topology = pipelineInfo.inputAssemblyInfo.topology;
-	key.m_Padding1 = 0;
 
 	key.m_PolygonMode = pipelineInfo.rasterizationInfo.polygonMode;
 	key.m_CullMode = pipelineInfo.rasterizationInfo.cullMode;
 	key.m_Frontface = pipelineInfo.rasterizationInfo.frontFace;
-	key.m_Padding2 = 0;
 
 	//fill the key, find the pipeline in the map
 	//if it is not in the map, add to map and create
@@ -475,8 +473,8 @@ VulkanPipeline* PipelineManager::FindOrCreateGraphicsPipeline(VulkanDevice& devi
 	}
 	else
 	{
+		LOG_WARNING("If you're seeing this every frame, you're doing something wrong! Check GraphicsPipelineKey!");
 		VulkanPipeline* pipeline = new VulkanPipeline(device, pipelineInfo);
-		//add to map
 		m_GraphicPipelines[key] = pipeline;
 		return pipeline;
 	}
@@ -485,9 +483,9 @@ VulkanPipeline* PipelineManager::FindOrCreateGraphicsPipeline(VulkanDevice& devi
 VulkanPipeline* PipelineManager::FindOrCreateComputePipeline(VulkanDevice& device, PipelineConfigInfo& pipelineInfo)
 {
 	//for now the key is only CRC of compute shader
-	ComputePipelineKey key(1);
+	ComputePipelineKey key;
 	
-	key[0] = pipelineInfo.computeShader->GetHash();
+	key = pipelineInfo.computeShader->GetHash();
 
 	auto pipeline = m_ComputePipelines.find(key);
 
@@ -497,6 +495,7 @@ VulkanPipeline* PipelineManager::FindOrCreateComputePipeline(VulkanDevice& devic
 	}
 	else
 	{
+		LOG_WARNING("If you're seeing this every frame, you're doing something wrong! Check ComputePipelineKey!");
 		auto newPipeline = new VulkanPipeline(device, pipelineInfo, PipelineType::Compute);
 		m_ComputePipelines[key] = newPipeline;
 		return newPipeline;
@@ -536,6 +535,7 @@ VulkanRenderPass* PipelineManager::FindOrCreateRenderPass(VulkanDevice& device, 
 	}
 	else
 	{
+		LOG_WARNING("If you're seeing this every frame, you're doing something wrong! Check RenderPassKey!");
 		auto newRenderPass = new VulkanRenderPass(&device, renderTargets, depthStencil, renderPassInfo, "somename");
 		m_RenderPasses[key] = newRenderPass;
 		return newRenderPass;
@@ -546,7 +546,7 @@ VulkanRenderPass* PipelineManager::FindOrCreateRenderPass(VulkanDevice& device, 
 VulkanFramebuffer* PipelineManager::FindOrCreateFramebuffer(VulkanDevice& device, const std::vector<VulkanImageView*>& renderTargets, const VulkanImageView* depthStencil, const VulkanRenderPass* renderpass, uint32_t width, uint32_t height)
 {
 	FramebufferKey key{};
-	key.resize(5);
+	key.resize(MaxRenderTargetCount + 1);
 
 	for (size_t i = 0; i < renderTargets.size(); i++)
 	{
@@ -554,7 +554,7 @@ VulkanFramebuffer* PipelineManager::FindOrCreateFramebuffer(VulkanDevice& device
 	}
 	if (depthStencil != nullptr)
 	{
-		key[4] = depthStencil->GetID();
+		key[MaxRenderTargetCount] = depthStencil->GetID();
 	}
 
 	auto framebuffer = m_Framebuffers.find(key);
@@ -564,6 +564,7 @@ VulkanFramebuffer* PipelineManager::FindOrCreateFramebuffer(VulkanDevice& device
 	}
 	else
 	{
+		LOG_WARNING("If you're seeing this every frame, you're doing something wrong! Check FrameBufferKey!");
 		VulkanFramebufferInfo info{};
 		info.height = height;
 		info.width = width;
