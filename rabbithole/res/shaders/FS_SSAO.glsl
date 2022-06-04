@@ -1,16 +1,15 @@
 
 #version 450
 
+#include "common.h"
+
 layout (location = 0) out float fragColour;
 layout (location = 0) in vec2 inUV;
 
-layout(binding = 0) uniform UniformBufferObject {
-    mat4 view;
-    mat4 proj;
-	vec3 cameraPosition;
-    vec3 debugOption;
-	mat4 viewProjInverse;
-} UBO;
+layout(binding = 0) uniform UniformBufferObject_ 
+{
+    UniformBufferObject UBO;
+};
 
 layout (binding = 1) uniform sampler2D samplerPosition;
 layout (binding = 2) uniform sampler2D samplerNormal;

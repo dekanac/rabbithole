@@ -13,14 +13,10 @@ layout(location = 0) out VS_OUT
 } vs_out;
 
 //use UBO as a Constant Buffer to provide common stuff to shaders
-layout(binding = 0) uniform UniformBufferObject 
+layout(binding = 0) uniform UniformBufferObject_ 
 {
-    mat4 view;
-    mat4 proj;
-	vec3 cameraPosition;
-    vec3 debugOption;
-    mat4 viewProjInverse;
-} UBO;
+    UniformBufferObject UBO;
+};
 
 layout(push_constant) uniform Push 
 {

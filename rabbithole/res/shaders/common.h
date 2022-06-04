@@ -32,6 +32,17 @@ struct Ray
 	float t;
 };
 
+struct UniformBufferObject
+{
+	mat4 view;
+	mat4 proj;
+	vec3 cameraPosition;
+	vec3 debugOption;
+	mat4 viewProjInverse;
+	mat4 viewProjMatrix;
+	mat4 prevViewProjMatrix;
+};
+
 float ScalarTriple(vec3 a, vec3 b, vec3 c)
 {
 	return dot(cross(a, b), c);

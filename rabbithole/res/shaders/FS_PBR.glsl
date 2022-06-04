@@ -13,14 +13,10 @@ layout (binding = 7) uniform sampler2D samplerVelocity;
 
 layout (location = 0) out vec4 outColor;
 
-layout(binding = 3) uniform UniformBufferObject 
+layout(binding = 3) uniform UniformBufferObject_ 
 {
-    mat4 view;
-    mat4 proj;
-	vec3 cameraPosition;
-    vec3 debugOption;
-    mat4 viewProjInverse;
-} UBO;
+    UniformBufferObject UBO;
+};
 
 layout(binding = 4) uniform LightParams 
 {

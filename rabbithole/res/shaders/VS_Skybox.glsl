@@ -9,14 +9,10 @@ LAYOUT_IN_VEC2(3) uv;
 
 layout(location = 0) out vec3 FragTexCoords;
 
-layout(binding = 0) uniform UniformBufferObject 
+layout(binding = 0) uniform UniformBufferObject_ 
 {
-    mat4 view;
-    mat4 proj;
-	vec3 cameraPosition;
-    vec3 debugOption;
-    mat4 viewProjInverse;
-} UBO;
+    UniformBufferObject UBO;
+};
 
 void main()
 {
