@@ -220,12 +220,8 @@ void Renderer::CreateGeometryDescriptors(std::vector<VulkanglTFModel>& models, u
 			VulkanDescriptorInfo descriptorinfo2{};
 			descriptorinfo2.Type = DescriptorType::CombinedSampler;
 			descriptorinfo2.Binding = 1;
-
-			CombinedImageSampler* imagesampler = new CombinedImageSampler();
-			imagesampler->ImageSampler = albedo->GetSampler();
-			imagesampler->ImageView = albedo->GetView();
-
-			descriptorinfo2.combinedImageSampler = imagesampler;
+			descriptorinfo2.imageView = albedo->GetView();
+			descriptorinfo2.imageSampler = albedo->GetSampler();
 
 			VulkanDescriptor* cisDescr = new VulkanDescriptor(descriptorinfo2);
 
@@ -240,12 +236,8 @@ void Renderer::CreateGeometryDescriptors(std::vector<VulkanglTFModel>& models, u
 			VulkanDescriptorInfo descriptorinfo3{};
 			descriptorinfo3.Type = DescriptorType::CombinedSampler;
 			descriptorinfo3.Binding = 2;
-
-			CombinedImageSampler* imagesampler2 = new CombinedImageSampler();
-			imagesampler2->ImageSampler = normal->GetSampler();
-			imagesampler2->ImageView = normal->GetView();
-
-			descriptorinfo3.combinedImageSampler = imagesampler2;
+			descriptorinfo3.imageView = normal->GetView();
+			descriptorinfo3.imageSampler = normal->GetSampler();
 
 			VulkanDescriptor* cis2Descr = new VulkanDescriptor(descriptorinfo3);
 
@@ -259,12 +251,8 @@ void Renderer::CreateGeometryDescriptors(std::vector<VulkanglTFModel>& models, u
 			VulkanDescriptorInfo descriptorinfo4{};
 			descriptorinfo4.Type = DescriptorType::CombinedSampler;
 			descriptorinfo4.Binding = 3;
-
-			CombinedImageSampler* imagesampler3 = new CombinedImageSampler();
-			imagesampler3->ImageSampler = metallicRoughness->GetSampler();
-			imagesampler3->ImageView = metallicRoughness->GetView();
-
-			descriptorinfo4.combinedImageSampler = imagesampler3;
+			descriptorinfo4.imageView = metallicRoughness->GetView();
+			descriptorinfo4.imageSampler = metallicRoughness->GetSampler();
 
 			VulkanDescriptor* cis3Descr = new VulkanDescriptor(descriptorinfo4);
 

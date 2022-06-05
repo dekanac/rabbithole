@@ -6,20 +6,12 @@ class VulkanImageView;
 class VulkanImageSampler;
 class Shader;
 
-
-struct CombinedImageSampler
-{
-	VulkanImageView*	ImageView;
-	VulkanImageSampler* ImageSampler;
-};
-
 struct VulkanDescriptorInfo
 {
 	DescriptorType	Type;
 	uint32_t		Binding;
 
 	VulkanBuffer*			buffer; 
-	CombinedImageSampler*	combinedImageSampler;
 	VulkanImageView*		imageView;
 	VulkanImageSampler*		imageSampler;
 };

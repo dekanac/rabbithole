@@ -11,8 +11,8 @@ VulkanDescriptor::VulkanDescriptor(const VulkanDescriptorInfo& info)
 	case DescriptorType::CombinedSampler:
 	{
 		m_ResourceInfo.m_ResourceInfo.ImageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-		m_ResourceInfo.m_ResourceInfo.ImageInfo.imageView = m_Info.combinedImageSampler->ImageView->GetImageView();
-		m_ResourceInfo.m_ResourceInfo.ImageInfo.sampler = m_Info.combinedImageSampler->ImageSampler->GetSampler();
+		m_ResourceInfo.m_ResourceInfo.ImageInfo.imageView = m_Info.imageView->GetImageView();
+		m_ResourceInfo.m_ResourceInfo.ImageInfo.sampler = m_Info.imageSampler->GetSampler();
 		break;
 	}
 	case DescriptorType::SampledImage:

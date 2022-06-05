@@ -163,9 +163,8 @@ void VulkanStateManager::SetCombinedImageSampler(uint32_t slot, VulkanTexture* t
 		info.Binding = slot;
 
 		//probably memory leak TODO: see whats going on here
-		info.combinedImageSampler = new CombinedImageSampler();
-		info.combinedImageSampler->ImageSampler = texture->GetSampler();
-		info.combinedImageSampler->ImageView = texture->GetView();
+		info.imageSampler = texture->GetSampler();
+		info.imageView = texture->GetView();
 		info.Type = DescriptorType::CombinedSampler;
 
 		VulkanDescriptor* descriptor = new VulkanDescriptor(info);

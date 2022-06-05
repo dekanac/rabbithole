@@ -590,7 +590,7 @@ VulkanDescriptorSet* PipelineManager::FindOrCreateDescriptorSet(VulkanDevice& de
 			break;
 		case DescriptorType::CombinedSampler:
 			//only views now have unique ID so its a little bit hacky but who cares
-			key.push_back(descriptors[i]->GetDescriptorInfo().combinedImageSampler->ImageView->GetID());
+			key.push_back(descriptors[i]->GetDescriptorInfo().imageView->GetID());
 			key.push_back((uint32_t)descriptors[i]->GetDescriptorInfo().Type);
 			break;
 		case DescriptorType::SampledImage:
