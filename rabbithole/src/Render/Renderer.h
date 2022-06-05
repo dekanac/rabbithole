@@ -12,7 +12,6 @@
 #include <string>
 #include <optional>
 
-
 //#ifdef _DEBUG
 	//#define  USE_RABBITHOLE_TOOLS
 	#define RABBITHOLE_USING_IMGUI
@@ -110,7 +109,6 @@ private:
 	
 	//test purpose only
 	Entity*						testEntity;
-	std::vector<RabbitModel*>	rabbitmodels;
 	
 	void LoadModels();
 	void LoadAndCreateShaders();
@@ -136,7 +134,6 @@ public:
 	void CopyImage(VulkanTexture* src, VulkanTexture* dst);
 
 	inline Shader* GetShader(const std::string& name) { return m_Shaders[name]; }
-	inline std::vector<RabbitModel*>& GetModels() { return rabbitmodels; }
 	inline Camera* GetCamera() { return MainCamera; }
 
 	inline VulkanBuffer* GetMainConstBuffer() { return m_MainConstBuffer[m_CurrentImageIndex]; }
@@ -172,12 +169,10 @@ public:
 	void BindUBO();
 	VkCommandBuffer GetCurrentCommandBuffer() { return m_CommandBuffers[m_CurrentImageIndex]; }
 
-	void BindModelMatrix(RabbitModel* model);
 	void BindCameraMatrices(Camera* camera);
 
-	void DrawGeometry(std::vector<RabbitModel*>& bucket);
 	void DrawGeometryGLTF(std::vector<VulkanglTFModel>& bucket);
-	void DrawBoundingBoxes(std::vector<RabbitModel*>& bucket);
+	//void DrawBoundingBoxes(std::vector<RabbitModel*>& bucket);
 	void DrawFullScreenQuad();
 	void UpdateEntityPickId();
 
@@ -193,6 +188,9 @@ public:
 public:
 	std::vector<VulkanglTFModel> gltfModels;
 
+	//default textures;
+	VulkanTexture* g_DefaultWhiteTexture;
+	VulkanTexture* g_DefaultBlackTexture;
 	//TODO: do something with these
 	VulkanTexture* depthStencil;
 	//geometry

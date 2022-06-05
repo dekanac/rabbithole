@@ -155,7 +155,7 @@ void BoundingBoxPass::Setup(Renderer* renderer)
 
 void BoundingBoxPass::Render(Renderer* renderer)
 {
-	renderer->DrawBoundingBoxes(renderer->GetModels());
+	//renderer->DrawBoundingBoxes(renderer->GetModels());
 }
 
 void GBufferPass::DeclareResources(Renderer* renderer)

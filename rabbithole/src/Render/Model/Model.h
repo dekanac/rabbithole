@@ -19,8 +19,6 @@ class VulkanImageView;
 class VulkanImageSampler;
 class IndexedIndirectBuffer;
 
-void InitDefaultTextures(VulkanDevice* device);
-
 struct IndexIndirectDrawData
 {
 	uint32_t    indexCount;
@@ -74,119 +72,6 @@ struct std::hash<Vertex>
 };
 
 using TextureData = TextureLoading::TextureData;
-
-struct Mesh
-{
-	rabbitVec3f position = { 0.0, 0.0, 0.0 };
-	rabbitVec3f rotation = { 0.0, 0.0, 0.0 };
-	rabbitVec3f scale = { 1.f, 1.f, 1.f };
-	rabbitMat4f modelMatrix = rabbitMat4f{ 1.f };
-
-	void CalculateMatrix();
-};
-
-class RabbitModel
-{
-public:
-
-	RabbitModel(VulkanDevice& device, std::string filepath, std::string name);
-	~RabbitModel();
-
-	RabbitModel(const RabbitModel&) = delete;
-	RabbitModel& operator=(const RabbitModel&) = delete;
-
-	VulkanTexture*			GetAlbedoTexture()	const { return m_AlbedoTexture; }
-	VulkanTexture*			GetNormalTexture()	const { return m_NormalTexture; }
-	inline bool				GetUseNormalMap()   const { return m_UseNormalMap; }
-	VulkanTexture*			GetRoughnessTexture() const { return m_RoughnessTexture; }
-	VulkanTexture*			GetMetalnessTexture() const { return m_MetalnessTexture; }
-
-	const std::vector<Vertex>& GetVertices() const { return m_Vertices; }
-	const std::vector<uint32_t>& GetIndices() const { return m_Indices; }
-
-	VulkanDescriptorSet*	GetDescriptorSet(uint32_t imageIndex) const { return m_DescriptorSet[imageIndex]; }
-	void					SetDescriptorSet(VulkanDescriptorSet* ds, uint32_t imageIndex) { m_DescriptorSet[imageIndex] = ds; }
-
-	inline uint32_t GetIndexCount() { return m_IndexCount; }
-
-	void Bind(VkCommandBuffer commandBuffer);
-
-	void LoadFromFile();
-	
-	Mesh GetMesh()					{ return m_MeshData; }
-	void SetMesh(Mesh mesh)			{ m_MeshData = mesh; }
-	inline uint32_t GetId() const	{ return m_Id; }
-
-private:
-	void CreateVertexBuffers();
-	void CreateIndexBuffers();
-
-	VulkanDevice&			m_VulkanDevice;
-	VulkanBuffer*			m_VertexBuffer;
-	VulkanBuffer*			m_IndexBuffer;
-	std::vector<Vertex>		m_Vertices;
-	std::vector<uint32_t>	m_Indices;
-	uint32_t				m_VertexCount;
-	uint32_t				m_IndexCount;
-	bool					hasIndexBuffer = false;
-
-	VulkanTexture*			m_AlbedoTexture;
-	VulkanTexture*			m_NormalTexture;
-	bool					m_UseNormalMap = true;
-	VulkanTexture*			m_RoughnessTexture;
-	VulkanTexture*			m_MetalnessTexture;
-	VulkanDescriptorSet*	m_DescriptorSet[MAX_FRAMES_IN_FLIGHT];
-
-	Mesh					m_MeshData;
-public:
-	AABB					m_BoundingBox{};
-	static VulkanTexture*	ms_DefaultWhiteTexture;
-	static VulkanTexture*	ms_DefaultBlackTexture;
-	static uint32_t			m_CurrentId;
-private:
-	std::string				m_FilePath{};
-	std::string				m_Name{};
-	uint32_t				m_Id;
-
-//BVH move to separate class
-private:
-	void CalculateAABB();
-
-
-};
-
-struct SceneNode 
-{
-	int mesh, material;
-	int parent;
-	int firstChild;
-	int rightSibling;
-};
-
-struct Hierarchy 
-{
-	int parent;
-	int firstChild;
-	int nextSibling;
-	int level;
-};
-
-struct Scene 
-{
-	std::vector<rabbitMat4f> localTransforms;
-	std::vector<rabbitMat4f> globalTransforms;
-	std::vector<Hierarchy> hierarchy;
-	// Meshes for nodes (Node -> Mesh)
-	std::unordered_map<uint32_t, uint32_t> meshes;
-	// Materials for nodes (Node -> Material)
-	std::unordered_map<uint32_t, uint32_t> materialForNode;
-	// Node names: which name is assigned to the node
-	std::unordered_map<uint32_t, uint32_t> nameForNode;
-	// Collection of scene node names
-	std::vector<std::string> names;
-	// Collection of debug material names
-	std::vector<std::string> materialNames;
-};
 
 struct Triangle
 {
@@ -316,7 +201,7 @@ public:
 
 		void SetMatrix(glm::mat4 matrix_) { matrix = matrix_; }
 	};
-public:
+
 	struct Material 
 	{
 		glm::vec4	baseColorFactor = glm::vec4(1.0f);

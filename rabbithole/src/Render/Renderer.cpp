@@ -79,7 +79,8 @@ bool Renderer::Init()
 	ImGui::CreateContext();
 #endif
 
-	InitDefaultTextures(&m_VulkanDevice);
+	InitTextures();
+
 	m_StateManager = new VulkanStateManager();
 
 	renderDebugOption.x = 0.f; //we use vector4f as a default UBO element
@@ -131,8 +132,6 @@ bool Renderer::Init()
 	fsrParamsBuffer->FillBuffer(&fsrParams, sizeof(FSRParams));
 
 	InitSSAO();
-
-	InitTextures();
 
 	return true;
 }
@@ -215,7 +214,7 @@ void Renderer::CreateGeometryDescriptors(std::vector<VulkanglTFModel>& models, u
 			if (modelMaterial.baseColorTextureIndex != 0xFFFFFFFF && modelTextures.size() > 0)
 				albedo = modelTextures[modelTexureIndices[modelMaterial.baseColorTextureIndex]];
 			else
-				albedo = RabbitModel::ms_DefaultWhiteTexture;
+				albedo = g_DefaultWhiteTexture;
 
 			VulkanDescriptorInfo descriptorinfo2{};
 			descriptorinfo2.Type = DescriptorType::CombinedSampler;
@@ -231,7 +230,7 @@ void Renderer::CreateGeometryDescriptors(std::vector<VulkanglTFModel>& models, u
 			if (modelMaterial.normalTextureIndex != 0xFFFFFFFF && modelTextures.size() > 0)
 				normal = modelTextures[modelTexureIndices[modelMaterial.normalTextureIndex]];
 			else
-				normal = RabbitModel::ms_DefaultWhiteTexture;
+				normal = g_DefaultWhiteTexture;
 
 			VulkanDescriptorInfo descriptorinfo3{};
 			descriptorinfo3.Type = DescriptorType::CombinedSampler;
@@ -246,7 +245,7 @@ void Renderer::CreateGeometryDescriptors(std::vector<VulkanglTFModel>& models, u
 			if (modelMaterial.metallicRoughnessTextureIndex != 0xFFFFFFFF && modelTextures.size() > 0)
 				metallicRoughness = modelTextures[modelTexureIndices[modelMaterial.metallicRoughnessTextureIndex]];
 			else
-				metallicRoughness = RabbitModel::ms_DefaultWhiteTexture;
+				metallicRoughness = g_DefaultWhiteTexture;
 
 			VulkanDescriptorInfo descriptorinfo4{};
 			descriptorinfo4.Type = DescriptorType::CombinedSampler;
@@ -302,6 +301,8 @@ void Renderer::InitImgui()
 
 void Renderer::InitTextures()
 {
+	g_DefaultWhiteTexture = new VulkanTexture(&m_VulkanDevice, "res/textures/default_white.png", TextureFlags::Color | TextureFlags::Read | TextureFlags::TransferDst, Format::R8G8B8A8_UNORM_SRGB, "Defaul_White");
+	g_DefaultBlackTexture = new VulkanTexture(&m_VulkanDevice, "res/textures/default_black.png", TextureFlags::Color | TextureFlags::Read | TextureFlags::TransferDst, Format::R8G8B8A8_UNORM_SRGB, "Defaul_Black");
 	//TODO: find better way to load cubemaps
 	auto cubeMapData = TextureLoading::LoadCubemap("res/textures/skybox/skybox.jpg");
 
@@ -427,43 +428,6 @@ void Renderer::BindComputePipeline()
 	}
 }
 
-void Renderer::DrawGeometry(std::vector<RabbitModel*>& bucket)
-{
-	BindGraphicsPipeline();
-
-	BeginRenderPass({ GetNativeWidth, GetNativeHeight });
-
-	BindUBO();
-
-	int currentModel = 0;
-
-	for (auto model : bucket)
-	{
-		model->Bind(GetCurrentCommandBuffer());
-
-		//bind geometry descriptors from models
-		vkCmdBindDescriptorSets(
-			GetCurrentCommandBuffer(),
-			VK_PIPELINE_BIND_POINT_GRAPHICS,
-			*m_StateManager->GetPipeline()->GetPipelineLayout(),
-			0,
-			1,
-			model->GetDescriptorSet(m_CurrentImageIndex)->GetVkDescriptorSet(),
-			0,
-			nullptr);
-
-		BindModelMatrix(model);
-
-		DrawIndicesIndirect(model->GetIndexCount(), currentModel);
-
-		currentModel++;
-	}
-
-	geomDataIndirectDraw->gpuBuffer->FillBuffer(geomDataIndirectDraw->localBuffer, currentModel * sizeof(IndexIndirectDrawData));
-
-	EndRenderPass();
-}
-
 void Renderer::DrawGeometryGLTF(std::vector<VulkanglTFModel>& bucket)
 {
 	BindGraphicsPipeline();
@@ -488,7 +452,7 @@ void Renderer::DrawGeometryGLTF(std::vector<VulkanglTFModel>& bucket)
 	EndRenderPass();
 }
 
-
+/*
 void Renderer::DrawBoundingBoxes(std::vector<RabbitModel*>& bucket)
 {
 	BindGraphicsPipeline();
@@ -546,7 +510,7 @@ void Renderer::DrawBoundingBoxes(std::vector<RabbitModel*>& bucket)
 			vertex.push_back(Vertex{ {a.x, f.y, f.z} }); //e
 		}
 		
-		m_VertexUploadBuffer->FillBuffer(vertex.data(), /*this offset is from skybox, TODO: automate this*/ sizeof(Vertex) * 36, vertex.size() * sizeof(Vertex));
+		m_VertexUploadBuffer->FillBuffer(vertex.data(), this offset is from skybox, TODO: automate this sizeof(Vertex) * 36, vertex.size() * sizeof(Vertex));
 
 		BindVertexData(sizeof(Vertex) * 36);
 
@@ -557,6 +521,7 @@ void Renderer::DrawBoundingBoxes(std::vector<RabbitModel*>& bucket)
 
 	EndRenderPass();
 }
+*/
 
 void Renderer::BeginCommandBuffer()
 {
@@ -689,21 +654,6 @@ void Renderer::BindCameraMatrices(Camera* camera)
 	m_StateManager->UpdateUBOElement(UBOElement::ViewProjInverse, 4, &viewProjInverse);
 
 	prevViewProjMatrix = viewProjMatrix;
-}
-
-void Renderer::BindModelMatrix(RabbitModel* model)
-{
-	auto modelMesh = model->GetMesh();
-	modelMesh.CalculateMatrix();	//Update model matrix
-	auto modelMatrix = modelMesh.modelMatrix;
-
-	SimplePushConstantData push{};
-	push.modelMatrix = modelMatrix;
-	push.id = model->GetId();
-
-	push.useNormalMap = model->GetUseNormalMap();
-
-	BindPushConstant(push);
 }
 
 void Renderer::BindUBO()
