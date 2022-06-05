@@ -95,12 +95,15 @@ bool findTriangleIntersection(Ray ray)
 		currStackIdx--;
         CFBVHNode currentNode = cfbvhNodes[boxIdx];
         
-        if (currentNode.isLeaf == 1)
+        vec3 bottom = vec3(currentNode.ba, currentNode.bb, currentNode.bc);
+        vec3 top = vec3(currentNode.ta, currentNode.tb, currentNode.tc);
+
+        if (isLeaf(currentNode))
         {
-            if (intersectAABB(ray, currentNode.bottom, currentNode.top))
+            if (intersectAABB(ray, bottom, top))
             {
                 //test triangle intersection
-                uint count = currentNode.idxLeft;
+                uint count = currentNode.idxLeft - 0x80000000;
                 uint startIdx = currentNode.idxRight;
 
                 for (int i = 0; i < count; i++)
@@ -119,7 +122,7 @@ bool findTriangleIntersection(Ray ray)
         }
         else
         {
-            if (intersectAABB(ray, currentNode.bottom, currentNode.top))
+            if (intersectAABB(ray, bottom, top))
             {
                 stack[currStackIdx++] = currentNode.idxLeft;
                 stack[currStackIdx++] = currentNode.idxRight;

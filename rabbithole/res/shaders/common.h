@@ -17,13 +17,16 @@ struct Light
 
 struct CFBVHNode
 {
-	vec3 bottom;
-	vec3 top;
-
-	uint idxLeft; //if leaf then this is count
+	float ba, bb, bc;
+	float ta, tb, tc;
+	uint idxLeft; //if leaf then this is count (if topmost bit set, then this is leaf)
 	uint idxRight; //if leaf then this is startIdx in triangle indices
-	uint isLeaf;
 };
+
+bool isLeaf(CFBVHNode node)
+{
+	return (node.idxLeft & 0x80000000) > 0;
+}
 
 struct Ray
 {

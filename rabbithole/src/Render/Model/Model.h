@@ -121,7 +121,6 @@ BVHNode* CreateBVH(std::vector<rabbitVec4f>& vertices, std::vector<Triangle>& tr
 struct CacheFriendlyBVHNode {
 	// bounding box
 	rabbitVec3f bottom;
-	uint32_t pad1;
 	rabbitVec3f top;
 	
 
@@ -134,17 +133,13 @@ struct CacheFriendlyBVHNode {
 		struct {
 			uint32_t idxLeft;
 			uint32_t idxRight;
-			uint32_t isLeaf;
 		} inner;
 		// leaf node: stores triangle count and starting index in triangle list
 		struct {
 			uint32_t count; // Top-most bit set, leafnode if set, innernode otherwise
 			uint32_t startIndexInTriIndexList;
-			uint32_t isLeaf;
 		} leaf;
 	} u;
-
-	uint32_t pad2[2];
 };
 
 // The ugly, cache-friendly form of the BVH: 32 bytes

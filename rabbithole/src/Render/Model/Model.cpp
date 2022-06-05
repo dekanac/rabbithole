@@ -412,15 +412,13 @@ void PopulateCacheFriendlyBVH(
 		PopulateCacheFriendlyBVH(pFirstTriangle, p->right, idxBoxes, idxTriList, triIndexList, nodeList);
 		nodeList[currIdxBoxes].u.inner.idxLeft = idxLeft;
 		nodeList[currIdxBoxes].u.inner.idxRight = idxRight;
-		nodeList[currIdxBoxes].u.inner.isLeaf = 0;
 
 	}
 
 	else { // leaf
 		BVHLeaf* p = dynamic_cast<BVHLeaf*>(root);
 		unsigned count = (unsigned)p->triangles.size();
-		nodeList[currIdxBoxes].u.leaf.isLeaf = 1;
-		nodeList[currIdxBoxes].u.leaf.count = count;
+		nodeList[currIdxBoxes].u.leaf.count = 0x80000000 | count;
 		nodeList[currIdxBoxes].u.leaf.startIndexInTriIndexList = idxTriList;
 
 		for (std::list<const Triangle*>::iterator it = p->triangles.begin(); it != p->triangles.end(); it++)
