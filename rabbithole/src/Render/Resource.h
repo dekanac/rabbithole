@@ -1,5 +1,9 @@
 #pragma once
 
+#include "Render/Vulkan/VulkanTypes.h"
+
+#include <memory>
+
 class AllocatedResource
 {
 public:

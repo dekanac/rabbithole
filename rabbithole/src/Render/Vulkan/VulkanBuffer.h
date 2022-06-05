@@ -1,7 +1,7 @@
 #pragma once
 
 #include "VulkanTypes.h"
-#include "Resource.h"
+#include "Render/Resource.h"
 
 struct VulkanBufferInfo
 {

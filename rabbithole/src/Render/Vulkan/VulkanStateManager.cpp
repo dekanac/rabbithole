@@ -1,7 +1,7 @@
 #include "precomp.h"
 
 #include "Render/Renderer.h"
-#include "../SuperResolutionManager.h"
+#include "Render/SuperResolutionManager.h"
 
 #define DEFAULT_UBO_ELEMENT_SIZE (uint32_t)16
 

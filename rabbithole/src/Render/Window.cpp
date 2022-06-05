@@ -13,8 +13,8 @@ bool Window::Init(const WindowData& windowData_)
     glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
     glfwWindowHint(GLFW_RESIZABLE, GLFW_TRUE);
 	
-	m_VulkanExtent.width = m_WindowData.m_Width;
-	m_VulkanExtent.height = m_WindowData.m_Height;
+	m_Extent.width = m_WindowData.m_Width;
+	m_Extent.height = m_WindowData.m_Height;
 
 	m_NativeWindowHandle = glfwCreateWindow(
 		windowData_.m_Width, 

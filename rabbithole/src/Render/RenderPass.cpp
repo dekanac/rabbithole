@@ -1,7 +1,6 @@
 #include "RenderPass.h"
 #include "Renderer.h"
 #include "ResourceStateTracking.h"
-
 #include "SuperResolutionManager.h"
 
 void RenderPass::SetCombinedImageSampler(Renderer* renderer, int slot, VulkanTexture* texture)

@@ -2,16 +2,16 @@
 #include "common.h"
 #include "Logger/Logger.h"
 
-#include <unordered_map>
-#include <string>
-#include <vulkan/vulkan.h>
-#include <optional>
-
 #include "Vulkan/Include/VulkanWrapper.h"
 #include "SuperResolutionManager.h"
 #include "Window.h"
-#include "Model/ModelLoading.h"
+#include "Model/Model.h"
 #include "BVH.h"
+
+#include <unordered_map>
+#include <string>
+#include <optional>
+
 
 //#ifdef _DEBUG
 	//#define  USE_RABBITHOLE_TOOLS
@@ -110,8 +110,6 @@ private:
 	
 	//test purpose only
 	Entity*						testEntity;
-	ModelLoading::SceneData* defaultBoxModel;
-	ModelLoading::SceneData* defaultSphereModel;
 	std::vector<RabbitModel*>	rabbitmodels;
 	
 	void LoadModels();
@@ -192,7 +190,6 @@ public:
 	void CopyToSwapChain();
 	void ExecuteRenderPass(RenderPass& renderpass);
 
-	void AddSimpleMesh(SimpleMeshType type, rabbitVec3f position = rabbitVec3f{}, float size = 1.f, rabbitVec3f rotation = rabbitVec3f{});
 public:
 	std::vector<VulkanglTFModel> gltfModels;
 

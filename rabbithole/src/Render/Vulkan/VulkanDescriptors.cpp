@@ -1,6 +1,7 @@
 #include "precomp.h"
 
-#include "Shader.h"
+#include "Render/Shader.h"
+#include "Render/Model/Model.h"
 
 VulkanDescriptor::VulkanDescriptor(const VulkanDescriptorInfo& info)
 	: m_Info(info)

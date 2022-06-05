@@ -1,13 +1,11 @@
-#include <fstream>
-#include <sstream>
-#include <iostream>
-#include <cstdlib>
-
 #include "RenderSystem.h"
 #include "Render/Renderer.h"
 #include "Render/Window.h"
 
-#include <vulkan/vulkan.h>
+#include <fstream>
+#include <sstream>
+#include <iostream>
+#include <cstdlib>
 
 bool RenderSystem::Init()
 {

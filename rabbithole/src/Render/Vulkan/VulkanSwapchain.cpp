@@ -9,7 +9,7 @@
 #include <set>
 #include <stdexcept>
 
-#include "../SuperResolutionManager.h"
+#include "Render/SuperResolutionManager.h"
 
 VulkanSwapchain::VulkanSwapchain(VulkanDevice& deviceRef, VkExtent2D extent)
 	: m_VulkanDevice{ deviceRef }, m_WindowExtent{ extent } 

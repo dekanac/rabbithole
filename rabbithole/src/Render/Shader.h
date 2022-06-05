@@ -2,8 +2,9 @@
 
 #include <vector>
 #include <string>
+#include <vulkan/vulkan.h>
 
-#include "VulkanTypes.h"
+#include "Render/Vulkan/VulkanTypes.h"
 
 class VulkanDevice;
 

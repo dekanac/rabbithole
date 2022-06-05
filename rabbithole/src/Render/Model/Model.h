@@ -1,7 +1,8 @@
 #pragma once
 
-#include "VulkanDevice.h"
-#include "VulkanBuffer.h"
+#include "Render/Vulkan/VulkanDevice.h"
+#include "Render/Vulkan/VulkanBuffer.h"
+
 #define GLM_FORCE_RADIANS
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE
 
@@ -11,7 +12,7 @@
 #include <glm/gtx/hash.hpp>
 #include "tinygltf/tiny_gltf.h"
 
-#include "../Model/ModelLoading.h"
+#include "TextureLoading.h"
 
 class VulkanImage;
 class VulkanImageView;
@@ -72,7 +73,7 @@ struct std::hash<Vertex>
 	}
 };
 
-using TextureData = ModelLoading::TextureData;
+using TextureData = TextureLoading::TextureData;
 
 struct Mesh
 {
@@ -89,7 +90,6 @@ class RabbitModel
 public:
 
 	RabbitModel(VulkanDevice& device, std::string filepath, std::string name);
-	RabbitModel(VulkanDevice& device, ModelLoading::ObjectData* objectData);
 	~RabbitModel();
 
 	RabbitModel(const RabbitModel&) = delete;
@@ -118,7 +118,6 @@ public:
 	inline uint32_t GetId() const	{ return m_Id; }
 
 private:
-	void CreateTextures(ModelLoading::MaterialData* material);
 	void CreateVertexBuffers();
 	void CreateIndexBuffers();
 

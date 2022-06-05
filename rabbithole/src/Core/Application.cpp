@@ -101,8 +101,6 @@ void Application::Run()
         {
 			std::cout << "FPS:" << 1.f / deltaTime << std::endl;
 			previousOutputTime = frameTime;
-
-            PrintUsage();
 		}
 //#endif
 		//UPDATE GAME LOOP

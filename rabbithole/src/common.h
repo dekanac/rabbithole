@@ -1,5 +1,4 @@
 #include <glm/glm.hpp>
-#include <vulkan/vulkan.h>
 
 #include <limits>
 
@@ -52,3 +51,8 @@ typedef glm::mat4 rabbitMat4f;
 const float Epsilon = 1e-8;
 const float Infinity = std::numeric_limits<float>::max();
 
+struct WindowExtent
+{
+	uint32_t height;
+	uint32_t width;
+};

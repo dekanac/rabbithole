@@ -11,7 +11,4 @@
 #include <GLFW/glfw3.h>
 
 #include "Logger/Logger.h"
-
-#include "utils.h"
-
 #include "Include/VulkanWrapper.h"

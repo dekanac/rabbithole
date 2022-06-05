@@ -1,4 +1,5 @@
-#include "precomp.h"
+#include "Resource.h"
+#include <memory>
 
 AllocatedResource::AllocatedResource()
 {

@@ -1,9 +1,13 @@
 #pragma once
 
+#include "Render/Model/TextureLoading.h"
+#include "Render/Resource.h"
+
 class VulkanImage;
 class VulkanImageView;
 class VulkanImageSampler;
-struct ModelLoading::TextureData;
+
+using namespace TextureLoading;
 
 class VulkanTexture : public ManagableResource
 {

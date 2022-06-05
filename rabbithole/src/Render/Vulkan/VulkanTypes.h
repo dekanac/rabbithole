@@ -1,5 +1,7 @@
 #pragma once
 
+#include <memory>
+
 #define RABBITHOLE_FLAG_TYPE_SETUP(flagType) \
     inline flagType operator&(flagType a, flagType b) \
     { \

@@ -26,10 +26,10 @@ public:
     static void FramebufferResizeCallback(GLFWwindow* window, int width, int height);
     bool Shutdown();
 	GLFWwindow* GetNativeWindowHandle() const { return m_NativeWindowHandle; }
-	VkExtent2D GetExtent() { return m_VulkanExtent; }
+	WindowExtent GetExtent() { return m_Extent; }
 
 private:
-	VkExtent2D m_VulkanExtent;
+	WindowExtent m_Extent;
 	WindowData m_WindowData{};
 	GLFWwindow* m_NativeWindowHandle{ };
 

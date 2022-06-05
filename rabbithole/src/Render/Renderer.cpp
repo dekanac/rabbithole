@@ -1,35 +1,33 @@
 #define GLFW_INCLUDE_VULKAN
-
 #include "Renderer.h"
+
+#include "Core/Application.h"
+#include "ECS/EntityManager.h"
+#include "Input/InputManager.h"
+#include "Model/Model.h"
 #include "Render/Camera.h"
 #include "Render/Window.h"
 #include "Render/RenderPass.h"
-#include "Vulkan/Shader.h"
-#include "Input/InputManager.h"
-#include "ECS/EntityManager.h"
-#include "Core/Application.h"
-#include "Vulkan/Include/VulkanWrapper.h"
 #include "ResourceStateTracking.h"
 #include "SuperResolutionManager.h"
+#include "Shader.h"
+#include "Utils/utils.h"
+#include "Vulkan/Include/VulkanWrapper.h"
 
+#include <GLFW/glfw3.h>
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
-#include <GLFW/glfw3.h>
-#include <vector>
 #include <imgui/imgui.h>
 #include <imgui/backends/imgui_impl_glfw.h>
 #include <imgui/backends/imgui_impl_vulkan.h>
 
 #include <cmath>
+#include <vector>
 #include <iostream>
 #include <fstream>
 #include <random>
 #include <sstream>
 #include <set>
-
-#include "Model/ModelLoading.h"
-#include "Model/ModelLoaderGLTF.h"
-#include "stb_image/stb_image.h"
 
 rabbitVec3f renderDebugOption;
 
@@ -64,28 +62,6 @@ void Renderer::ExecuteRenderPass(RenderPass& renderpass)
 	RSTManager.Reset();
 
 	m_VulkanDevice.EndLabel(GetCurrentCommandBuffer());
-}
-
-void Renderer::AddSimpleMesh(SimpleMeshType type, rabbitVec3f position, float size, rabbitVec3f rotation)
-{
-	RabbitModel* model = nullptr;
-
-	if (type == SimpleMeshType::BoxMesh)
-	{
-		model = new RabbitModel(m_VulkanDevice, defaultBoxModel->pObjects[0]);
-	}
-	else if (type == SimpleMeshType::SphereMesh)
-	{
-		model = new RabbitModel(m_VulkanDevice, defaultSphereModel->pObjects[0]);
-	}
-
-	auto mesh = model->GetMesh();
-	mesh.position = position;
-	mesh.rotation = rotation;
-	mesh.scale = { size, size, size };
-
-	model->SetMesh(mesh);
-	rabbitmodels.push_back(model);
 }
 
 bool Renderer::Init()
@@ -339,9 +315,9 @@ void Renderer::InitImgui()
 void Renderer::InitTextures()
 {
 	//TODO: find better way to load cubemaps
-	auto cubeMapData = ModelLoading::LoadCubemap("res/textures/skybox/skybox.jpg");
+	auto cubeMapData = TextureLoading::LoadCubemap("res/textures/skybox/skybox.jpg");
 
-	ModelLoading::TextureData texData{};
+	TextureLoading::TextureData texData{};
 	texData.bpp = cubeMapData->pData[0]->bpp;
 	texData.width = cubeMapData->pData[0]->width;
 	texData.height = cubeMapData->pData[0]->height;
@@ -357,7 +333,7 @@ void Renderer::InitTextures()
 	skyboxTexture = new VulkanTexture(&m_VulkanDevice, (TextureData*)&texData, TextureFlags::Color | TextureFlags::Read | TextureFlags::CubeMap | TextureFlags::TransferDst, Format::R8G8B8A8_UNORM_SRGB, "skybox");
 
 	//TODO: pls no
-	ModelLoading::FreeCubemap(cubeMapData);
+	TextureLoading::FreeCubemap(cubeMapData);
 	free(texData.pData);
 }
 

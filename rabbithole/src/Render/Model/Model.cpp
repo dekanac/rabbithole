@@ -1,15 +1,25 @@
-#include "precomp.h"
+#include "Render/Vulkan/precomp.h"
+
+#include "Model.h"
 
 #include <stddef.h>
 #include <iostream>
 
 #define TINYOBJLOADER_IMPLEMENTATION
 #include "tiny_obj_loader/tiny_obj_loader.h"
-#include "tinygltf/tiny_gltf.h"
 #include "stb_image/stb_image.h"
 #include <glm/glm.hpp>
 #include <glm/gtc/type_ptr.hpp>
-#include "../Renderer.h"
+
+#include "Render/Renderer.h"
+#include "Render/Vulkan/VulkanTexture.h"
+
+#define TINYGLTF_IMPLEMENTATION
+#define STB_IMAGE_IMPLEMENTATION
+#define STB_IMAGE_WRITE_IMPLEMENTATION
+#define STBI_MSC_SECURE_CRT
+
+#include "tinygltf/tiny_gltf.h"
 
 VulkanTexture* RabbitModel::ms_DefaultWhiteTexture = nullptr;
 VulkanTexture* RabbitModel::ms_DefaultBlackTexture = nullptr;
@@ -47,27 +57,6 @@ RabbitModel::RabbitModel(VulkanDevice& device, std::string filepath, std::string
 	CalculateAABB();
 }
 
-RabbitModel::RabbitModel(VulkanDevice& device, ModelLoading::ObjectData* objectData)
-	: m_VulkanDevice{ device }
-	, m_Id(m_CurrentId)
-{
-	m_CurrentId++;
-
-	//TODO:[MEMLEAK] get rid of this unneccessary shit boi, free MeshData 
-	m_Vertices.resize(objectData->mesh->numVertices);
-	m_Indices.resize(objectData->mesh->numIndices);
-	m_VertexCount = objectData->mesh->numVertices;
-	std::memcpy(m_Vertices.data(), objectData->mesh->pVertices, objectData->mesh->numVertices * sizeof(ModelLoading::MeshVertex));
-	m_IndexCount = objectData->mesh->numIndices;
-	std::memcpy(m_Indices.data(), objectData->mesh->pIndices, objectData->mesh->numIndices * sizeof(uint32_t));
-	
-	CreateTextures(&objectData->material);
-	CreateVertexBuffers();
-	CreateIndexBuffers();
-
-	CalculateAABB();
- }
-
 RabbitModel::~RabbitModel()
 {
 	delete m_VertexBuffer;
@@ -78,48 +67,6 @@ RabbitModel::~RabbitModel()
 	if (m_DescriptorSet)
 	{
 		delete m_DescriptorSet;
-	}
-}
-
-void RabbitModel::CreateTextures(ModelLoading::MaterialData* material)
-{
-
-	if (!material->diffuseMap->INVALID && !(material->diffuseMap == nullptr))
-	{														
-		m_AlbedoTexture = new VulkanTexture(&m_VulkanDevice, material->diffuseMap, TextureFlags::Color | TextureFlags::Read | TextureFlags::TransferDst, Format::R8G8B8A8_UNORM_SRGB, "Albedo");
-	}
-	else
-	{
-		m_AlbedoTexture = ms_DefaultWhiteTexture;
-	}
-
-	if (material->normalMap)
-	{												
-		m_NormalTexture = new VulkanTexture(&m_VulkanDevice, material->normalMap, TextureFlags::Color | TextureFlags::Read | TextureFlags::TransferDst, Format::R8G8B8A8_UNORM, "Normal");
-	}
-	else
-	{
-		m_NormalTexture = ms_DefaultWhiteTexture;
-		m_UseNormalMap = false;
-	}
-
-	if (material->roughnessMap)
-	{													
-		m_RoughnessTexture = new VulkanTexture(&m_VulkanDevice, material->roughnessMap, TextureFlags::Color | TextureFlags::Read | TextureFlags::TransferDst, Format::R8G8B8A8_UNORM, "Roughness");
-	}
-	else
-	{
-		m_RoughnessTexture = ms_DefaultBlackTexture;
-	}
-
-	if (material->metallicMap)
-	{
-															
-		m_MetalnessTexture = new VulkanTexture(&m_VulkanDevice, material->metallicMap, TextureFlags::Color | TextureFlags::Read | TextureFlags::TransferDst, Format::R8G8B8A8_UNORM, "Metalness");
-	}
-	else
-	{
-		m_MetalnessTexture = ms_DefaultBlackTexture;
 	}
 }
 

@@ -3,9 +3,10 @@
 #include "Shader.h"
 #include "Logger/Logger.h"
 
-#include "VulkanDevice.h"
-#include "spirv-reflect/spirv_reflect.h"
+#include "Render/Vulkan/VulkanDevice.h"
+#include "Render/Vulkan/spirv-reflect/spirv_reflect.h"
 
+#include <vulkan/vulkan.h>
 #include <crc32/Crc32.h>
 
 Shader::Shader(VulkanDevice& device, size_t byteCodeSize, const char* byteCode, const ShaderInfo& info, const char* name)

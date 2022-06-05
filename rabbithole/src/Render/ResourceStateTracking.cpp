@@ -1,8 +1,8 @@
 #include "common.h"
-#include "vulkan/precomp.h"
+
 #include "ResourceStateTracking.h"
 #include "Renderer.h"
-#include "Vulkan/Resource.h"
+#include "Resource.h"
 
 void ResourceStateTrackingManager::TransitionResources()
 {

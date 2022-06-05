@@ -5,10 +5,10 @@
 #include <iostream>
 #include <stdexcept>
 
-#include "Shader.h"
-#include "../Renderer.h"
-
-#include "../SuperResolutionManager.h"
+#include "Render/Shader.h"
+#include "Render/Renderer.h"
+#include "Render/SuperResolutionManager.h"
+#include "Render/Model/Model.h"
 
 VulkanPipeline::VulkanPipeline(VulkanDevice& device, PipelineConfigInfo& configInfo, PipelineType type)
 	: m_VulkanDevice{ device } 

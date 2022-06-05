@@ -1,6 +1,7 @@
 #include "precomp.h"
 
-#include "Model.h"
+#include "Render/Model/Model.h"
+#include "Render/Model/TextureLoading.h"
 
 VulkanTexture::VulkanTexture(VulkanDevice* device, std::string filePath, TextureFlags flags, Format format, std::string name, bool generateMips)
 	: m_Format(format)
@@ -8,13 +9,13 @@ VulkanTexture::VulkanTexture(VulkanDevice* device, std::string filePath, Texture
 	, m_FilePath(filePath)
 	, m_Name(name)
 {
-	auto texData = ModelLoading::LoadTexture(filePath);
+	auto texData = TextureLoading::LoadTexture(filePath);
 
 	CreateResource(device, texData, generateMips);
 	CreateView(device);
 	CreateSampler(device);
 
-	ModelLoading::FreeTexture(texData);
+	TextureLoading::FreeTexture(texData);
 }
 
 VulkanTexture::VulkanTexture(VulkanDevice* device, const uint32_t width, const uint32_t height, TextureFlags flags, Format format, const char* name)
