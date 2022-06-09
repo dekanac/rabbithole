@@ -107,6 +107,16 @@ enum class ResourceState : uint8_t
 	Count
 };
 
+enum class ResourceStage : uint8_t
+{
+	None,
+	Transfer,
+	Graphics,
+	Compute,
+
+	Count
+};
+
 enum class ShaderType : uint8_t
 {
 	Vertex,

@@ -88,7 +88,11 @@ public:
 	uint8_t GetRenderTargetCount();
 	bool HasDepthStencil() { return m_DepthStencil ? true : false; }
 
+	PipelineType GetCurrentPipelineType() { return m_CurrentPipelinetype; }
+
 	void Reset();
+	void UpdateResourceStage(VulkanTexture* texture);
+
 private:
 	PipelineConfigInfo*     m_PipelineConfig;
 	VulkanPipeline*		    m_Pipeline;
@@ -116,5 +120,7 @@ private:
 	std::vector<VulkanImageView*> m_RenderTargets;
 
     VulkanImageView* m_DepthStencil = nullptr;
+
+	PipelineType m_CurrentPipelinetype;
 };
 

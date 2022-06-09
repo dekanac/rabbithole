@@ -581,6 +581,8 @@ void VulkanDevice::CopyBufferToImage(VkCommandBuffer commandBuffer, VulkanBuffer
 		VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
 		1,
 		&region);
+
+	texture->SetCurrentResourceStage(ResourceStage::Transfer);
 }
 
 void VulkanDevice::CopyBufferToImageCubeMap(VkCommandBuffer commandBuffer, VulkanBuffer* buffer, VulkanTexture* texture)
@@ -615,6 +617,8 @@ void VulkanDevice::CopyBufferToImageCubeMap(VkCommandBuffer commandBuffer, Vulka
 		VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
 		6,
 		bufferCopyRegions.data());
+
+	texture->SetCurrentResourceStage(ResourceStage::Transfer);
 }
 
 
@@ -1383,6 +1387,46 @@ VkBorderColor GetVkBorderColorFrom(const Color color)
 bool IsDepthFormat(const Format format)
 {
 	return (format == Format::D32_SFLOAT || format == Format::D32_SFLOAT);
+}
+
+VkPipelineStageFlags GetVkPipelineStageFromResourceStage(const ResourceStage stage)
+{
+	switch (stage)
+	{
+	case ResourceStage::Compute:
+		return VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT;
+	case ResourceStage::Graphics:
+		return VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT; //TODO: fix this, but this should be ok for now
+	case ResourceStage::Transfer:
+		return VK_PIPELINE_STAGE_TRANSFER_BIT;
+	default:
+		//ASSERT(false, "Not supported pipeline stage.");
+		return VK_PIPELINE_STAGE_ALL_COMMANDS_BIT;
+	}
+}
+
+VkAccessFlags GetVkAccessFlagsFromResourceState(const ResourceState state)
+{
+	switch (state)
+	{
+	case ResourceState::GenericRead:
+		return VK_ACCESS_SHADER_READ_BIT;
+	case ResourceState::RenderTarget:
+		return VK_ACCESS_SHADER_WRITE_BIT;
+	case ResourceState::GeneralCompute:
+		return VK_ACCESS_SHADER_WRITE_BIT | VK_ACCESS_SHADER_READ_BIT;
+	case ResourceState::TransferDst:
+		return VK_ACCESS_TRANSFER_WRITE_BIT;
+	case ResourceState::TransferSrc:
+		return VK_ACCESS_TRANSFER_READ_BIT;
+	case ResourceState::DepthStencilRead:
+		return VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT;
+	case ResourceState::DepthStencilWrite:
+		return VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+	default:
+		ASSERT(false, "Not supported access state.");
+		return VK_ACCESS_NONE_KHR;
+	}
 }
 
 VkBlendFactor GetVkBlendFactorFrom(const BlendValue blendValue)

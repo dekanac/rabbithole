@@ -5,6 +5,9 @@
 
 void RenderPass::SetCombinedImageSampler(Renderer* renderer, int slot, VulkanTexture* texture)
 {
+	auto stateManager = renderer->GetStateManager();
+	stateManager->UpdateResourceStage(texture);
+
 	texture->SetShouldBeResourceState(ResourceState::GenericRead);
 	RSTManager.AddResourceForTransition(texture);
 	renderer->GetStateManager()->SetCombinedImageSampler(slot, texture);
@@ -12,6 +15,9 @@ void RenderPass::SetCombinedImageSampler(Renderer* renderer, int slot, VulkanTex
 
 void RenderPass::SetSampledImage(Renderer* renderer, int slot, VulkanTexture* texture)
 {
+	auto stateManager = renderer->GetStateManager();
+	stateManager->UpdateResourceStage(texture);
+
 	texture->SetShouldBeResourceState(ResourceState::GenericRead);
 	RSTManager.AddResourceForTransition(texture);
 	renderer->GetStateManager()->SetSampledImage(slot, texture);
@@ -19,6 +25,9 @@ void RenderPass::SetSampledImage(Renderer* renderer, int slot, VulkanTexture* te
 
 void RenderPass::SetStorageImage(Renderer* renderer, int slot, VulkanTexture* texture)
 {
+	auto stateManager = renderer->GetStateManager();
+	stateManager->UpdateResourceStage(texture);
+
 	texture->SetShouldBeResourceState(ResourceState::GeneralCompute);
 	RSTManager.AddResourceForTransition(texture);
 	renderer->GetStateManager()->SetStorageImage(slot, texture);
@@ -42,6 +51,7 @@ void RenderPass::SetSampler(Renderer* renderer, int slot, VulkanTexture* texture
 void RenderPass::SetRenderTarget(Renderer* renderer, int slot, VulkanTexture* texture)
 {
 	VulkanStateManager* stateManager = renderer->GetStateManager();
+	stateManager->UpdateResourceStage(texture);
 
 	texture->SetShouldBeResourceState(ResourceState::RenderTarget);
 	RSTManager.AddResourceForTransition(texture);
@@ -71,8 +81,9 @@ void RenderPass::SetRenderTarget(Renderer* renderer, int slot, VulkanTexture* te
 
 void RenderPass::SetDepthStencil(Renderer* renderer, VulkanTexture* texture)
 {
-	//TODO: missing transition handling
 	VulkanStateManager* stateManager = renderer->GetStateManager();
+	stateManager->UpdateResourceStage(texture);
+
 	texture->SetShouldBeResourceState(ResourceState::DepthStencilWrite);
 	RSTManager.AddResourceForTransition(texture);
 	stateManager->SetDepthStencil(texture->GetView());
@@ -127,6 +138,9 @@ void BoundingBoxPass::Setup(Renderer* renderer)
 {
 	VulkanStateManager* stateManager = renderer->GetStateManager();
 
+	stateManager->SetVertexShader(renderer->GetShader("VS_SimpleGeometry"));
+	stateManager->SetPixelShader(renderer->GetShader("FS_SimpleGeometry"));
+
 	renderer->BindViewport(0, 0, GetNativeWidth, GetNativeHeight);
 	stateManager->ShouldCleanColor(false);
 	stateManager->ShouldCleanDepth(false);
@@ -148,9 +162,6 @@ void BoundingBoxPass::Setup(Renderer* renderer)
 	renderPassInfo->InitialDepthStencilState = ResourceState::DepthStencilWrite;
 	renderPassInfo->FinalDepthStencilState = ResourceState::DepthStencilWrite;
 
-	stateManager->SetVertexShader(renderer->GetShader("VS_SimpleGeometry"));
-	stateManager->SetPixelShader(renderer->GetShader("FS_SimpleGeometry"));
-
 }
 
 void BoundingBoxPass::Render(Renderer* renderer)
@@ -166,6 +177,9 @@ void GBufferPass::DeclareResources(Renderer* renderer)
 void GBufferPass::Setup(Renderer* renderer)
 {
 	VulkanStateManager* stateManager = renderer->GetStateManager();
+
+	stateManager->SetVertexShader(renderer->GetShader("VS_GBuffer"));
+	stateManager->SetPixelShader(renderer->GetShader("FS_GBuffer"));
 
 	renderer->BindViewport(0, 0, GetNativeWidth, GetNativeHeight);
 	stateManager->ShouldCleanColor(true);
@@ -202,8 +216,6 @@ void GBufferPass::Setup(Renderer* renderer)
 	renderPassInfo->FinalDepthStencilState = ResourceState::DepthStencilWrite;
 
 	stateManager->SetCullMode(CullMode::Front);
-	stateManager->SetVertexShader(renderer->GetShader("VS_GBuffer"));
-	stateManager->SetPixelShader(renderer->GetShader("FS_GBuffer"));
 
 	renderer->BindCameraMatrices(renderer->GetCamera());
 }
@@ -281,9 +293,10 @@ void CopyToSwapchainPass::Setup(Renderer* renderer)
 {
 	VulkanStateManager* stateManager = renderer->GetStateManager();
 
-	renderer->BindViewport(0, 0, GetUpscaledWidth, GetUpscaledHeight);
 	stateManager->SetVertexShader(renderer->GetShader("VS_PassThrough"));
 	stateManager->SetPixelShader(renderer->GetShader("FS_PassThrough"));
+
+	renderer->BindViewport(0, 0, GetUpscaledWidth, GetUpscaledHeight);
 
 	SetCombinedImageSampler(renderer, 0, renderer->fsrOutputTexture);
 
@@ -313,6 +326,9 @@ void OutlineEntityPass::Setup(Renderer* renderer)
 {
 	VulkanStateManager* stateManager = renderer->GetStateManager();
 
+	stateManager->SetVertexShader(renderer->GetShader("VS_PassThrough"));
+	stateManager->SetPixelShader(renderer->GetShader("FS_OutlineEntity"));
+
 	stateManager->ShouldCleanColor(false);
 
 	renderer->UpdateEntityPickId();
@@ -324,9 +340,6 @@ void OutlineEntityPass::Setup(Renderer* renderer)
 	auto renderPassInfo = stateManager->GetRenderPassInfo();
 	renderPassInfo->InitialRenderTargetState = ResourceState::None;
 	renderPassInfo->FinalRenderTargetState = ResourceState::RenderTarget;
-
-	stateManager->SetVertexShader(renderer->GetShader("VS_PassThrough"));
-	stateManager->SetPixelShader(renderer->GetShader("FS_OutlineEntity"));
 
 	SetCombinedImageSampler(renderer, 0, renderer->entityHelper);
 	SetRenderTarget(renderer, 0, renderer->lightingMain);
@@ -345,6 +358,9 @@ void SkyboxPass::DeclareResources(Renderer* renderer)
 void SkyboxPass::Setup(Renderer* renderer)
 {
 	VulkanStateManager* stateManager = renderer->GetStateManager();
+
+	stateManager->SetVertexShader(renderer->GetShader("VS_Skybox"));
+	stateManager->SetPixelShader(renderer->GetShader("FS_Skybox"));
 	
 	stateManager->ShouldCleanDepth(false);
 	stateManager->ShouldCleanColor(false);
@@ -356,9 +372,6 @@ void SkyboxPass::Setup(Renderer* renderer)
 	renderPassInfo->InitialRenderTargetState = ResourceState::RenderTarget;
 
 	stateManager->SetCullMode(CullMode::Front);
-
-	stateManager->SetVertexShader(renderer->GetShader("VS_Skybox"));
-	stateManager->SetPixelShader(renderer->GetShader("FS_Skybox"));
 
 	SetConstantBuffer(renderer, 0, renderer->GetMainConstBuffer());
 	SetCombinedImageSampler(renderer, 1, renderer->skyboxTexture);
@@ -554,14 +567,14 @@ void TAAPass::Setup(Renderer* renderer)
 
 	SetSampledImage(renderer, 0, renderer->lightingMain);
 	SetSampledImage(renderer, 1, renderer->depthStencil);
-	SetSampledImage(renderer, 2, renderer->historyBuffer);
+	SetSampledImage(renderer, 2, renderer->historyBuffer[renderer->GetCurrentImageIndex()]);
 	SetSampledImage(renderer, 3, renderer->velocityGBuffer);
 
 	SetStorageImage(renderer, 4, renderer->TAAOutput);
 
     SetSampler(renderer, 5, renderer->lightingMain);
     SetSampler(renderer, 6, renderer->depthStencil);
-    SetSampler(renderer, 7, renderer->historyBuffer);
+    SetSampler(renderer, 7, renderer->historyBuffer[renderer->GetCurrentImageIndex()]);
     SetSampler(renderer, 8, renderer->velocityGBuffer);
 }
 
@@ -590,7 +603,7 @@ void TAASharpenerPass::Setup(Renderer* renderer)
 	SetSampledImage(renderer, 0, renderer->TAAOutput);
 
 	SetStorageImage(renderer, 1, renderer->lightingMain);
-	SetStorageImage(renderer, 2, renderer->historyBuffer);
+	SetStorageImage(renderer, 2, renderer->historyBuffer[(MAX_FRAMES_IN_FLIGHT-1) - renderer->GetCurrentImageIndex()]);
 }
 
 void TAASharpenerPass::Render(Renderer* renderer) 

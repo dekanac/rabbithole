@@ -12,6 +12,7 @@ VulkanStateManager::VulkanStateManager()
 	m_Framebuffer = nullptr;
 	m_PipelineConfig = new PipelineConfigInfo();
     m_RenderPassConfig = new RenderPassConfigInfo();
+	m_CurrentPipelinetype = PipelineType::Count;
 
     VulkanRenderPass::DefaultRenderPassInfo(m_RenderPassConfig);
 
@@ -343,6 +344,17 @@ uint8_t VulkanStateManager::GetRenderTargetCount()
     return m_RenderTarget0 ? (m_RenderTarget1 ? (m_RenderTarget2 ? (m_RenderTarget3 ? ( m_RenderTarget4 ? 5 : 4) : 3) : 2) : 1) : 0;
 }
 
+void VulkanStateManager::UpdateResourceStage(VulkanTexture* texture)
+{
+	texture->SetPreviousResourceStage(texture->GetCurrentResourceStage());
+
+	ResourceStage currentStage = (m_CurrentPipelinetype != PipelineType::Count)
+		? ((m_CurrentPipelinetype == PipelineType::Compute) ? ResourceStage::Compute : ResourceStage::Graphics)
+		: ResourceStage::Count;
+
+	texture->SetCurrentResourceStage(currentStage);
+}
+
 void VulkanStateManager::Reset()
 {
     m_RenderTarget0 = nullptr;
@@ -359,18 +371,21 @@ void VulkanStateManager::Reset()
 
 void VulkanStateManager::SetVertexShader(Shader* shader)
 {
+	m_CurrentPipelinetype = PipelineType::Graphics;
 	m_PipelineConfig->vertexShader = shader;
 	m_DirtyPipeline = true;
 }
 
 void VulkanStateManager::SetPixelShader(Shader* shader)
 {
+	m_CurrentPipelinetype = PipelineType::Graphics;
 	m_PipelineConfig->pixelShader = shader;
 	m_DirtyPipeline = true;
 }
 
 void VulkanStateManager::SetComputeShader(Shader* shader)
 {
+	m_CurrentPipelinetype = PipelineType::Compute;
 	m_PipelineConfig->computeShader = shader;
 	m_DirtyPipeline = true;
 }

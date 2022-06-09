@@ -26,4 +26,9 @@ public:
 	virtual ResourceState			GetShouldBeResourceState() const = 0;
 	virtual void					SetShouldBeResourceState(ResourceState state) = 0;
 
+	virtual ResourceStage			GetCurrentResourceStage() = 0;
+	virtual void					SetCurrentResourceStage(ResourceStage stage) = 0;
+
+	virtual ResourceStage			GetPreviousResourceStage() = 0;
+	virtual void					SetPreviousResourceStage(ResourceStage stage) = 0;
 };

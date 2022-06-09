@@ -18,28 +18,13 @@ VulkanTexture::VulkanTexture(VulkanDevice* device, std::string filePath, Texture
 	TextureLoading::FreeTexture(texData);
 }
 
-VulkanTexture::VulkanTexture(VulkanDevice* device, const uint32_t width, const uint32_t height, TextureFlags flags, Format format, const char* name)
+VulkanTexture::VulkanTexture(VulkanDevice* device, const uint32_t width, const uint32_t height, TextureFlags flags, Format format, const char* name, uint32_t arraySize, MultisampleType mstype)
 	: m_Format(format)
 	, m_Flags(flags)
 	, m_FilePath("")
 	, m_Name(name)
 {
-	CreateResource(device, width, height);
-	CreateView(device);
-	CreateSampler(device);
-
-	device->SetObjectName((uint64_t)(m_Resource->GetImage()), VK_OBJECT_TYPE_IMAGE, name);
-	device->SetObjectName((uint64_t)m_View->GetImageView(), VK_OBJECT_TYPE_IMAGE_VIEW, name);
-	device->SetObjectName((uint64_t)m_Sampler->GetSampler(), VK_OBJECT_TYPE_SAMPLER, name);
-}
-
-VulkanTexture::VulkanTexture(VulkanDevice* device, const uint32_t width, const uint32_t height, TextureFlags flags, Format format, uint32_t arraySize, const char* name)
-	: m_Format(format)
-	, m_Flags(flags)
-	, m_FilePath("")
-	, m_Name(name)
-{
-	CreateResource(device, width, height, arraySize);
+	CreateResource(device, width, height, arraySize, mstype);
 	CreateView(device);
 	CreateSampler(device);
 
@@ -152,7 +137,7 @@ void VulkanTexture::CreateResource(VulkanDevice* device, TextureData* texData, b
 	device->EndSingleTimeCommands(commandBuffer);
 }
 
-void VulkanTexture::CreateResource(VulkanDevice* device, const uint32_t width, const uint32_t height, uint32_t arraySize)
+void VulkanTexture::CreateResource(VulkanDevice* device, const uint32_t width, const uint32_t height, uint32_t arraySize, MultisampleType mstype)
 {
 	InitializeRegion(width, height, arraySize, 1);
 
@@ -174,7 +159,7 @@ void VulkanTexture::CreateResource(VulkanDevice* device, const uint32_t width, c
 	textureResourceInfo.Extent.Depth = 1;
 	textureResourceInfo.ArraySize = arraySize;
 	textureResourceInfo.MipLevels = 1;
-	textureResourceInfo.MultisampleType = MultisampleType::Sample_1;
+	textureResourceInfo.MultisampleType = mstype;
 	m_Resource = new VulkanImage(device, textureResourceInfo, m_Name.c_str());
 
 	ResourceState stateAfter = ResourceState::None;

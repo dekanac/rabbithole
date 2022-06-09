@@ -91,7 +91,7 @@ struct IndexedIndirectBuffer
 
 class Renderer
 {
-    SingletonClass(Renderer)
+	SingletonClass(Renderer)
 
 private:
 	Camera* MainCamera{};
@@ -129,7 +129,7 @@ public:
 	inline VulkanImageView* GetSwapchainImage() { return m_VulkanSwapchain->GetImageView(m_CurrentImageIndex); }
 	inline VulkanBuffer* GetVertexUploadBuffer() { return m_VertexUploadBuffer; }
 
-	void ResourceBarrier(VulkanTexture* texture, ResourceState oldLayout, ResourceState newLayout);
+	void ResourceBarrier(VulkanTexture* texture, ResourceState oldLayout, ResourceState newLayout, ResourceStage srcStage, ResourceStage dstStage);
 	void CopyImageToBuffer(VulkanTexture* texture, VulkanBuffer* buffer);
 	void CopyImage(VulkanTexture* src, VulkanTexture* dst);
 
@@ -159,6 +159,7 @@ public:
 	}
 
 	void SetCurrentImageIndex(int imageIndex) { m_CurrentImageIndex = imageIndex; }
+	int GetCurrentImageIndex() { return m_CurrentImageIndex; }
 	
 	void BeginRenderPass(VkExtent2D extent);
 	void EndRenderPass();
@@ -237,7 +238,7 @@ public:
 
 	//TAA
 	VulkanTexture* TAAOutput;
-	VulkanTexture* historyBuffer;
+	VulkanTexture* historyBuffer[MAX_FRAMES_IN_FLIGHT];
 
 	bool m_RenderOutlinedEntity = false;
     bool m_FramebufferResized = false;

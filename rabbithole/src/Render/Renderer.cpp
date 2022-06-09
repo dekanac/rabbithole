@@ -93,6 +93,8 @@ bool Renderer::Init()
 	for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
 	{
 		CreateGeometryDescriptors(gltfModels, i);
+		historyBuffer[i] = new VulkanTexture(&m_VulkanDevice, GetNativeWidth, GetNativeHeight, TextureFlags::RenderTarget | TextureFlags::Read | TextureFlags::TransferDst, Format::R16G16B16A16_FLOAT, "HistoryBuffer");
+
 	}
 	depthStencil = new VulkanTexture(&m_VulkanDevice, GetNativeWidth, GetNativeHeight, TextureFlags::DepthStencil | TextureFlags::Read, Format::D32_SFLOAT, "SwapchainDepthStencil");
 
@@ -111,9 +113,8 @@ bool Renderer::Init()
 	entityHelperBuffer = new VulkanBuffer(&m_VulkanDevice, BufferUsageFlags::StorageBuffer, MemoryAccess::CPU, GetNativeWidth * GetNativeHeight * 4, "EntityHelper");
 #endif
 	TAAOutput = new VulkanTexture(&m_VulkanDevice, GetNativeWidth, GetNativeHeight, TextureFlags::RenderTarget | TextureFlags::Read, Format::R16G16B16A16_FLOAT, "TAA");
-	historyBuffer = new VulkanTexture(&m_VulkanDevice, GetNativeWidth, GetNativeHeight, TextureFlags::RenderTarget | TextureFlags::Read | TextureFlags::TransferDst, Format::R16G16B16A16_FLOAT, "HistoryBuffer");
 
-	shadowMap = new VulkanTexture(&m_VulkanDevice, GetNativeWidth, GetNativeHeight, TextureFlags::Read, Format::R8_UNORM, MAX_NUM_OF_LIGHTS, "ShadowMap");
+	shadowMap = new VulkanTexture(&m_VulkanDevice, GetNativeWidth, GetNativeHeight, TextureFlags::Read, Format::R8_UNORM, "ShadowMap", MAX_NUM_OF_LIGHTS);
 	
 	//init acceleration structure
     InitMeshDataForCompute();
@@ -763,7 +764,7 @@ void Renderer::RecreateSwapchain()
 	CreateDescriptorPool();
 }
 
-void Renderer::ResourceBarrier(VulkanTexture* texture, ResourceState oldLayout, ResourceState newLayout)
+void Renderer::ResourceBarrier(VulkanTexture* texture, ResourceState oldLayout, ResourceState newLayout, ResourceStage srcStage, ResourceStage dstStage)
 {
 	VkCommandBuffer commandBuffer = GetCurrentCommandBuffer();
 
@@ -789,96 +790,96 @@ void Renderer::ResourceBarrier(VulkanTexture* texture, ResourceState oldLayout, 
 	VkPipelineStageFlags sourceStage;
 	VkPipelineStageFlags destinationStage;
 
-	if (oldLayout == ResourceState::None && newLayout == ResourceState::TransferDst) {
-		barrier.srcAccessMask = 0;
-		barrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
-
-		sourceStage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
-		destinationStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
-	}
-	else if (oldLayout == ResourceState::RenderTarget && newLayout == ResourceState::TransferSrc) {
-		barrier.srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT;
-		barrier.dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
-
-		sourceStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
-		destinationStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
-	}
-	else if (oldLayout == ResourceState::TransferSrc && newLayout == ResourceState::RenderTarget) {
-		barrier.srcAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
-		barrier.dstAccessMask = VK_ACCESS_SHADER_WRITE_BIT;
-
-		sourceStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
-		destinationStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
-	}
-
-	else if (oldLayout == ResourceState::GenericRead && newLayout == ResourceState::TransferSrc) {
-		barrier.srcAccessMask = VK_ACCESS_SHADER_READ_BIT;
-		barrier.dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
-
-		sourceStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
-		destinationStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
-	}
-	else if (oldLayout == ResourceState::TransferSrc && newLayout == ResourceState::GenericRead) {
-		barrier.srcAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
-		barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
-
-		sourceStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
-		destinationStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
-	}
-	else if (oldLayout == ResourceState::GenericRead && newLayout == ResourceState::TransferDst) {
-		barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
-		barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
-
-		sourceStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
-		destinationStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
-	}
-	else if (oldLayout == ResourceState::None && newLayout == ResourceState::DepthStencilWrite)
+	//if (oldLayout == ResourceState::None && newLayout == ResourceState::TransferDst) {
+	//	barrier.srcAccessMask = 0;
+	//	barrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+	//
+	//	sourceStage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+	//	destinationStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
+	//}
+	//else if (oldLayout == ResourceState::RenderTarget && newLayout == ResourceState::TransferSrc) {
+	//	barrier.srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT;
+	//	barrier.dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
+	//
+	//	sourceStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+	//	destinationStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
+	//}
+	//else if (oldLayout == ResourceState::TransferSrc && newLayout == ResourceState::RenderTarget) {
+	//	barrier.srcAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
+	//	barrier.dstAccessMask = VK_ACCESS_SHADER_WRITE_BIT;
+	//
+	//	sourceStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
+	//	destinationStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+	//}
+	//
+	//else if (oldLayout == ResourceState::GenericRead && newLayout == ResourceState::TransferSrc) {
+	//	barrier.srcAccessMask = VK_ACCESS_SHADER_READ_BIT;
+	//	barrier.dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
+	//
+	//	sourceStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+	//	destinationStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
+	//}
+	//else if (oldLayout == ResourceState::TransferSrc && newLayout == ResourceState::GenericRead) {
+	//	barrier.srcAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
+	//	barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+	//
+	//	sourceStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
+	//	destinationStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+	//}
+	//else if (oldLayout == ResourceState::GenericRead && newLayout == ResourceState::TransferDst) {
+	//	barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+	//	barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+	//
+	//	sourceStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
+	//	destinationStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+	//}
+	//else if (oldLayout == ResourceState::TransferDst && newLayout == ResourceState::GenericRead)
+	//{
+	//	barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+	//	barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+	//
+	//	sourceStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
+	//	destinationStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+	//}
+	//else if (oldLayout == ResourceState::TransferDst && newLayout == ResourceState::GeneralCompute)
+	//{
+	//	barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+	//	barrier.dstAccessMask = VK_ACCESS_SHADER_WRITE_BIT | VK_ACCESS_SHADER_READ_BIT;
+	//
+	//	sourceStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
+	//	destinationStage = VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT;
+	//}
+	//else if (oldLayout == ResourceState::None && newLayout == ResourceState::RenderTarget)
+	//{
+	//	barrier.srcAccessMask = 0;
+	//	barrier.dstAccessMask = VK_ACCESS_SHADER_WRITE_BIT;
+	//
+	//	sourceStage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+	//	destinationStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+	//}
+	//else if (oldLayout == ResourceState::RenderTarget && newLayout == ResourceState::GenericRead)
+	//{
+	//	barrier.srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT;
+	//	barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+	//
+	//	sourceStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+	//	destinationStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+	//}
+	//else if (oldLayout == ResourceState::GenericRead && newLayout == ResourceState::RenderTarget)
+	//{
+	//	barrier.srcAccessMask = VK_ACCESS_SHADER_READ_BIT;
+	//	barrier.dstAccessMask = VK_ACCESS_SHADER_WRITE_BIT;
+	//
+	//	sourceStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+	//	destinationStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+	//}
+	if (oldLayout == ResourceState::None && newLayout == ResourceState::DepthStencilWrite)
 	{
 		barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
 		barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
 
 		sourceStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
 		destinationStage = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT;
-	}
-	else if (oldLayout == ResourceState::TransferDst && newLayout == ResourceState::GenericRead)
-	{
-		barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
-		barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
-
-		sourceStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
-		destinationStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
-	}
-	else if (oldLayout == ResourceState::TransferDst && newLayout == ResourceState::GeneralCompute)
-	{
-		barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
-		barrier.dstAccessMask = VK_ACCESS_SHADER_WRITE_BIT | VK_ACCESS_SHADER_READ_BIT;
-
-		sourceStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
-		destinationStage = VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT;
-	}
-	else if (oldLayout == ResourceState::None && newLayout == ResourceState::RenderTarget)
-	{
-		barrier.srcAccessMask = 0;
-		barrier.dstAccessMask = VK_ACCESS_SHADER_WRITE_BIT;
-
-		sourceStage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
-		destinationStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
-	}
-	else if (oldLayout == ResourceState::RenderTarget && newLayout == ResourceState::GenericRead)
-	{
-		barrier.srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT;
-		barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
-
-		sourceStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
-		destinationStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
-	}
-	else if (oldLayout == ResourceState::GenericRead && newLayout == ResourceState::RenderTarget)
-	{
-		barrier.srcAccessMask = VK_ACCESS_SHADER_READ_BIT;
-		barrier.dstAccessMask = VK_ACCESS_SHADER_WRITE_BIT;
-
-		sourceStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
-		destinationStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
 	}
 	else if (oldLayout == ResourceState::DepthStencilWrite && newLayout == ResourceState::GenericRead)
 	{
@@ -912,41 +913,50 @@ void Renderer::ResourceBarrier(VulkanTexture* texture, ResourceState oldLayout, 
 		sourceStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
 		destinationStage = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
 	}
-	else if (oldLayout == ResourceState::GenericRead && newLayout == ResourceState::GeneralCompute)
-	{
-		barrier.srcAccessMask = VK_ACCESS_SHADER_READ_BIT;
-		barrier.dstAccessMask = VK_ACCESS_SHADER_WRITE_BIT | VK_ACCESS_SHADER_READ_BIT;
+	//else if (oldLayout == ResourceState::GenericRead && newLayout == ResourceState::GeneralCompute)
+	//{
+	//	barrier.srcAccessMask = VK_ACCESS_SHADER_READ_BIT;
+	//	barrier.dstAccessMask = VK_ACCESS_SHADER_WRITE_BIT | VK_ACCESS_SHADER_READ_BIT;
+	//
+	//	sourceStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+	//	destinationStage = VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT;
+	//}
+	//else if (oldLayout == ResourceState::RenderTarget && newLayout == ResourceState::GeneralCompute)
+	//{
+	//	barrier.srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT;
+	//	barrier.dstAccessMask = VK_ACCESS_SHADER_WRITE_BIT | VK_ACCESS_SHADER_READ_BIT;
+	//
+	//	sourceStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+	//	destinationStage = VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT;
+	//}
+	//else if (oldLayout == ResourceState::GeneralCompute && newLayout == ResourceState::RenderTarget)
+	//{
+	//	barrier.srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT | VK_ACCESS_SHADER_READ_BIT;
+	//	barrier.dstAccessMask = VK_ACCESS_SHADER_WRITE_BIT;
+	//	
+	//	sourceStage = VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT;
+	//	destinationStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+	//}
+	//else if (oldLayout == ResourceState::GeneralCompute && newLayout == ResourceState::GenericRead)
+	//{
+	//	barrier.srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT | VK_ACCESS_SHADER_READ_BIT;
+	//	barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+	//
+	//	sourceStage = VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT;
+	//	destinationStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+	//}
+	//else
+	//{
+	//	LOG_ERROR("unsupported layout transition!");
+	//}
 
-		sourceStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
-		destinationStage = VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT;
-	}
-	else if (oldLayout == ResourceState::RenderTarget && newLayout == ResourceState::GeneralCompute)
+	if (!isDepth)
 	{
-		barrier.srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT;
-		barrier.dstAccessMask = VK_ACCESS_SHADER_WRITE_BIT | VK_ACCESS_SHADER_READ_BIT;
+		barrier.srcAccessMask = GetVkAccessFlagsFromResourceState(oldLayout);
+		barrier.dstAccessMask = GetVkAccessFlagsFromResourceState(newLayout);
 
-		sourceStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
-		destinationStage = VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT;
-	}
-	else if (oldLayout == ResourceState::GeneralCompute && newLayout == ResourceState::RenderTarget)
-	{
-		barrier.srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT | VK_ACCESS_SHADER_READ_BIT;
-		barrier.dstAccessMask = VK_ACCESS_SHADER_WRITE_BIT;
-		
-		sourceStage = VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT;
-		destinationStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
-	}
-	else if (oldLayout == ResourceState::GeneralCompute && newLayout == ResourceState::GenericRead)
-	{
-		barrier.srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT | VK_ACCESS_SHADER_READ_BIT;
-		barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
-
-		sourceStage = VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT;
-		destinationStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
-	}
-	else
-	{
-		LOG_ERROR("unsupported layout transition!");
+		sourceStage =			GetVkPipelineStageFromResourceStage(srcStage);
+		destinationStage =		GetVkPipelineStageFromResourceStage(dstStage);
 	}
 
 	vkCmdPipelineBarrier(

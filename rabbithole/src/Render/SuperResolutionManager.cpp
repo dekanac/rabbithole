@@ -13,8 +13,8 @@ void SuperResolutionManager::Init()
 	m_UpscaledResolutionWidth = Window::instance().GetExtent().width;
 	m_UpscaledResolutionHeight = Window::instance().GetExtent().height;
 
-	m_UpscaleFactor = 3.f/4.f;
-	m_Sharpness = 1.666666f;
+	m_UpscaleFactor = 4.f/5.f;
+	m_Sharpness = 0.666666f;
 
 	m_NativeResolutionWidth = m_UpscaledResolutionWidth * m_UpscaleFactor;
 	m_NativeResolutionHeight = m_UpscaledResolutionHeight * m_UpscaleFactor;
