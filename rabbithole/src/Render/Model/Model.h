@@ -193,7 +193,9 @@ public:
 		std::vector<Node> children;
 		Mesh mesh;
 		glm::mat4 matrix;
+		AABB bbox;
 
+		void SetBBOX(AABB bbox_) { bbox = bbox_; }
 		void SetMatrix(glm::mat4 matrix_) { matrix = matrix_; }
 	};
 

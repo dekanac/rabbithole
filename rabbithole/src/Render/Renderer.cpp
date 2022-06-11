@@ -68,6 +68,7 @@ bool Renderer::Init()
 {
 	MainCamera = new Camera();
 	MainCamera->Init();
+
 	testEntity = new Entity();
 	testEntity->AddComponent<InputComponent>();
 
@@ -148,7 +149,7 @@ bool Renderer::Shutdown()
 
 void Renderer::Clear() const
 {
-    geomDataIndirectDraw->currentOffset = 0;
+	geomDataIndirectDraw->Reset();
 }
 
 void Renderer::Draw(float dt)
@@ -1390,4 +1391,9 @@ void IndexedIndirectBuffer::AddIndirectDrawCommand(VkCommandBuffer commandBuffer
 	
 	localBuffer[currentOffset] = drawData;
 	currentOffset++;
+}
+
+void IndexedIndirectBuffer::Reset()
+{
+	currentOffset = 0;
 }

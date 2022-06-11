@@ -87,6 +87,7 @@ struct IndexedIndirectBuffer
 
 	void SubmitToGPU();
 	void AddIndirectDrawCommand(VkCommandBuffer commandBuffer, IndexIndirectDrawData& drawData);
+	void Reset();
 };
 
 class Renderer

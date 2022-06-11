@@ -542,7 +542,8 @@ void VulkanglTFModel::LoadImages(tinygltf::Model& input)
 void VulkanglTFModel::LoadTextures(tinygltf::Model& input)
 {
 	m_TextureIndices.resize(input.textures.size());
-	for (size_t i = 0; i < input.textures.size(); i++) {
+	for (size_t i = 0; i < input.textures.size(); i++) 
+	{
 		m_TextureIndices[i] = input.textures[i].source;
 	}
 }
@@ -550,19 +551,23 @@ void VulkanglTFModel::LoadTextures(tinygltf::Model& input)
 void VulkanglTFModel::LoadMaterials(tinygltf::Model& input)
 {
 	m_Materials.resize(input.materials.size());
-	for (size_t i = 0; i < input.materials.size(); i++) {
+	for (size_t i = 0; i < input.materials.size(); i++) 
+	{
 		// We only read the most basic properties required for our sample
 		tinygltf::Material glTFMaterial = input.materials[i];
 		// Get the base color factor
-		if (glTFMaterial.values.find("baseColorFactor") != glTFMaterial.values.end()) {
+		if (glTFMaterial.values.find("baseColorFactor") != glTFMaterial.values.end()) 
+		{
 			m_Materials[i].baseColorFactor = glm::make_vec4(glTFMaterial.values["baseColorFactor"].ColorFactor().data());
 		}
 		// Get base color texture index
-		if (glTFMaterial.values.find("baseColorTexture") != glTFMaterial.values.end()) {
+		if (glTFMaterial.values.find("baseColorTexture") != glTFMaterial.values.end()) 
+		{
 			m_Materials[i].baseColorTextureIndex = glTFMaterial.values["baseColorTexture"].TextureIndex();
 		}
 		// Get metaliic and roughness texture index
-		if (glTFMaterial.values.find("metallicRoughnessTexture") != glTFMaterial.values.end()) {
+		if (glTFMaterial.values.find("metallicRoughnessTexture") != glTFMaterial.values.end())
+		{
 			m_Materials[i].metallicRoughnessTextureIndex = glTFMaterial.values["metallicRoughnessTexture"].TextureIndex();
 		}
 		// Get normal texture index
@@ -577,33 +582,41 @@ void VulkanglTFModel::LoadNode(const tinygltf::Node& inputNode, const tinygltf::
 
 	// Get the local node matrix
 	// It's either made up from translation, rotation, scale or a 4x4 matrix
-	if (inputNode.translation.size() == 3) {
+	if (inputNode.translation.size() == 3) 
+	{
 		node.matrix = glm::translate(node.matrix, glm::vec3(glm::make_vec3(inputNode.translation.data())));
 	}
-	if (inputNode.rotation.size() == 4) {
+	if (inputNode.rotation.size() == 4) 
+	{
 		glm::quat q = glm::make_quat(inputNode.rotation.data());
 		node.matrix *= glm::mat4(q);
 	}
-	if (inputNode.scale.size() == 3) {
+	if (inputNode.scale.size() == 3) 
+	{
 		node.matrix = glm::scale(node.matrix, glm::vec3(glm::make_vec3(inputNode.scale.data())));
 	}
-	if (inputNode.matrix.size() == 16) {
+	if (inputNode.matrix.size() == 16) 
+	{
 		node.matrix = glm::make_mat4x4(inputNode.matrix.data());
 	};
 
 	// Load node's children
-	if (inputNode.children.size() > 0) {
-		for (size_t i = 0; i < inputNode.children.size(); i++) {
+	if (inputNode.children.size() > 0) 
+	{
+		for (size_t i = 0; i < inputNode.children.size(); i++) 
+		{
 			LoadNode(input.nodes[inputNode.children[i]], input, &node, indexBuffer, vertexBuffer);
 		}
 	}
 
 	// If the node contains mesh data, we load vertices and indices from the buffers
 	// In glTF this is done via accessors and buffer views
-	if (inputNode.mesh > -1) {
+	if (inputNode.mesh > -1) 
+	{
 		const tinygltf::Mesh mesh = input.meshes[inputNode.mesh];
 		// Iterate through all primitives of this node's mesh
-		for (size_t i = 0; i < mesh.primitives.size(); i++) {
+		for (size_t i = 0; i < mesh.primitives.size(); i++) 
+		{
 			const tinygltf::Primitive& glTFPrimitive = mesh.primitives[i];
 			uint32_t firstIndex = static_cast<uint32_t>(indexBuffer.size());
 			uint32_t vertexStart = static_cast<uint32_t>(vertexBuffer.size());
@@ -617,41 +630,57 @@ void VulkanglTFModel::LoadNode(const tinygltf::Node& inputNode, const tinygltf::
 				size_t vertexCount = 0;
 
 				// Get buffer data for vertex normals
-				if (glTFPrimitive.attributes.find("POSITION") != glTFPrimitive.attributes.end()) {
+				if (glTFPrimitive.attributes.find("POSITION") != glTFPrimitive.attributes.end()) 
+				{
 					const tinygltf::Accessor& accessor = input.accessors[glTFPrimitive.attributes.find("POSITION")->second];
 					const tinygltf::BufferView& view = input.bufferViews[accessor.bufferView];
 					positionBuffer = reinterpret_cast<const float*>(&(input.buffers[view.buffer].data[accessor.byteOffset + view.byteOffset]));
 					vertexCount = accessor.count;
 				}
 				// Get buffer data for vertex normals
-				if (glTFPrimitive.attributes.find("NORMAL") != glTFPrimitive.attributes.end()) {
+				if (glTFPrimitive.attributes.find("NORMAL") != glTFPrimitive.attributes.end()) 
+				{
 					const tinygltf::Accessor& accessor = input.accessors[glTFPrimitive.attributes.find("NORMAL")->second];
 					const tinygltf::BufferView& view = input.bufferViews[accessor.bufferView];
 					normalsBuffer = reinterpret_cast<const float*>(&(input.buffers[view.buffer].data[accessor.byteOffset + view.byteOffset]));
 				}
 				// Get buffer data for vertex texture coordinates
 				// glTF supports multiple sets, we only load the first one
-				if (glTFPrimitive.attributes.find("TEXCOORD_0") != glTFPrimitive.attributes.end()) {
+				if (glTFPrimitive.attributes.find("TEXCOORD_0") != glTFPrimitive.attributes.end()) 
+				{
 					const tinygltf::Accessor& accessor = input.accessors[glTFPrimitive.attributes.find("TEXCOORD_0")->second];
 					const tinygltf::BufferView& view = input.bufferViews[accessor.bufferView];
 					texCoordsBuffer = reinterpret_cast<const float*>(&(input.buffers[view.buffer].data[accessor.byteOffset + view.byteOffset]));
 				}
 
-				if (glTFPrimitive.attributes.find("TANGENT") != glTFPrimitive.attributes.end()) {
+				if (glTFPrimitive.attributes.find("TANGENT") != glTFPrimitive.attributes.end()) 
+				{
 					const tinygltf::Accessor& accessor = input.accessors[glTFPrimitive.attributes.find("TANGENT")->second];
 					const tinygltf::BufferView& view = input.bufferViews[accessor.bufferView];
 					tangentBuffer = reinterpret_cast<const float*>(&(input.buffers[view.buffer].data[accessor.byteOffset + view.byteOffset]));
 				}
 
-				// Append data to model's vertex buffer
-				for (size_t v = 0; v < vertexCount; v++) {
+				// Append data to model's vertex buffer and calculate AABB
+				
+				AABB aabb{};
+				rabbitVec3f minPos= { FLT_MAX, FLT_MAX, FLT_MAX };
+				rabbitVec3f maxPos = { -FLT_MAX, -FLT_MAX, -FLT_MAX };
+
+				for (size_t v = 0; v < vertexCount; v++) 
+				{
 					Vertex vert{};
 					vert.position = glm::make_vec3(&positionBuffer[v * 3]);
 					vert.normal = glm::normalize(glm::vec3(normalsBuffer ? glm::make_vec3(&normalsBuffer[v * 3]) : glm::vec3(0.0f)));
 					vert.uv = texCoordsBuffer ? glm::make_vec2(&texCoordsBuffer[v * 2]) : glm::vec2(0.0f);
 					vert.tangent = tangentBuffer ? glm::make_vec3(&tangentBuffer[v * 3]) : glm::vec3(0.0f);
 					vertexBuffer.push_back(vert);
+
+					minPos = glm::min(vert.position, minPos);
+					maxPos = glm::max(vert.position, maxPos);
 				}
+
+				aabb = { minPos, maxPos };
+				node.bbox = aabb;
 			}
 			// Indices
 			{
@@ -662,27 +691,34 @@ void VulkanglTFModel::LoadNode(const tinygltf::Node& inputNode, const tinygltf::
 				indexCount += static_cast<uint32_t>(accessor.count);
 
 				// glTF supports different component types of indices
-				switch (accessor.componentType) {
-				case TINYGLTF_PARAMETER_TYPE_UNSIGNED_INT: {
+				switch (accessor.componentType) 
+				{
+				case TINYGLTF_PARAMETER_TYPE_UNSIGNED_INT: 
+				{
 					uint32_t* buf = new uint32_t[accessor.count];
 					memcpy(buf, &buffer.data[accessor.byteOffset + bufferView.byteOffset], accessor.count * sizeof(uint32_t));
-					for (size_t index = 0; index < accessor.count; index++) {
+					for (size_t index = 0; index < accessor.count; index++) 
+					{
 						indexBuffer.push_back(buf[index] + vertexStart);
 					}
 					break;
 				}
-				case TINYGLTF_PARAMETER_TYPE_UNSIGNED_SHORT: {
+				case TINYGLTF_PARAMETER_TYPE_UNSIGNED_SHORT: 
+				{
 					uint16_t* buf = new uint16_t[accessor.count];
 					memcpy(buf, &buffer.data[accessor.byteOffset + bufferView.byteOffset], accessor.count * sizeof(uint16_t));
-					for (size_t index = 0; index < accessor.count; index++) {
+					for (size_t index = 0; index < accessor.count; index++)
+					{
 						indexBuffer.push_back(buf[index] + vertexStart);
 					}
 					break;
 				}
-				case TINYGLTF_PARAMETER_TYPE_UNSIGNED_BYTE: {
+				case TINYGLTF_PARAMETER_TYPE_UNSIGNED_BYTE: 
+				{
 					uint8_t* buf = new uint8_t[accessor.count];
 					memcpy(buf, &buffer.data[accessor.byteOffset + bufferView.byteOffset], accessor.count * sizeof(uint8_t));
-					for (size_t index = 0; index < accessor.count; index++) {
+					for (size_t index = 0; index < accessor.count; index++)
+					{
 						indexBuffer.push_back(buf[index] + vertexStart);
 					}
 					break;
