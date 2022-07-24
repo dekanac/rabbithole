@@ -13,13 +13,18 @@ struct VulkanBufferInfo
 class VulkanBuffer : public AllocatedResource
 {
 public:
-	VulkanBuffer(VulkanDevice* device, const VulkanBufferInfo& info, const char* name);
-	VulkanBuffer(VulkanDevice* device, BufferUsageFlags flags, MemoryAccess access, uint64_t size, const char* name);
+	//TODO: take care of this, for now using this for staging buffers only
+	VulkanBuffer(VulkanDevice& device, BufferUsageFlags flags, MemoryAccess access, uint64_t size, const char* name);
 	~VulkanBuffer();
+
+	friend class ResourceManager; //Resource Manager will take care of creation and deletion of buffers
+private:
+	VulkanBuffer(VulkanDevice& device, BufferCreateInfo& createInfo);
 
 public:
 	void* Map();
 	void  Unmap();
+	void  FillBuffer(void* data);
 	void  FillBuffer(void* data, size_t size);
 	void  FillBuffer(void* data, size_t offset, size_t size);
 
@@ -34,8 +39,8 @@ private:
 	void CreateBufferResource();
 	
 private:
-	VulkanDevice*			m_Device;
-	VulkanBufferInfo		m_Info;
+	VulkanDevice&			m_Device;
+	VulkanBufferInfo		m_Info{};
 	VkBuffer				m_Buffer;
 	VmaAllocation			m_VmaAllocation;
 	void*					m_HostVisibleData = nullptr;

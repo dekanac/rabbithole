@@ -1,5 +1,5 @@
 glslc.exe -g -fshader-stage=vertex VS_PassThrough.glsl -o VS_PassThrough.spv
-glslc.exe -g -fshader-stage=vertex VS_Gbuffer.glsl -o VS_Gbuffer.spv
+glslc.exe -g -fshader-stage=vertex VS_GBuffer.glsl -o VS_GBuffer.spv
 glslc.exe -g -fshader-stage=vertex VS_Skybox.glsl -o VS_Skybox.spv
 glslc.exe -g -fshader-stage=fragment FS_PBR.glsl -o FS_PBR.spv
 glslc.exe -g -fshader-stage=fragment FS_PassThrough.glsl -o FS_PassThrough.spv
@@ -11,9 +11,10 @@ glslc.exe -g -fshader-stage=fragment FS_SSAOBlur.glsl -o FS_SSAOBlur.spv
 glslc.exe -g -fshader-stage=compute CS_RayTracingShadows.glsl -o CS_RayTracingShadows.spv
 glslc.exe -g -fshader-stage=vertex VS_SimpleGeometry.glsl -o VS_SimpleGeometry.spv
 glslc.exe -g -fshader-stage=fragment FS_SimpleGeometry.glsl -o FS_SimpleGeometry.spv
-glslc.exe -g -fshader-stage=compute -DSAMPLE_EASU=1 -DSAMPLE_SLOW_FALLBACK=1 CS_FSR.glsl -o CS_FSR_EASU.spv
-glslc.exe -g -fshader-stage=compute -DSAMPLE_RCAS=1 -DSAMPLE_SLOW_FALLBACK=1 CS_FSR.glsl -o CS_FSR_RCAS.spv
-glslc.exe -g -fshader-stage=compute CS_TAA.hlsl -o CS_TAA.spv
-glslc.exe -g -fshader-stage=compute CS_TAASharpener.hlsl -o CS_TAASharpener.spv
-
+glslc.exe -g -fshader-stage=compute CS_Volumetric.glsl -o CS_Volumetric.spv
+glslc.exe -g -fshader-stage=compute CS_3DNoiseLUT.glsl -o CS_3DNoiseLUT.spv
+glslc.exe -g -fshader-stage=compute CS_ComputeScattering.glsl -o CS_ComputeScattering.spv
+glslc.exe -g -fshader-stage=fragment FS_ApplyVolumetricFog.glsl -o FS_ApplyVolumetricFog.spv
+glslc.exe -g -fshader-stage=fragment FS_Tonemap.glsl -o FS_Tonemap.spv
+glslc.exe -g -fshader-stage=fragment FS_TextureDebug.glsl -o FS_TextureDebug.spv
 pause

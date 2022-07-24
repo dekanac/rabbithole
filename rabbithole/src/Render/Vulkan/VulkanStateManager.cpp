@@ -2,6 +2,7 @@
 
 #include "Render/Renderer.h"
 #include "Render/SuperResolutionManager.h"
+#include "Render/PipelineManager.h"
 
 #define DEFAULT_UBO_ELEMENT_SIZE (uint32_t)16
 
@@ -369,23 +370,26 @@ void VulkanStateManager::Reset()
     VulkanRenderPass::DefaultRenderPassInfo(m_RenderPassConfig);
 }
 
-void VulkanStateManager::SetVertexShader(Shader* shader)
+void VulkanStateManager::SetVertexShader(Shader* shader, std::string entryPoint)
 {
 	m_CurrentPipelinetype = PipelineType::Graphics;
 	m_PipelineConfig->vertexShader = shader;
+	m_PipelineConfig->vsEntryPoint = entryPoint.c_str();
 	m_DirtyPipeline = true;
 }
 
-void VulkanStateManager::SetPixelShader(Shader* shader)
+void VulkanStateManager::SetPixelShader(Shader* shader, std::string entryPoint)
 {
 	m_CurrentPipelinetype = PipelineType::Graphics;
 	m_PipelineConfig->pixelShader = shader;
+	m_PipelineConfig->psEntryPoint = entryPoint.c_str();
 	m_DirtyPipeline = true;
 }
 
-void VulkanStateManager::SetComputeShader(Shader* shader)
+void VulkanStateManager::SetComputeShader(Shader* shader, std::string entryPoint)
 {
 	m_CurrentPipelinetype = PipelineType::Compute;
 	m_PipelineConfig->computeShader = shader;
+	m_PipelineConfig->csEntryPoint = entryPoint.c_str();
 	m_DirtyPipeline = true;
 }

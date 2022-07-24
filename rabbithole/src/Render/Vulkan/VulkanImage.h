@@ -67,8 +67,8 @@ public:
 public:
 	inline const VulkanImageViewInfo GetInfo() const { return m_Info; }
 	VkImageView						 GetImageView() const { return m_ImageView; }
-	VkFormat						 GetVkFormat() const { return m_Format; }
 	uint32_t						 GetID() const { return m_Id; }
+	Format							 GetFormat() const { return m_Info.Format; }
 
 private:
 	const VulkanDevice*			m_VulkanDevice;
@@ -76,7 +76,6 @@ private:
 	const VulkanImage*			m_Image;
 
 	VkImageView m_ImageView;
-	VkFormat	m_Format;
 };
 
 struct VulkanImageSamplerInfo

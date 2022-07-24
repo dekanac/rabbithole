@@ -9,7 +9,7 @@ LAYOUT_IN_VEC2(3) uv;
 
 layout(location = 0) out vec3 FragTexCoords;
 
-layout(binding = 0) uniform UniformBufferObject_ 
+layout(binding = 0) uniform UniformBufferObjectBuffer 
 {
     UniformBufferObject UBO;
 };
@@ -17,6 +17,6 @@ layout(binding = 0) uniform UniformBufferObject_
 void main()
 {
     FragTexCoords = position;
-    vec4 pos = UBO.proj * UBO.view * vec4(position, 1.0);
+    vec4 pos = UBO.projJittered * UBO.view * vec4(position, 1.0);
     gl_Position = pos.xyww;
 } 

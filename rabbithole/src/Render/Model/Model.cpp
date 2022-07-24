@@ -461,10 +461,22 @@ void VulkanglTFModel::LoadModelFromFile(VulkanDevice* device, std::string filena
 	size_t indexBufferSize = indexBuffer.size() * sizeof(uint32_t);
 	this->m_IndexCount = static_cast<uint32_t>(indexBuffer.size());
 
-	VulkanBuffer* vertexBufferGPU = new VulkanBuffer(device, BufferUsageFlags::VertexBuffer | BufferUsageFlags::TransferSrc, MemoryAccess::GPU, vertexBufferSize, "ModelVertexBuffer");
+	ResourceManager* resourceManager = Renderer::instance().GetResourceManager();
+
+	VulkanBuffer* vertexBufferGPU = resourceManager->CreateBuffer(*device, BufferCreateInfo{
+			.flags = {BufferUsageFlags::VertexBuffer | BufferUsageFlags::TransferSrc},
+			.memoryAccess = {MemoryAccess::GPU},
+			.size = {static_cast<uint32_t>(vertexBufferSize)},
+			.name = {"ModelVertexBuffer"}
+		});
 	vertexBufferGPU->FillBuffer(vertexBuffer.data(), vertexBufferSize);
 
-	VulkanBuffer* indexBufferGPU = new VulkanBuffer(device, BufferUsageFlags::IndexBuffer | BufferUsageFlags::TransferSrc, MemoryAccess::GPU, indexBufferSize, "ModelIndexBuffer");
+	VulkanBuffer* indexBufferGPU = resourceManager->CreateBuffer(*device, BufferCreateInfo{
+		.flags = {BufferUsageFlags::IndexBuffer | BufferUsageFlags::TransferSrc},
+		.memoryAccess = {MemoryAccess::GPU},
+		.size = {static_cast<uint32_t>(indexBufferSize)},
+		.name = {"ModelIndexBuffer"}
+		});
 	indexBufferGPU->FillBuffer(indexBuffer.data(), indexBufferSize);
 
 	this->m_VertexBuffer = vertexBufferGPU;

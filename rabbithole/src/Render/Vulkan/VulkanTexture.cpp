@@ -13,7 +13,7 @@ VulkanTexture::VulkanTexture(VulkanDevice* device, std::string filePath, Texture
 
 	CreateResource(device, texData, generateMips);
 	CreateView(device);
-	CreateSampler(device);
+	CreateSampler(device, SamplerType::Trilinear, AddressMode::Repeat);
 
 	TextureLoading::FreeTexture(texData);
 }
@@ -24,9 +24,9 @@ VulkanTexture::VulkanTexture(VulkanDevice* device, const uint32_t width, const u
 	, m_FilePath("")
 	, m_Name(name)
 {
-	CreateResource(device, width, height, arraySize, mstype);
+	CreateResource(device, width, height, 1, arraySize, mstype);
 	CreateView(device);
-	CreateSampler(device);
+	CreateSampler(device, SamplerType::Trilinear, AddressMode::Repeat);
 
 	device->SetObjectName((uint64_t)(m_Resource->GetImage()), VK_OBJECT_TYPE_IMAGE, name);
 	device->SetObjectName((uint64_t)m_View->GetImageView(), VK_OBJECT_TYPE_IMAGE_VIEW, name);
@@ -41,7 +41,79 @@ VulkanTexture::VulkanTexture(VulkanDevice* device, TextureData* texData, Texture
 {
 	CreateResource(device, texData, generateMips);
 	CreateView(device);
-	CreateSampler(device);
+	CreateSampler(device, SamplerType::Trilinear, AddressMode::Repeat);
+}
+
+VulkanTexture::VulkanTexture(VulkanDevice* device, const uint32_t width, const uint32_t height, const uint32_t depth, TextureFlags flags, Format format, const char* name, uint32_t arraySize /*= 1*/, MultisampleType mstype /*= MultisampleType::Sample_1*/)
+	: m_Format(format)
+	, m_Flags(flags)
+	, m_FilePath("")
+	, m_Name(name)
+{
+	CreateResource(device, width, height, depth, arraySize, mstype);
+	CreateView(device);
+	CreateSampler(device, SamplerType::Trilinear, AddressMode::Repeat);
+
+	device->SetObjectName((uint64_t)(m_Resource->GetImage()), VK_OBJECT_TYPE_IMAGE, name);
+	device->SetObjectName((uint64_t)m_View->GetImageView(), VK_OBJECT_TYPE_IMAGE_VIEW, name);
+	device->SetObjectName((uint64_t)m_Sampler->GetSampler(), VK_OBJECT_TYPE_SAMPLER, name);
+}
+
+VulkanTexture::VulkanTexture(VulkanDevice& device, RWTextureCreateInfo& createInfo)
+	: m_Format(createInfo.format)
+	, m_Flags(createInfo.flags)
+	, m_FilePath("")
+	, m_Name(createInfo.name)
+{
+	CreateResource(&device, createInfo.dimensions.Width, createInfo.dimensions.Height, createInfo.dimensions.Depth, createInfo.arraySize, createInfo.multisampleType);
+	CreateView(&device);
+	CreateSampler(&device, createInfo.samplerType, createInfo.addressMode);
+
+	device.SetObjectName((uint64_t)(m_Resource->GetImage()), VK_OBJECT_TYPE_IMAGE, createInfo.name.c_str());
+	device.SetObjectName((uint64_t)m_View->GetImageView(), VK_OBJECT_TYPE_IMAGE_VIEW, createInfo.name.c_str());
+	device.SetObjectName((uint64_t)m_Sampler->GetSampler(), VK_OBJECT_TYPE_SAMPLER, createInfo.name.c_str());
+}
+
+VulkanTexture::VulkanTexture(VulkanDevice& device, ROTextureCreateInfo& createInfo)
+	: m_Format(createInfo.format)
+	, m_Flags(createInfo.flags)
+	, m_FilePath(createInfo.filePath)
+	, m_Name(createInfo.name)
+{
+
+	bool isCubeMap = IsFlagSet(createInfo.flags & TextureFlags::CubeMap);
+	
+	TextureData* texData = nullptr;
+
+	if (isCubeMap)
+	{
+		auto cubeMapData = TextureLoading::LoadCubemap(createInfo.filePath);
+
+		texData = new TextureData{};
+		texData->bpp = cubeMapData->pData[0]->bpp;
+		texData->width = cubeMapData->pData[0]->width;
+		texData->height = cubeMapData->pData[0]->height;
+
+		size_t imageSize = texData->height * texData->width * 4;
+
+		texData->pData = (unsigned char*)malloc(imageSize * 6);
+		for (int i = 0; i < 6; i++)
+		{
+			memcpy(texData->pData + i * imageSize, cubeMapData->pData[i]->pData, imageSize);
+		}
+
+		TextureLoading::FreeCubemap(cubeMapData);
+	}
+	else
+	{
+		texData = TextureLoading::LoadTexture(createInfo.filePath);
+	}
+
+	CreateResource(&device, texData, createInfo.generateMips);
+	CreateView(&device);
+	CreateSampler(&device, SamplerType::Trilinear, AddressMode::Repeat);
+
+	TextureLoading::FreeTexture(texData);
 }
 
 VulkanTexture::~VulkanTexture()
@@ -58,16 +130,11 @@ void VulkanTexture::CreateResource(VulkanDevice* device, TextureData* texData, b
 	uint32_t mipCount = generateMips ? (static_cast<uint32_t>(std::floor(std::log2(std::max(texData->width, texData->height)))) + 1) : 1;
 	uint32_t arraySize = 1 * (isCubeMap ? 6 : 1);
 
-	InitializeRegion(texData->width, texData->height, arraySize, mipCount);
+	InitializeRegion(texData->width, texData->height, 1, arraySize, mipCount);
 
 	int textureSize = texData->height * texData->width * GetBPPFrom(m_Format) * arraySize;
 
-	VulkanBufferInfo bufferInfo{};
-	bufferInfo.memoryAccess = MemoryAccess::CPU;
-	bufferInfo.usageFlags = BufferUsageFlags::StorageBuffer | BufferUsageFlags::TransferSrc;
-	bufferInfo.size = textureSize;
-
-	VulkanBuffer stagingBuffer(device, bufferInfo, "StagingBuffer");
+	VulkanBuffer stagingBuffer(*device, BufferUsageFlags::StorageBuffer | BufferUsageFlags::TransferSrc, MemoryAccess::CPU, textureSize, "StagingBuffer");
 
 	void* data = stagingBuffer.Map();
 	memcpy(data, texData->pData, textureSize);
@@ -135,11 +202,13 @@ void VulkanTexture::CreateResource(VulkanDevice* device, TextureData* texData, b
 	}
 
 	device->EndSingleTimeCommands(commandBuffer);
+	
+	m_CurrentResourceStage = m_PreviousResourceStage = ResourceStage::Count;
 }
 
-void VulkanTexture::CreateResource(VulkanDevice* device, const uint32_t width, const uint32_t height, uint32_t arraySize, MultisampleType mstype)
+void VulkanTexture::CreateResource(VulkanDevice* device, const uint32_t width, const uint32_t height, const uint32_t depth, uint32_t arraySize, MultisampleType mstype)
 {
-	InitializeRegion(width, height, arraySize, 1);
+	InitializeRegion(width, height, depth, arraySize, 1);
 
 	VulkanImageInfo textureResourceInfo;
 	textureResourceInfo.Flags = (IsFlagSet(m_Flags & TextureFlags::CubeMap) ? ImageFlags::CubeMap : ImageFlags::None) |
@@ -156,7 +225,7 @@ void VulkanTexture::CreateResource(VulkanDevice* device, const uint32_t width, c
 	textureResourceInfo.Format = m_Format;
 	textureResourceInfo.Extent.Width = width;
 	textureResourceInfo.Extent.Height = height;
-	textureResourceInfo.Extent.Depth = 1;
+	textureResourceInfo.Extent.Depth = depth;
 	textureResourceInfo.ArraySize = arraySize;
 	textureResourceInfo.MipLevels = 1;
 	textureResourceInfo.MultisampleType = mstype;
@@ -192,6 +261,7 @@ void VulkanTexture::CreateResource(VulkanDevice* device, const uint32_t width, c
 void VulkanTexture::CreateView(VulkanDevice* device)
 {
 	ClearValue clearValue;
+	//TODO: use GET CV FOR FORMAT
 	if (IsFlagSet(m_Flags & TextureFlags::DepthStencil))
 	{
 		clearValue.DepthStencil.Depth = 1.0f;
@@ -207,7 +277,7 @@ void VulkanTexture::CreateView(VulkanDevice* device)
 
 	VulkanImageViewInfo imageViewInfo;
 	imageViewInfo.Resource = m_Resource;
-	imageViewInfo.Format = Format::UNDEFINED;
+	imageViewInfo.Format = m_Format;
 	imageViewInfo.Flags = ImageViewFlags::Color;
 	imageViewInfo.Subresource.MipSlice = 0;
 	imageViewInfo.Subresource.MipSize = m_Region.Subresource.MipSize;
@@ -218,15 +288,15 @@ void VulkanTexture::CreateView(VulkanDevice* device)
 	m_View = new VulkanImageView(device, imageViewInfo, m_Name.c_str());
 }
 
-void VulkanTexture::CreateSampler(VulkanDevice* device)
+void VulkanTexture::CreateSampler(VulkanDevice* device, SamplerType type, AddressMode addressMode)
 {
 	VulkanImageSamplerInfo imageSamplerInfo;
-	imageSamplerInfo.AddressModeU = AddressMode::Repeat;
-	imageSamplerInfo.AddressModeV = AddressMode::Repeat;
-	imageSamplerInfo.AddressModeW = AddressMode::Repeat;
-	imageSamplerInfo.MagFilterType = FilterType::Anisotropic;
-	imageSamplerInfo.MinFilterType = FilterType::Anisotropic;
-	imageSamplerInfo.MipFilterType = FilterType::Linear;
+	imageSamplerInfo.AddressModeU = addressMode;
+	imageSamplerInfo.AddressModeV = addressMode;
+	imageSamplerInfo.AddressModeW = addressMode;
+	imageSamplerInfo.MagFilterType = (type == SamplerType::Bilinear || type == SamplerType::Trilinear || type == SamplerType::Anisotropic) ? FilterType::Linear : FilterType::Point;
+	imageSamplerInfo.MinFilterType = (type == SamplerType::Bilinear || type == SamplerType::Trilinear || type == SamplerType::Anisotropic) ? FilterType::Linear : FilterType::Point;
+	imageSamplerInfo.MipFilterType = (type == SamplerType::Trilinear || type == SamplerType::Anisotropic) ? FilterType::Linear : FilterType::Point;
 	imageSamplerInfo.CompareOperation = CompareOperation::Never;
 	imageSamplerInfo.MaxLevelOfAnisotropy = 16;
 	imageSamplerInfo.BorderColor.value[0] = 0.0f;
@@ -240,11 +310,11 @@ void VulkanTexture::CreateSampler(VulkanDevice* device)
 	m_Sampler = new VulkanImageSampler(device, imageSamplerInfo, m_Name.c_str());
 }
 
-void VulkanTexture::InitializeRegion(const uint32_t width, const uint32_t height, uint32_t arraySize, uint32_t mipCount)
+void VulkanTexture::InitializeRegion(const uint32_t width, const uint32_t height, const uint32_t depth, uint32_t arraySize, uint32_t mipCount)
 {
 	m_Region.Extent.Width = width;
 	m_Region.Extent.Height = height;
-	m_Region.Extent.Depth = 1;
+	m_Region.Extent.Depth = depth;
 	m_Region.Offset.X = 0;
 	m_Region.Offset.Y = 0;
 	m_Region.Offset.Z = 0;

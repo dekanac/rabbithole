@@ -5,6 +5,7 @@ class VulkanRenderPass;
 class VulkanFramebuffer;
 struct UniformBufferObject;
 
+//keep in sync with UniformBufferObject in Renderer.h
 enum class UBOElement : uint32_t
 {
 	ViewMatrix = 0,
@@ -13,7 +14,14 @@ enum class UBOElement : uint32_t
 	DebugOption = 9,
 	ViewProjInverse = 10,
 	ViewProjMatrix = 14,
-	PrevViewProjMatrix = 18
+	PrevViewProjMatrix = 18,
+	ViewInverse = 22,
+	ProjInverse = 26,
+	FrustrumInfo = 30,
+	EyeXAxis = 31,
+	EyeYAxis = 32,
+	EyeZAxis = 33,
+	ProjectionMatrixJittered = 34
 };
 
 class VulkanStateManager
@@ -29,9 +37,9 @@ public:
 	bool GetPipelineDirty() { return m_DirtyPipeline; }
 	void SetPipelineDirty(bool dirty) { m_DirtyPipeline = dirty; }
 
-	void SetVertexShader(Shader* shader);
-	void SetPixelShader(Shader* shader);
-	void SetComputeShader(Shader* shader);
+	void SetVertexShader(Shader* shader, std::string entryPoint = "main");
+	void SetPixelShader(Shader* shader, std::string entryPoint = "main");
+	void SetComputeShader(Shader* shader, std::string entryPoint = "main");
 	void EnableWireframe(bool enable);
 	void SetCullMode(const CullMode mode);
 	void SetWindingOrder(const WindingOrder wo);

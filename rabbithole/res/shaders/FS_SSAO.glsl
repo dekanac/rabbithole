@@ -13,14 +13,14 @@ layout(binding = 0) uniform UniformBufferObject_
 
 layout (binding = 1) uniform sampler2D samplerPosition;
 layout (binding = 2) uniform sampler2D samplerNormal;
-layout (binding = 3) uniform sampler2D ssaoNoise;
+layout (binding = 3) uniform sampler2D samplerSSAONoise;
 
 layout(binding = 4) uniform Samples_ 
 {
     vec4 samples[64];
 } Samples;
 
-layout(std140, binding = 5) uniform SSAOParams_ 
+layout(std140, binding = 5) uniform SSAOParamsBuffer
 {
 	float radius;
 	float bias;
@@ -50,7 +50,7 @@ void main()
 	vec3 normal = normalize(((mat3(UBO.view) * texture(samplerNormal, inUV).rgb)  * 0.5 + 0.5) * 2.0 - 1.0);
 
 	// Get a random vector using a noise lookup
-	vec3 randomVec = normalize(texture(ssaoNoise, inUV * noiseScale).xyz);
+	vec3 randomVec = normalize(texture(samplerSSAONoise, inUV * noiseScale).xyz);
 	
 	// Create TBN matrix
 	vec3 tangent = normalize(randomVec - normal * dot(randomVec, normal));
@@ -69,7 +69,7 @@ void main()
         
         // project sample position (to sample texture) (to get position on screen/texture)
         vec4 offset = vec4(samplePos, 1.0);
-        offset = UBO.proj * offset; // from view to clip-space
+        offset = UBO.projJittered * offset; // from view to clip-space
         offset.xyz /= offset.w; // perspective divide
         offset.xyz = offset.xyz * 0.5 + 0.5; // transform to range 0.0 - 1.0
         

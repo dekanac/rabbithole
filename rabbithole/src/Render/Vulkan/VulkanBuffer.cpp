@@ -2,45 +2,51 @@
 
 #include "vk_mem_alloc.h"
 
-VulkanBuffer::VulkanBuffer(VulkanDevice* device, const VulkanBufferInfo& info, const char* name)
-	: m_Name(name)
-	, m_Device(device)
-	, m_Info(info)
-{
-	if (info.memoryAccess == MemoryAccess::GPU)
-	{
-		//if the access is only gpu we need to copy from staging buffer
-		m_Info.usageFlags = m_Info.usageFlags | BufferUsageFlags::TransferDst;
-	}
-	CreateBufferResource();
-
-	device->SetObjectName((uint64_t)m_Buffer, VK_OBJECT_TYPE_BUFFER, name);
-}
-
-VulkanBuffer::VulkanBuffer(VulkanDevice* device, BufferUsageFlags flags, MemoryAccess access, uint64_t size, const char* name)
+VulkanBuffer::VulkanBuffer(VulkanDevice& device, BufferUsageFlags flags, MemoryAccess access, uint64_t size, const char* name)
 	: m_Name(name)
 	, m_Device(device)
 	, m_Size(size)
 {
-	if (access == MemoryAccess::GPU)
+	m_Info.memoryAccess = access;
+	m_Info.size = size;
+	m_Info.usageFlags = flags;
+
+	if (m_Info.memoryAccess == MemoryAccess::GPU)
 	{
 		//if the access is only gpu we need to copy from staging buffer
-		flags = flags | BufferUsageFlags::TransferDst;
+		m_Info.usageFlags = m_Info.usageFlags | BufferUsageFlags::TransferDst;
 	}
-	VulkanBufferInfo info{};
-	info.memoryAccess = access;
-	info.size = size;
-	info.usageFlags = flags;
-	m_Info = info;
+
 	CreateBufferResource();
 
-	device->SetObjectName((uint64_t)m_Buffer, VK_OBJECT_TYPE_BUFFER, name);
+	device.SetObjectName((uint64_t)m_Buffer, VK_OBJECT_TYPE_BUFFER, name);
 }
 
 
+VulkanBuffer::VulkanBuffer(VulkanDevice& device, BufferCreateInfo& createInfo)
+	: m_Name(createInfo.name)
+	, m_Device(device)
+	, m_Size(createInfo.size)
+{
+	m_Info.memoryAccess = createInfo.memoryAccess;
+	m_Info.size = createInfo.size;
+	m_Info.usageFlags = createInfo.flags;
+
+	if (m_Info.memoryAccess == MemoryAccess::GPU)
+	{
+		//if the access is only gpu we need to copy from staging buffer
+		m_Info.usageFlags = m_Info.usageFlags | BufferUsageFlags::TransferDst;
+	}
+	
+	CreateBufferResource();
+
+	device.SetObjectName((uint64_t)m_Buffer, VK_OBJECT_TYPE_BUFFER, createInfo.name.c_str());
+}
+
 VulkanBuffer::~VulkanBuffer()
 {
-	vmaDestroyBuffer(m_Device->GetVmaAllocator(), m_Buffer, m_VmaAllocation);
+	Unmap();
+	vmaDestroyBuffer(m_Device.GetVmaAllocator(), m_Buffer, m_VmaAllocation);
 }
 
 void* VulkanBuffer::Map()
@@ -49,7 +55,7 @@ void* VulkanBuffer::Map()
 
 	if (m_Info.memoryAccess == MemoryAccess::CPU || m_Info.memoryAccess == MemoryAccess::CPU2GPU)
 	{
-		vmaMapMemory(m_Device->GetVmaAllocator(), m_VmaAllocation, &m_HostVisibleData);
+		vmaMapMemory(m_Device.GetVmaAllocator(), m_VmaAllocation, &m_HostVisibleData);
 	}
 
 	return m_HostVisibleData;
@@ -59,11 +65,12 @@ void VulkanBuffer::Unmap()
 {
 	if (m_HostVisibleData)
 	{
-		vmaUnmapMemory(m_Device->GetVmaAllocator(), m_VmaAllocation);
+		vmaUnmapMemory(m_Device.GetVmaAllocator(), m_VmaAllocation);
 		m_HostVisibleData = nullptr;
 	}
 }
 
+//TODO: fix this, move code to OFFSET version and then from here call FillBuffer(data, 0, size)
 void VulkanBuffer::FillBuffer(void* inputData, size_t size)
 {
 	if (m_Info.memoryAccess != MemoryAccess::GPU)
@@ -78,8 +85,7 @@ void VulkanBuffer::FillBuffer(void* inputData, size_t size)
 
 		stagingBuffer.FillBuffer(inputData, static_cast<size_t>(size));
 
-		m_Device->CopyBuffer(stagingBuffer.GetBuffer(), m_Buffer, size);
-
+		m_Device.CopyBuffer(stagingBuffer.GetBuffer(), m_Buffer, size);
 	}
 }
 
@@ -89,6 +95,11 @@ void VulkanBuffer::FillBuffer(void* inputData, size_t offset, size_t size)
 	char* dataOffset = (char*)data + offset;
 	memcpy(dataOffset, inputData, size);
 	Unmap();
+}
+
+void VulkanBuffer::FillBuffer(void* data)
+{
+	FillBuffer(data, GetSize());
 }
 
 void VulkanBuffer::CreateBufferResource()
@@ -102,5 +113,5 @@ void VulkanBuffer::CreateBufferResource()
 	VmaAllocationCreateInfo allocationCreateInfo = {};
 	allocationCreateInfo.usage = GetVmaMemoryUsageFrom(m_Info.memoryAccess);
 
-	vmaCreateBuffer(m_Device->GetVmaAllocator(), &bufferInfo, &allocationCreateInfo, &m_Buffer, &m_VmaAllocation, nullptr);
+	vmaCreateBuffer(m_Device.GetVmaAllocator(), &bufferInfo, &allocationCreateInfo, &m_Buffer, &m_VmaAllocation, nullptr);
 }

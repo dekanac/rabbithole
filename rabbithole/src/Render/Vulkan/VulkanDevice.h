@@ -4,6 +4,9 @@
 #include "spirv-reflect/spirv_reflect.h"
 #include <imgui/backends/imgui_impl_vulkan.h>
 
+#include <unordered_map>
+#include "VulkanTypes.h"
+
 class VulkanTexture;
 class VulkanBuffer;
 class VulkanRenderPass;
@@ -33,10 +36,10 @@ struct SwapChainSupportDetails
 
 class VulkanDevice
 {
-#ifdef NDEBUG
-	const bool enableValidationLayers = false;
+#ifdef RABBITHOLE_DEBUG
+	const bool enableValidationLayers = true;
 #else
-	const bool enableValidationLayers = true; 
+	const bool enableValidationLayers = false; 
 #endif
 public:
 	VulkanDevice();
@@ -49,12 +52,14 @@ public:
 	VulkanDevice& operator= (VulkanDevice&&) = delete;
 
 public:
-	VkCommandPool	GetCommandPool() const { return m_CommandPool; }
-	VkDevice		GetGraphicDevice() const { return m_Device; }
-	VkSurfaceKHR	GetPresentingSurface() const { return m_PresetingSurface; }
-	VkQueue			GetGraphicsQueue() { return m_GraphicsQueue; }
-	VkQueue			GetPresentQueue() const { return m_PresentQueue; }
-	VmaAllocator	GetVmaAllocator() const { return m_VmaAllocator; }
+	VkCommandPool				GetCommandPool() const { return m_CommandPool; }
+	VkDevice					GetGraphicDevice() const { return m_Device; }
+	VkSurfaceKHR				GetPresentingSurface() const { return m_PresetingSurface; }
+	VkQueue						GetGraphicsQueue() { return m_GraphicsQueue; }
+	VkQueue						GetPresentQueue() const { return m_PresentQueue; }
+	VmaAllocator				GetVmaAllocator() const { return m_VmaAllocator; }
+	VkPhysicalDevice			GetPhysicalDevice() const { return m_PhysicalDevice; }
+	VkPhysicalDeviceProperties	GetPhysicalDeviceProperties() const { return properties; }
 
 	//TODO: see what to do with this
 	SwapChainSupportDetails GetSwapChainSupport() { return QuerySwapChainSupport(m_PhysicalDevice); }
@@ -116,13 +121,6 @@ private:
 	//TODO: this is for test purposes, this should be moved to future statemanager
 	std::unordered_map<std::string, VulkanRenderPass*>	m_RenderPassCollection;
 	std::unordered_map<std::string, VulkanPipeline*>	m_PipelineCollection;
-
-public:
-
-	VulkanRenderPass* GetRenderPassFromCollection(std::string name) { return m_RenderPassCollection[name]; }
-	void AddRenderPassToCollection(VulkanRenderPass* renderPass, std::string name) { m_RenderPassCollection[name] = renderPass; }
-	VulkanPipeline* GetPipelineFromCollection(std::string name) { return m_PipelineCollection[name]; }
-	void AddPipelineToCollection(VulkanPipeline* pipeline, std::string name) { m_PipelineCollection[name] = pipeline; }
 };
 
 //converter functions //TODO: move to separate file
@@ -150,7 +148,7 @@ VkSamplerAddressMode	GetVkAddressModeFrom(const AddressMode addressMode);
 VkBlendFactor			GetVkBlendFactorFrom(const BlendValue blendValue);
 VkBlendOp				GetVkBlendOpFrom(const BlendOperation blendOperation);
 VkVertexInputRate		GetVkVertexInputRateFrom(const VertexInputRate inputRate);
-VkClearValue			GetVkClearColorValueForFormat(const VkFormat format);
+VkClearValue			GetVkClearColorValueFor(const Format format);
 size_t					GetBPPFrom(const Format format);
 VkImageUsageFlags		GetVkImageUsageFlagsFrom(const ImageUsageFlags usageFlags);
 VkBorderColor			GetVkBorderColorFrom(const Color color);

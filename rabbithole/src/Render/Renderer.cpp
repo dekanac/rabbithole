@@ -8,11 +8,12 @@
 #include "Render/Camera.h"
 #include "Render/Window.h"
 #include "Render/RenderPass.h"
-#include "ResourceStateTracking.h"
-#include "SuperResolutionManager.h"
-#include "Shader.h"
+#include "Render/ResourceStateTracking.h"
+#include "Render/SuperResolutionManager.h"
+#include "Render/Shader.h"
 #include "Utils/utils.h"
 #include "Vulkan/Include/VulkanWrapper.h"
+#include "Render/PipelineManager.h"
 
 #include <GLFW/glfw3.h>
 #include <glm/glm.hpp>
@@ -28,36 +29,25 @@
 #include <random>
 #include <sstream>
 #include <set>
+#include <thread>
+#include <mutex>
+#include <filesystem>
 
 rabbitVec3f renderDebugOption;
-
-#define GBUFFER_VERTEX_FILE_PATH			"res/shaders/VS_GBuffer.spv"
-#define GBUFFER_FRAGMENT_FILE_PATH			"res/shaders/FS_GBuffer.spv"
-#define PASSTHROUGH_VERTEX_FILE_PATH		"res/shaders/VS_PassThrough.spv"
-#define PASSTHROUGH_FRAGMENT_FILE_PATH		"res/shaders/FS_PassThrough.spv"
-#define PBR_FRAGMENT_FILE_PATH				"res/shaders/FS_PBR.spv"
-#define OUTLINE_ENTITY_FRAGMENT_FILE_PATH	"res/shaders/FS_OutlineEntity.spv"
-#define SKYBOX_VERTEX_FILE_PATH				"res/shaders/VS_Skybox.spv"
-#define SKYBOX_FRAGMENT_FILE_PATH			"res/shaders/FS_Skybox.spv"
-#define SSAO_FRAGMENT_FILE_PATH				"res/shaders/FS_SSAO.spv"
-#define SSAOBLUR_FRAGMENT_FILE_PATH			"res/shaders/FS_SSAOBlur.spv"
-#define RAY_TRACING_COMPUTE_FILE_PATH		"res/shaders/CS_RayTracingShadows.spv"
-#define SIMPLE_GEOMETRY_FRAGMENT_PATH		"res/shaders/FS_SimpleGeometry.spv"
-#define SIMPLE_GEOMETRY_VERTEX_PATH			"res/shaders/VS_SimpleGeometry.spv"
-#define FSREASU_COMPUTE_FILE_PATH			"res/shaders/CS_FSR_EASU.spv"
-#define FSRRCAS_COMPUTE_FILE_PATH			"res/shaders/CS_FSR_RCAS.spv"
-#define TAA_COMPUTE_FILE_PATH				"res/shaders/CS_TAA.spv"
-#define TAA_SHARPENER_COMPUTE_FILE_PATH		"res/shaders/CS_TAASharpener.spv"
 
 void Renderer::ExecuteRenderPass(RenderPass& renderpass)
 {
 	m_VulkanDevice.BeginLabel(GetCurrentCommandBuffer(), renderpass.GetName());
 
-	renderpass.DeclareResources(this);
 	renderpass.Setup(this);
 
 	RSTManager.TransitionResources();
 	renderpass.Render(this);
+	
+	if (m_RecordGPUTimeStamps)
+	{
+		RecordGPUTimeStamp(renderpass.GetName());
+	}
 
 	RSTManager.Reset();
 
@@ -69,20 +59,17 @@ bool Renderer::Init()
 	MainCamera = new Camera();
 	MainCamera->Init();
 
-	testEntity = new Entity();
-	testEntity->AddComponent<InputComponent>();
+	m_CurrentUIState = new UIState;
+	SuperResolutionManager::instance().Init(&m_VulkanDevice);
 
-	SuperResolutionManager::instance().Init();
-
-	EntityManager::instance().AddEntity(testEntity);
+	m_ResourceManager = new ResourceManager();
+	m_StateManager = new VulkanStateManager();
 
 #ifdef RABBITHOLE_USING_IMGUI
 	ImGui::CreateContext();
 #endif
 
 	InitTextures();
-
-	m_StateManager = new VulkanStateManager();
 
 	renderDebugOption.x = 0.f; //we use vector4f as a default UBO element
 
@@ -91,49 +78,155 @@ bool Renderer::Init()
 	RecreateSwapchain();
 	CreateCommandBuffers();
 
+	m_GPUTimeStamps.OnCreate(&m_VulkanDevice, m_VulkanSwapchain->GetImageCount());
+
 	for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
 	{
 		CreateGeometryDescriptors(gltfModels, i);
-		historyBuffer[i] = new VulkanTexture(&m_VulkanDevice, GetNativeWidth, GetNativeHeight, TextureFlags::RenderTarget | TextureFlags::Read | TextureFlags::TransferDst, Format::R16G16B16A16_FLOAT, "HistoryBuffer");
-
 	}
-	depthStencil = new VulkanTexture(&m_VulkanDevice, GetNativeWidth, GetNativeHeight, TextureFlags::DepthStencil | TextureFlags::Read, Format::D32_SFLOAT, "SwapchainDepthStencil");
 
+	//GBUFFER RENDER SET
+	depthStencil = m_ResourceManager->CreateTexture(m_VulkanDevice, RWTextureCreateInfo{ 
+			.dimensions = {GetNativeWidth , GetNativeHeight, 1},
+			.flags = {TextureFlags::DepthStencil | TextureFlags::Read},
+			.format = {Format::D32_SFLOAT},
+			.name = {"GBuffer DepthStencil"}
+		});
+
+	albedoGBuffer = m_ResourceManager->CreateTexture(m_VulkanDevice, RWTextureCreateInfo{
+			.dimensions = {GetNativeWidth , GetNativeHeight, 1},
+			.flags = {TextureFlags::RenderTarget | TextureFlags::Read},
+			.format = {Format::B8G8R8A8_UNORM},
+			.name = {"GBuffer Albedo"}
+		});
+
+	normalGBuffer = m_ResourceManager->CreateTexture(m_VulkanDevice, RWTextureCreateInfo{
+			.dimensions = {GetNativeWidth , GetNativeHeight, 1},
+			.flags = {TextureFlags::RenderTarget | TextureFlags::Read},
+			.format = {Format::R16G16B16A16_FLOAT},
+			.name = {"GBuffer Normal"}
+		});
+
+	worldPositionGBuffer = m_ResourceManager->CreateTexture(m_VulkanDevice, RWTextureCreateInfo{
+			.dimensions = {GetNativeWidth , GetNativeHeight, 1},
+			.flags = {TextureFlags::RenderTarget | TextureFlags::Read},
+			.format = {Format::R16G16B16A16_FLOAT},
+			.name = {"GBuffer World Position"}
+		});
+
+	velocityGBuffer = m_ResourceManager->CreateTexture(m_VulkanDevice, RWTextureCreateInfo{
+			.dimensions = {GetNativeWidth , GetNativeHeight, 1},
+			.flags = {TextureFlags::RenderTarget | TextureFlags::Read},
+			.format = {Format::R32G32_FLOAT},
+			.name = {"GBuffer Velocity"}
+		});
+	
 	//for now max 1024 commands
 	geomDataIndirectDraw = new IndexedIndirectBuffer();
-	geomDataIndirectDraw->gpuBuffer = new VulkanBuffer(&m_VulkanDevice, BufferUsageFlags::IndirectBuffer | BufferUsageFlags::TransferSrc, MemoryAccess::CPU2GPU, sizeof(IndexIndirectDrawData) * 1024, "GeomDataIndirectDraw");
-	geomDataIndirectDraw->localBuffer = (IndexIndirectDrawData*)malloc(sizeof(IndexIndirectDrawData) * 1024);
+	geomDataIndirectDraw->gpuBuffer = m_ResourceManager->CreateBuffer(m_VulkanDevice, BufferCreateInfo{
+			.flags = {BufferUsageFlags::IndirectBuffer | BufferUsageFlags::TransferSrc},
+			.memoryAccess = {MemoryAccess::CPU2GPU},
+			.size = {sizeof(IndexIndirectDrawData) * 1024},
+			.name = {"GeomDataIndirectDraw"}
+		});
 
-	albedoGBuffer = new VulkanTexture(&m_VulkanDevice, GetNativeWidth, GetNativeHeight, TextureFlags::RenderTarget | TextureFlags::Read, Format::B8G8R8A8_UNORM, "Gbuffer_Albedo");
-	normalGBuffer = new VulkanTexture(&m_VulkanDevice, GetNativeWidth, GetNativeHeight, TextureFlags::RenderTarget | TextureFlags::Read, Format::R16G16B16A16_FLOAT, "Gbuffer_Normal");
-	worldPositionGBuffer = new VulkanTexture(&m_VulkanDevice, GetNativeWidth, GetNativeHeight, TextureFlags::RenderTarget | TextureFlags::Read, Format::R16G16B16A16_FLOAT, "Gbuffer_WorldPosition");
-	velocityGBuffer = new VulkanTexture(&m_VulkanDevice, GetNativeWidth, GetNativeHeight, TextureFlags::RenderTarget | TextureFlags::Read, Format::R32G32_FLOAT, "Gbuffer_Velocity");
-	DebugTextureRT = new VulkanTexture(&m_VulkanDevice, GetNativeWidth, GetNativeHeight, TextureFlags::RenderTarget, Format::R16G16B16A16_FLOAT, "Debug");
-#ifdef USE_RABBITHOLE_TOOLS
-	entityHelper = new VulkanTexture(&m_VulkanDevice, GetNativeWidth, GetNativeHeight, TextureFlags::RenderTarget | TextureFlags::TransferSrc, Format::R32_UINT, "EntityHelper");
-	entityHelperBuffer = new VulkanBuffer(&m_VulkanDevice, BufferUsageFlags::StorageBuffer, MemoryAccess::CPU, GetNativeWidth * GetNativeHeight * 4, "EntityHelper");
-#endif
-	TAAOutput = new VulkanTexture(&m_VulkanDevice, GetNativeWidth, GetNativeHeight, TextureFlags::RenderTarget | TextureFlags::Read, Format::R16G16B16A16_FLOAT, "TAA");
+	geomDataIndirectDraw->localBuffer = (IndexIndirectDrawData*)malloc(sizeof(IndexIndirectDrawData) * 10240);
 
-	shadowMap = new VulkanTexture(&m_VulkanDevice, GetNativeWidth, GetNativeHeight, TextureFlags::Read, Format::R8_UNORM, "ShadowMap", MAX_NUM_OF_LIGHTS);
+	debugTexture = m_ResourceManager->CreateTexture(m_VulkanDevice, RWTextureCreateInfo{
+			.dimensions = {GetNativeWidth, GetNativeHeight, 1},
+			.flags = {TextureFlags::RenderTarget | TextureFlags::Read},
+			.format = {Format::R16G16B16A16_FLOAT},
+			.name = {"Debug Texture"}
+		});
 	
-	//init acceleration structure
-    InitMeshDataForCompute();
+	debugTextureParamsBuffer = m_ResourceManager->CreateBuffer(m_VulkanDevice, BufferCreateInfo{
+			.flags = {BufferUsageFlags::UniformBuffer},
+			.memoryAccess = {MemoryAccess::CPU2GPU},
+			.size = {sizeof(DebugTextureParams)},
+			.name = {"Debug Texture Params"}
+		});
 
-	lightingMain = new VulkanTexture(&m_VulkanDevice, GetNativeWidth, GetNativeHeight, TextureFlags::RenderTarget | TextureFlags::Read | TextureFlags::TransferSrc, Format::R16G16B16A16_FLOAT, "LightingMain");
-	InitLights();
+#ifdef USE_RABBITHOLE_TOOLS
+	entityHelper = m_ResourceManager->CreateTexture(m_VulkanDevice, RWTextureCreateInfo{
+			.dimensions = {GetNativeWidth, GetNativeHeight, 1},
+			.flags = {TextureFlags::RenderTarget | TextureFlags::TransferSrc},
+			.format = {Format::R32_UINT},
+			.name = {"Entity Helper"}
+		});
+
+	entityHelperBuffer = m_ResourceManager->CreateBuffer(m_VulkanDevice, BufferCreateInfo{
+			.flags = {BufferUsageFlags::StorageBuffer},
+			.memoryAccess = {MemoryAccess::CPU2GPU},
+			.size = {GetNativeWidth * GetNativeHeight * 4},
+			.name = {"Entity Helper"}
+		});
+#endif
+
+	shadowMap = m_ResourceManager->CreateTexture(m_VulkanDevice, RWTextureCreateInfo{
+			.dimensions = {GetNativeWidth, GetNativeHeight, 1},
+			.flags = {TextureFlags::Read},
+			.format = {Format::R8_UNORM},
+			.name = {"Shadow Map"},
+			.arraySize = {MAX_NUM_OF_LIGHTS},
+		});
+
+	lightingMain = m_ResourceManager->CreateTexture(m_VulkanDevice, RWTextureCreateInfo{
+			.dimensions = {GetNativeWidth, GetNativeHeight, 1},
+			.flags = {TextureFlags::RenderTarget | TextureFlags::Read | TextureFlags::TransferSrc},
+			.format = {Format::R16G16B16A16_FLOAT},
+			.name = {"Lighting Main"},
+		});
 
 	//init fsr
-	FSRParams fsrParams{};
-	SuperResolutionManager::instance().CalculateFSRParamsEASU(fsrParams);
-	SuperResolutionManager::instance().CalculateFSRParamsRCAS(fsrParams);
-	//fsrParams.Sample[0] = 1;
-	fsrParamsBuffer = new VulkanBuffer(&m_VulkanDevice, BufferUsageFlags::UniformBuffer, MemoryAccess::CPU2GPU, sizeof(FSRParams), "FSRParams");
-	fsrIntermediateRes = new VulkanTexture(&m_VulkanDevice, GetUpscaledWidth, GetUpscaledHeight, TextureFlags::RenderTarget | TextureFlags::Read, Format::R16G16B16A16_FLOAT, "FsrIntermediate");
-	fsrOutputTexture = new VulkanTexture(&m_VulkanDevice, GetUpscaledWidth, GetUpscaledHeight, TextureFlags::RenderTarget | TextureFlags::Read, Format::R16G16B16A16_FLOAT, "FsrOutput");
-	fsrParamsBuffer->FillBuffer(&fsrParams, sizeof(FSRParams));
+	fsrOutputTexture = m_ResourceManager->CreateTexture(m_VulkanDevice, RWTextureCreateInfo{
+			.dimensions = {GetUpscaledWidth, GetUpscaledHeight, 1},
+			.flags = {TextureFlags::RenderTarget | TextureFlags::Read},
+			.format = {Format::R16G16B16A16_FLOAT},
+			.name = {"FSR2 Output"},
+		});
 
+	//volumetricFog
+	volumetricOutput = m_ResourceManager->CreateTexture(m_VulkanDevice, RWTextureCreateInfo{
+			.dimensions = {GetNativeWidth, GetNativeHeight, 1},
+			.flags = {TextureFlags::RenderTarget | TextureFlags::Read | TextureFlags::TransferSrc},
+			.format = {Format::R16G16B16A16_FLOAT},
+			.name = {"Volumetric Fog Output"},
+		});
+	
+	mediaDensity3DLUT = m_ResourceManager->CreateTexture(m_VulkanDevice, RWTextureCreateInfo{
+			.dimensions = {160, 90, 128},
+			.flags = {TextureFlags::Read | TextureFlags::TransferSrc},
+			.format = {Format::R16G16B16A16_FLOAT},
+			.name = {"Media Density"},
+		});
+
+	scatteringTexture = m_ResourceManager->CreateTexture(m_VulkanDevice, RWTextureCreateInfo{
+			.dimensions = {160, 90, 64},
+			.flags = {TextureFlags::Read | TextureFlags::TransferSrc},
+			.format = {Format::R16G16B16A16_FLOAT},
+			.name = {"Scattering Calculation"},
+		});
+	
+	volumetricFogParamsBuffer = m_ResourceManager->CreateBuffer(m_VulkanDevice, BufferCreateInfo{
+			.flags = {BufferUsageFlags::UniformBuffer},
+			.memoryAccess = {MemoryAccess::CPU2GPU},
+			.size = {sizeof(VolumetricFogParams)},
+			.name = {"Volumetric Fog Params"}
+		});
+
+	//posteffects
+	postUpscalePostEffects = m_ResourceManager->CreateTexture(m_VulkanDevice, RWTextureCreateInfo{
+			.dimensions = {GetUpscaledWidth, GetUpscaledHeight, 1},
+			.flags = {TextureFlags::RenderTarget | TextureFlags::Read},
+			.format = {Format::R16G16B16A16_FLOAT},
+			.name = {"Post Upscale PostEffects" },
+		});
+
+	InitNoiseTextures();
 	InitSSAO();
+	//init acceleration structure
+	InitMeshDataForCompute();
+	InitLights();
 
 	return true;
 }
@@ -142,7 +235,10 @@ bool Renderer::Shutdown()
 {
 	//TODO: clear everything properly
 	delete MainCamera;
+	delete m_CurrentUIState;
 	gltfModels.clear();
+	m_GPUTimeStamps.OnDestroy();
+	delete m_ResourceManager;
 	//delete m_StateManager;
     return true;
 }
@@ -154,6 +250,8 @@ void Renderer::Clear() const
 
 void Renderer::Draw(float dt)
 {
+	m_CurrentDeltaTime = dt;
+
 	MainCamera->Update(dt);
 
     DrawFrame();
@@ -194,7 +292,7 @@ void Renderer::DrawFrame()
 
 void Renderer::CreateGeometryDescriptors(std::vector<VulkanglTFModel>& models, uint32_t imageIndex)
 {
-	VulkanDescriptorSetLayout* descrSetLayout = new VulkanDescriptorSetLayout(&m_VulkanDevice, { m_Shaders["VS_GBuffer"], m_Shaders["FS_GBuffer"] }, "GeometryDescSetLayout");
+	VulkanDescriptorSetLayout* descrSetLayout = new VulkanDescriptorSetLayout(&m_VulkanDevice, { GetShader("VS_GBuffer"), GetShader("FS_GBuffer") }, "GeometryDescSetLayout");
 
 	VulkanDescriptorInfo descriptorinfo{};
 	descriptorinfo.Type = DescriptorType::UniformBuffer;
@@ -303,36 +401,65 @@ void Renderer::InitImgui()
 
 void Renderer::InitTextures()
 {
-	g_DefaultWhiteTexture = new VulkanTexture(&m_VulkanDevice, "res/textures/default_white.png", TextureFlags::Color | TextureFlags::Read | TextureFlags::TransferDst, Format::R8G8B8A8_UNORM_SRGB, "Defaul_White");
-	g_DefaultBlackTexture = new VulkanTexture(&m_VulkanDevice, "res/textures/default_black.png", TextureFlags::Color | TextureFlags::Read | TextureFlags::TransferDst, Format::R8G8B8A8_UNORM_SRGB, "Defaul_Black");
-	//TODO: find better way to load cubemaps
-	auto cubeMapData = TextureLoading::LoadCubemap("res/textures/skybox/skybox.jpg");
+	g_DefaultWhiteTexture = m_ResourceManager->CreateTexture(m_VulkanDevice, ROTextureCreateInfo{
+			.filePath = {"res/textures/default_white.png"},
+			.flags = {TextureFlags::Color | TextureFlags::Read | TextureFlags::TransferDst},
+			.format = {Format::R8G8B8A8_UNORM_SRGB},
+			.name = {"Default White"}
+		});
+	
+	g_DefaultBlackTexture = m_ResourceManager->CreateTexture(m_VulkanDevice, ROTextureCreateInfo{
+			.filePath = {"res/textures/default_black.png"},
+			.flags = {TextureFlags::Color | TextureFlags::Read | TextureFlags::TransferDst},
+			.format = {Format::R8G8B8A8_UNORM_SRGB},
+			.name = {"Default Black"}
+		});
+	
+	g_Default3DTexture = m_ResourceManager->CreateTexture(m_VulkanDevice, RWTextureCreateInfo{
+			.dimensions = {4, 4, 4},
+			.flags = {TextureFlags::Color | TextureFlags::Read},
+			.format = {Format::B8G8R8A8_UNORM},
+			.name = {"Default 3D"}
+		});
+	
+	g_DefaultArrayTexture = m_ResourceManager->CreateTexture(m_VulkanDevice, RWTextureCreateInfo{
+			.dimensions = {4, 4, 1},
+			.flags = {TextureFlags::Color | TextureFlags::Read},
+			.format = {Format::B8G8R8A8_UNORM},
+			.name = {"Default Array"},
+			.arraySize = {4}
+		});
 
-	TextureLoading::TextureData texData{};
-	texData.bpp = cubeMapData->pData[0]->bpp;
-	texData.width = cubeMapData->pData[0]->width;
-	texData.height = cubeMapData->pData[0]->height;
+	skyboxTexture = m_ResourceManager->CreateTexture(m_VulkanDevice, ROTextureCreateInfo{
+			.filePath = {"res/textures/skybox/skybox.jpg"},
+			.flags = {TextureFlags::Color | TextureFlags::Read | TextureFlags::CubeMap | TextureFlags::TransferDst},
+			.format = {Format::R8G8B8A8_UNORM_SRGB},
+			.name = {"Skybox"}
+		});
+}
 
-	size_t imageSize = texData.height * texData.width * 4;
-
-	texData.pData = (unsigned char*)malloc(imageSize * 6);
-	for (int i = 0; i < 6; i++)
-	{
-		memcpy(texData.pData + i * imageSize, cubeMapData->pData[i]->pData, imageSize);
-	}
-
-	skyboxTexture = new VulkanTexture(&m_VulkanDevice, (TextureData*)&texData, TextureFlags::Color | TextureFlags::Read | TextureFlags::CubeMap | TextureFlags::TransferDst, Format::R8G8B8A8_UNORM_SRGB, "skybox");
-
-	//TODO: pls no
-	TextureLoading::FreeCubemap(cubeMapData);
-	free(texData.pData);
+void Renderer::InitNoiseTextures()
+{
+	noise2DTexture = m_ResourceManager->CreateTexture(m_VulkanDevice, ROTextureCreateInfo{
+			.filePath = {"res/textures/noise3.png"},
+			.flags = {TextureFlags::Color | TextureFlags::Read | TextureFlags::TransferDst},
+			.format = {Format::B8G8R8A8_UNORM},
+			.name = {"Noise2D"}
+		});
+	
+	noise3DLUT = m_ResourceManager->CreateTexture(m_VulkanDevice, RWTextureCreateInfo{
+			.dimensions = {256, 256, 256},
+			.flags = {TextureFlags::Color | TextureFlags::Read},
+			.format = {Format::R32_SFLOAT},
+			.name = {"Noise 3D LUT"}
+		});
 }
 
 void Renderer::LoadModels()
 {
-	gltfModels.emplace_back(&m_VulkanDevice, "res/meshes/separateObjects.gltf");
+	//gltfModels.emplace_back(&m_VulkanDevice, "res/meshes/separateObjects.gltf");
 	//gltfModels.emplace_back(&m_VulkanDevice, "res/meshes/cottage.gltf");
-	//gltfModels.emplace_back(&m_VulkanDevice, "res/meshes/sponza/sponza.gltf");
+	gltfModels.emplace_back(&m_VulkanDevice, "res/meshes/sponza/sponza.gltf");
 }
 
 void Renderer::BeginRenderPass(VkExtent2D extent)
@@ -341,18 +468,18 @@ void Renderer::BeginRenderPass(VkExtent2D extent)
 	renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
 	renderPassInfo.renderPass = m_StateManager->GetRenderPass()->GetVkRenderPass();
 	renderPassInfo.framebuffer = m_StateManager->GetFramebuffer()->GetVkFramebuffer();
-
 	renderPassInfo.renderArea.offset = { 0, 0 };
 	renderPassInfo.renderArea.extent = extent;
 
 	auto renderTargetCount = m_StateManager->GetRenderTargetCount();
-	std::vector<VkClearValue> clearValues(renderTargetCount);
 	auto& renderTargets = m_StateManager->GetRenderTargets();
+
+	std::vector<VkClearValue> clearValues(renderTargetCount);
 
 	for (size_t i = 0; i < renderTargetCount; i++)
 	{
-		auto format = renderTargets[i]->GetVkFormat();
-		clearValues[i] = GetVkClearColorValueForFormat(format);
+		auto format = renderTargets[i]->GetFormat();
+		clearValues[i] = GetVkClearColorValueFor(format);
 	}
 
 	if (m_StateManager->HasDepthStencil())
@@ -375,43 +502,44 @@ void Renderer::EndRenderPass()
 	m_StateManager->Reset();
 }
 
-void Renderer::BindGraphicsPipeline(bool isCopyToSwapChain)
+void Renderer::RecordGPUTimeStamp(const char* label)
 {
+	m_GPUTimeStamps.GetTimeStamp(GetCurrentCommandBuffer(), label);
+}
 
+void Renderer::BindGraphicsPipeline(bool isPostUpscale)
+{
+	//if pipeline is not dirty bind the one already in state manager
 	if (!m_StateManager->GetPipelineDirty())
 	{
 		m_StateManager->GetPipeline()->Bind(GetCurrentCommandBuffer());
+		return;
 	}
-	else
-	{
-		//TODO: take care of this really, optimize for most performance
-		auto pipelineInfo = m_StateManager->GetPipelineInfo();
 
-		auto& attachments = m_StateManager->GetRenderTargets();
-		auto depthStencil = m_StateManager->GetDepthStencil();
-		auto renderPassInfo = m_StateManager->GetRenderPassInfo();
-		VulkanRenderPass* renderpass = PipelineManager::instance().FindOrCreateRenderPass(m_VulkanDevice, attachments, depthStencil, *renderPassInfo);
-		m_StateManager->SetRenderPass(renderpass);
+	auto pipelineInfo = m_StateManager->GetPipelineInfo();
+	auto& attachments = m_StateManager->GetRenderTargets();
+	auto depthStencil = m_StateManager->GetDepthStencil();
+	auto renderPassInfo = m_StateManager->GetRenderPassInfo();
 
-		VulkanFramebuffer* framebuffer;
-		if (isCopyToSwapChain)
-		{
-			framebuffer = PipelineManager::instance().FindOrCreateFramebuffer(m_VulkanDevice, attachments, depthStencil, renderpass, GetUpscaledWidth, GetUpscaledHeight);
-		}
-		else
-		{
-			framebuffer = PipelineManager::instance().FindOrCreateFramebuffer(m_VulkanDevice, attachments, depthStencil, renderpass, GetNativeWidth, GetNativeHeight);
-		}
+	//renderpass
+	VulkanRenderPass* renderpass = PipelineManager::instance().FindOrCreateRenderPass(m_VulkanDevice, attachments, depthStencil, *renderPassInfo);
+	m_StateManager->SetRenderPass(renderpass);
 
-		m_StateManager->SetFramebuffer(framebuffer);
+	//framebuffer
+	VulkanFramebufferInfo framebufferInfo{};
+	framebufferInfo.height = isPostUpscale ? GetUpscaledHeight : GetNativeHeight;
+	framebufferInfo.width = isPostUpscale ? GetUpscaledWidth : GetNativeWidth;
+	VulkanFramebuffer* framebuffer = PipelineManager::instance().FindOrCreateFramebuffer(m_VulkanDevice, attachments, depthStencil, renderpass, framebufferInfo);
+	m_StateManager->SetFramebuffer(framebuffer);
 
-		pipelineInfo->renderPass = m_StateManager->GetRenderPass();
-		auto pipeline = PipelineManager::instance().FindOrCreateGraphicsPipeline(m_VulkanDevice, *pipelineInfo);
-		m_StateManager->SetPipeline(pipeline);
+	//pipeline
+	pipelineInfo->renderPass = m_StateManager->GetRenderPass();
+	auto pipeline = PipelineManager::instance().FindOrCreateGraphicsPipeline(m_VulkanDevice, *pipelineInfo);
+	m_StateManager->SetPipeline(pipeline);
 
-		pipeline->Bind(GetCurrentCommandBuffer());
-		m_StateManager->SetPipelineDirty(false);
-	}
+	pipeline->Bind(GetCurrentCommandBuffer());
+	m_StateManager->SetPipelineDirty(false);
+
 }
 
 void Renderer::BindComputePipeline()
@@ -538,16 +666,17 @@ void Renderer::EndCommandBuffer()
 	VULKAN_API_CALL(vkEndCommandBuffer(GetCurrentCommandBuffer()), "failed to end recording command buffer!");
 }
 
-void Renderer::FillTheLightParam(LightParams& lightParam, rabbitVec4f position, rabbitVec3f color, float radius)
+void Renderer::FillTheLightParam(LightParams& lightParam, rabbitVec3f position, rabbitVec3f color, float radius, float intensity, LightType type)
 {
 	lightParam.position[0] = position.x;
 	lightParam.position[1] = position.y;
 	lightParam.position[2] = position.z;
-	lightParam.position[3] = position.w;
 	lightParam.color[0] = color.x;
 	lightParam.color[1] = color.y;
 	lightParam.color[2] = color.z;
 	lightParam.radius = radius;
+	lightParam.intensity = intensity;
+	lightParam.type = (uint32_t)type;
 }
 
 std::vector<char> Renderer::ReadFile(const std::string& filepath)
@@ -569,13 +698,17 @@ std::vector<char> Renderer::ReadFile(const std::string& filepath)
 	return buffer;
 }
 
-void Renderer::DrawFullScreenQuad()
+void Renderer::DrawFullScreenQuad(bool isPostUpscale)
 {
-	BindGraphicsPipeline();
+	BindGraphicsPipeline(isPostUpscale);
 
 	BindDescriptorSets();
 
-	BeginRenderPass({ GetNativeWidth, GetNativeHeight });
+	Extent2D renderExtent{};
+	renderExtent.width = isPostUpscale ? GetUpscaledWidth : GetNativeWidth;
+	renderExtent.height = isPostUpscale ? GetUpscaledHeight : GetNativeHeight;
+
+	BeginRenderPass(renderExtent);
 
 	vkCmdDraw(GetCurrentCommandBuffer(), 3, 1, 0, 0);
 
@@ -605,13 +738,13 @@ void Renderer::UpdateEntityPickId()
 
 void Renderer::CopyToSwapChain()
 {
-
 	BindGraphicsPipeline(true);
 
 #ifdef RABBITHOLE_USING_IMGUI
 	if (!m_ImguiInitialized)
 	{
 		InitImgui();
+		RegisterTexturesToImGui();
 		m_ImguiInitialized = true;
 	}
 #endif
@@ -646,14 +779,36 @@ void Renderer::BindCameraMatrices(Camera* camera)
 	rabbitMat4f projMatrix = camera->Projection();
 	m_StateManager->UpdateUBOElement(UBOElement::ProjectionMatrix, 4, &projMatrix);
 
+	//todo: double check this, for now I use jittered matrix in VS_Gbuffer FS_SSAO and VS_Skybox
+	rabbitMat4f projMatrixJittered = camera->ProjectionJittered();
+	m_StateManager->UpdateUBOElement(UBOElement::ProjectionMatrixJittered, 4, &projMatrixJittered);
+
 	rabbitMat4f viewProjMatrix = projMatrix * viewMatrix;
 	m_StateManager->UpdateUBOElement(UBOElement::ViewProjMatrix, 4, &viewProjMatrix);
 
 	rabbitVec3f cameraPos = camera->GetPosition();
 	m_StateManager->UpdateUBOElement(UBOElement::CameraPosition, 1, &cameraPos);
+	
+	rabbitMat4f viewInverse = glm::inverse(viewMatrix);
+	m_StateManager->UpdateUBOElement(UBOElement::ViewInverse, 4, &viewInverse);
 
-	rabbitMat4f viewProjInverse = glm::inverse(viewMatrix) * glm::inverse(projMatrix);
+	rabbitMat4f projInverse = glm::inverse(projMatrix);
+	m_StateManager->UpdateUBOElement(UBOElement::ProjInverse, 4, &projInverse);
+
+	rabbitMat4f viewProjInverse = viewInverse * projInverse;
 	m_StateManager->UpdateUBOElement(UBOElement::ViewProjInverse, 4, &viewProjInverse);
+
+
+	float width = projMatrix[0][0];
+	float height = projMatrix[1][1];
+
+	rabbitVec4f eyeXAxis = viewInverse * rabbitVec4f(-1.0 / width, 0, 0, 0);
+	rabbitVec4f eyeYAxis = viewInverse * rabbitVec4f(0, -1.0 / height, 0, 0);
+	rabbitVec4f eyeZAxis = viewInverse * rabbitVec4f(0, 0, 1.f, 0);
+
+	m_StateManager->UpdateUBOElement(UBOElement::EyeXAxis, 1, &eyeXAxis);
+	m_StateManager->UpdateUBOElement(UBOElement::EyeYAxis, 1, &eyeYAxis);
+	m_StateManager->UpdateUBOElement(UBOElement::EyeZAxis, 1, &eyeZAxis);
 
 	prevViewProjMatrix = viewProjMatrix;
 }
@@ -681,58 +836,54 @@ void Renderer::BindDescriptorSets()
 void Renderer::LoadAndCreateShaders()
 {
 	//TODO: implement real shader compiler and stuff
-	auto vertCode = ReadFile(GBUFFER_VERTEX_FILE_PATH);
-	auto fragCode = ReadFile(GBUFFER_FRAGMENT_FILE_PATH);
+	std::filesystem::path currentPath = std::filesystem::current_path();
+	currentPath += "\\res\\shaders";
 
-	auto vertCode2 = ReadFile(PASSTHROUGH_VERTEX_FILE_PATH);
-	auto fragCode2 = ReadFile(PASSTHROUGH_FRAGMENT_FILE_PATH);
+	for (const auto& file : std::filesystem::directory_iterator(currentPath))
+	{
+		std::string filePath = file.path().string();
+		auto foundLastSlash = filePath.find_last_of("/\\");
 
-	auto fragCode3 = ReadFile(PBR_FRAGMENT_FILE_PATH);
-	auto fragCode4 = ReadFile(OUTLINE_ENTITY_FRAGMENT_FILE_PATH);
+		if (foundLastSlash)
+		{
+			std::string fileNameWithExt = filePath.substr(foundLastSlash + 1);
+			auto foundLastDot = fileNameWithExt.find_last_of(".");
 
-	auto vertCode3 = ReadFile(SKYBOX_VERTEX_FILE_PATH);
-	auto fragCode5 = ReadFile(SKYBOX_FRAGMENT_FILE_PATH);
+			if (foundLastDot)
+			{
+				std::string fileExtension = fileNameWithExt.substr(foundLastDot + 1);
 
-	auto fragCode6 = ReadFile(SSAO_FRAGMENT_FILE_PATH);
-	auto fragCode7 = ReadFile(SSAOBLUR_FRAGMENT_FILE_PATH);
+				//for spv files create shader modules
+				if (fileExtension.compare("spv") == 0)
+				{
+					std::string fileNameFinal = fileNameWithExt.substr(0, foundLastDot);
 
-	auto fragCode8 = ReadFile(SIMPLE_GEOMETRY_FRAGMENT_PATH);
-	auto vertCode4 = ReadFile(SIMPLE_GEOMETRY_VERTEX_PATH);
+					auto shaderCode = ReadFile(filePath);
+					
+					ShaderInfo createInfo{};
+					createInfo.CodeEntry = nullptr;
 
-	auto compCode = ReadFile(RAY_TRACING_COMPUTE_FILE_PATH);
-	auto compCode2 = ReadFile(FSREASU_COMPUTE_FILE_PATH);
-	auto compCode3 = ReadFile(FSRRCAS_COMPUTE_FILE_PATH);
+					switch (fileNameFinal[0])
+					{
+					case 'C':
+						createInfo.Type = ShaderType::Compute;
+						break;
+					case 'V':
+						createInfo.Type = ShaderType::Vertex;
+						break;
+					case 'F':
+						createInfo.Type = ShaderType::Fragment;
+						break;
+					default:
+						LOG_ERROR("Unrecognized shader stage! Should be CS, VS or FS");
+						break;
+					}
 
-	auto compCode4 = ReadFile(TAA_COMPUTE_FILE_PATH);
-	auto compCode5 = ReadFile(TAA_SHARPENER_COMPUTE_FILE_PATH);
-
-	CreateShaderModule(vertCode, ShaderType::Vertex, "VS_GBuffer", nullptr);
-	CreateShaderModule(fragCode, ShaderType::Fragment, "FS_GBuffer", nullptr);
-	CreateShaderModule(vertCode2, ShaderType::Vertex, "VS_PassThrough", nullptr);
-	CreateShaderModule(fragCode2, ShaderType::Fragment, "FS_PassThrough", nullptr);
-	CreateShaderModule(fragCode3, ShaderType::Fragment, "FS_PBR", nullptr);
-	CreateShaderModule(fragCode4, ShaderType::Fragment, "FS_OutlineEntity", nullptr);
-	CreateShaderModule(vertCode3, ShaderType::Vertex, "VS_Skybox", nullptr);
-	CreateShaderModule(fragCode5, ShaderType::Fragment, "FS_Skybox", nullptr);
-	CreateShaderModule(fragCode6, ShaderType::Fragment, "FS_SSAO", nullptr);
-	CreateShaderModule(fragCode7, ShaderType::Fragment, "FS_SSAOBlur", nullptr);
-	CreateShaderModule(fragCode7, ShaderType::Fragment, "FS_SSAOBlur", nullptr);
-	CreateShaderModule(fragCode8, ShaderType::Fragment, "FS_SimpleGeometry", nullptr);
-	CreateShaderModule(vertCode4, ShaderType::Vertex, "VS_SimpleGeometry", nullptr);
-	CreateShaderModule(compCode, ShaderType::Compute, "CS_RayTracingShadows", nullptr);
-	CreateShaderModule(compCode2, ShaderType::Compute, "CS_FSR_EASU", nullptr);
-	CreateShaderModule(compCode3, ShaderType::Compute, "CS_FSR_RCAS", nullptr);
-	CreateShaderModule(compCode4, ShaderType::Compute, "CS_TAA", nullptr);
-	CreateShaderModule(compCode5, ShaderType::Compute, "CS_TAASharpener", nullptr);
-}
-
-void Renderer::CreateShaderModule(const std::vector<char>& code, ShaderType type, const char* name, const char* codeEntry)
-{
-	ShaderInfo shaderInfo{};
-	shaderInfo.CodeEntry = codeEntry;
-	shaderInfo.Type = type;
-	Shader* shader = new Shader(m_VulkanDevice, code.size(), code.data(), shaderInfo, name);
-	m_Shaders[{name}] = shader;
+					m_ResourceManager->CreateShader(m_VulkanDevice, createInfo, shaderCode, fileNameFinal.c_str());
+				}
+			}
+		}
+	}
 }
 
 void Renderer::CreateCommandBuffers() 
@@ -754,7 +905,7 @@ void Renderer::CreateCommandBuffers()
 
 void Renderer::RecreateSwapchain()
 {
-	VkExtent2D extent{};
+	Extent2D extent{};
 	extent.width = GetUpscaledWidth;
 	extent.height = GetUpscaledHeight;
 
@@ -999,6 +1150,14 @@ void Renderer::RecordCommandBuffer(int imageIndex)
 	SetCurrentImageIndex(imageIndex);
 	BeginCommandBuffer();
 
+	std::vector<TimeStamp> timeStamps{};
+
+	if (m_RecordGPUTimeStamps)
+	{
+		m_GPUTimeStamps.OnBeginFrame(GetCurrentCommandBuffer(), &timeStamps);
+		m_GPUTimeStamps.GetTimeStamp(GetCurrentCommandBuffer(), "Begin of the frame");
+	}
+
 	if (m_ImguiInitialized)
 	{
 		ImGui_ImplVulkan_NewFrame();
@@ -1006,38 +1165,62 @@ void Renderer::RecordCommandBuffer(int imageIndex)
 		ImGui::NewFrame();
 
 		ImGui::Begin("Main debug frame");
+		ImGui::Checkbox("GPU Profiler Enabled: ", &m_RecordGPUTimeStamps);
 #ifdef USE_RABBITHOLE_TOOLS
 		ImGui::Checkbox("Draw Bounding Box", &m_DrawBoundingBox);
 		ImGui::Checkbox("Enable Entity picking", &m_RenderOutlinedEntity);
 #endif
-		ImGui::Checkbox("Render TAA", &m_RenderTAA);
+
 		ImGui::End();
+
+		ImGuiTextureDebugger();
+
+		if (m_RecordGPUTimeStamps)
+		{
+			ImguiProfilerWindow(timeStamps);
+		}
 
 		imguiReady = true;
 	}
 
+	Create3DNoiseTexturePass noise3DLUTGeneration{};
 	GBufferPass gbuffer{};
 	BoundingBoxPass bbPass{};
 	SSAOPass ssao{};
 	SSAOBlurPass ssaoBlur{};
 	RTShadowsPass RTShadows{};
+	VolumetricPass volumetric{};
+	ComputeScatteringPass computeScattering{};
 	LightingPass lighting{};
+	ApplyVolumetricFogPass applyVolumerticFog{};
 	SkyboxPass skybox{};
 	OutlineEntityPass outlineEntity{};
-	TAAPass taa{};
-	TAASharpenerPass taaSharpener{};
-	FSREASUPass easuFSR{};
-	FSRRCASPass rcasFSR{};
+	FSR2Pass fsr2{};
+	TonemappingPass tonemapping{};
+	TextureDebugPass textureDebug{};
 	CopyToSwapchainPass copyToSwapchain{};
 
+	UpdateUIStateAndFSR2PreDraw();
 	UpdateDebugOptions();
+	UpdateConstantBuffer();
+
+	//replace with call once impl
+	if (!init3dnoise)
+	{
+		ExecuteRenderPass(noise3DLUTGeneration);
+		init3dnoise = true;
+	}
 
 	ExecuteRenderPass(gbuffer);
 	ExecuteRenderPass(ssao);
 	ExecuteRenderPass(ssaoBlur);
 	ExecuteRenderPass(RTShadows);
+	ExecuteRenderPass(volumetric);
+	ExecuteRenderPass(computeScattering);
 	ExecuteRenderPass(skybox);
 	ExecuteRenderPass(lighting);
+	ExecuteRenderPass(applyVolumerticFog);
+    ExecuteRenderPass(textureDebug);
 
 #ifdef USE_RABBITHOLE_TOOLS
 	if (m_RenderOutlinedEntity)
@@ -1050,16 +1233,17 @@ void Renderer::RecordCommandBuffer(int imageIndex)
 		ExecuteRenderPass(bbPass);
 	}
 #endif
-	if (m_RenderTAA)
-	{
-		ExecuteRenderPass(taa);
-		ExecuteRenderPass(taaSharpener);
-	}
 
-	ExecuteRenderPass(easuFSR);
-	ExecuteRenderPass(rcasFSR);
+	ExecuteRenderPass(fsr2);
+
+	ExecuteRenderPass(tonemapping);
 
 	ExecuteRenderPass(copyToSwapchain);
+
+	if (m_RecordGPUTimeStamps)
+	{
+		m_GPUTimeStamps.OnEndFrame();
+	}
 
 	EndCommandBuffer();
 }
@@ -1069,11 +1253,27 @@ void Renderer::CreateUniformBuffers()
 {
 	for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
 	{
-		m_MainConstBuffer[i] = new VulkanBuffer(&m_VulkanDevice, BufferUsageFlags::UniformBuffer, MemoryAccess::CPU, (uint64_t)sizeof(UniformBufferObject), "MainConstantBuffer0");
+		m_MainConstBuffer[i] = m_ResourceManager->CreateBuffer(m_VulkanDevice, BufferCreateInfo{
+				.flags = {BufferUsageFlags::UniformBuffer},
+				.memoryAccess = {MemoryAccess::CPU2GPU},
+				.size = {sizeof(UniformBufferObject)},
+				.name = {"MainConstantBuffer"}
+			});
 	}
-	m_LightParams = new VulkanBuffer(&m_VulkanDevice, BufferUsageFlags::UniformBuffer, MemoryAccess::CPU, (uint64_t)sizeof(LightParams) * MAX_NUM_OF_LIGHTS, "LightParams");
 
-	m_VertexUploadBuffer = new VulkanBuffer(&m_VulkanDevice, BufferUsageFlags::VertexBuffer, MemoryAccess::CPU, MB_16, "VertexUpload"); //64 mb fixed
+	m_LightParams = m_ResourceManager->CreateBuffer(m_VulkanDevice, BufferCreateInfo{
+			.flags = {BufferUsageFlags::UniformBuffer},
+			.memoryAccess = {MemoryAccess::CPU2GPU},
+			.size = {sizeof(LightParams) * MAX_NUM_OF_LIGHTS},
+			.name = {"Light params"}
+		});
+
+	m_VertexUploadBuffer = m_ResourceManager->CreateBuffer(m_VulkanDevice, BufferCreateInfo{
+			.flags = {BufferUsageFlags::VertexBuffer},
+			.memoryAccess = {MemoryAccess::CPU2GPU},
+			.size = {MB_16},
+			.name = {"Vertex Upload"}
+		});
 }
 
 void Renderer::CreateDescriptorPool()
@@ -1119,10 +1319,26 @@ float lerp(float a, float b, float f)
 }
 void Renderer::InitSSAO()
 {
-	SSAOParamsBuffer = new VulkanBuffer(&m_VulkanDevice, BufferUsageFlags::UniformBuffer, MemoryAccess::CPU, (uint64_t)sizeof(SSAOParams), "SSAOParams");
+	SSAOParamsBuffer = m_ResourceManager->CreateBuffer(m_VulkanDevice, BufferCreateInfo{
+			.flags = {BufferUsageFlags::UniformBuffer},
+			.memoryAccess = {MemoryAccess::CPU2GPU},
+			.size = {sizeof(SSAOParams)},
+			.name = {"SSAO Params"}
+		});
 
-	SSAOTexture = new VulkanTexture(&m_VulkanDevice, GetNativeWidth, GetNativeHeight, TextureFlags::RenderTarget | TextureFlags::Read, Format::R32_SFLOAT, "SSAO");
-	SSAOBluredTexture = new VulkanTexture(&m_VulkanDevice, GetNativeWidth, GetNativeHeight, TextureFlags::RenderTarget | TextureFlags::Read, Format::R32_SFLOAT, "SSAOBlured");
+	SSAOTexture = m_ResourceManager->CreateTexture(m_VulkanDevice, RWTextureCreateInfo{
+			.dimensions = {GetNativeWidth, GetNativeHeight, 1},
+			.flags = {TextureFlags::RenderTarget | TextureFlags::Read},
+			.format = {Format::R32_SFLOAT},
+			.name = {"SSAO Main"}
+		});
+
+	SSAOBluredTexture = m_ResourceManager->CreateTexture(m_VulkanDevice, RWTextureCreateInfo{
+			.dimensions = {GetNativeWidth, GetNativeHeight, 1},
+			.flags = {TextureFlags::RenderTarget | TextureFlags::Read},
+			.format = {Format::R32_SFLOAT},
+			.name = {"SSAO Blured"}
+		});
 
 	std::uniform_real_distribution<float> randomFloats(0.0, 1.0); // generates random floats between 0.0 and 1.0
 	std::default_random_engine generator;
@@ -1140,8 +1356,14 @@ void Renderer::InitSSAO()
 		ssaoKernel.push_back(sample);
 	}
 
-	size_t bufferSize = 1024;
-	SSAOSamplesBuffer = new VulkanBuffer(&m_VulkanDevice, BufferUsageFlags::UniformBuffer, MemoryAccess::CPU, bufferSize, "SSAOSamples");
+	uint32_t bufferSize = 1024;
+	SSAOSamplesBuffer = m_ResourceManager->CreateBuffer(m_VulkanDevice, BufferCreateInfo{
+			.flags = {BufferUsageFlags::UniformBuffer},
+			.memoryAccess = {MemoryAccess::CPU2GPU},
+			.size = {bufferSize},
+			.name = {"SSAO Samples"}
+		});
+
 	SSAOSamplesBuffer->FillBuffer(ssaoKernel.data(), bufferSize);
 
 	//generate SSAO Noise texture
@@ -1159,8 +1381,8 @@ void Renderer::InitSSAO()
 	texData.width = 4;
 	texData.pData = (unsigned char*)ssaoNoise.data();
 
-	SSAONoiseTexture = new VulkanTexture(&m_VulkanDevice, &texData, TextureFlags::Color | TextureFlags::Read | TextureFlags::TransferDst, Format::R32G32B32A32_FLOAT, "SSAONoise");
-		
+	SSAONoiseTexture = new VulkanTexture(&m_VulkanDevice, &texData, TextureFlags::Color | TextureFlags::Read | TextureFlags::TransferDst, Format::R32G32B32A32_FLOAT, "SSAO Noise");
+
 	//init ssao params
 	ssaoParams.radius = 0.5f;
 	ssaoParams.bias = 0.025f;
@@ -1173,15 +1395,14 @@ void Renderer::InitSSAO()
 
 void Renderer::InitLights()
 {
-	FillTheLightParam(lightParams[0], { 7.0f, 3.75f, -2.75f, 0.0f }, { 1.f, 0.f, 0.f }, 25.f);
-	FillTheLightParam(lightParams[1], { 5.0f, 20.0f, -1.0f, 0.0f }, { 0.95f, 0.732f, 0.36f }, 50.f);
-	FillTheLightParam(lightParams[2], { -10.0f, 10.0f, -10.0f, 0.0f }, { 1.f, 0.6f, 0.2f }, 0.f);
-	FillTheLightParam(lightParams[3], { 5.f, 5.0f, 4.f, 0.0f }, { 1.f, 1.0f, 1.0f }, 25.f);
+	FillTheLightParam(lightParams[0], { 70.0f, 300.75f, -20.75f }, { 1.f, 0.6f, 0.2f }, 25.f, 1.f, LightType_Directional);
+	FillTheLightParam(lightParams[1], { 5.0f, 20.0f, -1.0f }, { 0.95f, 0.732f, 0.36f }, 0.f, 1.f, LightType_Point);
+	FillTheLightParam(lightParams[2], { -10.0f, 10.0f, -10.0f }, { 1.f, 0.6f, 0.2f }, 0.f, 1.f, LightType_Point);
+	FillTheLightParam(lightParams[3], { 5.f, 5.0f, 4.f }, { 1.f, 1.0f, 1.0f }, 0.f, 1.f, LightType_Point);
 }
 
 void Renderer::InitMeshDataForCompute()
 {
-	auto startTime = Utils::SetStartTime();
 	std::vector<Triangle> triangles;
 	std::vector<rabbitVec4f> verticesFinal;
 	std::vector<bool> verticesMultipliedWithMatrix;
@@ -1192,17 +1413,17 @@ void Renderer::InitMeshDataForCompute()
 	auto modelVertexBuffer = model.GetVertexBuffer();
 	auto modelIndexBuffer = model.GetIndexBuffer();
 
-	VulkanBuffer* stagingBuffer = new VulkanBuffer(&m_VulkanDevice, BufferUsageFlags::TransferDst, MemoryAccess::CPU, modelVertexBuffer->GetSize(), "StagingBuffer");
-	m_VulkanDevice.CopyBuffer(modelVertexBuffer->GetBuffer(), stagingBuffer->GetBuffer(), modelVertexBuffer->GetSize());
+	VulkanBuffer stagingBuffer(m_VulkanDevice, BufferUsageFlags::TransferDst, MemoryAccess::CPU, modelVertexBuffer->GetSize(), "StagingBuffer");
+	m_VulkanDevice.CopyBuffer(modelVertexBuffer->GetBuffer(), stagingBuffer.GetBuffer(), modelVertexBuffer->GetSize());
 
-	Vertex* vertexBufferCpu = (Vertex*)stagingBuffer->Map();
+	Vertex* vertexBufferCpu = (Vertex*)stagingBuffer.Map();
 	uint32_t vertexCount = modelVertexBuffer->GetSize() / sizeof(Vertex);
 	verticesMultipliedWithMatrix.resize(vertexCount);
 
-	VulkanBuffer* stagingBuffer2 = new VulkanBuffer(&m_VulkanDevice, BufferUsageFlags::TransferDst, MemoryAccess::CPU, modelIndexBuffer->GetSize(), "StagingBuffer");
-	m_VulkanDevice.CopyBuffer(modelIndexBuffer->GetBuffer(), stagingBuffer2->GetBuffer(), modelIndexBuffer->GetSize());
+	VulkanBuffer stagingBuffer2(m_VulkanDevice, BufferUsageFlags::TransferDst, MemoryAccess::CPU, modelIndexBuffer->GetSize(), "StagingBuffer");
+	m_VulkanDevice.CopyBuffer(modelIndexBuffer->GetBuffer(), stagingBuffer2.GetBuffer(), modelIndexBuffer->GetSize());
 
-	uint32_t* indexBufferCpu = (uint32_t*)stagingBuffer2->Map();
+	uint32_t* indexBufferCpu = (uint32_t*)stagingBuffer2.Map();
 	uint32_t indexCount = modelIndexBuffer->GetSize() / sizeof(uint32_t);
 	
 	for (auto node : model.GetNodes())
@@ -1247,13 +1468,10 @@ void Renderer::InitMeshDataForCompute()
 
 		triangles.push_back(tri);
 	}
-	Utils::SetEndtimeAndPrint(startTime);
 
 	std::cout << triangles.size() << " triangles!" << std::endl;
 
-	startTime = Utils::SetStartTime();
 	auto node = CreateBVH(verticesFinal, triangles);
-	Utils::SetEndtimeAndPrint(startTime);
 
 	uint32_t* triIndices;
 	uint32_t indicesNum = 0;
@@ -1261,22 +1479,191 @@ void Renderer::InitMeshDataForCompute()
 	CacheFriendlyBVHNode* root;
 	uint32_t nodeNum = 0;
 
-	startTime = Utils::SetStartTime();
 	CreateCFBVH(triangles.data(), node, &triIndices, &indicesNum, &root, &nodeNum);
-	Utils::SetEndtimeAndPrint(startTime);
 	
-	startTime = Utils::SetStartTime();
-	vertexBuffer = new VulkanBuffer(&m_VulkanDevice, BufferUsageFlags::StorageBuffer, MemoryAccess::GPU, verticesFinal.size() * sizeof(rabbitVec4f), "VertexBuffer");
-	trianglesBuffer = new VulkanBuffer(&m_VulkanDevice, BufferUsageFlags::StorageBuffer, MemoryAccess::GPU, triangles.size() * sizeof(Triangle), "TrianglesBuffer");
-	triangleIndxsBuffer = new VulkanBuffer(&m_VulkanDevice, BufferUsageFlags::StorageBuffer, MemoryAccess::GPU, indicesNum * sizeof(uint32_t), "TrianglesIndexBuffer");
-	cfbvhNodesBuffer = new VulkanBuffer(&m_VulkanDevice, BufferUsageFlags::StorageBuffer, MemoryAccess::GPU, nodeNum * sizeof(CacheFriendlyBVHNode), "CfbvhNodes");
+	vertexBuffer = m_ResourceManager->CreateBuffer(m_VulkanDevice, BufferCreateInfo{
+			.flags = {BufferUsageFlags::StorageBuffer},
+			.memoryAccess = {MemoryAccess::GPU},
+			.size = {(uint32_t)verticesFinal.size() * sizeof(rabbitVec4f)},
+			.name = {"VertexBuffer"}
+		});
+
+	trianglesBuffer = m_ResourceManager->CreateBuffer(m_VulkanDevice, BufferCreateInfo{
+			.flags = {BufferUsageFlags::StorageBuffer},
+			.memoryAccess = {MemoryAccess::GPU},
+			.size = {(uint32_t)triangles.size() * sizeof(Triangle)},
+			.name = {"TrianglesBuffer"}
+		});
+
+	triangleIndxsBuffer = m_ResourceManager->CreateBuffer(m_VulkanDevice, BufferCreateInfo{
+			.flags = {BufferUsageFlags::StorageBuffer},
+			.memoryAccess = {MemoryAccess::GPU},
+			.size = {indicesNum * sizeof(uint32_t)},
+			.name = {"TrianglesIndexBuffer"}
+		});
+
+	cfbvhNodesBuffer = m_ResourceManager->CreateBuffer(m_VulkanDevice, BufferCreateInfo{
+			.flags = {BufferUsageFlags::StorageBuffer},
+			.memoryAccess = {MemoryAccess::GPU},
+			.size = {nodeNum * sizeof(CacheFriendlyBVHNode)},
+			.name = {"CfbvhNodes"}
+		});
    
 	vertexBuffer->FillBuffer(verticesFinal.data(), verticesFinal.size() * sizeof(rabbitVec4f));
 	trianglesBuffer->FillBuffer(triangles.data(), triangles.size() * sizeof(Triangle));
 	triangleIndxsBuffer->FillBuffer(triIndices, indicesNum * sizeof(uint32_t));
 	cfbvhNodesBuffer->FillBuffer(root, nodeNum * sizeof(CacheFriendlyBVHNode));
-	Utils::SetEndtimeAndPrint(startTime);
+}
 
+void Renderer::UpdateConstantBuffer()
+{
+	rabbitVec4f frustrumInfo{};
+	frustrumInfo.x = GetNativeWidth;
+	frustrumInfo.y = GetNativeHeight;
+    frustrumInfo.z = MainCamera->GetNearPlane();
+    frustrumInfo.w = MainCamera->GetFarPlane();
+
+    m_StateManager->UpdateUBOElement(UBOElement::FrustrumInfo, 1, &frustrumInfo);
+}
+
+void Renderer::UpdateUIStateAndFSR2PreDraw()
+{
+	m_CurrentUIState->camera = MainCamera;
+	m_CurrentUIState->deltaTime = m_CurrentDeltaTime * 1000.f; //needs to be in ms
+	m_CurrentUIState->renderHeight = GetNativeHeight;
+	m_CurrentUIState->renderWidth = GetNativeWidth;
+	m_CurrentUIState->sharpness = 1.f;
+	m_CurrentUIState->reset = false;
+	m_CurrentUIState->useRcas = true;
+	m_CurrentUIState->useTaa = true;
+
+	SuperResolutionManager::instance().PreDraw(m_CurrentUIState);
+}
+
+void Renderer::ImguiProfilerWindow(std::vector<TimeStamp>& timeStamps)
+{
+	ImGui::Begin("GPU Profiler");
+
+	ImGui::Text("Display Resolution : %ix%i", GetUpscaledWidth, GetUpscaledHeight);
+	ImGui::Text("Render Resolution : %ix%i", GetNativeWidth, GetNativeHeight);
+
+	int fps = 1.f / m_CurrentDeltaTime;
+	auto frameTime_ms = m_CurrentDeltaTime * 1000.f;
+
+	ImGui::Text("FPS        : %d (%.2f ms)", fps, frameTime_ms);
+
+	if (ImGui::CollapsingHeader("GPU Timings", ImGuiTreeNodeFlags_DefaultOpen))
+	{
+
+		const float unitScaling = 1.0f / 1000.0f; //turn to miliseconds
+
+		for (uint32_t i = 0; i < timeStamps.size(); i++)
+		{
+			float value = timeStamps[i].microseconds * unitScaling;
+			ImGui::Text("%-27s: %7.2f %s", timeStamps[i].label.c_str(), value, "ms");
+
+			// 		if (m_UIState.bShowAverage)
+			// 		{
+			// 			if (m_UIState.displayedTimeStamps.size() == timeStamps.size())
+			// 			{
+			// 				ImGui::SameLine();
+			// 				ImGui::Text("  avg: %7.2f %s", m_UIState.displayedTimeStamps[i].sum * unitScaling, pStrUnit);
+			// 				ImGui::SameLine();
+			// 				ImGui::Text("  min: %7.2f %s", m_UIState.displayedTimeStamps[i].minimum * unitScaling, pStrUnit);
+			// 				ImGui::SameLine();
+			// 				ImGui::Text("  max: %7.2f %s", m_UIState.displayedTimeStamps[i].maximum * unitScaling, pStrUnit);
+			// 			}
+			// 
+			// 			UIState::AccumulatedTimeStamp* pAccumulatingTimeStamp = &m_UIState.accumulatingTimeStamps[i];
+			// 			pAccumulatingTimeStamp->sum += timeStamps[i].m_microseconds;
+			// 			pAccumulatingTimeStamp->minimum = min(pAccumulatingTimeStamp->minimum, timeStamps[i].m_microseconds);
+			// 			pAccumulatingTimeStamp->maximum = max(pAccumulatingTimeStamp->maximum, timeStamps[i].m_microseconds);
+			// 		}
+		}
+	}
+
+	ImGui::End(); // PROFILER
+}
+
+void Renderer::RegisterTexturesToImGui()
+{
+	debugTextureImGuiDS = ImGui_ImplVulkan_AddTexture(debugTexture->GetSampler()->GetSampler(), debugTexture->GetView()->GetImageView(), GetVkImageLayoutFrom(ResourceState::GenericRead));
+}
+
+void Renderer::ImGuiTextureDebugger()
+{
+	ImGui::Begin("Texture Debugger");
+
+	auto& textures = m_ResourceManager->GetTextures();
+
+	if (ImGui::BeginCombo("##combo", currentTextureSelectedName.c_str())) // The second parameter is the label previewed before opening the combo.
+	{
+		for (auto& textureIdPair : textures)
+		{
+			auto currentTexture = textureIdPair.second;
+
+			if (currentTexture == nullptr)
+				continue;
+
+			auto currentId = textureIdPair.first;
+			std::string currentTextureName = currentTexture->GetName();
+
+			bool is_selected = (currentTextureSelectedID == currentId); // You can store your selection however you want, outside or inside your objects
+			if (ImGui::Selectable(currentTextureName.c_str(), is_selected))
+			{
+				currentTextureSelectedName = currentTextureName.c_str();
+				currentTextureSelectedID = currentId;
+			}
+			if (is_selected)
+			{
+				ImGui::SetItemDefaultFocus();   // You may set the initial focus when opening the combo (scrolling + for keyboard navigation support)
+			}
+		}
+		ImGui::EndCombo();
+	}
+
+	VulkanTexture* currentSelectedTexture = GetTextureWithID(currentTextureSelectedID);
+
+	if (currentSelectedTexture)
+	{
+		auto region = currentSelectedTexture->GetRegion();
+
+		uint32_t arraySize = region.Subresource.ArraySize;
+		bool isArray = arraySize > 1;
+
+		bool is3D = region.Extent.Depth > 1;
+		debugTextureParams.is3D = is3D;
+
+		debugTextureParams.isArray = isArray;
+		debugTextureParams.arrayCount = arraySize;
+
+		if (isArray)
+		{
+			ImGui::SliderInt("Array Slice: ", &debugTextureParams.arraySlice, 0, arraySize - 1);
+		}
+		else if (is3D)
+		{
+			ImGui::SliderFloat("Depth Scale: ", &debugTextureParams.texture3DDepthScale, 0.f, 1.f);
+		}
+
+		static bool r = true, g = true, b = true, a = true;
+		ImGui::Checkbox("R:", &r);
+		ImGui::SameLine();
+		ImGui::Checkbox("G:", &g);
+		ImGui::SameLine();
+		ImGui::Checkbox("B:", &b);
+		ImGui::SameLine();
+		ImGui::Checkbox("A:", &a);
+		debugTextureParams.showR = r;
+		debugTextureParams.showG= g;
+		debugTextureParams.showB = b;
+		debugTextureParams.showA = a;
+
+	}
+
+	ImGui::Image((void*)debugTextureImGuiDS, ImVec2(400, 225));
+
+	ImGui::End();
 }
 
 void Renderer::BindViewport(float x, float y, float width, float height)

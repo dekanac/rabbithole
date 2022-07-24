@@ -5,6 +5,7 @@
 #include <vulkan/vulkan.h>
 
 #include "Render/Vulkan/VulkanTypes.h"
+#include "Render/Resource.h"
 
 class VulkanDevice;
 
@@ -14,9 +15,12 @@ struct ShaderInfo
 	const char* CodeEntry;
 };
 
-class Shader
+class Shader : public AllocatedResource
 {
 public:
+	friend class ResourceManager; // Resource Manager will take care of creation and deletion of shaders
+
+private:
 	Shader(VulkanDevice& device,
 		size_t byteCodeSize,
 		const char* byteCode,

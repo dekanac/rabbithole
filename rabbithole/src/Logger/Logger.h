@@ -1,5 +1,7 @@
 #pragma once
 
+#include "common.h"
+
 #include <spdlog/spdlog.h>
 #include <memory>
 
@@ -19,7 +21,7 @@ private:
 };
 
 
-#ifdef _DEBUG
+#ifdef RABBITHOLE_DEBUG
 
 #define LOG_CRITICAL(...) \
     do \
@@ -62,7 +64,7 @@ private:
     } \
     while (0)
 
-#else  // _DEBUG
+#else  // RABBITHOLE_DEBUG
 
 // These are the release mode definitions for the macros above.
 #define LOG_CRITICAL(...)

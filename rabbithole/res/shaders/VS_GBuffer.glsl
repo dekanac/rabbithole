@@ -20,7 +20,7 @@ layout(location = 0) out VS_OUT
 } vs_out;
 
 //use UBO as a Constant Buffer to provide common stuff to shaders
-layout(binding = 0) uniform UniformBufferObject_ 
+layout(binding = 0) uniform UniformBufferObjectBuffer 
 {
     UniformBufferObject UBO;
 };
@@ -30,19 +30,6 @@ layout(push_constant) uniform Push
     mat4 model;
     uint id;
 } push;
-
-vec2 CalcVelocity(vec4 newPos, vec4 oldPos)
-{
-    oldPos.xy /= oldPos.w;
-    oldPos.xy = (oldPos.xy+1)/2.0f;
-    oldPos.y = 1 - oldPos.y;
-
-    newPos.xy /= newPos.w;
-    newPos.xy = (newPos.xy+1)/2.0f;
-    newPos.y = 1 - newPos.y;
-    
-    return (newPos - oldPos).xy;
-}
 
 void main() 
 {
@@ -68,7 +55,8 @@ void main()
     vec4 currentPos = UBO.viewProjMatrix * vec4(worldPosition, 1);    
     vec4 previousPos = UBO.prevViewProjMatrix * vec4(worldPosition, 1); 
 
-    vs_out.FragVelocity = CalcVelocity(currentPos, previousPos);
+    vec2 motionVector = (currentPos.xy / currentPos.w) - (previousPos.xy / previousPos.w);
+    vs_out.FragVelocity = motionVector * vec2(0.5f, 0.5f);
 
-    gl_Position = currentPos;
+    gl_Position = UBO.projJittered * UBO.view * vec4(worldPosition, 1);
 }

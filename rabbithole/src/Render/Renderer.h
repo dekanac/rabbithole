@@ -7,6 +7,7 @@
 #include "Window.h"
 #include "Model/Model.h"
 #include "BVH.h"
+#include "Render/ResourceManager.h"
 
 #include <unordered_map>
 #include <string>
@@ -29,6 +30,8 @@ class Entity;
 class Shader;
 class RenderPass;
 
+typedef VkExtent2D Extent2D;
+
 enum SimpleMeshType
 {
 	BoxMesh,
@@ -37,6 +40,19 @@ enum SimpleMeshType
 	Count
 };
 
+struct UIState
+{
+	float renderWidth;
+	float renderHeight;
+	bool reset;
+	bool useRcas;
+	float sharpness;
+	float deltaTime;
+	bool useTaa;
+	Camera* camera;
+};
+
+//keep in sync with UBOElement in VulkanStatemanager
 struct UniformBufferObject
 {
 	rabbitMat4f view;
@@ -46,6 +62,14 @@ struct UniformBufferObject
 	rabbitMat4f viewProjInverse;
 	rabbitMat4f viewProjMatrix;
 	rabbitMat4f prevViewProjMatrix;
+	rabbitMat4f viewInverse;
+	rabbitMat4f projInverse;
+    rabbitVec4f frustrumInfo;
+	rabbitVec4f eyeXAxis;
+	rabbitVec4f eyeYAxis;
+	rabbitVec4f eyeZAxis;
+	rabbitMat4f projJittered;
+
 };
 
 struct SSAOSamples
@@ -61,9 +85,18 @@ struct PushMousePos
 
 struct LightParams
 {
-	float position[4];
-	float color[3];
+	float position[3];
 	float radius;
+	float color[3];
+	float intensity;
+	alignas(16) uint32_t type;
+};
+
+enum LightType : uint32_t
+{
+	LightType_Directional = 0,
+	LightType_Point = 1,
+	LightType_Spot = 2
 };
 
 struct SSAOParams
@@ -75,6 +108,31 @@ struct SSAOParams
 	float power;
 	int kernelSize;
 	bool ssaoOn;
+};
+
+struct DebugTextureParams
+{
+	uint32_t hasMips = false;
+	int mipSlice = 0;
+	int mipCount = 1;
+
+	uint32_t isArray = false;
+	int arraySlice = 0;
+	int arrayCount = 1;
+
+	uint32_t showR = true;
+	uint32_t showG = true;
+	uint32_t showB = true;
+	uint32_t showA = true;
+
+	bool is3D;
+	float texture3DDepthScale = 0.f;
+};
+
+struct VolumetricFogParams
+{
+	uint32_t isEnabled = true;
+	float fogAmount = 0.001f;
 };
 
 struct IndexedIndirectBuffer
@@ -95,25 +153,24 @@ class Renderer
 	SingletonClass(Renderer)
 
 private:
-	Camera* MainCamera{};
 
 	VulkanDevice								m_VulkanDevice{};
 	VulkanStateManager*							m_StateManager;
+	ResourceManager*							m_ResourceManager;
 	std::unique_ptr<VulkanSwapchain>			m_VulkanSwapchain;
 	std::unique_ptr<VulkanDescriptorPool>		m_DescriptorPool;
-	std::unordered_map<std::string, Shader*>	m_Shaders;
 	std::vector<VkCommandBuffer>				m_CommandBuffers;
 	uint8_t										m_CurrentImageIndex = 0;
 
 	VulkanBuffer* m_MainConstBuffer[MAX_FRAMES_IN_FLIGHT];
 	VulkanBuffer* m_VertexUploadBuffer;
 	
-	//test purpose only
-	Entity*						testEntity;
+	Camera* MainCamera{};
+	UIState* m_CurrentUIState{};
+	GPUTimeStamps m_GPUTimeStamps{};
 	
 	void LoadModels();
 	void LoadAndCreateShaders();
-	void CreateShaderModule(const std::vector<char>& code, ShaderType type, const char* name, const char* codeEntry);
 	void CreateCommandBuffers();
 	void RecreateSwapchain();
 	void RecordCommandBuffer(int imageIndex);
@@ -123,10 +180,16 @@ private:
 	void InitSSAO();
 	void InitLights();
 	void InitMeshDataForCompute();
+	void UpdateConstantBuffer();
+	void UpdateUIStateAndFSR2PreDraw();
+	void ImguiProfilerWindow(std::vector<TimeStamp>& timestamps);
+	void RegisterTexturesToImGui();
+	void ImGuiTextureDebugger();
 public:
 	inline VulkanDevice& GetVulkanDevice() { return m_VulkanDevice; }
-	inline VulkanStateManager* GetStateManager() { return m_StateManager; }
-	inline VulkanSwapchain* GetSwapchain() { return m_VulkanSwapchain.get(); }
+	inline VulkanStateManager* GetStateManager() const { return m_StateManager; }
+	inline VulkanSwapchain* GetSwapchain() const { return m_VulkanSwapchain.get(); }
+	inline ResourceManager* GetResourceManager() const { return m_ResourceManager; }
 	inline VulkanImageView* GetSwapchainImage() { return m_VulkanSwapchain->GetImageView(m_CurrentImageIndex); }
 	inline VulkanBuffer* GetVertexUploadBuffer() { return m_VertexUploadBuffer; }
 
@@ -134,8 +197,10 @@ public:
 	void CopyImageToBuffer(VulkanTexture* texture, VulkanBuffer* buffer);
 	void CopyImage(VulkanTexture* src, VulkanTexture* dst);
 
-	inline Shader* GetShader(const std::string& name) { return m_Shaders[name]; }
+	inline Shader* GetShader(const std::string& name) { return m_ResourceManager->GetShader(name); }
+	inline VulkanTexture* GetTextureWithID(uint32_t textureId) { return m_ResourceManager->GetTextures()[textureId]; }
 	inline Camera* GetCamera() { return MainCamera; }
+	inline UIState* GetUIState() { return m_CurrentUIState; }
 
 	inline VulkanBuffer* GetMainConstBuffer() { return m_MainConstBuffer[m_CurrentImageIndex]; }
 	inline VulkanBuffer* GetLightParams() { return m_LightParams; }
@@ -165,7 +230,9 @@ public:
 	void BeginRenderPass(VkExtent2D extent);
 	void EndRenderPass();
 
-	void BindGraphicsPipeline(bool isCopyToSwapChain = false);
+	void RecordGPUTimeStamp(const char* label);
+
+	void BindGraphicsPipeline(bool isPostUpscale = false);
 	void BindComputePipeline();
 	void BindDescriptorSets();
 	void BindUBO();
@@ -175,7 +242,7 @@ public:
 
 	void DrawGeometryGLTF(std::vector<VulkanglTFModel>& bucket);
 	//void DrawBoundingBoxes(std::vector<RabbitModel*>& bucket);
-	void DrawFullScreenQuad();
+	void DrawFullScreenQuad(bool isPostUpscale = false);
 	void UpdateEntityPickId();
 
 	void BeginCommandBuffer();
@@ -183,7 +250,7 @@ public:
 
 	//helper functions
 	std::vector<char> ReadFile(const std::string& filepath);
-	void FillTheLightParam(LightParams& lightParam, rabbitVec4f position, rabbitVec3f color, float radius);
+	void FillTheLightParam(LightParams& lightParam, rabbitVec3f position, rabbitVec3f color, float radius, float intensity, LightType type);
 	void CopyToSwapChain();
 	void ExecuteRenderPass(RenderPass& renderpass);
 
@@ -193,6 +260,8 @@ public:
 	//default textures;
 	VulkanTexture* g_DefaultWhiteTexture;
 	VulkanTexture* g_DefaultBlackTexture;
+	VulkanTexture* g_Default3DTexture;
+	VulkanTexture* g_DefaultArrayTexture;
 	//TODO: do something with these
 	VulkanTexture* depthStencil;
 	//geometry
@@ -222,8 +291,15 @@ public:
 	
 	//entity helper
 	VulkanTexture* entityHelper;
-	VulkanTexture* DebugTextureRT;
 	VulkanBuffer*  entityHelperBuffer;
+
+	//debug texture
+	VulkanTexture* debugTexture;
+	VulkanBuffer* debugTextureParamsBuffer;
+	DebugTextureParams debugTextureParams{};
+	std::string currentTextureSelectedName = "Choose texture to debug: ";
+	uint32_t currentTextureSelectedID;
+	VkDescriptorSet debugTextureImGuiDS;
 	
 	//RT shadows helper
 	VulkanBuffer* vertexBuffer;
@@ -233,18 +309,26 @@ public:
 	VulkanTexture* shadowMap;
 
 	//FSR
-	VulkanBuffer* fsrParamsBuffer;
 	VulkanTexture* fsrOutputTexture;
-	VulkanTexture* fsrIntermediateRes;
 
-	//TAA
-	VulkanTexture* TAAOutput;
-	VulkanTexture* historyBuffer[MAX_FRAMES_IN_FLIGHT];
+	//frustrum 3d map
+	VulkanTexture* volumetricOutput;
+	VulkanTexture* mediaDensity3DLUT;
+	VulkanTexture* scatteringTexture;
+	VulkanTexture* noise3DLUT;
+	VulkanTexture* noise2DTexture;
+	VulkanBuffer* volumetricFogParamsBuffer;
+	VolumetricFogParams volumetricFogParams{};
+	bool init3dnoise = false;
+
+	//posteffects
+	VulkanTexture* postUpscalePostEffects;
 
 	bool m_RenderOutlinedEntity = false;
     bool m_FramebufferResized = false;
-	bool m_RenderTAA = true;
+	bool m_RenderTAA = false;
 	bool m_DrawBoundingBox = false;
+	bool m_RecordGPUTimeStamps = true;
 
 	bool Init();
 	bool Shutdown();
@@ -257,10 +341,12 @@ private:
 
 	void InitImgui();
 	bool m_ImguiInitialized = false;
+	float m_CurrentDeltaTime;
 public:
 	//Don't ask, Imgui init wants swapchain renderpass to be ready, but its not. So basically we need 2 init phases..
 	bool imguiReady = false;
 
 private:
 	void InitTextures();
+	void InitNoiseTextures();
 };

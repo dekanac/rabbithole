@@ -216,6 +216,16 @@ enum class AddressMode : uint8_t
 	Count
 };
 
+enum class SamplerType : uint8_t
+{
+	Point,
+	Bilinear,
+	Trilinear,
+	Anisotropic,
+	
+	Count
+};
+
 enum class BlendValue : uint8_t
 {
 	Zero,

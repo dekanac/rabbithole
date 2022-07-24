@@ -7,13 +7,14 @@
 #define GLM_ENABLE_EXPERIMENTAL
 #include <glm/gtx/quaternion.hpp>
 #include <glm/gtc/matrix_transform.hpp>
+#include <glm/gtc/matrix_access.hpp>
 
 #include <cmath>
 #include <iostream>
 
 static const float MAX_VERTICAL_ANGLE = 85.0f;
 
-Camera::Camera() 
+Camera::Camera()
 	: m_Position(0.0f, 0.0f, 0.0f)
 	, m_FieldOfView(45.0f)
 	, m_NearPlane(0.01f)
@@ -21,9 +22,11 @@ Camera::Camera()
 	, m_Aspect(static_cast<float>(Window::instance().GetExtent().width) / Window::instance().GetExtent().height)
 	, m_Pitch(0.f)
 	, m_Yaw(0.f)
+	, m_ProjMatrix(rabbitMat4f{ 1.f })
 	, m_ViewMatrix(rabbitMat4f{ 1.f })
 	, m_FocalPoint({ 0.0f, 0.0f, 0.0f })
-	, m_Distance(20.f)
+	, m_CameraPanSpeed(0.5f)
+	, m_Distance(0.f)
 {
 	UpdateView();
 }
@@ -58,6 +61,9 @@ bool Camera::Init()
 
 void Camera::Update(float dt)
 {
+	m_ProjMatrix = glm::perspective(glm::radians(m_FieldOfView), m_Aspect, m_NearPlane, m_FarPlane);
+	m_ProjMatrix[1][1] *= -1;
+	
 	auto cameraEnt = EntityManager::instance().GetAllEntitiesWithComponent<CameraComponent>();
 	auto cameraComp = cameraEnt[0]->GetComponent<CameraComponent>();
 	
@@ -66,7 +72,7 @@ void Camera::Update(float dt)
 	auto cameraInput = cameraEnt[0]->GetComponent<InputComponent>();
 	auto inputComp = cameraEnt[0]->GetComponent<InputComponent>();
 
-	float cameraSpeed = moveComp->m_MoveSpeed * dt;
+	float cameraSpeed = moveComp->m_MoveSpeed * 0.003f;
 
 	if (InputManager::IsActionActive(cameraInput, "ActivateCameraMove"))
 	{
@@ -96,16 +102,19 @@ void Camera::Update(float dt)
 	}
 }
 
-rabbitMat4f Camera::GetMatrix() const 
+rabbitMat4f Camera::GetMatrix() const
 {
-	return Projection() * View();
+	return m_ProjMatrix * m_ViewMatrix;
 }
 
-rabbitMat4f Camera::Projection() const 
+rabbitMat4f Camera::Projection() const
 {
-	auto matrix = glm::perspective(glm::radians(m_FieldOfView), m_Aspect, m_NearPlane, m_FarPlane);
-	matrix[1][1] *= -1;
-	return matrix;
+	return m_ProjMatrix;
+}
+
+rabbitMat4f Camera::ProjectionJittered() const
+{
+	return m_ProjMatrixJittered;
 }
 
 rabbitMat4f Camera::View() const
@@ -123,6 +132,11 @@ float Camera::GetFieldOfView() const
 	return m_FieldOfView;
 }
 
+float Camera::GetFieldOfViewVerticalRad() const
+{
+	return (glm::radians(m_FieldOfView) / m_Aspect);
+}
+
 void Camera::SetFieldOfView(float fieldOfView) 
 {
 	ASSERT(fieldOfView > 0.0f && fieldOfView < 180.0f, "Field of view mus be between 0 adn 180 degrees!");
@@ -134,7 +148,7 @@ float Camera::GetNearPlane() const
 	return m_NearPlane;
 }
 
-float Camera::GetfarPlane() const
+float Camera::GetFarPlane() const
 {
 	return m_FarPlane;
 }
@@ -188,8 +202,8 @@ void Camera::UpdateView()
 
 void Camera::MousePan(const glm::vec2& delta)
 {
-	m_FocalPoint += -GetRightDirection() * delta.x * m_Distance;
-	m_FocalPoint += GetUpDirection() * delta.y * m_Distance;
+	m_FocalPoint += -GetRightDirection() * delta.x * m_Distance * m_CameraPanSpeed;
+	m_FocalPoint += GetUpDirection() * delta.y * m_Distance * m_CameraPanSpeed;
 }
 
 void Camera::MouseRotate(const glm::vec2& delta)
@@ -207,4 +221,38 @@ void Camera::MouseZoom(float delta)
 		m_FocalPoint += GetForwardDirection();
 		m_Distance = 1.0f;
 	}
+}
+
+void Camera::SetProjectionJitter(float jitterX, float jitterY)
+{
+	m_ProjMatrixJittered = m_ProjMatrix;
+	m_ProjMatrixJittered[2][0] = jitterX;
+	m_ProjMatrixJittered[2][1] = jitterY;
+}
+
+void Camera::SetProjectionJitter(uint32_t width, uint32_t height, uint32_t& sampleIndex)
+{
+	static const auto CalculateHaltonNumber = [](uint32_t index, uint32_t base)
+	{
+		float f = 1.0f, result = 0.0f;
+
+		for (uint32_t i = index; i > 0;)
+		{
+			f /= static_cast<float>(base);
+			result = result + f * static_cast<float>(i % base);
+			i = static_cast<uint32_t>(floorf(static_cast<float>(i) / static_cast<float>(base)));
+		}
+
+		return result;
+	};
+
+	sampleIndex = (sampleIndex + 1) % 16;   // 16x TAA
+
+	float jitterX = 2.0f * CalculateHaltonNumber(sampleIndex + 1, 2) - 1.0f;
+	float jitterY = 2.0f * CalculateHaltonNumber(sampleIndex + 1, 3) - 1.0f;
+
+	jitterX /= static_cast<float>(width);
+	jitterY /= static_cast<float>(height);
+
+	SetProjectionJitter(jitterX, jitterY);
 }

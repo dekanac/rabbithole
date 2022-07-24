@@ -13,7 +13,7 @@ layout(location = 0) out VS_OUT
 } vs_out;
 
 //use UBO as a Constant Buffer to provide common stuff to shaders
-layout(binding = 0) uniform UniformBufferObject_ 
+layout(binding = 0) uniform UniformBufferObjectBuffer 
 {
     UniformBufferObject UBO;
 };

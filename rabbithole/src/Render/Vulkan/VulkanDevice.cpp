@@ -28,7 +28,10 @@ static VKAPI_ATTR VkBool32 VKAPI_CALL DebugCallback(
 	const VkDebugUtilsMessengerCallbackDataEXT* pCallbackData,
 	void* pUserData) 
 {
-	std::cerr << "validation layer: " << pCallbackData->pMessage << std::endl;
+	if (strstr(pCallbackData->pMessage, "Error") != NULL)
+	{
+		std::cerr << "validation layer: " << pCallbackData->pMessage << std::endl;
+	}
 
 	return VK_FALSE;
 }
@@ -349,6 +352,9 @@ std::vector<const char*> VulkanDevice::GetRequiredExtensions()
 	{
 		extensions.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
 	}
+
+	//fsr with renderdoc crashes without this extension
+	extensions.push_back(VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME);
 
 	return extensions;
 }
@@ -768,7 +774,7 @@ void VulkanDevice::InitImguiForVulkan(ImGui_ImplVulkan_InitInfo& info)
 
 void VulkanDevice::SetObjectName(uint64_t object, VkObjectType objectType, const char* name)
 {
-#ifdef _DEBUG
+#ifdef RABBITHOLE_DEBUG
 	// Check for a valid function pointer
 	if (pfnDebugUtilsObjectName)
 	{
@@ -779,12 +785,12 @@ void VulkanDevice::SetObjectName(uint64_t object, VkObjectType objectType, const
 		nameInfo.pObjectName = name;
 		pfnDebugUtilsObjectName(m_Device, &nameInfo);
 	}
-#endif
+#endif // RABBITHOLE_DEBUG
 }
 
 void VulkanDevice::BeginLabel(VkCommandBuffer commandBuffer, const char* name)
 {
-#ifdef _DEBUG
+#ifdef RABBITHOLE_DEBUG
 	glm::vec4 color = GetNextColor();
 	VkDebugUtilsLabelEXT labelInfo{};
 	labelInfo.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_LABEL_EXT;
@@ -795,14 +801,14 @@ void VulkanDevice::BeginLabel(VkCommandBuffer commandBuffer, const char* name)
 	labelInfo.pLabelName = name;
 
 	pfnCmdBeginDebugUtilsLabelEXT(commandBuffer, &labelInfo);
-#endif
+#endif // RABBITHOLE_DEBUG
 }
 
 void VulkanDevice::EndLabel(VkCommandBuffer commandBuffer)
 {
-#ifdef _DEBUG
+#ifdef RABBITHOLE_DEBUG
 	pfnCmdEndDebugUtilsLabelEXT(commandBuffer);
-#endif
+#endif // RABBITHOLE_DEBUG
 }
 
 VkBufferUsageFlags GetVkBufferUsageFlags(const BufferUsageFlags usageFlags)
@@ -1324,7 +1330,6 @@ VkFilter GetVkFilterFrom(const FilterType filterType)
 	case FilterType::Point:
 		return VK_FILTER_NEAREST;
 	case FilterType::Linear:
-		return VK_FILTER_LINEAR;
 	case FilterType::Anisotropic:
 		return VK_FILTER_LINEAR;
 	default:
@@ -1507,25 +1512,25 @@ VkVertexInputRate GetVkVertexInputRateFrom(const VertexInputRate inputRate)
 	}
 }
 
-VkClearValue GetVkClearColorValueForFormat(const VkFormat format)
+VkClearValue GetVkClearColorValueFor(const Format format)
 {
 	switch (format)
 	{
-	case VK_FORMAT_R8G8B8A8_SRGB:
-	case VK_FORMAT_B8G8R8A8_SRGB:
-	case VK_FORMAT_B8G8R8A8_UNORM:
-	case VK_FORMAT_R8G8B8A8_UNORM:
-	case VK_FORMAT_R16G16B16A16_SFLOAT:
-	case VK_FORMAT_R32G32B32A32_SFLOAT:
+	case Format::R8G8B8A8_UNORM:
+	case Format::R8G8B8A8_UNORM_SRGB:
+	case Format::B8G8R8A8_UNORM:
+	case Format::B8G8R8A8_UNORM_SRGB:
+	case Format::R16G16B16A16_FLOAT:
+	case Format::R32G32B32A32_FLOAT:
 		return VkClearValue{ 0.5, 0.5, 0.5, 1.0 };
-	case VK_FORMAT_R8_UNORM:
-	case VK_FORMAT_R32_SFLOAT:
+	case Format::R8_UNORM:
+	case Format::R32_SFLOAT:
 		return VkClearValue{ 0.1f };
-	case VK_FORMAT_R32G32B32_SFLOAT:
+	case Format::R32G32B32_FLOAT:
 		return VkClearValue{ 0.1f, 0.1f, 0.1f};
-	case VK_FORMAT_R32G32_SFLOAT:
-		return VkClearValue{ 0.1f, 0.1f};
-	case VK_FORMAT_R32_UINT:
+	case Format::R32G32_FLOAT:
+		return VkClearValue{ 0.0f, 0.0f};
+	case Format::R32_UINT:
 		return VkClearValue{ 0 };
 	default:
 		ASSERT(false, "Not supported format.");

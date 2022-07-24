@@ -10,174 +10,210 @@ layout (binding = 2) uniform sampler2D samplerPosition;
 layout (binding = 5) uniform sampler2D samplerSSAO;
 layout (binding = 6) uniform sampler2DArray samplerShadowMap;
 layout (binding = 7) uniform sampler2D samplerVelocity;
+layout (binding = 8) uniform sampler2D samplerDepth;
 
 layout (location = 0) out vec4 outColor;
 
-layout(binding = 3) uniform UniformBufferObject_ 
+layout(binding = 3) uniform UniformBufferObjectBuffer 
 {
     UniformBufferObject UBO;
 };
 
-layout(binding = 4) uniform LightParams 
+layout(std140, binding = 4) uniform LightParams 
 {
 	Light[lightCount] light;
 } Lights;
 
 const float PI = 3.14159265359;
 
-// ----------------------------------------------------------------------------
-vec3 Uncharted2Tonemap(vec3 x)
+vec3 WorldPosFromDepth(float depth) 
 {
-	float A = 0.15;
-	float B = 0.50;
-	float C = 0.10;
-	float D = 0.20;
-	float E = 0.02;
-	float F = 0.30;
-	return ((x*(A*x+C*B)+D*E)/(x*(A*x+B)+D*F))-E/F;
+    vec4 clipSpacePosition = vec4(inUV * 2.f - 1.f, depth, 1.0);
+    vec4 viewSpacePosition = UBO.projInverse * clipSpacePosition;
+
+    // Perspective division
+    viewSpacePosition /= viewSpacePosition.w;
+
+    vec4 worldSpacePosition = UBO.viewInverse * viewSpacePosition;
+
+    return worldSpacePosition.xyz;
 }
-float DistributionGGX(vec3 N, vec3 H, float roughness)
+
+vec3 SpecularReflection(MaterialInfo materialInfo, AngularInfo angularInfo)
 {
-    float a = roughness*roughness;
-    float a2 = a*a;
-    float NdotH = max(dot(N, H), 0.0);
-    float NdotH2 = NdotH*NdotH;
-
-    float nom   = a2;
-    float denom = (NdotH2 * (a2 - 1.0) + 1.0);
-    denom = PI * denom * denom;
-
-    if (denom == 0)
-        denom += EPSILON;
-
-    return nom / denom;
+    return materialInfo.reflectance0 + (materialInfo.reflectance90 - materialInfo.reflectance0) * pow(clamp(1.0 - angularInfo.VdotH, 0.0, 1.0), 5.0);
 }
-// ----------------------------------------------------------------------------
-float GeometrySchlickGGX(float NdotV, float roughness)
+
+float VisibilityOcclusion(MaterialInfo materialInfo, AngularInfo angularInfo)
 {
-    float r = (roughness + 1.0);
-    float k = (r*r) / 8.0;
+    float NdotL = angularInfo.NdotL;
+    float NdotV = angularInfo.NdotV;
+    float alphaRoughnessSq = materialInfo.alphaRoughness * materialInfo.alphaRoughness;
 
-    float nom   = NdotV;
-    float denom = NdotV * (1.0 - k) + k;
+    float GGXV = NdotL * sqrt(NdotV * NdotV * (1.0 - alphaRoughnessSq) + alphaRoughnessSq);
+    float GGXL = NdotV * sqrt(NdotL * NdotL * (1.0 - alphaRoughnessSq) + alphaRoughnessSq);
 
-    return nom / denom;
+    float GGX = GGXV + GGXL;
+    if (GGX > 0.0)
+    {
+        return 0.5 / GGX;
+    }
+    return 0.0;
 }
-// ----------------------------------------------------------------------------
-float GeometrySmith(vec3 N, vec3 V, vec3 L, float roughness)
+
+float MicrofacetDistribution(MaterialInfo materialInfo, AngularInfo angularInfo)
 {
-    float NdotV = max(dot(N, V), 0.0);
-    float NdotL = max(dot(N, L), 0.0);
-    float ggx2 = GeometrySchlickGGX(NdotV, roughness);
-    float ggx1 = GeometrySchlickGGX(NdotL, roughness);
+    float alphaRoughnessSq = materialInfo.alphaRoughness * materialInfo.alphaRoughness;
+    float f = (angularInfo.NdotH * alphaRoughnessSq - angularInfo.NdotH) * angularInfo.NdotH + 1.0;
+    return alphaRoughnessSq / (PI * f * f + 0.000001f);
+}
 
-    return ggx1 * ggx2;
-}
-// ----------------------------------------------------------------------------
-vec3 fresnelSchlick(float cosTheta, vec3 F0)
+vec3 GetPointShade(vec3 pointToLight, MaterialInfo materialInfo, vec3 normal, vec3 view)
 {
-    return F0 + (1.0 - F0) * pow(clamp(1.0 - cosTheta, 0.0, 1.0), 5.0);
+    AngularInfo angularInfo = getAngularInfo(pointToLight, normal, view);
+
+    if (angularInfo.NdotL > 0.0 || angularInfo.NdotV > 0.0)
+    {
+        // Calculate the shading terms for the microfacet specular shading model
+        vec3 F = SpecularReflection(materialInfo, angularInfo);
+        float Vis = VisibilityOcclusion(materialInfo, angularInfo);
+        float D = MicrofacetDistribution(materialInfo, angularInfo);
+
+        // Calculation of analytical lighting contribution
+        vec3 diffuseContrib = (1.0 - F) * (materialInfo.diffuseColor / PI);
+        vec3 specContrib = F * Vis * D;
+
+        // Obtain final intensity as reflectance (BRDF) scaled by the energy of the light (cosine law)
+        return angularInfo.NdotL * (diffuseContrib + specContrib);
+    }
+
+    return vec3(0.0, 0.0, 0.0);
 }
+
+float GetRangeAttenuation(float range, float distance)
+{
+    if (range < 0.0)
+    {
+        // negative range means unlimited
+        return 1.0;
+    }
+    return max(mix(1, 0, distance / range), 0);
+    //return max(min(1.0 - pow(distance / range, 4.0), 1.0), 0.0) / pow(distance, 2.0);
+}
+
+vec3 ApplyPointLight(Light light, MaterialInfo materialInfo, vec3 normal, vec3 worldPos, vec3 view)
+{
+    vec3 pointToLight = light.position.xyz - worldPos;
+    float distance = length(pointToLight);
+    float attenuation = GetRangeAttenuation(light.radius, distance);
+    vec3 shade = GetPointShade(pointToLight, materialInfo, normal, view);
+    return attenuation * light.intensity * light.color * shade;
+}
+
+vec3 ApplyDirectionalLight(Light light, MaterialInfo materialInfo, vec3 normal, vec3 view)
+{
+    vec3 pointToLight = light.position; //TODO: for now we assume that direction light looks from sky to 0,0,0 coord
+    vec3 shade = GetPointShade(pointToLight, materialInfo, normal, view);
+    return light.intensity * light.color * shade;
+}
+
+vec3 DoPBRLighting(SceneInfo sceneInfo, in vec3 diffuseColor, in vec3 specularColor, in float perceptualRoughness)
+{
+
+    // Roughness is authored as perceptual roughness; as is convention,
+    // convert to material roughness by squaring the perceptual roughness [2].
+    float alphaRoughness = perceptualRoughness * perceptualRoughness;
+    
+    vec3 specularEnvironmentR0 = specularColor.rgb;
+    // Anything less than 2% is physically impossible and is instead considered to be shadowing. Compare to "Real-Time-Rendering" 4th editon on page 325.
+    float reflectance = max(max(specularColor.r, specularColor.g), specularColor.b);
+    vec3 specularEnvironmentR90 = vec3(1.0, 1.0, 1.0) * clamp(reflectance * 50.0, 0.0, 1.0);
+
+    MaterialInfo materialInfo =
+    {
+        perceptualRoughness,
+        specularEnvironmentR0,
+        alphaRoughness,
+        diffuseColor,
+        specularEnvironmentR90,
+        specularColor
+    };
+
+    // LIGHTING
+
+    vec3 color = vec3(0.0, 0.0, 0.0);
+    vec3 normal = sceneInfo.normal;
+    vec3 worldPos = sceneInfo.worldPos;
+    vec3 view = normalize(sceneInfo.cameraPosition - worldPos);
+
+    for (int i = 0; i < lightCount; ++i)
+    {
+        Light light = Lights.light[i];
+        float shadowFactor = texture(samplerShadowMap, vec3(inUV, i)).r;
+        
+        if (light.type == LightType_Point)
+        {
+            color += ApplyPointLight(light, materialInfo, normal, worldPos, view) * shadowFactor;
+        }
+        else if (light.type == LightType_Directional)
+        {
+            color += ApplyDirectionalLight(light, materialInfo, normal, view) * shadowFactor;
+        }
+        //else if (light.type == LightType_Spot)
+        //{
+        //    color += applySpotLight(light, materialInfo, normal, worldPos, view) * shadowFactor;
+        //}
+    }
+
+    // Calculate lighting contribution from image based lighting source (IBL)
+//#ifdef USE_IBL
+//    color += getIBLContribution(materialInfo, normal, view) * perFrame.u_iblFactor * GetSSAO(Input.svPosition.xy * perFrame.u_invScreenResolution);
+//#endif
+
+    vec3 emissive = vec3(0, 0, 0);
+//#ifdef ID_emissiveTexture
+//    emissive = (emissiveTexture.Sample(samEmissive, getEmissiveUV(Input))).rgb * u_pbrParams.myPerObject_u_EmissiveFactor.rgb * perFrame.u_EmissiveFactor;
+//#else        
+//    emissive = u_pbrParams.myPerObject_u_EmissiveFactor.rgb * perFrame.u_EmissiveFactor;
+//#endif
+    color += emissive;
+
+    return color;   
+}
+
 // ----------------------------------------------------------------------------
 void main()
 {		
-
     vec4 normalRoughness = texture(samplerNormal, inUV);
 	vec4 positionMetallic = texture(samplerPosition, inUV);
     vec3 albedo = pow(texture(samplerAlbedo, inUV).rgb, vec3(2.2));
     vec2 velocity = texture(samplerVelocity, inUV).rg; 
     float ssao = texture(samplerSSAO, inUV).r;
 
+    float depth = texture(samplerDepth, inUV).r;
+
 	float roughness = normalRoughness.a;
 	float metallic = positionMetallic.a;
-	vec3 position = positionMetallic.xyz;
+	vec3 position = WorldPosFromDepth(depth);
 
     vec3 N = normalRoughness.rgb;
     vec3 V = normalize(UBO.cameraPosition - position);
 
-    // calculate reflectance at normal incidence; if dia-electric (like plastic) use F0 
-    // of 0.04 and if it's a metal, use the albedo color as F0 (metallic workflow)    
-    vec3 F0 = vec3(0.04); 
+    vec3 F0 = vec3(0.04);
     F0 = mix(F0, albedo, metallic);
 
-    // reflectance equation
-    vec3 Lo = vec3(0.0);
-    for(int i = 0; i < lightCount; ++i) 
-    {
-        float shadows = texture(samplerShadowMap, vec3(inUV, i)).r;
-        // calculate per-light radiance
-		vec3 tmp = Lights.light[i].position.xyz - position;
-        vec3 L = normalize(tmp);
-        vec3 H = normalize(V + L);
-        float distance = length(tmp);
-        float attenuation = Lights.light[i].radius / (pow(distance, 2.0) + 1.0);
-        vec3 radiance = Lights.light[i].color * attenuation;
+    SceneInfo sceneInfo;
+    sceneInfo.worldPos = position;
+    sceneInfo.normal = N;
+    sceneInfo.uv = inUV;
+    sceneInfo.cameraPosition = UBO.cameraPosition;
 
-        // Cook-Torrance BRDF
-        float NDF = DistributionGGX(N, H, roughness);   
-        float G   = GeometrySmith(N, V, L, roughness);      
-        vec3 F    = fresnelSchlick(clamp(dot(H, V), 0.0, 1.0), F0);
-           
-        vec3 numerator    = NDF * G * F; 
-        float denominator = 4 * max(dot(N, V), 0.0) * max(dot(N, L), 0.0) + 0.0001; // + 0.0001 to prevent divide by zero
-        vec3 specular = (numerator / denominator) * shadows;
-        
-        // kS is equal to Fresnel
-        vec3 kS = F;
-        // for energy conservation, the diffuse and specular light can't
-        // be above 1.0 (unless the surface emits light); to preserve this
-        // relationship the diffuse component (kD) should equal 1.0 - kS.
-        vec3 kD = vec3(1.0) - kS;
-        // multiply kD by the inverse metalness such that only non-metals 
-        // have diffuse lighting, or a linear blend if partly metal (pure metals
-        // have no diffuse light).
-        kD *= 1.0 - metallic;	  
-
-        // scale light by NdotL
-        float NdotL = max(dot(N, L), 0.0);        
-
-        vec3 diffuse = kD * albedo * shadows;
-        // add to outgoing radiance Lo
-        Lo += (diffuse / PI + specular) * radiance * NdotL;  // note that we already multiplied the BRDF by the Fresnel (kS) so we won't multiply by kS again
-    }   
+    vec3 LightingPBR = DoPBRLighting(sceneInfo, albedo, F0, roughness);
     
-    // ambient lighting (note that the next IBL tutorial will replace 
-    // this ambient lighting with environment lighting).
     vec3 ambient = vec3(0.03) * albedo * ssao;
 
-    vec3 color = ambient + Lo;
-
-    // HDR tonemapping
-    color = color / (color + vec3(1.0));
-
-	color = Uncharted2Tonemap(color * 4.5f);
-	color = color * (1.0f / Uncharted2Tonemap(vec3(11.2f)));	
-    // gamma correct
-    color = pow(color, vec3(1.0/1.8)); 
-
-    if (int(UBO.debugOption.x) > 0) 
-    {
-		switch (int(UBO.debugOption.x)) 
-        {
-			case 1: 
-				outColor.rgb = position;
-				break;
-			case 2: 
-				outColor.rgb = N;
-				break;
-			case 3: 
-				outColor.rgb = vec3(velocity, 0);
-				break;
-			case 4: 
-				outColor.rgb = color;
-				break;
-		}		
-		outColor.a = 1.0;
-		return;
-	}
-	else 
-	{
-		outColor = vec4(color, 1.0);
-	}
+    vec3 color = ambient + LightingPBR;
+ 
+	outColor = vec4(color, 1.0);
 
 }

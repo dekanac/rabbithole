@@ -2,10 +2,15 @@
 
 #include "common.h"
 
-layout(rgba16, binding = 0, location = 0) readonly uniform image2D positionGbuffer;
-layout(rgba16, binding = 1, location = 1) readonly uniform image2D normalGbuffer;
+#define MAXLEN 1000.0
+#define SHADOW 0.0000001
+#define MOLLER_TRUMBORE
+#define MAX_STACK_HEIGHT 100
 
-layout(r8, binding = 2, location = 2) writeonly uniform image2DArray outTexture;
+layout(rgba16, binding = 0) readonly uniform image2D positionGbuffer;
+layout(rgba16, binding = 1) readonly uniform image2D normalGbuffer;
+
+layout(r8, binding = 2) writeonly uniform image2DArray outTexture;
 
 layout (std430, binding = 3) readonly buffer VertexBuffer
 {
@@ -17,17 +22,17 @@ struct Triangle
     uint idx[3];
 };
 
-layout (std430, binding = 4) readonly buffer trianglesBuffer
+layout (std430, binding = 4) readonly buffer TrianglesBuffer
 {
     Triangle triangles[];
 };
 
-layout (std430, binding = 5) readonly buffer triangleIdxsBuffer
+layout (std430, binding = 5) readonly buffer TriangleIdxsBuffer
 {
     uint triangleIndices[];
 };
 
-layout (std430, binding = 6) readonly buffer cfbvhNodesBuffer
+layout (std430, binding = 6) readonly buffer CFBVHNodesBuffer
 {
     CFBVHNode cfbvhNodes[];
 };
@@ -37,12 +42,8 @@ layout(binding = 7) uniform LightParams
 	Light[lightCount] light;
 } Lights;
 
-#define MAXLEN 1000.0
-#define SHADOW 0.01
-#define MOLLER_TRUMBORE
-#define MAX_STACK_HEIGHT 100
 
-bool intersectAABB(Ray ray, vec3 boxMin, vec3 boxMax) 
+bool IntersectAABB(Ray ray, vec3 boxMin, vec3 boxMax) 
 {
     vec3 tMin = (boxMin - ray.origin) / ray.direction;
     vec3 tMax = (boxMax - ray.origin) / ray.direction;
@@ -53,10 +54,7 @@ bool intersectAABB(Ray ray, vec3 boxMin, vec3 boxMax)
     return tFar >= tNear;
 }
 
-bool rayTriangleIntersect( 
-    const Ray ray, 
-    const vec3 v0, const vec3 v1, const vec3 v2, 
-    float p)
+bool RayTriangleIntersect(const Ray ray, const vec3 v0, const vec3 v1, const vec3 v2)
 { 
     vec3 v0v1 = v1 - v0; 
     vec3 v0v2 = v2 - v0; 
@@ -77,13 +75,13 @@ bool rayTriangleIntersect(
  
     float t = dot(v0v2, qvec) * invDet;
 
-    if (p < t) return false;
+    if (ray.t < t) return false;
 
     if (t < 0.001) return false;
     return true;
 } 
 
-bool findTriangleIntersection(Ray ray)
+bool FindTriangleIntersection(Ray ray)
 {
     uint stack[MAX_STACK_HEIGHT];
     uint currStackIdx = 0;
@@ -100,7 +98,7 @@ bool findTriangleIntersection(Ray ray)
 
         if (isLeaf(currentNode))
         {
-            if (intersectAABB(ray, bottom, top))
+            if (IntersectAABB(ray, bottom, top))
             {
                 //test triangle intersection
                 uint count = currentNode.idxLeft - 0x80000000;
@@ -113,7 +111,7 @@ bool findTriangleIntersection(Ray ray)
                     vec4 b = vertices[tri.idx[1]];
                     vec4 c = vertices[tri.idx[2]];
                     
-                    if (rayTriangleIntersect(ray, a.xyz, b.xyz, c.xyz, ray.t))
+                    if (RayTriangleIntersect(ray, a.xyz, b.xyz, c.xyz))
                     {
                         return true;
                     }
@@ -122,7 +120,7 @@ bool findTriangleIntersection(Ray ray)
         }
         else
         {
-            if (intersectAABB(ray, bottom, top))
+            if (IntersectAABB(ray, bottom, top))
             {
                 stack[currStackIdx++] = currentNode.idxLeft;
                 stack[currStackIdx++] = currentNode.idxRight;
@@ -139,48 +137,52 @@ bool findTriangleIntersection(Ray ray)
     return false;
 }
 
-float calculateShadowForLight(vec3 positionOfOrigin, vec3 normalOfOrigin, vec3 lightPosition)
+float CalculateShadowForLight(vec3 positionOfOrigin, vec3 normalOfOrigin, Light light)
 {
     float shadow = 1.f;
-    
-    vec3 lightVec = normalize(lightPosition - positionOfOrigin);
-    
-    //if position is not facing light at all
-    if (dot(normalOfOrigin, lightVec) < 0)
+
+    if (light.radius <= 0.f)
     {
-        return 1.f;
+        return shadow;
     }
     
+    vec3 lightVec = normalize(light.position.xyz - positionOfOrigin);
+    float pointToLightDistance = length(light.position.xyz - positionOfOrigin);
+    
+    //if position is not facing light
+    if (dot(normalOfOrigin, lightVec) < 0)
+    {
+        return shadow;
+    }
+
+    if (light.type == LightType_Point && pointToLightDistance > light.radius)
+    {
+        return shadow;
+    }
+
     Ray ray;
     //hack to avoid self intersections and to get smoother shadow termination
     ray.origin = positionOfOrigin + normalOfOrigin * 0.01;
     ray.direction = lightVec;
-    ray.t = length(lightPosition - positionOfOrigin);
+    ray.t = pointToLightDistance;
 
-    if (findTriangleIntersection(ray))
+    if (FindTriangleIntersection(ray))
         shadow = SHADOW;
 
     return shadow;
 }
 
-layout( local_size_x = 16, local_size_y = 16, local_size_z = 1 ) in;
+layout( local_size_x = 8, local_size_y = 8, local_size_z = 1 ) in;
 void main()
 {
-	float x = gl_GlobalInvocationID.x;
-	float y = gl_GlobalInvocationID.y;
-
 	vec3 worldposition = imageLoad(positionGbuffer, ivec2(gl_GlobalInvocationID.xy)).rgb;
 	vec3 normalGbuffer = imageLoad(normalGbuffer, ivec2(gl_GlobalInvocationID.xy)).rgb;
+    
+    float shadow = 1.f;
 
-    for (int i = 0; i < lightCount; i++)
+    for (uint i = 0; i < lightCount; i++)
     {
-        float shadow = 1.f;
-
-        if (Lights.light[i].radius > 0)
-        {
-            shadow = calculateShadowForLight(worldposition, normalGbuffer, Lights.light[i].position.xyz);
-        }
-
+        shadow = CalculateShadowForLight(worldposition, normalGbuffer, Lights.light[i]);
 	    vec4 res = vec4(shadow, 0, 0, 1);
 	    imageStore(outTexture, ivec3(gl_GlobalInvocationID.xy, i), res);
     }

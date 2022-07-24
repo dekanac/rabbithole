@@ -72,10 +72,9 @@ VulkanImageView::VulkanImageView(const VulkanDevice* device, const VulkanImageVi
 	, m_Info(info)
 {
 	m_Image = m_Info.Resource;
-	m_Format = GetVkFormatFrom(m_Info.Format == Format::UNDEFINED ? m_Image->GetInfo().Format : m_Info.Format);
 
 	VkImageViewCreateInfo imageViewCreateInfo = { VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO };
-	imageViewCreateInfo.format = m_Format;
+	imageViewCreateInfo.format = GetVkFormatFrom(m_Info.Format);
 
 	if (IsFlagSet(m_Image->GetInfo().Flags & ImageFlags::CubeMap))
 	{
@@ -94,7 +93,7 @@ VulkanImageView::VulkanImageView(const VulkanDevice* device, const VulkanImageVi
 		imageViewCreateInfo.viewType = VK_IMAGE_VIEW_TYPE_1D;
 	}
 
-	imageViewCreateInfo.subresourceRange.aspectMask = GetVkImageAspectFlagsFrom(m_Format);
+	imageViewCreateInfo.subresourceRange.aspectMask = GetVkImageAspectFlagsFrom(GetVkFormatFrom(m_Info.Format));
 	imageViewCreateInfo.subresourceRange.baseMipLevel = m_Info.Subresource.MipSlice;
 	imageViewCreateInfo.subresourceRange.levelCount = m_Info.Subresource.MipSize;
 	imageViewCreateInfo.subresourceRange.baseArrayLayer = m_Info.Subresource.ArraySlice;

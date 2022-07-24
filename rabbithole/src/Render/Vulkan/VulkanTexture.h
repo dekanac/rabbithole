@@ -2,6 +2,8 @@
 
 #include "Render/Model/TextureLoading.h"
 #include "Render/Resource.h"
+#include "Render/Vulkan/VulkanDevice.h"
+#include "Render/Vulkan/VulkanImage.h"
 
 class VulkanImage;
 class VulkanImageView;
@@ -9,12 +11,19 @@ class VulkanImageSampler;
 
 using namespace TextureLoading;
 
-class VulkanTexture : public ManagableResource
+class VulkanTexture : public ManagableResource, public AllocatedResource
 {
 public:
-	VulkanTexture(VulkanDevice* device, const uint32_t width, const uint32_t height, TextureFlags flags, Format format, const char* name, uint32_t arraySize = 1, MultisampleType mstype = MultisampleType::Sample_1);
-	VulkanTexture(VulkanDevice* device, std::string filePath, TextureFlags flags, Format format, std::string name, bool generateMips = false);
+	// TODO : take care of this, for now using this for textures created with data in buffer
 	VulkanTexture(VulkanDevice* device, TextureData* texData, TextureFlags flags, Format format, std::string name, bool generateMips = false);
+
+	friend class ResourceManager; //Resource Manager will take care of creation and deletion of textures
+private:
+	VulkanTexture(VulkanDevice* device, const uint32_t width, const uint32_t height, TextureFlags flags, Format format, const char* name, uint32_t arraySize = 1, MultisampleType mstype = MultisampleType::Sample_1);
+	VulkanTexture(VulkanDevice* device, const uint32_t width, const uint32_t height, const uint32_t depth, TextureFlags flags, Format format, const char* name, uint32_t arraySize = 1, MultisampleType mstype = MultisampleType::Sample_1);
+	VulkanTexture(VulkanDevice* device, std::string filePath, TextureFlags flags, Format format, std::string name, bool generateMips = false);
+	VulkanTexture(VulkanDevice& device, RWTextureCreateInfo& createInfo);
+	VulkanTexture(VulkanDevice& device, ROTextureCreateInfo& createInfo);
 	~VulkanTexture();
 
 public:
@@ -24,6 +33,7 @@ public:
 	Format					GetFormat() const{ return m_Format; }
 	TextureFlags			GeFlags() const { return m_Flags; }
 	ImageRegion				GetRegion() const { return m_Region; }
+	std::string 			GetName() const { return m_Name; }
 
 	virtual ResourceState			GetResourceState() const { return m_CurrentResourceState; };
 	virtual void					SetResourceState(ResourceState state) { m_CurrentResourceState = state; }
@@ -39,26 +49,26 @@ public:
 
 	uint32_t				GetWidth() const { return m_Region.Extent.Width; }
 	uint32_t				GetHeight() const { return m_Region.Extent.Height; }
+	uint32_t				GetDepth() const { return m_Region.Extent.Depth; }
 
 private:
 	void CreateResource(VulkanDevice* device, TextureData* texData, bool generateMips = false);
-	void CreateResource(VulkanDevice* device, const uint32_t width, const uint32_t height, uint32_t arraySize = 1, MultisampleType mstype = MultisampleType::Sample_1);
+	void CreateResource(VulkanDevice* device, const uint32_t width, const uint32_t height, const uint32_t depth, uint32_t arraySize = 1, MultisampleType mstype = MultisampleType::Sample_1);
 	void CreateView(VulkanDevice* device);
-	void CreateSampler(VulkanDevice* device);
-	void InitializeRegion(const uint32_t width, const uint32_t height, uint32_t arraySize = 1, uint32_t mipCount = 1);
+	void CreateSampler(VulkanDevice* device, SamplerType type, AddressMode addressMode);
+	void InitializeRegion(const uint32_t width, const uint32_t height, const uint32_t depth, uint32_t arraySize = 1, uint32_t mipCount = 1);
 	void GenerateMips(VkCommandBuffer commandBuffer, VulkanDevice* device, const uint32_t width, const uint32_t height, uint32_t mipCount);
 
 private:
 	VulkanImage*			m_Resource;
 	VulkanImageView*		m_View;
 	VulkanImageSampler*		m_Sampler;
-	ImageRegion				m_Region;
 
+	ImageRegion				m_Region;
 	Format					m_Format;
 	TextureFlags			m_Flags;
 	std::string				m_FilePath;
-	std::string				m_Name;
-	TextureData*			m_TexData;
+	std::string				m_Name = "DefaultTextureName";
 
 	ResourceState			m_CurrentResourceState = ResourceState::Count;
 	ResourceState			m_ShouldBeResourceState = ResourceState::Count;

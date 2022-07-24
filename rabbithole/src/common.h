@@ -2,6 +2,8 @@
 
 #include <limits>
 
+#define RABBITHOLE_DEBUG
+
 #pragma once
 
 #define SingletonClass(className) \

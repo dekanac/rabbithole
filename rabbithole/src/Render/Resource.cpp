@@ -1,4 +1,5 @@
 #include "Resource.h"
+
 #include <memory>
 
 AllocatedResource::AllocatedResource()
@@ -13,3 +14,4 @@ void AllocatedResource::UpdateID()
 	ms_CurrentId++;
 	m_Id = ms_CurrentId;
 }
+

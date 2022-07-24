@@ -11,5 +11,7 @@
 #include "../VulkanFramebuffer.h"
 #include "../VulkanRenderPass.h"
 #include "../VulkanStateManager.h"
+#include "../VulkanGPUProfiler.h"
+#include "../VulkanCommandBuffer.h"
 
 

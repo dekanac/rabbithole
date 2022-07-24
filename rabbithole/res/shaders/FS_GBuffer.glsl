@@ -11,20 +11,20 @@ layout(location = 0) in VS_OUT {
     vec2 FragVelocity;
 } fs_in;
 
-layout (location = 0) out vec4 outColor;
-layout (location = 1) out vec4 outNormal;
-layout (location = 2) out vec4 outWorldPosition;
-layout (location = 3) out vec2 velocity;
+layout (location = 0) out vec4 outAlbedo;
+layout (location = 1) out vec4 outNormalRoughness;
+layout (location = 2) out vec4 outWorldPosMetalness;
+layout (location = 3) out vec2 outVelocity;
 //find solution to define things from cpp
 #ifdef USE_TOOLS
 layout (location = 4) out uint outEntityId;
 #endif
-layout (binding = 1) uniform sampler2D albedoSampler;
-layout (binding = 2) uniform sampler2D normalSampler;
-layout (binding = 3) uniform sampler2D metallicRoughnessSampler;
-//metalness roughness HERE
+layout (binding = 1) uniform sampler2D samplerAlbedo;
+layout (binding = 2) uniform sampler2D samplerNormal;
+layout (binding = 3) uniform sampler2D samplerMetalicRoughness;
 
-layout(push_constant) uniform Push {
+layout(push_constant) uniform Push 
+{
     mat4 model;
     uint id;
     bool useNormalMap;
@@ -32,22 +32,16 @@ layout(push_constant) uniform Push {
 
 void main() 
 {
-    outColor = vec4(texture(albedoSampler, fs_in.FragUV).rgb, 1.0);
-    float roughness = texture(metallicRoughnessSampler, fs_in.FragUV).g;
-    float metalness = texture(metallicRoughnessSampler, fs_in.FragUV).b;
+    float roughness = texture(samplerMetalicRoughness, fs_in.FragUV).g;
+    float metalness = texture(samplerMetalicRoughness, fs_in.FragUV).b;
+	vec3 N = normalize(fs_in.FragTBN * (normalize(texture(samplerNormal, fs_in.FragUV).xyz * 2.0 - vec3(1.0))));
 
-	vec3 N = normalize(fs_in.FragTBN * (normalize(texture(normalSampler, fs_in.FragUV).xyz * 2.0 - vec3(1.0))));
-	
-    outNormal = push.useNormalMap ? vec4(N, roughness) :  vec4(fs_in.FragNormal, roughness);
-
-    outWorldPosition = vec4(fs_in.FragPos, metalness);
-
-    //metalness roughness HERE
+    outAlbedo = vec4(texture(samplerAlbedo, fs_in.FragUV).rgb, 1.0);
+    outNormalRoughness = push.useNormalMap ? vec4(N, roughness) :  vec4(fs_in.FragNormal, roughness);
+    outWorldPosMetalness = vec4(fs_in.FragPos, metalness);
+    outVelocity = fs_in.FragVelocity;
 
 #ifdef USE_TOOLS
     outEntityId = push.id;
 #endif
-
-    velocity = fs_in.FragVelocity;
-
 }

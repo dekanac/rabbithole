@@ -28,7 +28,7 @@ VulkanRenderPass::VulkanRenderPass(
 
 		VkAttachmentDescription attachmentDescription{};
 		attachmentDescription.flags = 0;
-		attachmentDescription.format = renderTargetView->GetVkFormat();
+		attachmentDescription.format = GetVkFormatFrom(renderTargetView->GetFormat());
 		attachmentDescription.samples = GetVkSampleFlagsFrom(renderTargetView->GetInfo().Resource->GetInfo().MultisampleType);
 		attachmentDescription.loadOp = m_Info.ClearRenderTargets ? VK_ATTACHMENT_LOAD_OP_CLEAR : VK_ATTACHMENT_LOAD_OP_LOAD;
 		attachmentDescription.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
@@ -61,7 +61,7 @@ VulkanRenderPass::VulkanRenderPass(
 		VkImageLayout depthStencilLayout = GetVkImageLayoutFrom(depthStencilState);
 
 		VkAttachmentDescription attachmentDescription{};
-		attachmentDescription.format = depthStencilView->GetVkFormat();
+		attachmentDescription.format = GetVkFormatFrom(depthStencilView->GetFormat());
 		attachmentDescription.samples = GetVkSampleFlagsFrom(depthStencilView->GetInfo().Resource->GetInfo().MultisampleType);
 		attachmentDescription.loadOp = m_Info.ClearDepth ? VK_ATTACHMENT_LOAD_OP_CLEAR : VK_ATTACHMENT_LOAD_OP_LOAD;
 		attachmentDescription.storeOp = VK_ATTACHMENT_STORE_OP_STORE;

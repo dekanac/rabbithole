@@ -27,6 +27,7 @@ public:
     bool Shutdown();
 	GLFWwindow* GetNativeWindowHandle() const { return m_NativeWindowHandle; }
 	WindowExtent GetExtent() { return m_Extent; }
+	bool GetVSyncEnabled() { return m_WindowData.m_Vsync; }
 
 private:
 	WindowExtent m_Extent;

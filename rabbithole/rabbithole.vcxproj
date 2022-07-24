@@ -84,15 +84,15 @@
       <Optimization>Disabled</Optimization>
       <SDLCheck>true</SDLCheck>
       <ConformanceMode>false</ConformanceMode>
-      <LanguageStandard>stdcpp17</LanguageStandard>
+      <LanguageStandard>stdcpplatest</LanguageStandard>
       <AdditionalIncludeDirectories>$(ProjectDir)src;$(ProjectDir)src\vendor;$(ProjectDir)extern\sdl\include;$(ProjectDir)extern;$(ProjectDir)extern\glfw\include;$(VK_SDK_PATH)\Include;$(ProjectDir)extern\vma\;$(ProjectDir)extern\assimp\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
       <PrecompiledHeaderFile>precomp.h</PrecompiledHeaderFile>
       <LanguageStandard_C>stdc17</LanguageStandard_C>
     </ClCompile>
     <Link>
-      <AdditionalDependencies>vulkan-1.lib;SDL2.lib;glfw3.lib;VkLayer_utils.lib;assimp-vc142-mtd.lib;%(AdditionalDependencies)</AdditionalDependencies>
-      <AdditionalLibraryDirectories>$(ProjectDir)extern\assimp\lib;$(ProjectDir)extern\sdl\lib;$(ProjectDir)extern\glfw\lib-vc2017;$(VK_SDK_PATH)\Lib;$(VK_SDK_PATH)\Bin;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>vulkan-1.lib;SDL2.lib;glfw3.lib;VkLayer_utils.lib;assimp-vc142-mtd.lib;ffx_fsr2_api_vk_x64.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories>$(ProjectDir)extern\assimp\lib;$(ProjectDir)extern\sdl\lib;$(ProjectDir)extern\FSR2.0\lib;$(ProjectDir)extern\glfw\lib-vc2017;$(VK_SDK_PATH)\Lib;$(VK_SDK_PATH)\Bin;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <SubSystem>Console</SubSystem>
     </Link>
   </ItemDefinitionGroup>
@@ -119,7 +119,7 @@
       <SDLCheck>true</SDLCheck>
       <ConformanceMode>true</ConformanceMode>
       <AdditionalIncludeDirectories>$(ProjectDir)src;$(ProjectDir)src\vendor;$(ProjectDir)extern\sdl\include;$(ProjectDir)extern;$(ProjectDir)extern\glfw\include;$(VK_SDK_PATH)\Include;$(ProjectDir)extern\vma\;$(ProjectDir)extern\assimp\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <LanguageStandard>stdcpp17</LanguageStandard>
+      <LanguageStandard>stdcpplatest</LanguageStandard>
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
       <PrecompiledHeaderFile>precomp.h</PrecompiledHeaderFile>
       <PreprocessorDefinitions>NDEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
@@ -128,15 +128,17 @@
     <Link>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
-      <AdditionalDependencies>vulkan-1.lib;SDL2.lib;glfw3.lib;VkLayer_utils.lib;assimp-vc142-mtd.lib;%(AdditionalDependencies)</AdditionalDependencies>
-      <AdditionalLibraryDirectories>$(ProjectDir)extern\assimp\lib;$(ProjectDir)extern\sdl\lib;$(ProjectDir)extern\glfw\lib-vc2017;$(VK_SDK_PATH)\Lib;$(VK_SDK_PATH)\Bin;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>vulkan-1.lib;SDL2.lib;glfw3.lib;VkLayer_utils.lib;assimp-vc142-mtd.lib;ffx_fsr2_api_vk_x64.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories>$(ProjectDir)extern\assimp\lib;$(ProjectDir)extern\sdl\lib;$(ProjectDir)extern\FSR2.0\lib;$(ProjectDir)extern\glfw\lib-vc2017;$(VK_SDK_PATH)\Lib;$(VK_SDK_PATH)\Bin;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <SubSystem>Console</SubSystem>
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="src\Render\BVH.cpp" />
     <ClCompile Include="src\Render\Model\TextureLoading.cpp" />
+    <ClCompile Include="src\Render\PipelineManager.cpp" />
     <ClCompile Include="src\Render\RenderPass.cpp" />
+    <ClCompile Include="src\Render\ResourceManager.cpp" />
     <ClCompile Include="src\Render\ResourceStateTracking.cpp" />
     <ClCompile Include="src\Render\SuperResolutionManager.cpp" />
     <ClCompile Include="src\Render\Vulkan\precomp.cpp" />
@@ -153,6 +155,8 @@
     <ClCompile Include="src\Render\Resource.cpp" />
     <ClCompile Include="src\Render\Shader.cpp" />
     <ClCompile Include="src\Render\Vulkan\spirv-reflect\spirv_reflect.c" />
+    <ClCompile Include="src\Render\Vulkan\VulkanCommandBuffer.cpp" />
+    <ClCompile Include="src\Render\Vulkan\VulkanGPUProfiler.cpp" />
     <ClCompile Include="src\Utils\utils.cpp" />
     <ClCompile Include="src\Render\Model\Model.cpp" />
     <ClCompile Include="src\Render\Vulkan\VulkanBuffer.cpp" />
@@ -167,6 +171,7 @@
     <ClCompile Include="src\Render\Vulkan\VulkanTexture.cpp" />
     <ClCompile Include="src\Render\Window.cpp" />
     <ClCompile Include="src\vendor\crc32\Crc32.cpp" />
+    <ClCompile Include="src\vendor\fsr2.0\ffx_fsr2.cpp" />
     <ClCompile Include="src\vendor\glm\detail\glm.cpp" />
     <ClCompile Include="src\vendor\imgui\backends\imgui_impl_glfw.cpp" />
     <ClCompile Include="src\vendor\imgui\backends\imgui_impl_vulkan.cpp" />
@@ -180,7 +185,9 @@
   <ItemGroup>
     <ClInclude Include="src\Render\BVH.h" />
     <ClInclude Include="src\Render\Model\TextureLoading.h" />
+    <ClInclude Include="src\Render\PipelineManager.h" />
     <ClInclude Include="src\Render\RenderPass.h" />
+    <ClInclude Include="src\Render\ResourceManager.h" />
     <ClInclude Include="src\Render\ResourceStateTracking.h" />
     <ClInclude Include="src\Render\SuperResolutionManager.h" />
     <ClInclude Include="src\Render\Vulkan\precomp.h" />
@@ -198,6 +205,8 @@
     <ClInclude Include="src\Render\Resource.h" />
     <ClInclude Include="src\Render\Shader.h" />
     <ClInclude Include="src\Render\Vulkan\spirv-reflect\spirv_reflect.h" />
+    <ClInclude Include="src\Render\Vulkan\VulkanCommandBuffer.h" />
+    <ClInclude Include="src\Render\Vulkan\VulkanGPUProfiler.h" />
     <ClInclude Include="src\Utils\utils.h" />
     <ClInclude Include="src\Render\Model\Model.h" />
     <ClInclude Include="src\Render\Vulkan\VulkanBuffer.h" />
@@ -214,6 +223,7 @@
     <ClInclude Include="src\Render\Vulkan\VulkanTypes.h" />
     <ClInclude Include="src\Render\Window.h" />
     <ClInclude Include="src\vendor\crc32\Crc32.h" />
+    <ClInclude Include="src\vendor\fsr2.0\ffx_fsr2.h" />
     <ClInclude Include="src\vendor\fsr\ffx_a.h" />
     <ClInclude Include="src\vendor\fsr\ffx_fsr1.h" />
     <ClInclude Include="src\vendor\glm\common.hpp" />
@@ -503,8 +513,11 @@
     <ClInclude Include="src\vendor\stb_image\stb_image.h" />
   </ItemGroup>
   <ItemGroup>
+    <None Include="res\shaders\CS_3DNoiseLUT.glsl" />
+    <None Include="res\shaders\CS_ComputeScattering.glsl" />
     <None Include="res\shaders\CS_FSR.glsl" />
     <None Include="res\shaders\CS_RayTracingShadows.glsl" />
+    <None Include="res\shaders\CS_Volumetric.glsl" />
     <None Include="res\shaders\FS_GBuffer.glsl" />
     <None Include="res\shaders\FS_OutlineEntity.glsl" />
     <None Include="res\shaders\FS_PassThrough.glsl" />
@@ -513,6 +526,9 @@
     <None Include="res\shaders\FS_Skybox.glsl" />
     <None Include="res\shaders\FS_SSAO.glsl" />
     <None Include="res\shaders\FS_SSAOBlur.glsl" />
+    <None Include="res\shaders\FS_ApplyVolumetricFog.glsl" />
+    <None Include="res\shaders\FS_TextureDebug.glsl" />
+    <None Include="res\shaders\FS_Tonemap.glsl" />
     <None Include="res\shaders\VS_GBuffer.glsl" />
     <None Include="res\shaders\VS_PassThrough.glsl" />
     <None Include="res\shaders\VS_SimpleGeometry.glsl" />

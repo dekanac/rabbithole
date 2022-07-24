@@ -48,8 +48,11 @@ public:
 	PipelineConfigInfo& operator=(const PipelineConfigInfo&) = delete;
 
 	Shader*									vertexShader;
+	std::string vsEntryPoint = "main";
 	Shader*									pixelShader;
+	std::string psEntryPoint = "main";
 	Shader*									computeShader;
+	std::string csEntryPoint = "main";
 
 	VkViewport								viewport;
 	VkRect2D								scissor;
@@ -64,78 +67,6 @@ public:
 	VulkanRenderPass*						renderPass = nullptr;
 	uint32_t								subpass = 0;
 
-};
-
-struct DescriptorSetLayoutBinding
-{
-	uint32_t descriptorCount : 32;
-	uint16_t binding : 16;
-	uint8_t descriptorType : 4;
-	uint8_t stageFlags : 6;
-};
-
-struct GraphicsPipelineKey
-{
-	//TODO: need to add viewport here somehow
-	uint32_t m_VertexShaderCRC;
-	uint32_t m_PixelShaderCRC;
-	uint32_t m_Topology;
-	uint32_t m_PolygonMode;
-
-	uint32_t m_CullMode;
-	uint32_t m_Frontface;
-	//TODO: implement this fully
-	/*
-	VkFormat m_RenderTargetFormats[MaxRenderTargetCount];
-	VkSampleCountFlagBits m_RenderTargetSampleCount[MaxRenderTargetCount];
-	VkFormat m_DepthStencilFormat;
-	VkSampleCountFlagBits m_DepthStencilSampleCount;
-
-	uint32_t m_DepthStencilIndex;
-	uint32_t m_BlendStateIndex;
-	uint32_t m_RasterizerStateIndex;
-	uint32_t m_Padding2;
-	*/
-
-	bool operator < (const GraphicsPipelineKey& k) const;
-	bool operator == (const GraphicsPipelineKey& k) const;
-};
-
-template<>
-struct std::hash<GraphicsPipelineKey>
-{
-	inline uint32_t operator()(const GraphicsPipelineKey& x) const
-	{
-		return (uint32_t)crc32_fast((const void*)&x, sizeof(x));
-	}
-};
-
-struct AttachmentDescription
-{
-	uint8_t format : 8;
-	uint8_t samples : 4;
-	uint8_t initialLayout : 4;
-	uint8_t finalLayout : 4;
-	uint8_t loadOp : 2;
-	uint8_t storeOp : 2;
-};
-
-struct RenderPassKey
-{
-	AttachmentDescription attachmentDescriptions[MaxRenderTargetCount];
-	AttachmentDescription depthStencilAttachmentDescription;
-
-	bool operator < (const RenderPassKey& k) const;
-	bool operator == (const RenderPassKey& k) const;
-};
-
-template<>
-struct std::hash<RenderPassKey>
-{
-	inline uint32_t operator()(const RenderPassKey& x) const
-	{
-		return (uint32_t)crc32_fast((const void*)&x, sizeof(x));
-	}
 };
 
 class VulkanPipeline 
@@ -166,42 +97,4 @@ private:
 	VulkanDescriptorSetLayout*				m_DescriptorSetLayout;
 	VulkanRenderPass*						m_RenderPass;
 	PipelineType							m_Type;
-};
-
-typedef std::vector<uint32_t> FramebufferKey;
-typedef std::vector<uint32_t> DescriptorSetKey;
-typedef std::vector<uint32_t> DescriptorKey;
-typedef uint32_t			  ComputePipelineKey;
-
-struct VectorHasher {
-
-	std::size_t operator()(std::vector<uint32_t> const& vec) const 
-	{
-		std::size_t seed = vec.size();
-
-		for (auto& i : vec) 
-		{
-			seed ^= i + 0x9e3779b9 + (seed << 6) + (seed >> 2);
-		}
-		return seed;
-	}
-};
-
-class PipelineManager
-{
-	SingletonClass(PipelineManager)
-
-public:
-	std::unordered_map<GraphicsPipelineKey, VulkanPipeline*>					m_GraphicPipelines;
-	std::unordered_map<ComputePipelineKey, VulkanPipeline*>						m_ComputePipelines;
-	std::unordered_map<RenderPassKey, VulkanRenderPass*>						m_RenderPasses;
-	std::unordered_map<FramebufferKey, VulkanFramebuffer*, VectorHasher>		m_Framebuffers;
-	std::unordered_map<DescriptorSetKey, VulkanDescriptorSet*, VectorHasher>	m_DescriptorSets;
-	std::unordered_map<DescriptorKey, VulkanDescriptor*, VectorHasher>			m_Descriptors;
-
-	VulkanPipeline*			FindOrCreateGraphicsPipeline(VulkanDevice& device, PipelineConfigInfo& pipelineInfo);
-	VulkanPipeline*			FindOrCreateComputePipeline(VulkanDevice& device, PipelineConfigInfo& pipelineInfo);
-	VulkanRenderPass*		FindOrCreateRenderPass(VulkanDevice& device, const std::vector<VulkanImageView*>& renderTargets, const VulkanImageView* depthStencil, RenderPassConfigInfo& renderPassInfo);
-	VulkanFramebuffer*		FindOrCreateFramebuffer(VulkanDevice& device, const std::vector<VulkanImageView*>& renderTargets, const VulkanImageView* depthStencil, const VulkanRenderPass* renderpass, uint32_t width, uint32_t height);
-	VulkanDescriptorSet*	FindOrCreateDescriptorSet(VulkanDevice& device, const VulkanDescriptorPool* desciptorPool, const VulkanDescriptorSetLayout* descriptorSetLayout, const std::vector<VulkanDescriptor*>& descriptors);
 };

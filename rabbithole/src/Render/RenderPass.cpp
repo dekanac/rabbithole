@@ -1,3 +1,4 @@
+#include "Camera.h"
 #include "RenderPass.h"
 #include "Renderer.h"
 #include "ResourceStateTracking.h"
@@ -217,6 +218,12 @@ void GBufferPass::Setup(Renderer* renderer)
 
 	stateManager->SetCullMode(CullMode::Front);
 
+	if (renderer->m_RenderTAA)
+	{
+		static uint32_t Seed;
+		renderer->GetCamera()->SetProjectionJitter(GetNativeWidth, GetNativeHeight, Seed);
+	}
+
 	renderer->BindCameraMatrices(renderer->GetCamera());
 }
 
@@ -247,20 +254,23 @@ void LightingPass::Setup(Renderer* renderer)
 
 		auto& lightParams = renderer->lightParams;
 
-		ImGui::ColorEdit3("Light1", lightParams[0].color);
-		ImGui::SliderFloat("Light1 radius: ", &(lightParams[0]).radius, 0.f, 50.f);
-		ImGui::SliderFloat3("Light1 position: ", lightParams[0].position, -20.f, 20.f);
+		ImGui::ColorEdit3("SunColor: ", lightParams[0].color);
+        ImGui::SliderFloat("Sun intensity: ", &(lightParams[0]).intensity, 0.f, 2.f);
+        ImGui::SliderFloat3("Sun position: ", lightParams[0].position, -200.f, 200.f);
 
 		ImGui::ColorEdit3("Light2", lightParams[1].color);
 		ImGui::SliderFloat("Light2 radius: ", &(lightParams[1]).radius, 0.f, 50.f);
+        ImGui::SliderFloat("Light2 intensity: ", &(lightParams[1]).intensity, 0.f, 2.f);
 		ImGui::SliderFloat3("Light2 position: ", lightParams[1].position, -20.f, 20.f);
 
 		ImGui::ColorEdit3("Light3", lightParams[2].color);
 		ImGui::SliderFloat("Light3 radius: ", &(lightParams[2]).radius, 0.f, 50.f);
+        ImGui::SliderFloat("Light3 intensity: ", &(lightParams[2]).intensity, 0.f, 2.f);
 		ImGui::SliderFloat3("Light3 position: ", lightParams[2].position, -20.f, 20.f);
 
 		ImGui::ColorEdit3("Light4", lightParams[3].color);
-		ImGui::SliderFloat("Light4 radius: ", &(lightParams[3]).radius, 0.f, 50.f);
+        ImGui::SliderFloat("Light4 radius: ", &(lightParams[3]).radius, 0.f, 50.f);
+        ImGui::SliderFloat("Light4 intensity: ", &(lightParams[3]).intensity, 0.f, 2.f);
 		ImGui::SliderFloat3("Light4 position: ", lightParams[3].position, -20.f, 20.f);
 
 		ImGui::End();
@@ -275,6 +285,7 @@ void LightingPass::Setup(Renderer* renderer)
 	SetCombinedImageSampler(renderer, 5, renderer->SSAOBluredTexture);
 	SetCombinedImageSampler(renderer, 6, renderer->shadowMap);
 	SetCombinedImageSampler(renderer, 7, renderer->velocityGBuffer);
+	SetCombinedImageSampler(renderer, 8, renderer->depthStencil);
 
 	SetRenderTarget(renderer, 0, renderer->lightingMain);
 }
@@ -298,7 +309,7 @@ void CopyToSwapchainPass::Setup(Renderer* renderer)
 
 	renderer->BindViewport(0, 0, GetUpscaledWidth, GetUpscaledHeight);
 
-	SetCombinedImageSampler(renderer, 0, renderer->fsrOutputTexture);
+	SetCombinedImageSampler(renderer, 0, renderer->postUpscalePostEffects);
 
 	stateManager->SetRenderTarget0(renderer->GetSwapchainImage());
 
@@ -493,127 +504,254 @@ void RTShadowsPass::Render(Renderer* renderer)
 
 	renderer->BindDescriptorSets();
 
-	static const int threadGroupWorkRegionDim = 16;
-	int dispatchX = (GetNativeWidth + (threadGroupWorkRegionDim - 1)) / threadGroupWorkRegionDim;
-	int dispatchY = (GetNativeHeight + (threadGroupWorkRegionDim - 1)) / threadGroupWorkRegionDim;
-	renderer->Dispatch(dispatchX, dispatchY, 1);
-
-}
-
-void FSREASUPass::DeclareResources(Renderer* renderer)
-{}
-
-void FSREASUPass::Setup(Renderer* renderer)
-{
-	VulkanStateManager* stateManager = renderer->GetStateManager();
-
-	stateManager->SetComputeShader(renderer->GetShader("CS_FSR_EASU"));
-
-	SetConstantBuffer(renderer, 0, renderer->fsrParamsBuffer);
-	SetSampledImage(renderer, 1, renderer->lightingMain);
-	SetStorageImage(renderer, 2, renderer->fsrIntermediateRes);
-	SetSampler(renderer, 3, renderer->lightingMain);
-}
-
-void FSREASUPass::Render(Renderer* renderer)
-{
-	renderer->BindComputePipeline();
-	renderer->BindDescriptorSets();
-
-	static const int threadGroupWorkRegionDim = 16;
-	int dispatchX = (GetUpscaledWidth + (threadGroupWorkRegionDim - 1)) / threadGroupWorkRegionDim;
-	int dispatchY = (GetUpscaledHeight + (threadGroupWorkRegionDim - 1)) / threadGroupWorkRegionDim;
-
-	renderer->Dispatch(dispatchX, dispatchY, 1);
-}
-
-void FSRRCASPass::DeclareResources(Renderer* renderer)
-{}
-
-void FSRRCASPass::Setup(Renderer* renderer)
-{
-	VulkanStateManager* stateManager = renderer->GetStateManager();
-
-	stateManager->SetComputeShader(renderer->GetShader("CS_FSR_RCAS"));
-
-	SetConstantBuffer(renderer, 0, renderer->fsrParamsBuffer);
-	SetSampledImage(renderer, 1, renderer->fsrIntermediateRes);
-	SetStorageImage(renderer, 2, renderer->fsrOutputTexture);
-	SetSampler(renderer, 3, renderer->fsrIntermediateRes);
-}
-
-void FSRRCASPass::Render(Renderer* renderer)
-{
-	renderer->BindComputePipeline();
-	renderer->BindDescriptorSets();
-
-	static const int threadGroupWorkRegionDim = 16;
-	int dispatchX = (GetUpscaledWidth + (threadGroupWorkRegionDim - 1)) / threadGroupWorkRegionDim;
-	int dispatchY = (GetUpscaledHeight + (threadGroupWorkRegionDim - 1)) / threadGroupWorkRegionDim;
-
-	renderer->Dispatch(dispatchX, dispatchY, 1);
-}
-
-void TAAPass::DeclareResources(Renderer* renderer)
-{
-
-}
-
-void TAAPass::Setup(Renderer* renderer)
-{
-	VulkanStateManager* stateManager = renderer->GetStateManager();
-
-	stateManager->SetComputeShader(renderer->GetShader("CS_TAA"));
-
-	SetSampledImage(renderer, 0, renderer->lightingMain);
-	SetSampledImage(renderer, 1, renderer->depthStencil);
-	SetSampledImage(renderer, 2, renderer->historyBuffer[renderer->GetCurrentImageIndex()]);
-	SetSampledImage(renderer, 3, renderer->velocityGBuffer);
-
-	SetStorageImage(renderer, 4, renderer->TAAOutput);
-
-    SetSampler(renderer, 5, renderer->lightingMain);
-    SetSampler(renderer, 6, renderer->depthStencil);
-    SetSampler(renderer, 7, renderer->historyBuffer[renderer->GetCurrentImageIndex()]);
-    SetSampler(renderer, 8, renderer->velocityGBuffer);
-}
-
-void TAAPass::Render(Renderer* renderer)
-{
-	renderer->BindComputePipeline();
-	renderer->BindDescriptorSets();
-
-	static const int threadGroupWorkRegionDim = 16;
-	int dispatchX = (GetNativeWidth + (threadGroupWorkRegionDim - 1)) / threadGroupWorkRegionDim;
-	int dispatchY = (GetNativeHeight + (threadGroupWorkRegionDim - 1)) / threadGroupWorkRegionDim;
-
-	renderer->Dispatch(dispatchX, dispatchY, 1);
-
-}
-
-void TAASharpenerPass::DeclareResources(Renderer* renderer) 
-{}
-
-void TAASharpenerPass::Setup(Renderer* renderer) 
-{
-	VulkanStateManager* stateManager = renderer->GetStateManager();
-
-	stateManager->SetComputeShader(renderer->GetShader("CS_TAASharpener"));
-
-	SetSampledImage(renderer, 0, renderer->TAAOutput);
-
-	SetStorageImage(renderer, 1, renderer->lightingMain);
-	SetStorageImage(renderer, 2, renderer->historyBuffer[(MAX_FRAMES_IN_FLIGHT-1) - renderer->GetCurrentImageIndex()]);
-}
-
-void TAASharpenerPass::Render(Renderer* renderer) 
-{
-	renderer->BindComputePipeline();
-	renderer->BindDescriptorSets();
-
 	static const int threadGroupWorkRegionDim = 8;
 	int dispatchX = (GetNativeWidth + (threadGroupWorkRegionDim - 1)) / threadGroupWorkRegionDim;
 	int dispatchY = (GetNativeHeight + (threadGroupWorkRegionDim - 1)) / threadGroupWorkRegionDim;
 
 	renderer->Dispatch(dispatchX, dispatchY, 1);
+}
+
+void FSR2Pass::DeclareResources(Renderer* renderer)
+{
+
+}
+
+void FSR2Pass::Setup(Renderer* renderer)
+{
+	renderer->ResourceBarrier(renderer->fsrOutputTexture, ResourceState::GenericRead, ResourceState::GeneralCompute, ResourceStage::Graphics, ResourceStage::Compute);
+	renderer->ResourceBarrier(renderer->volumetricOutput, ResourceState::RenderTarget, ResourceState::GenericRead, ResourceStage::Graphics, ResourceStage::Compute);
+}
+
+void FSR2Pass::Render(Renderer* renderer)
+{
+	SuperResolutionManager::FfxUpscaleSetup fsrSetup{};
+
+	const auto& MainCamera = renderer->GetCamera();
+
+	fsrSetup.cameraSetup.cameraPos = rabbitVec4f{ MainCamera->GetPosition(), 1.0f };
+	fsrSetup.cameraSetup.cameraProj = MainCamera->ProjectionJittered();
+	fsrSetup.cameraSetup.cameraView = MainCamera->View();
+	fsrSetup.cameraSetup.cameraViewInv = glm::inverse(MainCamera->View());
+
+	fsrSetup.depthbufferResource = renderer->depthStencil;
+	fsrSetup.motionvectorResource = renderer->velocityGBuffer;
+	fsrSetup.unresolvedColorResource = renderer->volumetricOutput;
+	fsrSetup.resolvedColorResource = renderer->fsrOutputTexture;
+
+	SuperResolutionManager::instance().Draw(renderer->GetCurrentCommandBuffer(), fsrSetup, renderer->GetUIState());
+
+	renderer->ResourceBarrier(renderer->fsrOutputTexture, ResourceState::GeneralCompute, ResourceState::GenericRead, ResourceStage::Compute, ResourceStage::Graphics);
+}
+
+void VolumetricPass::DeclareResources(Renderer* renderer)
+{}
+
+void VolumetricPass::Setup(Renderer* renderer)
+{
+	VulkanStateManager* stateManager = renderer->GetStateManager();
+
+	stateManager->SetComputeShader(renderer->GetShader("CS_Volumetric"));
+
+	SetStorageImage(renderer, 0, renderer->mediaDensity3DLUT);
+	SetCombinedImageSampler(renderer, 1, renderer->noise3DLUT);
+	SetConstantBuffer(renderer, 2, renderer->GetLightParams());
+	SetConstantBuffer(renderer, 3, renderer->GetMainConstBuffer());
+	SetConstantBuffer(renderer, 4, renderer->volumetricFogParamsBuffer);
+
+	SetStorageBuffer(renderer, 5, renderer->vertexBuffer);
+	SetStorageBuffer(renderer, 6, renderer->trianglesBuffer);
+	SetStorageBuffer(renderer, 7, renderer->triangleIndxsBuffer);
+	SetStorageBuffer(renderer, 8, renderer->cfbvhNodesBuffer);
+
+	if (renderer->imguiReady)
+	{
+		ImGui::Begin("Volumetric Fog:");
+
+		auto& fogParams = renderer->volumetricFogParams;
+		
+		static bool fogEnabled;
+		ImGui::Checkbox("Enable Fog: ", &fogEnabled);
+		fogParams.isEnabled = (uint32_t)fogEnabled;
+
+		ImGui::SliderFloat("Fog Amount: ", &(fogParams.fogAmount), 0.0001f, 0.1f);
+
+		ImGui::End();
+	}
+
+	renderer->volumetricFogParamsBuffer->FillBuffer(&renderer->volumetricFogParams);
+}
+
+void VolumetricPass::Render(Renderer* renderer)
+{
+	renderer->BindComputePipeline();
+	renderer->BindDescriptorSets();
+
+	int texWidth = renderer->mediaDensity3DLUT->GetWidth();
+	int texHeight = renderer->mediaDensity3DLUT->GetHeight();
+	int texDepth = renderer->mediaDensity3DLUT->GetDepth();
+
+	int dispatchX = (texWidth + (8 - 1)) / 8;
+	int dispatchY = (texHeight + (4 - 1)) / 4;
+	int dispatchZ = (texDepth + (8 - 1)) / 8;
+	renderer->Dispatch(dispatchX, dispatchY, dispatchZ);
+}
+
+void Create3DNoiseTexturePass::DeclareResources(Renderer* renderer)
+{
+}
+
+void Create3DNoiseTexturePass::Setup(Renderer* renderer)
+{
+	VulkanStateManager* stateManager = renderer->GetStateManager();
+
+	stateManager->SetComputeShader(renderer->GetShader("CS_3DNoiseLUT"));
+
+	SetCombinedImageSampler(renderer, 0, renderer->noise2DTexture);
+	SetStorageImage(renderer, 1, renderer->noise3DLUT);
+}
+
+void Create3DNoiseTexturePass::Render(Renderer* renderer)
+{
+	renderer->BindComputePipeline();
+	renderer->BindDescriptorSets();
+
+	renderer->Dispatch(256, 256, 256);
+}
+
+
+void ComputeScatteringPass::DeclareResources(Renderer* renderer)
+{
+}
+
+
+void ComputeScatteringPass::Setup(Renderer* renderer)
+{
+	VulkanStateManager* stateManager = renderer->GetStateManager();
+
+	stateManager->SetComputeShader(renderer->GetShader("CS_ComputeScattering"));
+
+	SetStorageImage(renderer, 0, renderer->mediaDensity3DLUT);
+	SetStorageImage(renderer, 1, renderer->scatteringTexture);
+}
+
+
+void ComputeScatteringPass::Render(Renderer* renderer)
+{
+	renderer->BindComputePipeline();
+	renderer->BindDescriptorSets();
+
+	int texWidth = renderer->scatteringTexture->GetWidth();
+	int texHeight = renderer->scatteringTexture->GetHeight();
+
+	static const int threadGroupWorkRegionDim = 8;
+	int dispatchX = (texWidth + (threadGroupWorkRegionDim - 1)) / threadGroupWorkRegionDim;
+	int dispatchY = (texHeight + (threadGroupWorkRegionDim - 1)) / threadGroupWorkRegionDim;
+
+	renderer->Dispatch(dispatchX, dispatchY, 1);
+}
+
+void ApplyVolumetricFogPass::DeclareResources(Renderer* renderer)
+{
+
+}
+
+void ApplyVolumetricFogPass::Setup(Renderer* renderer)
+{
+	VulkanStateManager* stateManager = renderer->GetStateManager();
+
+	stateManager->SetVertexShader(renderer->GetShader("VS_PassThrough"));
+	stateManager->SetPixelShader(renderer->GetShader("FS_ApplyVolumetricFog"));
+
+	SetCombinedImageSampler(renderer, 0, renderer->lightingMain);
+	SetCombinedImageSampler(renderer, 1, renderer->depthStencil);
+	SetCombinedImageSampler(renderer, 2, renderer->scatteringTexture);
+	SetConstantBuffer(renderer, 3, renderer->GetMainConstBuffer());
+	SetConstantBuffer(renderer, 4, renderer->volumetricFogParamsBuffer);
+
+	SetRenderTarget(renderer, 0, renderer->volumetricOutput);
+}
+
+void ApplyVolumetricFogPass::Render(Renderer* renderer)
+{
+	renderer->DrawFullScreenQuad();
+}
+
+void TonemappingPass::DeclareResources(Renderer* renderer)
+{
+
+}
+
+void TonemappingPass::Setup(Renderer* renderer)
+{
+	VulkanStateManager* stateManager = renderer->GetStateManager();
+
+	stateManager->SetVertexShader(renderer->GetShader("VS_PassThrough"));
+	stateManager->SetPixelShader(renderer->GetShader("FS_Tonemap"));
+
+	renderer->BindViewport(0, 0, GetUpscaledWidth, GetUpscaledHeight);
+
+	SetCombinedImageSampler(renderer, 0, renderer->fsrOutputTexture);
+
+	SetRenderTarget(renderer, 0, renderer->postUpscalePostEffects);
+}
+
+void TonemappingPass::Render(Renderer* renderer)
+{
+	renderer->DrawFullScreenQuad(true);
+}
+
+void TextureDebugPass::DeclareResources(Renderer* renderer)
+{
+
+}
+
+void TextureDebugPass::Setup(Renderer* renderer)
+{
+    VulkanStateManager* stateManager = renderer->GetStateManager();
+
+    stateManager->SetVertexShader(renderer->GetShader("VS_PassThrough"));
+    stateManager->SetPixelShader(renderer->GetShader("FS_TextureDebug"));
+
+	//see what texture is selected
+
+    SetConstantBuffer(renderer, 0, renderer->debugTextureParamsBuffer);
+
+	auto textureToBind = renderer->g_DefaultWhiteTexture;
+	auto texture3DToBind = renderer->g_Default3DTexture;
+	auto textureArrayToBind = renderer->g_DefaultArrayTexture;
+
+	VulkanTexture* selectedTexture = renderer->GetTextureWithID(renderer->currentTextureSelectedID);
+
+	if (selectedTexture)
+	{
+		auto& debugParams = renderer->debugTextureParams;
+		if (debugParams.isArray)
+		{
+			textureArrayToBind = selectedTexture;
+		}
+		else if (debugParams.is3D)
+		{
+			texture3DToBind = selectedTexture;
+		}
+		else
+		{
+			textureToBind = selectedTexture;
+		}
+	}
+
+	SetCombinedImageSampler(renderer, 1, textureToBind);
+	SetCombinedImageSampler(renderer, 2, textureArrayToBind);
+	SetCombinedImageSampler(renderer, 3, texture3DToBind);
+
+    renderer->debugTextureParamsBuffer->FillBuffer(&renderer->debugTextureParams);
+
+    SetRenderTarget(renderer, 0, renderer->debugTexture);
+
+}
+
+void TextureDebugPass::Render(Renderer* renderer)
+{
+	renderer->DrawFullScreenQuad();
+	
+	renderer->ResourceBarrier(renderer->debugTexture, ResourceState::RenderTarget, ResourceState::GenericRead, ResourceStage::Graphics, ResourceStage::Graphics);
 }

@@ -141,6 +141,21 @@
     <ClCompile Include="src\Render\Shader.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="src\vendor\fsr2.0\ffx_fsr2.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Render\Vulkan\VulkanGPUProfiler.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Render\PipelineManager.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Render\ResourceManager.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Render\Vulkan\VulkanCommandBuffer.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\Core\Application.h">
@@ -1112,6 +1127,21 @@
     <ClInclude Include="src\Render\Shader.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="src\vendor\fsr2.0\ffx_fsr2.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Render\Vulkan\VulkanGPUProfiler.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Render\PipelineManager.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Render\ResourceManager.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Render\Vulkan\VulkanCommandBuffer.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="src\vendor\glm\detail\func_common.inl">
@@ -1536,5 +1566,11 @@
     <None Include="res\shaders\VS_PassThrough.glsl" />
     <None Include="res\shaders\VS_SimpleGeometry.glsl" />
     <None Include="res\shaders\VS_Skybox.glsl" />
+    <None Include="res\shaders\CS_Volumetric.glsl" />
+    <None Include="res\shaders\CS_3DNoiseLUT.glsl" />
+    <None Include="res\shaders\CS_ComputeScattering.glsl" />
+    <None Include="res\shaders\FS_ApplyVolumetricFog.glsl" />
+    <None Include="res\shaders\FS_Tonemap.glsl" />
+    <None Include="res\shaders\FS_TextureDebug.glsl" />
   </ItemGroup>
 </Project>

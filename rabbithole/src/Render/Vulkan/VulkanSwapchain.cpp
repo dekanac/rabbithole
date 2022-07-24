@@ -10,6 +10,7 @@
 #include <stdexcept>
 
 #include "Render/SuperResolutionManager.h"
+#include "Render/Window.h"
 
 VulkanSwapchain::VulkanSwapchain(VulkanDevice& deviceRef, VkExtent2D extent)
 	: m_VulkanDevice{ deviceRef }, m_WindowExtent{ extent } 
@@ -222,8 +223,6 @@ void VulkanSwapchain::CreateRenderPass()
 	renderTargetViews.push_back(m_SwapChainVulkanImageViews[0]);
 
 	m_RenderPass = new VulkanRenderPass(&m_VulkanDevice, renderTargetViews, nullptr, renderPassInfo, "swapchain");
-	m_VulkanDevice.AddRenderPassToCollection(m_RenderPass, "swapchain");
-	
 }
 
 void VulkanSwapchain::CreateFramebuffers() 
@@ -282,6 +281,11 @@ VkSurfaceFormatKHR VulkanSwapchain::ChooseSwapSurfaceFormat(
 
 VkPresentModeKHR VulkanSwapchain::ChooseSwapPresentMode(const std::vector<VkPresentModeKHR>& availablePresentModes) 
 {
+	if (Window::instance().GetVSyncEnabled())
+	{
+		return VK_PRESENT_MODE_FIFO_KHR;
+	}
+
 	for (const auto& availablePresentMode : availablePresentModes)
 	{
 		if (availablePresentMode == VK_PRESENT_MODE_MAILBOX_KHR)

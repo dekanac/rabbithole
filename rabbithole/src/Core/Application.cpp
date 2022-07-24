@@ -34,8 +34,13 @@ bool Application::Init()
         LOG_CRITICAL("GLFW Error!n");
     }
 
-	
-    if (!Window::instance().Init()) 
+    WindowData wd{ 
+        .m_Title = "Rabbithole3D",
+        .m_Width = 1600, 
+        .m_Height = 900, 
+        .m_Vsync = false };
+
+    if (!Window::instance().Init(wd))
     {
         LOG_CRITICAL("Window failed to initialize!");
     }
@@ -96,13 +101,13 @@ void Application::Run()
 		auto frameTime = glfwGetTimerValue();
 		float deltaTime = (frameTime - previousFrameTime)  / static_cast<float>(glfwGetTimerFrequency());
 		
-//#ifdef _DEBUG
+#ifdef RABBITHOLE_DEBUG
 		if (frameTime - previousOutputTime > 10000000) 
         {
 			std::cout << "FPS:" << 1.f / deltaTime << std::endl;
 			previousOutputTime = frameTime;
 		}
-//#endif
+#endif // RABBITHOLE_DEBUG
 		//UPDATE GAME LOOP
 		InputManager::instance().Update(deltaTime);
 		RenderSystem::instance().Update(deltaTime);
