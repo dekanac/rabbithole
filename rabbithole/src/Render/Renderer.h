@@ -132,7 +132,10 @@ struct DebugTextureParams
 struct VolumetricFogParams
 {
 	uint32_t isEnabled = true;
-	float fogAmount = 0.001f;
+	float fogAmount = 0.006f;
+	float depthScale_debug = 2.f;
+	float fogStartDistance = 0.1f;
+	float fogDistance = 64.f;
 };
 
 struct IndexedIndirectBuffer

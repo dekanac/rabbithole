@@ -149,7 +149,7 @@ bool FindTriangleIntersection(Ray ray)
 }
 
 const float fogStartDistance = 0.07f;
-const float fogDistance = 128.f;
+const float fogDistance = 64.f;
 const vec3 fogColorAmbient = vec3(0.5,0.5,0.5);
 float noiseFreq = 1.0f;
 vec3 simulateWind = vec3(1.f); //wind direction and speed in CPP
@@ -160,24 +160,25 @@ void main()
     vec3 screenSpacePos = gl_GlobalInvocationID.xyz * vec3(2.0f/TEX_W, 2.0f/TEX_H, 1.0f/TEX_D) + vec3(-1,-1,0);
 
     float origScreenSpacePosZ = screenSpacePos.z;
-    screenSpacePos.z = pow(screenSpacePos.z,1.2f);
+    screenSpacePos.z = pow(screenSpacePos.z,1.7f);
     float densityWeight = pow(origScreenSpacePosZ + 1/128.0f, 0.2f);
 
     uvec3 texturePos = gl_GlobalInvocationID.xyz;
 
     vec3 eyeRay = (UBO.eyeXAxis.xyz * screenSpacePos.xxx + UBO.eyeYAxis.xyz * screenSpacePos.yyy + UBO.eyeZAxis.xyz);
 
-    vec3 viewRay = eyeRay * -(screenSpacePos.z * fogDistance + fogStartDistance);
+    vec3 viewRay = eyeRay * -(screenSpacePos.z * fogParams.fogDistance + fogParams.fogStartDistance);
     vec3 worldPos = UBO.cameraPosition + viewRay;
 
     float densityVal = 1.0f; //check shadow and put shadow factor in here
+    
     vec3 sunPosition = Lights.light[0].position.xyz;
     vec3 sunLightDirection = normalize(worldPos - sunPosition);
     vec3 sunColor = Lights.light[0].color;
     
     //TODO: deal with shadows here and update densityVal
     float shadowedSunlight = 1.0f;
-    float noiseDensity = texture(samplerNoise3DLUT, screenSpacePos).r;
+    float noiseDensity = texture(samplerNoise3DLUT, screenSpacePos).r * 0.2f;
 
     Ray ray;
     ray.origin = worldPos;
@@ -202,13 +203,16 @@ void main()
 
     vec3 lightIntensity = mix(fogColorAmbient, mix(sunColor, fogColorAmbient, colorLerpFactor), shadowedSunlight);
 
-    for (int j = 1; j < 4; ++j)
+    for (int j = 0; j < 4; ++j)
     {
-        vec3 incidentVector = Lights.light[j].position.xyz - worldPos;
-        float distance = length(incidentVector);
-        float attenutation = Lights.light[j].radius / (pow(distance, 2.0) + 1.0);
-        vec3 lightColor = Lights.light[j].color;
-        lightIntensity += lightColor * attenutation* attenutation;
+        if (Lights.light[j].type == LightType_Point)
+        {
+            vec3 incidentVector = Lights.light[j].position.xyz - worldPos;
+            float distance = length(incidentVector);
+            float attenutation = Lights.light[j].radius / (pow(distance, 2.0) + 1.0);
+            vec3 lightColor = Lights.light[j].color;
+            lightIntensity += lightColor * attenutation* attenutation;
+        }
     }
 
     vec4 res = vec4(lightIntensity, 1.f) * densityFinal;

@@ -574,6 +574,9 @@ void VolumetricPass::Setup(Renderer* renderer)
 		fogParams.isEnabled = (uint32_t)fogEnabled;
 
 		ImGui::SliderFloat("Fog Amount: ", &(fogParams.fogAmount), 0.0001f, 0.1f);
+		ImGui::SliderFloat("Depth Scale Debug: ", &(fogParams.depthScale_debug), 0.1f, 5.f);
+		ImGui::SliderFloat("Fog Start Distance ", &(fogParams.fogStartDistance), 0.01f, 20.f);
+		ImGui::SliderFloat("Fog Distance ", &(fogParams.fogDistance), 10.f, 256.f);
 
 		ImGui::End();
 	}
@@ -593,6 +596,7 @@ void VolumetricPass::Render(Renderer* renderer)
 	int dispatchX = (texWidth + (8 - 1)) / 8;
 	int dispatchY = (texHeight + (4 - 1)) / 4;
 	int dispatchZ = (texDepth + (8 - 1)) / 8;
+
 	renderer->Dispatch(dispatchX, dispatchY, dispatchZ);
 }
 

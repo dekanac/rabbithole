@@ -769,6 +769,7 @@ void Renderer::CopyToSwapChain()
 }
 
 rabbitMat4f prevViewProjMatrix;
+bool hasViewProjMatrixChanged = false;
 void Renderer::BindCameraMatrices(Camera* camera)
 {	
 	m_StateManager->UpdateUBOElement(UBOElement::PrevViewProjMatrix, 4, &prevViewProjMatrix);
@@ -798,7 +799,6 @@ void Renderer::BindCameraMatrices(Camera* camera)
 	rabbitMat4f viewProjInverse = viewInverse * projInverse;
 	m_StateManager->UpdateUBOElement(UBOElement::ViewProjInverse, 4, &viewProjInverse);
 
-
 	float width = projMatrix[0][0];
 	float height = projMatrix[1][1];
 
@@ -809,6 +809,11 @@ void Renderer::BindCameraMatrices(Camera* camera)
 	m_StateManager->UpdateUBOElement(UBOElement::EyeXAxis, 1, &eyeXAxis);
 	m_StateManager->UpdateUBOElement(UBOElement::EyeYAxis, 1, &eyeYAxis);
 	m_StateManager->UpdateUBOElement(UBOElement::EyeZAxis, 1, &eyeZAxis);
+
+	if (prevViewProjMatrix == viewProjMatrix)
+		hasViewProjMatrixChanged = false;
+	else
+		hasViewProjMatrixChanged = true;
 
 	prevViewProjMatrix = viewProjMatrix;
 }
@@ -1533,7 +1538,7 @@ void Renderer::UpdateUIStateAndFSR2PreDraw()
 	m_CurrentUIState->renderHeight = GetNativeHeight;
 	m_CurrentUIState->renderWidth = GetNativeWidth;
 	m_CurrentUIState->sharpness = 1.f;
-	m_CurrentUIState->reset = false;
+	m_CurrentUIState->reset = hasViewProjMatrixChanged;
 	m_CurrentUIState->useRcas = true;
 	m_CurrentUIState->useTaa = true;
 
@@ -1544,6 +1549,7 @@ void Renderer::ImguiProfilerWindow(std::vector<TimeStamp>& timeStamps)
 {
 	ImGui::Begin("GPU Profiler");
 
+	ImGui::TextWrapped("GPU Adapter: %s", m_VulkanDevice.GetPhysicalDeviceProperties().deviceName);
 	ImGui::Text("Display Resolution : %ix%i", GetUpscaledWidth, GetUpscaledHeight);
 	ImGui::Text("Render Resolution : %ix%i", GetNativeWidth, GetNativeHeight);
 
@@ -1659,9 +1665,20 @@ void Renderer::ImGuiTextureDebugger()
 		debugTextureParams.showB = b;
 		debugTextureParams.showA = a;
 
-	}
+		auto textureDebugerSize = ImGui::GetWindowSize();
+		const float minTextureHeight = 230.f;
+		const float textureInfoOffset = 100.f;
 
-	ImGui::Image((void*)debugTextureImGuiDS, ImVec2(400, 225));
+		float textureWidth = static_cast<float>(currentSelectedTexture->GetWidth());
+		float textureHeight = static_cast<float>(currentSelectedTexture->GetHeight());
+
+		float textureFinalHeight = textureDebugerSize.y - textureInfoOffset;
+		float aspectRatio = textureWidth / textureHeight;
+
+		float textureFinalWidth = textureFinalHeight * aspectRatio;
+
+		ImGui::Image((void*)debugTextureImGuiDS, ImVec2(textureFinalWidth, textureFinalHeight));
+	}
 
 	ImGui::End();
 }

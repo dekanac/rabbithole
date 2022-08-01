@@ -45,11 +45,11 @@ void main()
 	}
 
 	float depth = texture(samplerDepth, inUV).r;
-	float linearDepth = linearize_depth(depth) * 2.f;
+	float linearDepth = linearize_depth(depth) * fogParams.depthScale_debug;
 
-	float depthFinal = clamp(((linearDepth - 0.07f) / 128.f), 0.f, 1.f);
+	float depthFinal = clamp(((linearDepth - fogParams.fogStartDistance) / fogParams.fogDistance), 0.f, 1.f);
 
-	depthFinal = pow(depthFinal, 1/1.2f);
+	depthFinal = pow(depthFinal, 1/1.7f);
 
 	vec3 linearSceneLighting = pow(lightingMain.rgb, vec3(2.2f));
 	vec3 fogCoords = clamp(vec3(inUV, depthFinal), 0.0f, 1.0f);
