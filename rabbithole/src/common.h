@@ -50,6 +50,8 @@ typedef glm::mat4 rabbitMat4f;
 
 #define MAX_FRAMES_IN_FLIGHT (2)
 
+#define GetCSDispatchCount(A, B) (((A) + ((B) - 1)) / (B))
+
 const float Epsilon = 1e-8;
 const float Infinity = std::numeric_limits<float>::max();
 

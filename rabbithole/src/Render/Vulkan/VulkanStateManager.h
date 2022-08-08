@@ -21,7 +21,8 @@ enum class UBOElement : uint32_t
 	EyeXAxis = 31,
 	EyeYAxis = 32,
 	EyeZAxis = 33,
-	ProjectionMatrixJittered = 34
+	ProjectionMatrixJittered = 34,
+	CurrentFrameInfo = 38
 };
 
 class VulkanStateManager

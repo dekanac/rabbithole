@@ -69,7 +69,7 @@ struct UniformBufferObject
 	rabbitVec4f eyeYAxis;
 	rabbitVec4f eyeZAxis;
 	rabbitMat4f projJittered;
-
+	rabbitVec4f currentFrameInfo;
 };
 
 struct SSAOSamples
@@ -151,6 +151,30 @@ struct IndexedIndirectBuffer
 	void Reset();
 };
 
+struct DenoiseBufferDimensions
+{
+	uint32_t dimensions[2];
+};
+
+struct DenoiseShadowData
+{
+	rabbitVec3f		Eye;
+	int				FirstFrame;
+	int32_t			BufferDimensions[2];
+	float			InvBufferDimensions[2];
+	rabbitMat4f		ProjectionInverse;
+	rabbitMat4f		ReprojectionMatrix;
+	rabbitMat4f		ViewProjectionInverse;
+};
+
+struct DenoiseShadowFilterData
+{
+	rabbitMat4f ProjectionInverse;
+	int32_t     BufferDimensions[2];
+	float		InvBufferDimensions[2];
+	float		DepthSimilaritySigma;
+};
+
 class Renderer
 {
 	SingletonClass(Renderer)
@@ -164,6 +188,7 @@ private:
 	std::unique_ptr<VulkanDescriptorPool>		m_DescriptorPool;
 	std::vector<VkCommandBuffer>				m_CommandBuffers;
 	uint8_t										m_CurrentImageIndex = 0;
+	uint64_t									m_CurrentFrameIndex = 0;
 
 	VulkanBuffer* m_MainConstBuffer[MAX_FRAMES_IN_FLIGHT];
 	VulkanBuffer* m_VertexUploadBuffer;
@@ -229,6 +254,7 @@ public:
 
 	void SetCurrentImageIndex(int imageIndex) { m_CurrentImageIndex = imageIndex; }
 	int GetCurrentImageIndex() { return m_CurrentImageIndex; }
+	uint64_t GetCurrentFrameIndex() { return m_CurrentFrameIndex; }
 	
 	void BeginRenderPass(VkExtent2D extent);
 	void EndRenderPass();
@@ -320,12 +346,26 @@ public:
 	VulkanTexture* scatteringTexture;
 	VulkanTexture* noise3DLUT;
 	VulkanTexture* noise2DTexture;
+	VulkanTexture* blueNoise2DTexture;
 	VulkanBuffer* volumetricFogParamsBuffer;
 	VolumetricFogParams volumetricFogParams{};
 	bool init3dnoise = false;
 
 	//posteffects
 	VulkanTexture* postUpscalePostEffects;
+
+	//shadow denoise
+	VulkanBuffer* denoiseShadowMaskBuffer;
+	VulkanBuffer* denoiseBufferDimensions;
+	VulkanBuffer* denoiseTileMetadataBuffer;
+	VulkanTexture* denoiseMomentsBuffer0;
+	VulkanTexture* denoiseMomentsBuffer1;
+	VulkanTexture* denoiseReprojectionBuffer0;
+	VulkanTexture* denoiseReprojectionBuffer1;
+	VulkanTexture* denoiseLastFrameDepth;
+	VulkanBuffer* denoiseShadowDataBuffer;
+	VulkanBuffer* denoiseShadowFilterDataBuffer;
+	VulkanTexture* denoisedShadowOutput;
 
 	bool m_RenderOutlinedEntity = false;
     bool m_FramebufferResized = false;

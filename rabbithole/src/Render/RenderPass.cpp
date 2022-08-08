@@ -496,6 +496,8 @@ void RTShadowsPass::Setup(Renderer* renderer)
 	SetStorageBuffer(renderer, 5, renderer->triangleIndxsBuffer);
 	SetStorageBuffer(renderer, 6, renderer->cfbvhNodesBuffer);
 	SetConstantBuffer(renderer, 7, renderer->GetLightParams());
+	SetCombinedImageSampler(renderer, 8, renderer->blueNoise2DTexture);
+	SetConstantBuffer(renderer, 9, renderer->GetMainConstBuffer());
 }
 
 void RTShadowsPass::Render(Renderer* renderer)
@@ -758,4 +760,235 @@ void TextureDebugPass::Render(Renderer* renderer)
 	renderer->DrawFullScreenQuad();
 	
 	renderer->ResourceBarrier(renderer->debugTexture, ResourceState::RenderTarget, ResourceState::GenericRead, ResourceStage::Graphics, ResourceStage::Graphics);
+}
+
+void ShadowDenoisePrePass::DeclareResources(Renderer* renderer)
+{}
+
+void ShadowDenoisePrePass::Setup(Renderer* renderer)
+{
+	VulkanStateManager* stateManager = renderer->GetStateManager();
+	
+	stateManager->SetComputeShader(renderer->GetShader("CS_PrepareShadowMask"));
+	
+	SetConstantBuffer(renderer, 0, renderer->denoiseBufferDimensions);
+	SetSampledImage(renderer, 1, renderer->shadowMap);
+	SetStorageBuffer(renderer, 2, renderer->denoiseShadowMaskBuffer);
+
+	DenoiseBufferDimensions bufferDim{};
+	bufferDim.dimensions[0] = (uint32_t)renderer->shadowMap->GetWidth();
+	bufferDim.dimensions[1] = (uint32_t)renderer->shadowMap->GetHeight();
+
+	renderer->denoiseBufferDimensions->FillBuffer(&bufferDim);
+}
+
+void ShadowDenoisePrePass::Render(Renderer* renderer)
+{
+	renderer->BindComputePipeline();
+	renderer->BindDescriptorSets();
+
+	constexpr uint32_t threadGroupWorkRegionDimX = 8;
+	constexpr uint32_t threadGroupWorkRegionDimY = 4;
+
+	int texWidth = renderer->shadowMap->GetWidth();
+	int texHeight = renderer->shadowMap->GetHeight();
+
+	int dispatchX = GetCSDispatchCount(texWidth, threadGroupWorkRegionDimX * 4);
+	int dispatchY = GetCSDispatchCount(texHeight, threadGroupWorkRegionDimY * 4);
+
+	renderer->Dispatch(dispatchX, dispatchY, 1);
+}
+
+void ShadowDenoiseTileClassificationPass::DeclareResources(Renderer* renderer)
+{}
+
+rabbitMat4f prevViewProj;
+uint32_t GetCurrentIDFromFrameIndex(uint32_t id) { return (Renderer::instance().GetCurrentFrameIndex() + id) % 2; }
+void ShadowDenoiseTileClassificationPass::Setup(Renderer* renderer)
+{
+	VulkanStateManager* stateManager = renderer->GetStateManager();
+
+	stateManager->SetComputeShader(renderer->GetShader("CS_TileClassification"));
+
+	Camera* camera = renderer->GetCamera();
+	rabbitMat4f viewProjection = camera->Projection() * camera->View();
+
+	DenoiseShadowData shadowData{};
+	shadowData.Eye = camera->GetPosition();
+	shadowData.FirstFrame = renderer->GetCurrentFrameIndex() == 0 ? 1 : 0;
+	shadowData.BufferDimensions[0] = static_cast<int>(GetNativeWidth);
+	shadowData.BufferDimensions[1] = static_cast<int>(GetNativeHeight);
+	shadowData.InvBufferDimensions[0] = 1.f / float(GetNativeWidth);
+	shadowData.InvBufferDimensions[1] = 1.f / float(GetNativeHeight);
+	shadowData.ProjectionInverse = glm::inverse(camera->Projection());
+	shadowData.ViewProjectionInverse = glm::inverse(viewProjection);
+	shadowData.ReprojectionMatrix = shadowData.ViewProjectionInverse * prevViewProj;
+
+	renderer->denoiseShadowDataBuffer->FillBuffer(&shadowData);
+
+	SetConstantBuffer(renderer, 0, renderer->denoiseShadowDataBuffer);
+	SetSampledImage(renderer, 1, renderer->depthStencil);
+	SetSampledImage(renderer, 2, renderer->velocityGBuffer);
+	SetSampledImage(renderer, 3, renderer->normalGBuffer);
+	SetSampledImage(renderer, 4, renderer->denoiseReprojectionBuffer1);
+	SetSampledImage(renderer, 5, renderer->depthStencil); //TODO: copy depth and bind here denoiseLastFrameDepth
+	SetStorageBuffer(renderer, 6, renderer->denoiseShadowMaskBuffer);
+	SetStorageBuffer(renderer, 7, renderer->denoiseTileMetadataBuffer);
+	SetStorageImage(renderer, 8, renderer->denoiseReprojectionBuffer0);
+	SetSampledImage(renderer, 9, GetCurrentIDFromFrameIndex(0) ? renderer->denoiseMomentsBuffer0 : renderer->denoiseMomentsBuffer1);
+	SetStorageImage(renderer, 10, GetCurrentIDFromFrameIndex(1) ? renderer->denoiseMomentsBuffer0 : renderer->denoiseMomentsBuffer1);
+	SetSampler(renderer, 11, renderer->normalGBuffer);
+
+	prevViewProj = viewProjection;
+}
+
+void ShadowDenoiseTileClassificationPass::Render(Renderer* renderer)
+{
+	renderer->BindComputePipeline();
+	renderer->BindDescriptorSets();
+
+	constexpr uint32_t threadGroupWorkRegionDim = 8;
+
+	int texWidth = renderer->shadowMap->GetWidth();
+	int texHeight = renderer->shadowMap->GetHeight();
+
+	int dispatchX = GetCSDispatchCount(texWidth, threadGroupWorkRegionDim);
+	int dispatchY = GetCSDispatchCount(texHeight, threadGroupWorkRegionDim);
+
+	renderer->Dispatch(dispatchX, dispatchY, 1);
+}
+
+void ShadowDenoiseFilterPass0::DeclareResources(Renderer* renderer)
+{}
+
+void ShadowDenoiseFilterPass0::Setup(Renderer* renderer)
+{
+	VulkanStateManager* stateManager = renderer->GetStateManager();
+
+	stateManager->SetComputeShader(renderer->GetShader("CS_FilterSoftShadowsPass0"), "Pass0");
+
+	rabbitMat4f projection = renderer->GetCamera()->Projection();
+
+	DenoiseShadowFilterData shadowFilterData{};
+	shadowFilterData.ProjectionInverse = glm::inverse(projection);
+	shadowFilterData.DepthSimilaritySigma = 1.f;
+	shadowFilterData.BufferDimensions[0] = static_cast<int>(GetNativeWidth);
+	shadowFilterData.BufferDimensions[1] = static_cast<int>(GetNativeHeight);
+	shadowFilterData.InvBufferDimensions[0] = 1.f / float(GetNativeWidth);
+	shadowFilterData.InvBufferDimensions[1] = 1.f / float(GetNativeHeight);
+
+	renderer->denoiseShadowFilterDataBuffer->FillBuffer(&shadowFilterData);
+
+	SetConstantBuffer(renderer, 0, renderer->denoiseShadowFilterDataBuffer);
+	SetSampledImage(renderer, 1, renderer->depthStencil);
+	SetSampledImage(renderer, 2, renderer->normalGBuffer);
+	SetStorageBuffer(renderer, 3, renderer->denoiseTileMetadataBuffer);
+	SetSampledImage(renderer, 4, renderer->denoiseReprojectionBuffer0);
+	SetStorageImage(renderer, 5, renderer->denoiseReprojectionBuffer1);
+}
+
+void ShadowDenoiseFilterPass0::Render(Renderer* renderer)
+{
+	renderer->BindComputePipeline();
+	renderer->BindDescriptorSets();
+
+	constexpr uint32_t threadGroupWorkRegionDim = 8;
+
+	int texWidth = renderer->shadowMap->GetWidth();
+	int texHeight = renderer->shadowMap->GetHeight();
+
+	int dispatchX = GetCSDispatchCount(texWidth, threadGroupWorkRegionDim);
+	int dispatchY = GetCSDispatchCount(texHeight, threadGroupWorkRegionDim);
+
+	renderer->Dispatch(dispatchX, dispatchY, 1);
+}
+
+void ShadowDenoiseFilterPass1::DeclareResources(Renderer* renderer)
+{}
+
+void ShadowDenoiseFilterPass1::Setup(Renderer* renderer)
+{
+	VulkanStateManager* stateManager = renderer->GetStateManager();
+
+	stateManager->SetComputeShader(renderer->GetShader("CS_FilterSoftShadowsPass0"), "Pass0");
+
+	rabbitMat4f projection = renderer->GetCamera()->Projection();
+
+	DenoiseShadowFilterData shadowFilterData{};
+	shadowFilterData.ProjectionInverse = glm::inverse(projection);
+	shadowFilterData.DepthSimilaritySigma = 1.f;
+	shadowFilterData.BufferDimensions[0] = static_cast<int>(GetNativeWidth);
+	shadowFilterData.BufferDimensions[1] = static_cast<int>(GetNativeHeight);
+	shadowFilterData.InvBufferDimensions[0] = 1.f / float(GetNativeWidth);
+	shadowFilterData.InvBufferDimensions[1] = 1.f / float(GetNativeHeight);
+
+	renderer->denoiseShadowFilterDataBuffer->FillBuffer(&shadowFilterData);
+
+	SetConstantBuffer(renderer, 0, renderer->denoiseShadowFilterDataBuffer);
+	SetSampledImage(renderer, 1, renderer->depthStencil);
+	SetSampledImage(renderer, 2, renderer->normalGBuffer);
+	SetStorageBuffer(renderer, 3, renderer->denoiseTileMetadataBuffer);
+	SetSampledImage(renderer, 4, renderer->denoiseReprojectionBuffer1);
+	SetStorageImage(renderer, 5, renderer->denoiseReprojectionBuffer0);
+}
+
+void ShadowDenoiseFilterPass1::Render(Renderer* renderer)
+{
+	renderer->BindComputePipeline();
+	renderer->BindDescriptorSets();
+
+	constexpr uint32_t threadGroupWorkRegionDim = 8;
+
+	int texWidth = renderer->shadowMap->GetWidth();
+	int texHeight = renderer->shadowMap->GetHeight();
+
+	int dispatchX = GetCSDispatchCount(texWidth, threadGroupWorkRegionDim);
+	int dispatchY = GetCSDispatchCount(texHeight, threadGroupWorkRegionDim);
+
+	renderer->Dispatch(dispatchX, dispatchY, 1);
+}
+
+void ShadowDenoiseFilterPass2::DeclareResources(Renderer* renderer)
+{}
+
+void ShadowDenoiseFilterPass2::Setup(Renderer* renderer)
+{
+	VulkanStateManager* stateManager = renderer->GetStateManager();
+
+	stateManager->SetComputeShader(renderer->GetShader("CS_FilterSoftShadowsPass0"), "Pass0");
+
+	rabbitMat4f projection = renderer->GetCamera()->Projection();
+
+	DenoiseShadowFilterData shadowFilterData{};
+	shadowFilterData.ProjectionInverse = glm::inverse(projection);
+	shadowFilterData.DepthSimilaritySigma = 1.f;
+	shadowFilterData.BufferDimensions[0] = static_cast<int>(GetNativeWidth);
+	shadowFilterData.BufferDimensions[1] = static_cast<int>(GetNativeHeight);
+	shadowFilterData.InvBufferDimensions[0] = 1.f / float(GetNativeWidth);
+	shadowFilterData.InvBufferDimensions[1] = 1.f / float(GetNativeHeight);
+
+	renderer->denoiseShadowFilterDataBuffer->FillBuffer(&shadowFilterData);
+
+	SetConstantBuffer(renderer, 0, renderer->denoiseShadowFilterDataBuffer);
+	SetSampledImage(renderer, 1, renderer->depthStencil);
+	SetSampledImage(renderer, 2, renderer->normalGBuffer);
+	SetStorageBuffer(renderer, 3, renderer->denoiseTileMetadataBuffer);
+	SetSampledImage(renderer, 4, renderer->denoiseReprojectionBuffer0);
+	SetStorageImage(renderer, 6, renderer->denoisedShadowOutput);
+}
+
+void ShadowDenoiseFilterPass2::Render(Renderer* renderer)
+{
+	renderer->BindComputePipeline();
+	renderer->BindDescriptorSets();
+
+	constexpr uint32_t threadGroupWorkRegionDim = 8;
+
+	int texWidth = renderer->shadowMap->GetWidth();
+	int texHeight = renderer->shadowMap->GetHeight();
+
+	int dispatchX = GetCSDispatchCount(texWidth, threadGroupWorkRegionDim);
+	int dispatchY = GetCSDispatchCount(texHeight, threadGroupWorkRegionDim);
+
+	renderer->Dispatch(dispatchX, dispatchY, 1);
 }

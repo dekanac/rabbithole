@@ -116,7 +116,7 @@ private:
 	VkPhysicalDeviceProperties	properties;
 
 	const std::vector<const char*> m_ValidationLayers = { "VK_LAYER_KHRONOS_validation" };
-	const std::vector<const char*> m_DeviceExtensions = { VK_KHR_SWAPCHAIN_EXTENSION_NAME };
+	const std::vector<const char*> m_DeviceExtensions = { VK_KHR_SWAPCHAIN_EXTENSION_NAME, VK_GOOGLE_HLSL_FUNCTIONALITY_1_EXTENSION_NAME, VK_GOOGLE_USER_TYPE_EXTENSION_NAME };
 
 	//TODO: this is for test purposes, this should be moved to future statemanager
 	std::unordered_map<std::string, VulkanRenderPass*>	m_RenderPassCollection;

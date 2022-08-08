@@ -52,11 +52,12 @@ struct UniformBufferObject
 	mat4 prevViewProjMatrix;
 	mat4 viewInverse;
 	mat4 projInverse;
-	vec4 frustrumInfo;
+	vec4 frustrumInfo; //x = width, y = height, z = nearPlane, w = farPlane 
 	vec4 eyeXAxis;
 	vec4 eyeYAxis;
 	vec4 eyeZAxis;
 	mat4 projJittered;
+    vec4 currentFrameInfo; //x = current frame index
 };
 
 struct RayHit

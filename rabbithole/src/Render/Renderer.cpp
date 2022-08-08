@@ -222,6 +222,93 @@ bool Renderer::Init()
 			.name = {"Post Upscale PostEffects" },
 		});
 
+	//shadow denoise
+
+	//prepass
+	const uint32_t tileW = GetCSDispatchCount(GetNativeWidth, 8);
+	const uint32_t tileH = GetCSDispatchCount(GetNativeHeight, 4);
+
+	const uint32_t tileSize = tileH * tileW;
+
+	denoiseShadowMaskBuffer = m_ResourceManager->CreateBuffer(m_VulkanDevice, BufferCreateInfo{
+			.flags = {BufferUsageFlags::StorageBuffer},
+			.memoryAccess = {MemoryAccess::GPU},
+			.size = {tileSize * sizeof(uint32_t)},
+			.name = {"Denoise Shadow Mask Buffer"}
+		});
+
+	denoiseBufferDimensions = m_ResourceManager->CreateBuffer(m_VulkanDevice, BufferCreateInfo{
+			.flags = {BufferUsageFlags::UniformBuffer},
+			.memoryAccess = {MemoryAccess::CPU2GPU},
+			.size = {sizeof(DenoiseBufferDimensions)},
+			.name = {"Denoise Dimensions buffer"}
+		});
+
+	//classify
+
+	denoiseShadowDataBuffer = m_ResourceManager->CreateBuffer(m_VulkanDevice, BufferCreateInfo{
+			.flags = {BufferUsageFlags::UniformBuffer},
+			.memoryAccess = {MemoryAccess::CPU2GPU},
+			.size = {sizeof(DenoiseShadowData)},
+			.name = {"Denoise Shadow Data Buffer"}
+		});
+
+	denoiseTileMetadataBuffer = m_ResourceManager->CreateBuffer(m_VulkanDevice, BufferCreateInfo{
+			.flags = {BufferUsageFlags::StorageBuffer},
+			.memoryAccess = {MemoryAccess::GPU},
+			.size = {tileSize * sizeof(uint32_t)},
+			.name = {"Denoise Metadata buffer"}
+		});
+
+	denoiseMomentsBuffer0 = m_ResourceManager->CreateTexture(m_VulkanDevice, RWTextureCreateInfo{
+			.dimensions = {GetNativeWidth, GetNativeHeight, 1},
+			.flags = {TextureFlags::Read},
+			.format = {Format::R11G11B10_FLOAT},
+			.name = {"Denoise Moments Buffer0"}
+		});
+
+	denoiseMomentsBuffer1 = m_ResourceManager->CreateTexture(m_VulkanDevice, RWTextureCreateInfo{
+			.dimensions = {GetNativeWidth, GetNativeHeight, 1},
+			.flags = {TextureFlags::Read},
+			.format = {Format::R11G11B10_FLOAT},
+			.name = {"Denoise Moments Buffer1"}
+		});
+
+	denoiseReprojectionBuffer0 = m_ResourceManager->CreateTexture(m_VulkanDevice, RWTextureCreateInfo{
+			.dimensions = {GetNativeWidth, GetNativeHeight, 1},
+			.flags = {TextureFlags::Read},
+			.format = {Format::R16G16_FLOAT},
+			.name = {"Denoise Reprojection Buffer0"}
+		});
+
+	denoiseReprojectionBuffer1 = m_ResourceManager->CreateTexture(m_VulkanDevice, RWTextureCreateInfo{
+			.dimensions = {GetNativeWidth, GetNativeHeight, 1},
+			.flags = {TextureFlags::Read},
+			.format = {Format::R16G16_FLOAT},
+			.name = {"Denoise Reprojection Buffer1"}
+		});
+
+	denoiseLastFrameDepth = m_ResourceManager->CreateTexture(m_VulkanDevice, RWTextureCreateInfo{
+			.dimensions = {GetNativeWidth, GetNativeHeight, 1},
+			.flags = {TextureFlags::Read},
+			.format = {Format::R32_SFLOAT},
+			.name = {"Denoise Last Frame Depth"}
+		});
+
+	denoiseShadowFilterDataBuffer = m_ResourceManager->CreateBuffer(m_VulkanDevice, BufferCreateInfo{
+			.flags = {BufferUsageFlags::UniformBuffer},
+			.memoryAccess = {MemoryAccess::CPU2GPU},
+			.size = {sizeof(DenoiseShadowFilterData)},
+			.name = {"Denoise Shadow Filter Data Buffer"}
+		});
+
+	denoisedShadowOutput = m_ResourceManager->CreateTexture(m_VulkanDevice, RWTextureCreateInfo{
+			.dimensions = {GetNativeWidth, GetNativeHeight, 1},
+			.flags = {TextureFlags::Read},
+			.format = {Format::R16G16B16A16_UNORM},
+			.name = {"Denoised Shadow Output"}
+		});
+
 	InitNoiseTextures();
 	InitSSAO();
 	//init acceleration structure
@@ -255,6 +342,8 @@ void Renderer::Draw(float dt)
 	MainCamera->Update(dt);
 
     DrawFrame();
+
+	m_CurrentFrameIndex++;
 	
 	Clear();
 }
@@ -447,6 +536,13 @@ void Renderer::InitNoiseTextures()
 			.name = {"Noise2D"}
 		});
 	
+	blueNoise2DTexture = m_ResourceManager->CreateTexture(m_VulkanDevice, ROTextureCreateInfo{
+		.filePath = {"res/textures/noise.png"},
+		.flags = {TextureFlags::Color | TextureFlags::Read | TextureFlags::TransferDst},
+		.format = {Format::B8G8R8A8_UNORM},
+		.name = {"BlueNoise2D"}
+		});
+
 	noise3DLUT = m_ResourceManager->CreateTexture(m_VulkanDevice, RWTextureCreateInfo{
 			.dimensions = {256, 256, 256},
 			.flags = {TextureFlags::Color | TextureFlags::Read},
@@ -457,9 +553,9 @@ void Renderer::InitNoiseTextures()
 
 void Renderer::LoadModels()
 {
-	//gltfModels.emplace_back(&m_VulkanDevice, "res/meshes/separateObjects.gltf");
+	gltfModels.emplace_back(&m_VulkanDevice, "res/meshes/separateObjects.gltf");
 	//gltfModels.emplace_back(&m_VulkanDevice, "res/meshes/cottage.gltf");
-	gltfModels.emplace_back(&m_VulkanDevice, "res/meshes/sponza/sponza.gltf");
+	//gltfModels.emplace_back(&m_VulkanDevice, "res/meshes/sponza/sponza.gltf");
 }
 
 void Renderer::BeginRenderPass(VkExtent2D extent)
@@ -1194,6 +1290,11 @@ void Renderer::RecordCommandBuffer(int imageIndex)
 	SSAOPass ssao{};
 	SSAOBlurPass ssaoBlur{};
 	RTShadowsPass RTShadows{};
+	ShadowDenoisePrePass shadowDenoisePrepass{};
+	ShadowDenoiseTileClassificationPass shadowDenoiseTileClassification{};
+	ShadowDenoiseFilterPass0 shadowDenoiseFilter0{};
+	ShadowDenoiseFilterPass1 shadowDenoiseFilter1{};
+	ShadowDenoiseFilterPass2 shadowDenoiseFilter2{};
 	VolumetricPass volumetric{};
 	ComputeScatteringPass computeScattering{};
 	LightingPass lighting{};
@@ -1220,6 +1321,11 @@ void Renderer::RecordCommandBuffer(int imageIndex)
 	ExecuteRenderPass(ssao);
 	ExecuteRenderPass(ssaoBlur);
 	ExecuteRenderPass(RTShadows);
+	ExecuteRenderPass(shadowDenoisePrepass);
+	ExecuteRenderPass(shadowDenoiseTileClassification);
+	ExecuteRenderPass(shadowDenoiseFilter0);
+	ExecuteRenderPass(shadowDenoiseFilter1);
+	ExecuteRenderPass(shadowDenoiseFilter2);
 	ExecuteRenderPass(volumetric);
 	ExecuteRenderPass(computeScattering);
 	ExecuteRenderPass(skybox);
@@ -1285,34 +1391,34 @@ void Renderer::CreateDescriptorPool()
 {
 	//TODO: see what to do with this, now its hard coded number of descriptors
 	VulkanDescriptorPoolSize uboPoolSize{};
-	uboPoolSize.Count = 200;
+	uboPoolSize.Count = 300;
 	uboPoolSize.Type = DescriptorType::UniformBuffer;
 
 	VulkanDescriptorPoolSize samImgPoolSize{};
-	samImgPoolSize.Count = 200;
+	samImgPoolSize.Count = 300;
 	samImgPoolSize.Type = DescriptorType::SampledImage;
 
 	VulkanDescriptorPoolSize sPoolSize{};
-	sPoolSize.Count = 200;
+	sPoolSize.Count = 300;
 	sPoolSize.Type = DescriptorType::Sampler;
 
 	VulkanDescriptorPoolSize cisPoolSize{};
-	cisPoolSize.Count = 200;
+	cisPoolSize.Count = 300;
 	cisPoolSize.Type = DescriptorType::CombinedSampler;
 
 	VulkanDescriptorPoolSize siPoolSize{};
-	siPoolSize.Count = 200;
+	siPoolSize.Count = 300;
 	siPoolSize.Type = DescriptorType::StorageImage;
 
 	VulkanDescriptorPoolSize sbPoolSize{};
-	sbPoolSize.Count = 200;
+	sbPoolSize.Count = 300;
 	sbPoolSize.Type = DescriptorType::StorageBuffer;
 
 	VulkanDescriptorPoolInfo vulkanDescriptorPoolInfo{};
 
 	vulkanDescriptorPoolInfo.DescriptorSizes = { uboPoolSize, cisPoolSize, siPoolSize, sbPoolSize, samImgPoolSize, sPoolSize };
 
-	vulkanDescriptorPoolInfo.MaxSets = 200;
+	vulkanDescriptorPoolInfo.MaxSets = 1000;
 
 	m_DescriptorPool = std::make_unique<VulkanDescriptorPool>(&m_VulkanDevice, vulkanDescriptorPoolInfo);
 }
@@ -1529,6 +1635,11 @@ void Renderer::UpdateConstantBuffer()
     frustrumInfo.w = MainCamera->GetFarPlane();
 
     m_StateManager->UpdateUBOElement(UBOElement::FrustrumInfo, 1, &frustrumInfo);
+
+	rabbitVec4f frameInfo{};
+	frameInfo.x = m_CurrentFrameIndex;
+
+	m_StateManager->UpdateUBOElement(UBOElement::CurrentFrameInfo, 1, &frameInfo);
 }
 
 void Renderer::UpdateUIStateAndFSR2PreDraw()

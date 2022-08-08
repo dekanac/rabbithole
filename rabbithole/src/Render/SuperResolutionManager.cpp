@@ -15,7 +15,7 @@ void SuperResolutionManager::Init(VulkanDevice* device)
 	m_UpscaledResolutionWidth = Window::instance().GetExtent().width;
 	m_UpscaledResolutionHeight = Window::instance().GetExtent().height;
 
-	m_UpscaleFactor = 3.f/4.f;
+	m_UpscaleFactor = 3.f/5.f;
 	m_Sharpness = 0.666666f;
 
 	m_NativeResolutionWidth = m_UpscaledResolutionWidth * m_UpscaleFactor;

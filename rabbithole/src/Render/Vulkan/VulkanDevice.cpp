@@ -961,14 +961,22 @@ VkFormat GetVkFormatFrom(const Format format)
 		return VK_FORMAT_R32_SFLOAT;
 	case Format::R8_UNORM:
 		return VK_FORMAT_R8_UNORM;
+	case Format::R8_UINT:
+		return VK_FORMAT_R8_UINT;
 	case Format::R16G16B16A16_FLOAT:
 		return VK_FORMAT_R16G16B16A16_SFLOAT;
+	case Format::R16G16B16A16_UNORM:
+		return VK_FORMAT_R16G16B16A16_UNORM;
 	case Format::R32G32B32A32_FLOAT:
 		return VK_FORMAT_R32G32B32A32_SFLOAT;
 	case Format::R32G32B32_FLOAT:
 		return VK_FORMAT_R32G32B32_SFLOAT;
+	case Format::R11G11B10_FLOAT:
+		return VK_FORMAT_B10G11R11_UFLOAT_PACK32;
 	case Format::R32G32_FLOAT:
 		return VK_FORMAT_R32G32_SFLOAT;
+	case Format::R16G16_FLOAT:
+		return VK_FORMAT_R16G16_SFLOAT;
 	case Format::BC1_UNORM:
 		return VK_FORMAT_BC1_RGBA_UNORM_BLOCK;
 	case Format::BC1_UNORM_SRGB:
@@ -1527,8 +1535,10 @@ VkClearValue GetVkClearColorValueFor(const Format format)
 	case Format::R32_SFLOAT:
 		return VkClearValue{ 0.1f };
 	case Format::R32G32B32_FLOAT:
+	case Format::R11G11B10_FLOAT:
 		return VkClearValue{ 0.1f, 0.1f, 0.1f};
 	case Format::R32G32_FLOAT:
+	case Format::R16G16_FLOAT:
 		return VkClearValue{ 0.0f, 0.0f};
 	case Format::R32_UINT:
 		return VkClearValue{ 0 };
