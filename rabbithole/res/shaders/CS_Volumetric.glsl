@@ -157,6 +157,9 @@ vec3 simulateWind = vec3(1.f); //wind direction and speed in CPP
 layout( local_size_x = 8, local_size_y = 4, local_size_z = 8 ) in;
 void main()
 {
+    if (!bool(fogParams.isEnabled))
+        return;
+
     vec3 screenSpacePos = gl_GlobalInvocationID.xyz * vec3(2.0f/TEX_W, 2.0f/TEX_H, 1.0f/TEX_D) + vec3(-1,-1,0);
 
     float origScreenSpacePosZ = screenSpacePos.z;

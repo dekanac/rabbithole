@@ -132,7 +132,7 @@ VulkanDescriptorSet::VulkanDescriptorSet(const VulkanDevice* device,const Vulkan
 		VkWriteDescriptorSet& writeDescriptorSet = writeDescriptorSets[i];
 		writeDescriptorSet = { VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET };
 		writeDescriptorSet.dstSet = m_DescriptorSet;
-		writeDescriptorSet.dstBinding = i;
+		writeDescriptorSet.dstBinding = descriptors[i]->GetDescriptorInfo().Binding;
 		writeDescriptorSet.dstArrayElement = 0;
 		writeDescriptorSet.descriptorCount = 1;
 

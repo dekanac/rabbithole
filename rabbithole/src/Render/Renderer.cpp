@@ -88,7 +88,7 @@ bool Renderer::Init()
 	//GBUFFER RENDER SET
 	depthStencil = m_ResourceManager->CreateTexture(m_VulkanDevice, RWTextureCreateInfo{ 
 			.dimensions = {GetNativeWidth , GetNativeHeight, 1},
-			.flags = {TextureFlags::DepthStencil | TextureFlags::Read},
+			.flags = {TextureFlags::DepthStencil | TextureFlags::Read | TextureFlags::TransferSrc},
 			.format = {Format::D32_SFLOAT},
 			.name = {"GBuffer DepthStencil"}
 		});
@@ -290,8 +290,8 @@ bool Renderer::Init()
 
 	denoiseLastFrameDepth = m_ResourceManager->CreateTexture(m_VulkanDevice, RWTextureCreateInfo{
 			.dimensions = {GetNativeWidth, GetNativeHeight, 1},
-			.flags = {TextureFlags::Read},
-			.format = {Format::R32_SFLOAT},
+			.flags = {TextureFlags::DepthStencil | TextureFlags::Read | TextureFlags::TransferDst },
+			.format = {Format::D32_SFLOAT},
 			.name = {"Denoise Last Frame Depth"}
 		});
 
@@ -306,7 +306,12 @@ bool Renderer::Init()
 			.dimensions = {GetNativeWidth, GetNativeHeight, 1},
 			.flags = {TextureFlags::Read},
 			.format = {Format::R16G16B16A16_UNORM},
-			.name = {"Denoised Shadow Output"}
+			.name = {"Denoised Shadow Output"},
+			.arraySize = {1},
+			.isCube = { false },
+			.multisampleType = {MultisampleType::Sample_1},
+			.samplerType = { SamplerType::Trilinear },
+			.addressMode = { AddressMode::Clamp }
 		});
 
 	InitNoiseTextures();
@@ -537,10 +542,10 @@ void Renderer::InitNoiseTextures()
 		});
 	
 	blueNoise2DTexture = m_ResourceManager->CreateTexture(m_VulkanDevice, ROTextureCreateInfo{
-		.filePath = {"res/textures/noise.png"},
-		.flags = {TextureFlags::Color | TextureFlags::Read | TextureFlags::TransferDst},
-		.format = {Format::B8G8R8A8_UNORM},
-		.name = {"BlueNoise2D"}
+			.filePath = {"res/textures/noise.png"},
+			.flags = {TextureFlags::Color | TextureFlags::Read | TextureFlags::TransferDst},
+			.format = {Format::B8G8R8A8_UNORM},
+			.name = {"BlueNoise2D"}
 		});
 
 	noise3DLUT = m_ResourceManager->CreateTexture(m_VulkanDevice, RWTextureCreateInfo{
@@ -553,9 +558,9 @@ void Renderer::InitNoiseTextures()
 
 void Renderer::LoadModels()
 {
-	gltfModels.emplace_back(&m_VulkanDevice, "res/meshes/separateObjects.gltf");
+	//gltfModels.emplace_back(&m_VulkanDevice, "res/meshes/separateObjects.gltf");
 	//gltfModels.emplace_back(&m_VulkanDevice, "res/meshes/cottage.gltf");
-	//gltfModels.emplace_back(&m_VulkanDevice, "res/meshes/sponza/sponza.gltf");
+	gltfModels.emplace_back(&m_VulkanDevice, "res/meshes/sponza/sponza.gltf");
 }
 
 void Renderer::BeginRenderPass(VkExtent2D extent)
@@ -1023,9 +1028,7 @@ void Renderer::ResourceBarrier(VulkanTexture* texture, ResourceState oldLayout, 
 
 	uint32_t arraySize = texture->GetResource()->GetInfo().ArraySize;
 
-	bool isDepth = 
-		(oldLayout == ResourceState::DepthStencilRead || oldLayout == ResourceState::DepthStencilWrite) ||
-		(newLayout == ResourceState::DepthStencilRead || newLayout == ResourceState::DepthStencilWrite);
+	bool isDepth = GetVkImageAspectFlagsFrom(GetVkFormatFrom(texture->GetFormat())) == VK_IMAGE_ASPECT_DEPTH_BIT;
 
 	VkImageMemoryBarrier barrier{};
 	barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
@@ -1034,183 +1037,17 @@ void Renderer::ResourceBarrier(VulkanTexture* texture, ResourceState oldLayout, 
 	barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
 	barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
 	barrier.image = texture->GetResource()->GetImage();
-	barrier.subresourceRange.aspectMask = isDepth ? VK_IMAGE_ASPECT_DEPTH_BIT : VK_IMAGE_ASPECT_COLOR_BIT;
+	barrier.subresourceRange.aspectMask = GetVkImageAspectFlagsFrom(GetVkFormatFrom(texture->GetFormat()));
 	barrier.subresourceRange.baseMipLevel = 0;
 	barrier.subresourceRange.levelCount = 1;
 	barrier.subresourceRange.baseArrayLayer = 0;
 	barrier.subresourceRange.layerCount = arraySize;
-
-	VkPipelineStageFlags sourceStage;
-	VkPipelineStageFlags destinationStage;
-
-	//if (oldLayout == ResourceState::None && newLayout == ResourceState::TransferDst) {
-	//	barrier.srcAccessMask = 0;
-	//	barrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
-	//
-	//	sourceStage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
-	//	destinationStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
-	//}
-	//else if (oldLayout == ResourceState::RenderTarget && newLayout == ResourceState::TransferSrc) {
-	//	barrier.srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT;
-	//	barrier.dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
-	//
-	//	sourceStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
-	//	destinationStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
-	//}
-	//else if (oldLayout == ResourceState::TransferSrc && newLayout == ResourceState::RenderTarget) {
-	//	barrier.srcAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
-	//	barrier.dstAccessMask = VK_ACCESS_SHADER_WRITE_BIT;
-	//
-	//	sourceStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
-	//	destinationStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
-	//}
-	//
-	//else if (oldLayout == ResourceState::GenericRead && newLayout == ResourceState::TransferSrc) {
-	//	barrier.srcAccessMask = VK_ACCESS_SHADER_READ_BIT;
-	//	barrier.dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
-	//
-	//	sourceStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
-	//	destinationStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
-	//}
-	//else if (oldLayout == ResourceState::TransferSrc && newLayout == ResourceState::GenericRead) {
-	//	barrier.srcAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
-	//	barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
-	//
-	//	sourceStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
-	//	destinationStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
-	//}
-	//else if (oldLayout == ResourceState::GenericRead && newLayout == ResourceState::TransferDst) {
-	//	barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
-	//	barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
-	//
-	//	sourceStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
-	//	destinationStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
-	//}
-	//else if (oldLayout == ResourceState::TransferDst && newLayout == ResourceState::GenericRead)
-	//{
-	//	barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
-	//	barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
-	//
-	//	sourceStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
-	//	destinationStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
-	//}
-	//else if (oldLayout == ResourceState::TransferDst && newLayout == ResourceState::GeneralCompute)
-	//{
-	//	barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
-	//	barrier.dstAccessMask = VK_ACCESS_SHADER_WRITE_BIT | VK_ACCESS_SHADER_READ_BIT;
-	//
-	//	sourceStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
-	//	destinationStage = VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT;
-	//}
-	//else if (oldLayout == ResourceState::None && newLayout == ResourceState::RenderTarget)
-	//{
-	//	barrier.srcAccessMask = 0;
-	//	barrier.dstAccessMask = VK_ACCESS_SHADER_WRITE_BIT;
-	//
-	//	sourceStage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
-	//	destinationStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
-	//}
-	//else if (oldLayout == ResourceState::RenderTarget && newLayout == ResourceState::GenericRead)
-	//{
-	//	barrier.srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT;
-	//	barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
-	//
-	//	sourceStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
-	//	destinationStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
-	//}
-	//else if (oldLayout == ResourceState::GenericRead && newLayout == ResourceState::RenderTarget)
-	//{
-	//	barrier.srcAccessMask = VK_ACCESS_SHADER_READ_BIT;
-	//	barrier.dstAccessMask = VK_ACCESS_SHADER_WRITE_BIT;
-	//
-	//	sourceStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
-	//	destinationStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
-	//}
-	if (oldLayout == ResourceState::None && newLayout == ResourceState::DepthStencilWrite)
-	{
-		barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
-		barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
-
-		sourceStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
-		destinationStage = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT;
-	}
-	else if (oldLayout == ResourceState::DepthStencilWrite && newLayout == ResourceState::GenericRead)
-	{
-		barrier.srcAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
-		barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
-
-		sourceStage = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
-		destinationStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
-	}
-	else if (oldLayout == ResourceState::DepthStencilRead && newLayout == ResourceState::GenericRead)
-	{
-		barrier.srcAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT;
-		barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
-
-		sourceStage = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
-		destinationStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
-	}
-	else if (oldLayout == ResourceState::DepthStencilRead && newLayout == ResourceState::DepthStencilWrite)
-	{
-		barrier.srcAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT;
-		barrier.dstAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
-
-		sourceStage = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
-		destinationStage = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
-	}
-	else if (oldLayout == ResourceState::GenericRead && newLayout == ResourceState::DepthStencilWrite)
-	{
-		barrier.srcAccessMask = VK_ACCESS_SHADER_READ_BIT;
-		barrier.dstAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
-
-		sourceStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
-		destinationStage = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
-	}
-	//else if (oldLayout == ResourceState::GenericRead && newLayout == ResourceState::GeneralCompute)
-	//{
-	//	barrier.srcAccessMask = VK_ACCESS_SHADER_READ_BIT;
-	//	barrier.dstAccessMask = VK_ACCESS_SHADER_WRITE_BIT | VK_ACCESS_SHADER_READ_BIT;
-	//
-	//	sourceStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
-	//	destinationStage = VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT;
-	//}
-	//else if (oldLayout == ResourceState::RenderTarget && newLayout == ResourceState::GeneralCompute)
-	//{
-	//	barrier.srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT;
-	//	barrier.dstAccessMask = VK_ACCESS_SHADER_WRITE_BIT | VK_ACCESS_SHADER_READ_BIT;
-	//
-	//	sourceStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
-	//	destinationStage = VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT;
-	//}
-	//else if (oldLayout == ResourceState::GeneralCompute && newLayout == ResourceState::RenderTarget)
-	//{
-	//	barrier.srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT | VK_ACCESS_SHADER_READ_BIT;
-	//	barrier.dstAccessMask = VK_ACCESS_SHADER_WRITE_BIT;
-	//	
-	//	sourceStage = VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT;
-	//	destinationStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
-	//}
-	//else if (oldLayout == ResourceState::GeneralCompute && newLayout == ResourceState::GenericRead)
-	//{
-	//	barrier.srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT | VK_ACCESS_SHADER_READ_BIT;
-	//	barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
-	//
-	//	sourceStage = VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT;
-	//	destinationStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
-	//}
-	//else
-	//{
-	//	LOG_ERROR("unsupported layout transition!");
-	//}
-
-	if (!isDepth)
-	{
-		barrier.srcAccessMask = GetVkAccessFlagsFromResourceState(oldLayout);
-		barrier.dstAccessMask = GetVkAccessFlagsFromResourceState(newLayout);
-
-		sourceStage =			GetVkPipelineStageFromResourceStage(srcStage);
-		destinationStage =		GetVkPipelineStageFromResourceStage(dstStage);
-	}
+	
+	barrier.srcAccessMask = GetVkAccessFlagsFromResourceState(oldLayout);
+	barrier.dstAccessMask = GetVkAccessFlagsFromResourceState(newLayout);
+	
+	VkPipelineStageFlags sourceStage =		GetVkPipelineStageFromResourceStageAndState(srcStage, oldLayout);
+	VkPipelineStageFlags destinationStage = GetVkPipelineStageFromResourceStageAndState(dstStage, newLayout);
 
 	vkCmdPipelineBarrier(
 		commandBuffer,
@@ -1876,13 +1713,24 @@ void Renderer::CopyImage(VulkanTexture* src, VulkanTexture* dst)
 	VkCommandBuffer commandBuffer = GetCurrentCommandBuffer();
 
 	VkImageCopy imageCopyRegion{};
-	imageCopyRegion.srcSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-	imageCopyRegion.srcSubresource.layerCount = 1;
-	imageCopyRegion.dstSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-	imageCopyRegion.dstSubresource.layerCount = 1;
+	imageCopyRegion.srcSubresource.aspectMask = GetVkImageAspectFlagsFrom(GetVkFormatFrom(src->GetFormat()));
+	imageCopyRegion.srcSubresource.layerCount = src->GetRegion().Subresource.ArraySize;
+	imageCopyRegion.dstSubresource.aspectMask = GetVkImageAspectFlagsFrom(GetVkFormatFrom(dst->GetFormat()));
+	imageCopyRegion.dstSubresource.layerCount = dst->GetRegion().Subresource.ArraySize;
 	imageCopyRegion.extent.width = src->GetWidth();
 	imageCopyRegion.extent.height = src->GetHeight();
-	imageCopyRegion.extent.depth = 1;
+	imageCopyRegion.extent.depth = src->GetDepth();
+
+	ResourceStage srcStage = src->GetCurrentResourceStage();
+	ResourceStage dstStage = dst->GetCurrentResourceStage();
+
+	ResourceState srcState = src->GetResourceState();
+	ResourceState dstState = dst->GetResourceState();
+
+	if (srcState != ResourceState::TransferSrc)
+		ResourceBarrier(src, srcState, ResourceState::TransferSrc, srcStage, ResourceStage::Transfer);
+	if (dstState != ResourceState::TransferDst)
+		ResourceBarrier(dst, dstState, ResourceState::TransferDst, dstStage, ResourceStage::Transfer);
 
 	vkCmdCopyImage(
 		commandBuffer, 
@@ -1892,6 +1740,11 @@ void Renderer::CopyImage(VulkanTexture* src, VulkanTexture* dst)
 		VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 
 		1, 
 		&imageCopyRegion);
+
+	if (srcState != ResourceState::TransferSrc)
+		ResourceBarrier(src, ResourceState::TransferSrc, srcState, ResourceStage::Transfer, srcStage);
+	if (dstState != ResourceState::TransferDst)
+		ResourceBarrier(dst, ResourceState::TransferDst, dstState, ResourceStage::Transfer, dstStage);
 }
 
 void IndexedIndirectBuffer::SubmitToGPU()

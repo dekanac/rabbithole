@@ -188,7 +188,7 @@ float CalculateShadowForLight(vec3 positionOfOrigin, vec3 normalOfOrigin, Light 
 {
     float shadow = 1.f;
 
-    if (light.radius <= 0.f)
+    if (light.radius <= 0.f || light.intensity <= 0.f)
     {
         return shadow;
     }
@@ -198,7 +198,7 @@ float CalculateShadowForLight(vec3 positionOfOrigin, vec3 normalOfOrigin, Light 
     //###______SOFT_SHADOWS
     vec2 noise = GetNoiseFromTexture(uv, uint(UBO.currentFrameInfo.x));
     noise = fract(noise + (uint(UBO.currentFrameInfo.x) ) * PI);
-    lightVec = normalize(GetPointInDisk(light.position.xyz , 1.f, -lightVec, noise) - positionOfOrigin);
+    lightVec = normalize(GetPointInDisk(light.position.xyz , 5.f, -lightVec, noise) - positionOfOrigin);
     //###______HARD_SHADOWS
     //lightVec = normalize(light.position - positionOfOrigin);
     //###______END

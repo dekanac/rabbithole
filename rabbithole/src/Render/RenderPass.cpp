@@ -638,6 +638,7 @@ void ComputeScatteringPass::Setup(Renderer* renderer)
 
 	SetStorageImage(renderer, 0, renderer->mediaDensity3DLUT);
 	SetStorageImage(renderer, 1, renderer->scatteringTexture);
+	SetConstantBuffer(renderer, 2, renderer->volumetricFogParamsBuffer);
 }
 
 
@@ -831,13 +832,13 @@ void ShadowDenoiseTileClassificationPass::Setup(Renderer* renderer)
 	SetSampledImage(renderer, 2, renderer->velocityGBuffer);
 	SetSampledImage(renderer, 3, renderer->normalGBuffer);
 	SetSampledImage(renderer, 4, renderer->denoiseReprojectionBuffer1);
-	SetSampledImage(renderer, 5, renderer->depthStencil); //TODO: copy depth and bind here denoiseLastFrameDepth
+	SetSampledImage(renderer, 5, renderer->denoiseLastFrameDepth); //TODO: copy depth and bind here denoiseLastFrameDepth
 	SetStorageBuffer(renderer, 6, renderer->denoiseShadowMaskBuffer);
 	SetStorageBuffer(renderer, 7, renderer->denoiseTileMetadataBuffer);
 	SetStorageImage(renderer, 8, renderer->denoiseReprojectionBuffer0);
 	SetSampledImage(renderer, 9, GetCurrentIDFromFrameIndex(0) ? renderer->denoiseMomentsBuffer0 : renderer->denoiseMomentsBuffer1);
 	SetStorageImage(renderer, 10, GetCurrentIDFromFrameIndex(1) ? renderer->denoiseMomentsBuffer0 : renderer->denoiseMomentsBuffer1);
-	SetSampler(renderer, 11, renderer->normalGBuffer);
+	SetSampler(renderer, 11, renderer->denoisedShadowOutput);
 
 	prevViewProj = viewProjection;
 }
@@ -864,6 +865,8 @@ void ShadowDenoiseFilterPass0::DeclareResources(Renderer* renderer)
 void ShadowDenoiseFilterPass0::Setup(Renderer* renderer)
 {
 	VulkanStateManager* stateManager = renderer->GetStateManager();
+
+	renderer->CopyImage(renderer->depthStencil, renderer->denoiseLastFrameDepth);
 
 	stateManager->SetComputeShader(renderer->GetShader("CS_FilterSoftShadowsPass0"), "Pass0");
 
@@ -910,7 +913,7 @@ void ShadowDenoiseFilterPass1::Setup(Renderer* renderer)
 {
 	VulkanStateManager* stateManager = renderer->GetStateManager();
 
-	stateManager->SetComputeShader(renderer->GetShader("CS_FilterSoftShadowsPass0"), "Pass0");
+	stateManager->SetComputeShader(renderer->GetShader("CS_FilterSoftShadowsPass1"), "Pass1");
 
 	rabbitMat4f projection = renderer->GetCamera()->Projection();
 
@@ -955,7 +958,7 @@ void ShadowDenoiseFilterPass2::Setup(Renderer* renderer)
 {
 	VulkanStateManager* stateManager = renderer->GetStateManager();
 
-	stateManager->SetComputeShader(renderer->GetShader("CS_FilterSoftShadowsPass0"), "Pass0");
+	stateManager->SetComputeShader(renderer->GetShader("CS_FilterSoftShadowsPass2"), "Pass2");
 
 	rabbitMat4f projection = renderer->GetCamera()->Projection();
 

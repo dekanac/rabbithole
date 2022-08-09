@@ -1,11 +1,18 @@
 #version 450
 
+#include "common.h"
+
 #define TEX_W 160
 #define TEX_H 90
 #define TEX_D 64
 
 layout(rgba16f, binding = 0) readonly uniform image3D mediaDensity3DLUT;
 layout(rgba16f, binding = 1) writeonly uniform image3D scatteringTexture;
+
+layout(binding = 2) uniform VolumetricFogParamsBuffer
+{
+    VolumetricFogParams fogParams;
+};
 
 vec4 ScatterAccumulate(vec4 colorDensityFront, vec4 colorDensityBack)
 {
@@ -23,6 +30,9 @@ void WriteOutput(in ivec3 pos, in vec4 value)
 layout( local_size_x = 8, local_size_y = 8, local_size_z = 1 ) in;
 void main()
 {
+    if (!bool(fogParams.isEnabled))
+        return;
+
     if (gl_GlobalInvocationID.x < TEX_W && gl_GlobalInvocationID.y < TEX_H)
     {
         vec4 currentValue = imageLoad(mediaDensity3DLUT, ivec3(gl_GlobalInvocationID.xy, 0));

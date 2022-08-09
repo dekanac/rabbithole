@@ -153,6 +153,6 @@ size_t					GetBPPFrom(const Format format);
 VkImageUsageFlags		GetVkImageUsageFlagsFrom(const ImageUsageFlags usageFlags);
 VkBorderColor			GetVkBorderColorFrom(const Color color);
 bool					IsDepthFormat(const Format format);
-VkPipelineStageFlags	GetVkPipelineStageFromResourceStage(const ResourceStage stage);
+VkPipelineStageFlags GetVkPipelineStageFromResourceStageAndState(const ResourceStage stage, const ResourceState state);
 VkAccessFlags			GetVkAccessFlagsFromResourceState(const ResourceState state);
 
