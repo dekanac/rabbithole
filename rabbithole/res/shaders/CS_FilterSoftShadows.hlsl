@@ -53,7 +53,7 @@ float FFX_DNSR_Shadows_ReadDepth(int2 p)
 
 float16_t3 FFX_DNSR_Shadows_ReadNormals(int2 p)
 {
-    return f32tof16(t2d_NormalBuffer.Load(int3(p, 0)));
+    return (float16_t3)f32tof16(t2d_NormalBuffer.Load(int3(p, 0)).xyz);
 }
 
 bool FFX_DNSR_Shadows_IsShadowReciever(uint2 p)
@@ -64,7 +64,7 @@ bool FFX_DNSR_Shadows_IsShadowReciever(uint2 p)
 
 float16_t2 FFX_DNSR_Shadows_ReadInput(int2 p)
 {
-    return f32tof16(rqt2d_input.Load(int3(p, 0)).xy);
+    return (float16_t2)rqt2d_input.Load(int3(p, 0)).xy;
 }
 
 uint FFX_DNSR_Shadows_ReadTileMetaData(uint p)

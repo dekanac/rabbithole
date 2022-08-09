@@ -286,6 +286,7 @@ void LightingPass::Setup(Renderer* renderer)
 	SetCombinedImageSampler(renderer, 6, renderer->shadowMap);
 	SetCombinedImageSampler(renderer, 7, renderer->velocityGBuffer);
 	SetCombinedImageSampler(renderer, 8, renderer->depthStencil);
+	SetCombinedImageSampler(renderer, 9, renderer->denoisedShadowOutput);
 
 	SetRenderTarget(renderer, 0, renderer->lightingMain);
 }
@@ -832,7 +833,7 @@ void ShadowDenoiseTileClassificationPass::Setup(Renderer* renderer)
 	SetSampledImage(renderer, 2, renderer->velocityGBuffer);
 	SetSampledImage(renderer, 3, renderer->normalGBuffer);
 	SetSampledImage(renderer, 4, renderer->denoiseReprojectionBuffer1);
-	SetSampledImage(renderer, 5, renderer->denoiseLastFrameDepth); //TODO: copy depth and bind here denoiseLastFrameDepth
+	SetSampledImage(renderer, 5, renderer->denoiseLastFrameDepth);
 	SetStorageBuffer(renderer, 6, renderer->denoiseShadowMaskBuffer);
 	SetStorageBuffer(renderer, 7, renderer->denoiseTileMetadataBuffer);
 	SetStorageImage(renderer, 8, renderer->denoiseReprojectionBuffer0);

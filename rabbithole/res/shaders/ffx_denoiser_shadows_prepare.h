@@ -44,7 +44,7 @@ void FFX_DNSR_Shadows_PrepareShadowMask(uint2 gtid, uint2 gid)
         for (int j = 0; j < 4; ++j)
         {
             uint2 tile_id = uint2(gid.x + i, gid.y + j);
-            tile_id = clamp(tile_id, 0, tile_dimensions - 1);
+			tile_id = clamp(tile_id, uint2(0, 0), tile_dimensions - 1);
             FFX_DNSR_Shadows_CopyResult(gtid, tile_id);
         }
     }
