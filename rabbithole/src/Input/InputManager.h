@@ -9,7 +9,7 @@ using KeyboardButton = int;
 
 class Window;
 class EntityManager;
-class InputComponent;
+struct InputComponent;
 
 class InputManager
 {

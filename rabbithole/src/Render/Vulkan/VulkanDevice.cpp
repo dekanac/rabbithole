@@ -491,13 +491,13 @@ VkFormat VulkanDevice::FindSupportedFormat(const std::vector<VkFormat>& candidat
 		{
 			return format;
 		}
-		else if (
-			tiling == VK_IMAGE_TILING_OPTIMAL && (props.optimalTilingFeatures & features) == features) 
+		else if (tiling == VK_IMAGE_TILING_OPTIMAL && (props.optimalTilingFeatures & features) == features) 
 		{
 			return format;
 		}
 	}
 	LOG_ERROR("failed to find supported format!");
+	return VK_FORMAT_UNDEFINED;
 }
 
 uint32_t VulkanDevice::FindMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties) 
@@ -512,8 +512,8 @@ uint32_t VulkanDevice::FindMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags
 			return i;
 		}
 	}
-
 	LOG_ERROR("failed to find suitable memory type!");
+	return UINT_MAX;
 }
 
 VkCommandBuffer VulkanDevice::BeginSingleTimeCommands() 
@@ -1547,11 +1547,11 @@ VkClearValue GetVkClearColorValueFor(const Format format)
 		return VkClearValue{ 0 };
 	default:
 		ASSERT(false, "Not supported format.");
-		break;
+		return VkClearValue{ 0 };
 	}
 }
 
-size_t GetBPPFrom(const Format format)
+uint32_t GetBPPFrom(const Format format)
 {
 	switch (format)
 	{
@@ -1566,6 +1566,6 @@ size_t GetBPPFrom(const Format format)
 		return 16;
 	default:
 		ASSERT(false, "Cannot get BPP from format");
-		break;
+		return 4;
 	}
 }

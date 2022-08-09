@@ -26,7 +26,7 @@ public:
 	VulkanFramebuffer*	  GetFrameBuffer(int index) const { return m_SwapChainFramebuffers[index]; }
 	VulkanRenderPass*	  GetRenderPass() const { return m_RenderPass; }
 	VulkanImageView*	  GetImageView(int index) const { return m_SwapChainVulkanImageViews[index]; }
-	size_t			const GetImageCount() const { return m_SwapChainVulkanImages.size(); }
+	uint32_t		const GetImageCount() const { return static_cast<uint32_t>(m_SwapChainVulkanImages.size()); }
 	Format				  GetSwapChainImageFormat() const { return m_SwapChainImageFormat; }
 	VkExtent2D		const GetSwapChainExtent() const { return m_SwapChainExtent; }
 	uint32_t		const GetWidth() const { return m_SwapChainExtent.width; }

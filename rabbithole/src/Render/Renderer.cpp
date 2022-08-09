@@ -60,6 +60,7 @@ bool Renderer::Init()
 	MainCamera->Init();
 
 	m_CurrentUIState = new UIState;
+	m_CurrentCameraState = new CameraState;
 	SuperResolutionManager::instance().Init(&m_VulkanDevice);
 
 	m_ResourceManager = new ResourceManager();
@@ -328,6 +329,7 @@ bool Renderer::Shutdown()
 	//TODO: clear everything properly
 	delete MainCamera;
 	delete m_CurrentUIState;
+	delete m_CurrentCameraState;
 	gltfModels.clear();
 	m_GPUTimeStamps.OnDestroy();
 	delete m_ResourceManager;
@@ -558,9 +560,9 @@ void Renderer::InitNoiseTextures()
 
 void Renderer::LoadModels()
 {
-	//gltfModels.emplace_back(&m_VulkanDevice, "res/meshes/separateObjects.gltf");
+	gltfModels.emplace_back(&m_VulkanDevice, "res/meshes/separateObjects.gltf");
 	//gltfModels.emplace_back(&m_VulkanDevice, "res/meshes/cottage.gltf");
-	gltfModels.emplace_back(&m_VulkanDevice, "res/meshes/sponza/sponza.gltf");
+	//gltfModels.emplace_back(&m_VulkanDevice, "res/meshes/sponza/sponza.gltf");
 }
 
 void Renderer::BeginRenderPass(VkExtent2D extent)
@@ -759,12 +761,12 @@ void Renderer::BeginCommandBuffer()
 	VkCommandBufferBeginInfo beginInfo{};
 	beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
 
-	VULKAN_API_CALL(vkBeginCommandBuffer(GetCurrentCommandBuffer(), &beginInfo), "failed to begin recording command buffer!");
+	VULKAN_API_CALL(vkBeginCommandBuffer(GetCurrentCommandBuffer(), &beginInfo));
 }
 
 void Renderer::EndCommandBuffer()
 {
-	VULKAN_API_CALL(vkEndCommandBuffer(GetCurrentCommandBuffer()), "failed to end recording command buffer!");
+	VULKAN_API_CALL(vkEndCommandBuffer(GetCurrentCommandBuffer()));
 }
 
 void Renderer::FillTheLightParam(LightParams& lightParam, rabbitVec3f position, rabbitVec3f color, float radius, float intensity, LightType type)
@@ -831,8 +833,8 @@ void Renderer::UpdateEntityPickId()
 	}
 
 	PushMousePos push{};
-	push.x = x;
-	push.y = y;
+	push.x = static_cast<uint32_t>(x);
+	push.y = static_cast<uint32_t>(y);
 	BindPushConstant(push);
 
 }
@@ -869,54 +871,55 @@ void Renderer::CopyToSwapChain()
 	EndRenderPass();
 }
 
-rabbitMat4f prevViewProjMatrix;
-bool hasViewProjMatrixChanged = false;
 void Renderer::BindCameraMatrices(Camera* camera)
 {	
-	m_StateManager->UpdateUBOElement(UBOElement::PrevViewProjMatrix, 4, &prevViewProjMatrix);
+	auto projection = camera->Projection();
+	auto view = camera->View();
 
-	rabbitMat4f viewMatrix = camera->View();
-	m_StateManager->UpdateUBOElement(UBOElement::ViewMatrix, 4, &viewMatrix);
+	m_StateManager->UpdateUBOElement(UBOElement::PrevViewProjMatrix, 4, &m_CurrentCameraState->m_PrevViewProjMatrix);
 
-	rabbitMat4f projMatrix = camera->Projection();
-	m_StateManager->UpdateUBOElement(UBOElement::ProjectionMatrix, 4, &projMatrix);
+	m_CurrentCameraState->m_ViewMatrix = view;
+	m_StateManager->UpdateUBOElement(UBOElement::ViewMatrix, 4, &m_CurrentCameraState->m_ViewMatrix);
+
+	m_CurrentCameraState->m_ProjectionMatrix = projection;
+	m_StateManager->UpdateUBOElement(UBOElement::ProjectionMatrix, 4, &m_CurrentCameraState->m_ProjectionMatrix);
 
 	//todo: double check this, for now I use jittered matrix in VS_Gbuffer FS_SSAO and VS_Skybox
-	rabbitMat4f projMatrixJittered = camera->ProjectionJittered();
-	m_StateManager->UpdateUBOElement(UBOElement::ProjectionMatrixJittered, 4, &projMatrixJittered);
+	m_CurrentCameraState->m_ProjMatrixJittered = camera->ProjectionJittered();
+	m_StateManager->UpdateUBOElement(UBOElement::ProjectionMatrixJittered, 4, &m_CurrentCameraState->m_ProjMatrixJittered);
 
-	rabbitMat4f viewProjMatrix = projMatrix * viewMatrix;
-	m_StateManager->UpdateUBOElement(UBOElement::ViewProjMatrix, 4, &viewProjMatrix);
+	m_CurrentCameraState->m_ViewProjMatrix = projection * view;
+	m_StateManager->UpdateUBOElement(UBOElement::ViewProjMatrix, 4, &m_CurrentCameraState->m_ViewProjMatrix);
 
-	rabbitVec3f cameraPos = camera->GetPosition();
-	m_StateManager->UpdateUBOElement(UBOElement::CameraPosition, 1, &cameraPos);
+	m_CurrentCameraState->m_CameraPosition = camera->GetPosition();
+	m_StateManager->UpdateUBOElement(UBOElement::CameraPosition, 1, &m_CurrentCameraState->m_CameraPosition);
 	
-	rabbitMat4f viewInverse = glm::inverse(viewMatrix);
-	m_StateManager->UpdateUBOElement(UBOElement::ViewInverse, 4, &viewInverse);
+	m_CurrentCameraState->m_ViewInverseMatrix = glm::inverse(view);
+	m_StateManager->UpdateUBOElement(UBOElement::ViewInverse, 4, &m_CurrentCameraState->m_ViewInverseMatrix);
 
-	rabbitMat4f projInverse = glm::inverse(projMatrix);
-	m_StateManager->UpdateUBOElement(UBOElement::ProjInverse, 4, &projInverse);
+	m_CurrentCameraState->m_ProjectionInverseMatrix = glm::inverse(projection);
+	m_StateManager->UpdateUBOElement(UBOElement::ProjInverse, 4, &m_CurrentCameraState->m_ProjectionInverseMatrix);
 
-	rabbitMat4f viewProjInverse = viewInverse * projInverse;
-	m_StateManager->UpdateUBOElement(UBOElement::ViewProjInverse, 4, &viewProjInverse);
+	m_CurrentCameraState->m_ViewProjInverseMatrix = m_CurrentCameraState->m_ViewInverseMatrix * m_CurrentCameraState->m_ProjectionInverseMatrix;
+	m_StateManager->UpdateUBOElement(UBOElement::ViewProjInverse, 4, &m_CurrentCameraState->m_ViewProjInverseMatrix);
 
-	float width = projMatrix[0][0];
-	float height = projMatrix[1][1];
+	float width = projection[0][0];
+	float height = projection[1][1];
 
-	rabbitVec4f eyeXAxis = viewInverse * rabbitVec4f(-1.0 / width, 0, 0, 0);
-	rabbitVec4f eyeYAxis = viewInverse * rabbitVec4f(0, -1.0 / height, 0, 0);
-	rabbitVec4f eyeZAxis = viewInverse * rabbitVec4f(0, 0, 1.f, 0);
+	m_CurrentCameraState->m_EyeXAxis = m_CurrentCameraState->m_ViewInverseMatrix * rabbitVec4f(-1.0 / width, 0, 0, 0);
+	m_CurrentCameraState->m_EyeYAxis = m_CurrentCameraState->m_ViewInverseMatrix * rabbitVec4f(0, -1.0 / height, 0, 0);
+	m_CurrentCameraState->m_EyeZAxis = m_CurrentCameraState->m_ViewInverseMatrix * rabbitVec4f(0, 0, 1.f, 0);
 
-	m_StateManager->UpdateUBOElement(UBOElement::EyeXAxis, 1, &eyeXAxis);
-	m_StateManager->UpdateUBOElement(UBOElement::EyeYAxis, 1, &eyeYAxis);
-	m_StateManager->UpdateUBOElement(UBOElement::EyeZAxis, 1, &eyeZAxis);
+	m_StateManager->UpdateUBOElement(UBOElement::EyeXAxis, 1, &m_CurrentCameraState->m_EyeXAxis);
+	m_StateManager->UpdateUBOElement(UBOElement::EyeYAxis, 1, &m_CurrentCameraState->m_EyeYAxis);
+	m_StateManager->UpdateUBOElement(UBOElement::EyeZAxis, 1, &m_CurrentCameraState->m_EyeZAxis);
 
-	if (prevViewProjMatrix == viewProjMatrix)
-		hasViewProjMatrixChanged = false;
+	if (m_CurrentCameraState->m_ViewProjMatrix == m_CurrentCameraState->m_PrevViewProjMatrix)
+		m_CurrentCameraState->m_HasViewProjMatrixChanged = false;
 	else
-		hasViewProjMatrixChanged = true;
+		m_CurrentCameraState->m_HasViewProjMatrixChanged = true;
 
-	prevViewProjMatrix = viewProjMatrix;
+	m_CurrentCameraState->m_PrevViewProjMatrix = m_CurrentCameraState->m_ViewProjMatrix;
 }
 
 void Renderer::BindUBO()
@@ -1146,6 +1149,7 @@ void Renderer::RecordCommandBuffer(int imageIndex)
 	UpdateUIStateAndFSR2PreDraw();
 	UpdateDebugOptions();
 	UpdateConstantBuffer();
+	BindCameraMatrices(MainCamera);
 
 	//replace with call once impl
 	if (!init3dnoise)
@@ -1296,7 +1300,7 @@ void Renderer::InitSSAO()
 		glm::vec4 sample(randomFloats(generator) * 2.0 - 1.0, randomFloats(generator) * 2.0 - 1.0, randomFloats(generator), 0.0f);
 		sample = glm::normalize(sample);
 		sample *= randomFloats(generator);
-		float scale = float(i) / 64.0;
+		float scale = static_cast<float>(i) / 64.f;
 
 		// scale samples s.t. they're more aligned to center of kernel
 		scale = lerp(0.1f, 1.0f, scale * scale);
@@ -1334,8 +1338,8 @@ void Renderer::InitSSAO()
 	//init ssao params
 	ssaoParams.radius = 0.5f;
 	ssaoParams.bias = 0.025f;
-	ssaoParams.resWidth = GetNativeWidth;
-	ssaoParams.resHeight = GetNativeHeight;
+	ssaoParams.resWidth = static_cast<float>(GetNativeWidth);
+	ssaoParams.resHeight = static_cast<float>(GetNativeHeight);
 	ssaoParams.power = 1.75f;
 	ssaoParams.kernelSize = 48;
 	ssaoParams.ssaoOn = true;
@@ -1365,14 +1369,14 @@ void Renderer::InitMeshDataForCompute()
 	m_VulkanDevice.CopyBuffer(modelVertexBuffer->GetBuffer(), stagingBuffer.GetBuffer(), modelVertexBuffer->GetSize());
 
 	Vertex* vertexBufferCpu = (Vertex*)stagingBuffer.Map();
-	uint32_t vertexCount = modelVertexBuffer->GetSize() / sizeof(Vertex);
+	uint32_t vertexCount = static_cast<uint32_t>(modelVertexBuffer->GetSize() / sizeof(Vertex));
 	verticesMultipliedWithMatrix.resize(vertexCount);
 
 	VulkanBuffer stagingBuffer2(m_VulkanDevice, BufferUsageFlags::TransferDst, MemoryAccess::CPU, modelIndexBuffer->GetSize(), "StagingBuffer");
 	m_VulkanDevice.CopyBuffer(modelIndexBuffer->GetBuffer(), stagingBuffer2.GetBuffer(), modelIndexBuffer->GetSize());
 
 	uint32_t* indexBufferCpu = (uint32_t*)stagingBuffer2.Map();
-	uint32_t indexCount = modelIndexBuffer->GetSize() / sizeof(uint32_t);
+	uint32_t indexCount = static_cast<uint32_t>(modelIndexBuffer->GetSize() / sizeof(uint32_t));
 	
 	for (auto node : model.GetNodes())
 	{ 
@@ -1387,7 +1391,7 @@ void Renderer::InitMeshDataForCompute()
 
 		for (auto& primitive : node.mesh.primitives)
 		{
-			for (int i = primitive.firstIndex; i < primitive.firstIndex + primitive.indexCount; i++)
+			for (uint32_t i = primitive.firstIndex; i < primitive.firstIndex + primitive.indexCount; i++)
 			{
 				auto currentIndex = indexBufferCpu[i];
 				if (!verticesMultipliedWithMatrix[currentIndex])
@@ -1400,14 +1404,14 @@ void Renderer::InitMeshDataForCompute()
 	}
 
 	//get rid of this 
-	for (int k = 0; k < vertexCount; k++)
+	for (uint32_t k = 0; k < vertexCount; k++)
 	{
 		rabbitVec4f position = rabbitVec4f{ vertexBufferCpu[k].position, 1.f };
 		verticesFinal.push_back(position);
 	}
 
 	////will not work for multiple objects, need to calculate offset of vertex buffer all vertices + current index
-	for (int j = 0; j < indexCount; j += 3)
+	for (uint32_t j = 0; j < indexCount; j += 3)
 	{
 		Triangle tri;
 		tri.indices[0] = offset + indexBufferCpu[j];
@@ -1457,8 +1461,8 @@ void Renderer::InitMeshDataForCompute()
 			.name = {"CfbvhNodes"}
 		});
    
-	vertexBuffer->FillBuffer(verticesFinal.data(), verticesFinal.size() * sizeof(rabbitVec4f));
-	trianglesBuffer->FillBuffer(triangles.data(), triangles.size() * sizeof(Triangle));
+	vertexBuffer->FillBuffer(verticesFinal.data(), static_cast<uint32_t>(verticesFinal.size()) * sizeof(rabbitVec4f));
+	trianglesBuffer->FillBuffer(triangles.data(), static_cast<uint32_t>(triangles.size()) * sizeof(Triangle));
 	triangleIndxsBuffer->FillBuffer(triIndices, indicesNum * sizeof(uint32_t));
 	cfbvhNodesBuffer->FillBuffer(root, nodeNum * sizeof(CacheFriendlyBVHNode));
 }
@@ -1466,15 +1470,15 @@ void Renderer::InitMeshDataForCompute()
 void Renderer::UpdateConstantBuffer()
 {
 	rabbitVec4f frustrumInfo{};
-	frustrumInfo.x = GetNativeWidth;
-	frustrumInfo.y = GetNativeHeight;
+	frustrumInfo.x = static_cast<float>(GetNativeWidth);
+	frustrumInfo.y = static_cast<float>(GetNativeHeight);
     frustrumInfo.z = MainCamera->GetNearPlane();
     frustrumInfo.w = MainCamera->GetFarPlane();
 
     m_StateManager->UpdateUBOElement(UBOElement::FrustrumInfo, 1, &frustrumInfo);
 
 	rabbitVec4f frameInfo{};
-	frameInfo.x = m_CurrentFrameIndex;
+	frameInfo.x = static_cast<float>(m_CurrentFrameIndex);
 
 	m_StateManager->UpdateUBOElement(UBOElement::CurrentFrameInfo, 1, &frameInfo);
 }
@@ -1483,10 +1487,10 @@ void Renderer::UpdateUIStateAndFSR2PreDraw()
 {
 	m_CurrentUIState->camera = MainCamera;
 	m_CurrentUIState->deltaTime = m_CurrentDeltaTime * 1000.f; //needs to be in ms
-	m_CurrentUIState->renderHeight = GetNativeHeight;
-	m_CurrentUIState->renderWidth = GetNativeWidth;
+	m_CurrentUIState->renderHeight = static_cast<float>(GetNativeHeight);
+	m_CurrentUIState->renderWidth = static_cast<float>(GetNativeWidth);
 	m_CurrentUIState->sharpness = 1.f;
-	m_CurrentUIState->reset = hasViewProjMatrixChanged;
+	m_CurrentUIState->reset = m_CurrentCameraState->m_HasViewProjMatrixChanged;
 	m_CurrentUIState->useRcas = true;
 	m_CurrentUIState->useTaa = true;
 
@@ -1501,8 +1505,8 @@ void Renderer::ImguiProfilerWindow(std::vector<TimeStamp>& timeStamps)
 	ImGui::Text("Display Resolution : %ix%i", GetUpscaledWidth, GetUpscaledHeight);
 	ImGui::Text("Render Resolution : %ix%i", GetNativeWidth, GetNativeHeight);
 
-	int fps = 1.f / m_CurrentDeltaTime;
-	auto frameTime_ms = m_CurrentDeltaTime * 1000.f;
+	uint32_t fps = static_cast<uint32_t>(1.f / m_CurrentDeltaTime);
+	float frameTime_ms = m_CurrentDeltaTime * 1000.f;
 
 	ImGui::Text("FPS        : %d (%.2f ms)", fps, frameTime_ms);
 
@@ -1656,7 +1660,7 @@ void Renderer::BindVertexData(size_t offset)
 	vkCmdBindVertexBuffers(GetCurrentCommandBuffer(), 0, 1, buffers, offsets);
 }
 
-void Renderer::DrawVertices(uint64_t count)
+void Renderer::DrawVertices(uint32_t count)
 {
 	BindGraphicsPipeline();
 

@@ -1,5 +1,5 @@
 #include "common.h"
-#include "vulkan/precomp.h"`
+#include "vulkan/precomp.h"
 #include "SuperResolutionManager.h"
 
 #include "Render/Window.h"
@@ -18,8 +18,8 @@ void SuperResolutionManager::Init(VulkanDevice* device)
 	m_UpscaleFactor = 4.f/5.f;
 	m_Sharpness = 0.666666f;
 
-	m_NativeResolutionWidth = m_UpscaledResolutionWidth * m_UpscaleFactor;
-	m_NativeResolutionHeight = m_UpscaledResolutionHeight * m_UpscaleFactor;
+	m_NativeResolutionWidth = static_cast<uint32_t>(m_UpscaledResolutionWidth * m_UpscaleFactor);
+	m_NativeResolutionHeight = static_cast<uint32_t>(m_UpscaledResolutionHeight * m_UpscaleFactor);
 
 	m_Hdr = true;
 
@@ -93,8 +93,8 @@ void SuperResolutionManager::Draw(VkCommandBuffer commandBuffer, const FfxUpscal
 	dispatchParameters.sharpness = pState->sharpness;
 	dispatchParameters.frameTimeDelta = pState->deltaTime;
 	dispatchParameters.preExposure = 1.0f;
-	dispatchParameters.renderSize.width = pState->renderWidth;
-	dispatchParameters.renderSize.height = pState->renderHeight;
+	dispatchParameters.renderSize.width = static_cast<uint32_t>(pState->renderWidth);
+	dispatchParameters.renderSize.height = static_cast<uint32_t>(pState->renderHeight);
 	dispatchParameters.cameraFar = pState->camera->GetFarPlane();
 	dispatchParameters.cameraNear = pState->camera->GetNearPlane();
 	dispatchParameters.cameraFovAngleVertical = pState->camera->GetFieldOfViewVerticalRad();

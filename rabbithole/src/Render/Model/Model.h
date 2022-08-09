@@ -17,7 +17,7 @@
 class VulkanImage;
 class VulkanImageView;
 class VulkanImageSampler;
-class IndexedIndirectBuffer;
+struct IndexedIndirectBuffer;
 
 struct IndexIndirectDrawData
 {

@@ -132,7 +132,7 @@ void VulkanTexture::CreateResource(VulkanDevice* device, TextureData* texData, b
 
 	InitializeRegion(texData->width, texData->height, 1, arraySize, mipCount);
 
-	int textureSize = texData->height * texData->width * GetBPPFrom(m_Format) * arraySize;
+	uint32_t textureSize = texData->height * texData->width * GetBPPFrom(m_Format) * arraySize;
 
 	VulkanBuffer stagingBuffer(*device, BufferUsageFlags::StorageBuffer | BufferUsageFlags::TransferSrc, MemoryAccess::CPU, textureSize, "StagingBuffer");
 

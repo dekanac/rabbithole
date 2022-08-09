@@ -71,7 +71,7 @@ void VulkanBuffer::Unmap()
 }
 
 //TODO: fix this, move code to OFFSET version and then from here call FillBuffer(data, 0, size)
-void VulkanBuffer::FillBuffer(void* inputData, size_t size)
+void VulkanBuffer::FillBuffer(void* inputData, uint64_t size)
 {
 	if (m_Info.memoryAccess != MemoryAccess::GPU)
 	{
@@ -89,7 +89,7 @@ void VulkanBuffer::FillBuffer(void* inputData, size_t size)
 	}
 }
 
-void VulkanBuffer::FillBuffer(void* inputData, size_t offset, size_t size)
+void VulkanBuffer::FillBuffer(void* inputData, uint64_t offset, uint64_t size)
 {
 	void* data = Map();
 	char* dataOffset = (char*)data + offset;

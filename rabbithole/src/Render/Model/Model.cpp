@@ -131,7 +131,7 @@ BVHNode* Recurse(BBoxEntries& work, int depth)
 		// Binning: Try splitting at a uniform sampling (at equidistantly spaced planes) that gets smaller the deeper we go:
 		// size of "sampling grid": 1024 (depth 0), 512 (depth 1), etc
 		// each bin has size "step"
-		step = (stop - start) / (1024. / (depth + 1.));
+		step = (stop - start) / (1024.f / (depth + 1.f));
 
 		// for each bin (equally spaced bins of size "step"):
 		for (float testSplit = start + step; testSplit < stop - step; testSplit += step) {
@@ -398,12 +398,13 @@ void PopulateCacheFriendlyBVH(
 	CacheFriendlyBVHNode* nodeList
 	)
 {
-	unsigned currIdxBoxes = idxBoxes;
+	uint32_t currIdxBoxes = idxBoxes;
 	nodeList[currIdxBoxes].bottom = root->bottom;
 	nodeList[currIdxBoxes].top = root->top;
 
 	//DEPTH FIRST APPROACH (left first until complete)
-	if (!root->IsLeaf()) { // inner node
+	if (!root->IsLeaf()) 
+	{ // inner node
 		BVHInner* p = dynamic_cast<BVHInner*>(root);
 		// recursively populate left and right
 		int idxLeft = ++idxBoxes;
@@ -415,15 +416,16 @@ void PopulateCacheFriendlyBVH(
 
 	}
 
-	else { // leaf
+	else 
+	{ // leaf
 		BVHLeaf* p = dynamic_cast<BVHLeaf*>(root);
-		unsigned count = (unsigned)p->triangles.size();
+		uint32_t count = (unsigned)p->triangles.size();
 		nodeList[currIdxBoxes].u.leaf.count = 0x80000000 | count;
 		nodeList[currIdxBoxes].u.leaf.startIndexInTriIndexList = idxTriList;
 
 		for (std::list<const Triangle*>::iterator it = p->triangles.begin(); it != p->triangles.end(); it++)
 		{
-			triIndexList[idxTriList++] = *it - pFirstTriangle;
+			triIndexList[idxTriList++] = static_cast<uint32_t>(*it - pFirstTriangle);
 		}
 	}
 }

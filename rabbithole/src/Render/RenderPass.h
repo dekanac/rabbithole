@@ -31,10 +31,10 @@ protected:
 class name : public RenderPass \
 { \
 public: \
-	virtual void DeclareResources(Renderer* renderer); \
-	virtual void Setup(Renderer* renderer); \
-	virtual void Render(Renderer* renderer); \
-	virtual const char* GetName() { return m_PassName; } \
+	virtual void DeclareResources(Renderer* renderer) override; \
+	virtual void Setup(Renderer* renderer) override; \
+	virtual void Render(Renderer* renderer) override; \
+	virtual const char* GetName() override { return m_PassName; } \
 private: \
 	const char* m_PassName = #name; \
 };

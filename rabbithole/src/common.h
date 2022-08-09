@@ -1,10 +1,11 @@
+#pragma once
+
 #include <glm/glm.hpp>
 
 #include <limits>
 
 #define RABBITHOLE_DEBUG
 
-#pragma once
 
 #define SingletonClass(className) \
 public: \
@@ -52,7 +53,7 @@ typedef glm::mat4 rabbitMat4f;
 
 #define GetCSDispatchCount(A, B) (((A) + ((B) - 1)) / (B))
 
-const float Epsilon = 1e-8;
+const double Epsilon = 1e-8;
 const float Infinity = std::numeric_limits<float>::max();
 
 struct WindowExtent

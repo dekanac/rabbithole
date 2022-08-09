@@ -29,9 +29,7 @@ public:
 	bool Init();
 	void Update(float dt);
 
-	const rabbitVec3f& GetPosition() const;
-	const rabbitVec3f& GetFront() const;
-	const rabbitVec3f& GetUpVector() const;
+	const rabbitVec3f GetPosition() const;
 
 	float	GetFieldOfView() const;
 	float	GetFieldOfViewVerticalRad() const;
@@ -56,4 +54,25 @@ public:
 	rabbitMat4f Projection() const;
 	rabbitMat4f ProjectionJittered() const;
 	rabbitMat4f View() const;
+};
+
+struct CameraState
+{
+	rabbitMat4f m_PrevViewProjMatrix{ 1.f };
+	rabbitMat4f m_ViewMatrix{ 1.f };
+	rabbitMat4f m_ViewInverseMatrix{ 1.f };
+
+	rabbitMat4f m_ProjectionMatrix{ 1.f };
+	rabbitMat4f m_ProjectionInverseMatrix{ 1.f };
+
+	rabbitMat4f m_ProjMatrixJittered{ 1.f };
+	rabbitMat4f m_ViewProjMatrix{ 1.f };
+	rabbitMat4f m_ViewProjInverseMatrix{ 1.f };
+	rabbitVec3f m_CameraPosition{ 1.f };
+
+	rabbitVec4f m_EyeXAxis{ 1.f };
+	rabbitVec4f m_EyeYAxis{ 1.f };
+	rabbitVec4f m_EyeZAxis{ 1.f };
+
+	bool m_HasViewProjMatrixChanged = false;
 };

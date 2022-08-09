@@ -130,6 +130,8 @@ float skyboxVertices[] = {
 	 1000.0f, -1000.0f,  1000.0f,		0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f
 };
 
+uint32_t GetCurrentIDFromFrameIndex(uint32_t id) { return (Renderer::instance().GetCurrentFrameIndex() + id) % 2; }
+
 void BoundingBoxPass::DeclareResources(Renderer* renderer)
 {
 
@@ -142,7 +144,7 @@ void BoundingBoxPass::Setup(Renderer* renderer)
 	stateManager->SetVertexShader(renderer->GetShader("VS_SimpleGeometry"));
 	stateManager->SetPixelShader(renderer->GetShader("FS_SimpleGeometry"));
 
-	renderer->BindViewport(0, 0, GetNativeWidth, GetNativeHeight);
+	renderer->BindViewport(0, 0, static_cast<float>(GetNativeWidth), static_cast<float>(GetNativeHeight));
 	stateManager->ShouldCleanColor(false);
 	stateManager->ShouldCleanDepth(false);
 
@@ -182,7 +184,7 @@ void GBufferPass::Setup(Renderer* renderer)
 	stateManager->SetVertexShader(renderer->GetShader("VS_GBuffer"));
 	stateManager->SetPixelShader(renderer->GetShader("FS_GBuffer"));
 
-	renderer->BindViewport(0, 0, GetNativeWidth, GetNativeHeight);
+	renderer->BindViewport(0, 0, static_cast<float>(GetNativeWidth), static_cast<float>(GetNativeHeight));
 	stateManager->ShouldCleanColor(true);
 	stateManager->ShouldCleanDepth(true);
 
@@ -217,14 +219,6 @@ void GBufferPass::Setup(Renderer* renderer)
 	renderPassInfo->FinalDepthStencilState = ResourceState::DepthStencilWrite;
 
 	stateManager->SetCullMode(CullMode::Front);
-
-	if (renderer->m_RenderTAA)
-	{
-		static uint32_t Seed;
-		renderer->GetCamera()->SetProjectionJitter(GetNativeWidth, GetNativeHeight, Seed);
-	}
-
-	renderer->BindCameraMatrices(renderer->GetCamera());
 }
 
 void GBufferPass::Render(Renderer* renderer)
@@ -308,7 +302,7 @@ void CopyToSwapchainPass::Setup(Renderer* renderer)
 	stateManager->SetVertexShader(renderer->GetShader("VS_PassThrough"));
 	stateManager->SetPixelShader(renderer->GetShader("FS_PassThrough"));
 
-	renderer->BindViewport(0, 0, GetUpscaledWidth, GetUpscaledHeight);
+	renderer->BindViewport(0, 0, static_cast<float>(GetUpscaledWidth), static_cast<float>(GetUpscaledHeight));
 
 	SetCombinedImageSampler(renderer, 0, renderer->postUpscalePostEffects);
 
@@ -696,7 +690,7 @@ void TonemappingPass::Setup(Renderer* renderer)
 	stateManager->SetVertexShader(renderer->GetShader("VS_PassThrough"));
 	stateManager->SetPixelShader(renderer->GetShader("FS_Tonemap"));
 
-	renderer->BindViewport(0, 0, GetUpscaledWidth, GetUpscaledHeight);
+	renderer->BindViewport(0, 0, static_cast<float>(GetUpscaledWidth), static_cast<float>(GetUpscaledHeight));
 
 	SetCombinedImageSampler(renderer, 0, renderer->fsrOutputTexture);
 
@@ -804,27 +798,24 @@ void ShadowDenoisePrePass::Render(Renderer* renderer)
 void ShadowDenoiseTileClassificationPass::DeclareResources(Renderer* renderer)
 {}
 
-rabbitMat4f prevViewProj;
-uint32_t GetCurrentIDFromFrameIndex(uint32_t id) { return (Renderer::instance().GetCurrentFrameIndex() + id) % 2; }
 void ShadowDenoiseTileClassificationPass::Setup(Renderer* renderer)
 {
 	VulkanStateManager* stateManager = renderer->GetStateManager();
 
 	stateManager->SetComputeShader(renderer->GetShader("CS_TileClassification"));
 
-	Camera* camera = renderer->GetCamera();
-	rabbitMat4f viewProjection = camera->Projection() * camera->View();
+	CameraState* cameraState = renderer->GetCameraState();
 
 	DenoiseShadowData shadowData{};
-	shadowData.Eye = camera->GetPosition();
-	shadowData.FirstFrame = renderer->GetCurrentFrameIndex() == 0 ? 1 : 0;
+	shadowData.Eye = cameraState->m_CameraPosition;
+	shadowData.FirstFrame = (int)(renderer->GetCurrentFrameIndex() == 0);
 	shadowData.BufferDimensions[0] = static_cast<int>(GetNativeWidth);
 	shadowData.BufferDimensions[1] = static_cast<int>(GetNativeHeight);
 	shadowData.InvBufferDimensions[0] = 1.f / float(GetNativeWidth);
 	shadowData.InvBufferDimensions[1] = 1.f / float(GetNativeHeight);
-	shadowData.ProjectionInverse = glm::inverse(camera->Projection());
-	shadowData.ViewProjectionInverse = glm::inverse(viewProjection);
-	shadowData.ReprojectionMatrix = shadowData.ViewProjectionInverse * prevViewProj;
+	shadowData.ProjectionInverse = cameraState->m_ProjectionInverseMatrix;
+	shadowData.ViewProjectionInverse = cameraState->m_ViewProjInverseMatrix;
+	shadowData.ReprojectionMatrix = cameraState->m_ViewProjInverseMatrix * cameraState->m_PrevViewProjMatrix;
 
 	renderer->denoiseShadowDataBuffer->FillBuffer(&shadowData);
 
@@ -840,8 +831,6 @@ void ShadowDenoiseTileClassificationPass::Setup(Renderer* renderer)
 	SetSampledImage(renderer, 9, GetCurrentIDFromFrameIndex(0) ? renderer->denoiseMomentsBuffer0 : renderer->denoiseMomentsBuffer1);
 	SetStorageImage(renderer, 10, GetCurrentIDFromFrameIndex(1) ? renderer->denoiseMomentsBuffer0 : renderer->denoiseMomentsBuffer1);
 	SetSampler(renderer, 11, renderer->denoisedShadowOutput);
-
-	prevViewProj = viewProjection;
 }
 
 void ShadowDenoiseTileClassificationPass::Render(Renderer* renderer)
@@ -866,15 +855,14 @@ void ShadowDenoiseFilterPass0::DeclareResources(Renderer* renderer)
 void ShadowDenoiseFilterPass0::Setup(Renderer* renderer)
 {
 	VulkanStateManager* stateManager = renderer->GetStateManager();
+	CameraState* cameraState = renderer->GetCameraState();
+	
+	stateManager->SetComputeShader(renderer->GetShader("CS_FilterSoftShadowsPass0"), "Pass0");
 
 	renderer->CopyImage(renderer->depthStencil, renderer->denoiseLastFrameDepth);
 
-	stateManager->SetComputeShader(renderer->GetShader("CS_FilterSoftShadowsPass0"), "Pass0");
-
-	rabbitMat4f projection = renderer->GetCamera()->Projection();
-
 	DenoiseShadowFilterData shadowFilterData{};
-	shadowFilterData.ProjectionInverse = glm::inverse(projection);
+	shadowFilterData.ProjectionInverse = cameraState->m_ProjectionInverseMatrix;
 	shadowFilterData.DepthSimilaritySigma = 1.f;
 	shadowFilterData.BufferDimensions[0] = static_cast<int>(GetNativeWidth);
 	shadowFilterData.BufferDimensions[1] = static_cast<int>(GetNativeHeight);
@@ -916,18 +904,6 @@ void ShadowDenoiseFilterPass1::Setup(Renderer* renderer)
 
 	stateManager->SetComputeShader(renderer->GetShader("CS_FilterSoftShadowsPass1"), "Pass1");
 
-	rabbitMat4f projection = renderer->GetCamera()->Projection();
-
-	DenoiseShadowFilterData shadowFilterData{};
-	shadowFilterData.ProjectionInverse = glm::inverse(projection);
-	shadowFilterData.DepthSimilaritySigma = 1.f;
-	shadowFilterData.BufferDimensions[0] = static_cast<int>(GetNativeWidth);
-	shadowFilterData.BufferDimensions[1] = static_cast<int>(GetNativeHeight);
-	shadowFilterData.InvBufferDimensions[0] = 1.f / float(GetNativeWidth);
-	shadowFilterData.InvBufferDimensions[1] = 1.f / float(GetNativeHeight);
-
-	renderer->denoiseShadowFilterDataBuffer->FillBuffer(&shadowFilterData);
-
 	SetConstantBuffer(renderer, 0, renderer->denoiseShadowFilterDataBuffer);
 	SetSampledImage(renderer, 1, renderer->depthStencil);
 	SetSampledImage(renderer, 2, renderer->normalGBuffer);
@@ -960,18 +936,6 @@ void ShadowDenoiseFilterPass2::Setup(Renderer* renderer)
 	VulkanStateManager* stateManager = renderer->GetStateManager();
 
 	stateManager->SetComputeShader(renderer->GetShader("CS_FilterSoftShadowsPass2"), "Pass2");
-
-	rabbitMat4f projection = renderer->GetCamera()->Projection();
-
-	DenoiseShadowFilterData shadowFilterData{};
-	shadowFilterData.ProjectionInverse = glm::inverse(projection);
-	shadowFilterData.DepthSimilaritySigma = 1.f;
-	shadowFilterData.BufferDimensions[0] = static_cast<int>(GetNativeWidth);
-	shadowFilterData.BufferDimensions[1] = static_cast<int>(GetNativeHeight);
-	shadowFilterData.InvBufferDimensions[0] = 1.f / float(GetNativeWidth);
-	shadowFilterData.InvBufferDimensions[1] = 1.f / float(GetNativeHeight);
-
-	renderer->denoiseShadowFilterDataBuffer->FillBuffer(&shadowFilterData);
 
 	SetConstantBuffer(renderer, 0, renderer->denoiseShadowFilterDataBuffer);
 	SetSampledImage(renderer, 1, renderer->depthStencil);

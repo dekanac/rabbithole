@@ -9,7 +9,7 @@ VulkanFramebuffer::VulkanFramebuffer(const VulkanDevice* device,
 	: m_VulkanDevice(device)
 	, m_Info(info)
 {
-	uint32_t attachmentCount = attachments.size();
+	uint32_t attachmentCount = static_cast<uint32_t>(attachments.size());
 	std::vector<VkImageView> att(attachmentCount);
 
 	for (uint32_t i = 0; i < attachmentCount; i++)

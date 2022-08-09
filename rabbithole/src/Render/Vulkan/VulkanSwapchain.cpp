@@ -86,7 +86,7 @@ VkResult VulkanSwapchain::SubmitCommandBuffers(const VkCommandBuffer* buffers, u
 	submitInfo.pSignalSemaphores = signalSemaphores;
 
 	vkResetFences(m_VulkanDevice.GetGraphicDevice(), 1, &m_InFlightFences[m_CurrentFrame]);
-	VULKAN_API_CALL(vkQueueSubmit(m_VulkanDevice.GetGraphicsQueue(), 1, &submitInfo, m_InFlightFences[m_CurrentFrame]), "failed to submit draw command buffer!");
+	VULKAN_API_CALL(vkQueueSubmit(m_VulkanDevice.GetGraphicsQueue(), 1, &submitInfo, m_InFlightFences[m_CurrentFrame]));
 
 	VkPresentInfoKHR presentInfo = {};
 	presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
@@ -157,7 +157,7 @@ void VulkanSwapchain::CreateSwapChain()
 
 	createInfo.oldSwapchain = VK_NULL_HANDLE;
 
-	VULKAN_API_CALL(vkCreateSwapchainKHR(m_VulkanDevice.GetGraphicDevice(), &createInfo, nullptr, &m_SwapChain), "failed to create swap chain!");
+	VULKAN_API_CALL(vkCreateSwapchainKHR(m_VulkanDevice.GetGraphicDevice(), &createInfo, nullptr, &m_SwapChain));
 
 	vkGetSwapchainImagesKHR(m_VulkanDevice.GetGraphicDevice(), m_SwapChain, &imageCount, nullptr);
 	m_SwapChainImages.resize(imageCount);
