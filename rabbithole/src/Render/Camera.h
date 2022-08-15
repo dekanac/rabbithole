@@ -60,6 +60,7 @@ struct CameraState
 {
 	rabbitMat4f m_PrevViewProjMatrix{ 1.f };
 	rabbitMat4f m_ViewMatrix{ 1.f };
+	rabbitMat4f m_PrevViewMatrix{ 1.f };
 	rabbitMat4f m_ViewInverseMatrix{ 1.f };
 
 	rabbitMat4f m_ProjectionMatrix{ 1.f };

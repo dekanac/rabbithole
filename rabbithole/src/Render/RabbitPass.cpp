@@ -800,8 +800,7 @@ void ShadowDenoiseTileClassificationPass::Setup(Renderer* renderer)
 	shadowData.InvBufferDimensions[1] = 1.f / float(GetNativeHeight);
 	shadowData.ProjectionInverse = cameraState->m_ProjectionInverseMatrix;
 	shadowData.ViewProjectionInverse = cameraState->m_ViewProjInverseMatrix;
-	shadowData.ReprojectionMatrix = cameraState->m_ViewProjInverseMatrix * cameraState->m_PrevViewProjMatrix;
-
+	shadowData.ReprojectionMatrix = cameraState->m_ProjectionMatrix * (cameraState->m_PrevViewMatrix * cameraState->m_ViewProjInverseMatrix);
 	renderer->denoiseShadowDataBuffer->FillBuffer(&shadowData);
 
 	SetConstantBuffer(renderer, 0, renderer->denoiseShadowDataBuffer);

@@ -860,6 +860,7 @@ void Renderer::BindCameraMatrices(Camera* camera)
 		m_CurrentCameraState->m_HasViewProjMatrixChanged = true;
 
 	m_CurrentCameraState->m_PrevViewProjMatrix = m_CurrentCameraState->m_ViewProjMatrix;
+	m_CurrentCameraState->m_PrevViewMatrix = m_CurrentCameraState->m_ViewMatrix;
 }
 
 void Renderer::BindUBO()
