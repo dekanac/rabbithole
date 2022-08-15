@@ -107,13 +107,38 @@ struct VectorHasher {
 	}
 };
 
+class Pipeline : public VulkanPipeline
+{
+public:
+	Pipeline(VulkanDevice& device, PipelineConfigInfo& configInfo, PipelineType type)
+		: VulkanPipeline(device, configInfo, type) {}
+};
+
+class GraphicsPipeline : public Pipeline
+{
+public:
+	GraphicsPipeline(VulkanDevice& device, PipelineConfigInfo& configInfo)
+		: Pipeline(device, configInfo, PipelineType::Graphics) {}
+
+	virtual void Bind(VkCommandBuffer commandBuffer) override;
+};
+
+class ComputePipeline : public Pipeline
+{
+public:
+	ComputePipeline(VulkanDevice& device, PipelineConfigInfo& configInfo)
+		: Pipeline(device, configInfo, PipelineType::Compute) {}
+
+	virtual void Bind(VkCommandBuffer commandBuffer) override;
+};
+
 class PipelineManager
 {
 	SingletonClass(PipelineManager)
 
 public:
-	std::unordered_map<GraphicsPipelineKey, VulkanPipeline*>					m_GraphicPipelines;
-	std::unordered_map<ComputePipelineKey, VulkanPipeline*>						m_ComputePipelines;
+	std::unordered_map<GraphicsPipelineKey, GraphicsPipeline*>					m_GraphicPipelines;
+	std::unordered_map<ComputePipelineKey, ComputePipeline*>					m_ComputePipelines;
 	std::unordered_map<RenderPassKey, VulkanRenderPass*>						m_RenderPasses;
 	std::unordered_map<FramebufferKey, VulkanFramebuffer*, VectorHasher>		m_Framebuffers;
 	std::unordered_map<DescriptorSetKey, VulkanDescriptorSet*, VectorHasher>	m_DescriptorSets;

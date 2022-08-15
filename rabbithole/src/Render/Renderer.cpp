@@ -7,7 +7,7 @@
 #include "Model/Model.h"
 #include "Render/Camera.h"
 #include "Render/Window.h"
-#include "Render/RenderPass.h"
+#include "Render/RabbitPass.h"
 #include "Render/ResourceStateTracking.h"
 #include "Render/SuperResolutionManager.h"
 #include "Render/Shader.h"
@@ -35,21 +35,18 @@
 
 rabbitVec3f renderDebugOption;
 
-void Renderer::ExecuteRenderPass(RenderPass& renderpass)
+void Renderer::ExecuteRabbitPass(RabbitPass& rabbitPass)
 {
-	m_VulkanDevice.BeginLabel(GetCurrentCommandBuffer(), renderpass.GetName());
+	m_VulkanDevice.BeginLabel(GetCurrentCommandBuffer(), rabbitPass.GetName());
 
-	renderpass.Setup(this);
+	rabbitPass.Setup(this);
 
-	RSTManager.TransitionResources();
-	renderpass.Render(this);
+	rabbitPass.Render(this);
 	
 	if (m_RecordGPUTimeStamps)
 	{
-		RecordGPUTimeStamp(renderpass.GetName());
+		RecordGPUTimeStamp(rabbitPass.GetName());
 	}
-
-	RSTManager.Reset();
 
 	m_VulkanDevice.EndLabel(GetCurrentCommandBuffer());
 }
@@ -610,60 +607,9 @@ void Renderer::RecordGPUTimeStamp(const char* label)
 	m_GPUTimeStamps.GetTimeStamp(GetCurrentCommandBuffer(), label);
 }
 
-void Renderer::BindGraphicsPipeline(bool isPostUpscale)
-{
-	//if pipeline is not dirty bind the one already in state manager
-	if (!m_StateManager->GetPipelineDirty())
-	{
-		m_StateManager->GetPipeline()->Bind(GetCurrentCommandBuffer());
-		return;
-	}
-
-	auto pipelineInfo = m_StateManager->GetPipelineInfo();
-	auto& attachments = m_StateManager->GetRenderTargets();
-	auto depthStencil = m_StateManager->GetDepthStencil();
-	auto renderPassInfo = m_StateManager->GetRenderPassInfo();
-
-	//renderpass
-	VulkanRenderPass* renderpass = PipelineManager::instance().FindOrCreateRenderPass(m_VulkanDevice, attachments, depthStencil, *renderPassInfo);
-	m_StateManager->SetRenderPass(renderpass);
-
-	//framebuffer
-	VulkanFramebufferInfo framebufferInfo{};
-	framebufferInfo.height = isPostUpscale ? GetUpscaledHeight : GetNativeHeight;
-	framebufferInfo.width = isPostUpscale ? GetUpscaledWidth : GetNativeWidth;
-	VulkanFramebuffer* framebuffer = PipelineManager::instance().FindOrCreateFramebuffer(m_VulkanDevice, attachments, depthStencil, renderpass, framebufferInfo);
-	m_StateManager->SetFramebuffer(framebuffer);
-
-	//pipeline
-	pipelineInfo->renderPass = m_StateManager->GetRenderPass();
-	auto pipeline = PipelineManager::instance().FindOrCreateGraphicsPipeline(m_VulkanDevice, *pipelineInfo);
-	m_StateManager->SetPipeline(pipeline);
-
-	pipeline->Bind(GetCurrentCommandBuffer());
-	m_StateManager->SetPipelineDirty(false);
-
-}
-
-void Renderer::BindComputePipeline()
-{
-	if (m_StateManager->GetPipelineDirty())
-	{ 
-		auto pipelineInfo = m_StateManager->GetPipelineInfo();
-		VulkanPipeline* computePipeline = PipelineManager::instance().FindOrCreateComputePipeline(m_VulkanDevice, *pipelineInfo);
-		m_StateManager->SetPipeline(computePipeline);
-
-		//TODO: need a better way, this is kinda reset for pipeline info because compute bind is happening in the middle of render pass independently
-		computePipeline->Bind(GetCurrentCommandBuffer());
-
-		m_StateManager->SetComputeShader(nullptr);
-		m_StateManager->SetPipelineDirty(false);
-	}
-}
-
 void Renderer::DrawGeometryGLTF(std::vector<VulkanglTFModel>& bucket)
 {
-	BindGraphicsPipeline();
+	BindPipeline<GraphicsPipeline>();
 
 	BeginRenderPass({ GetNativeWidth, GetNativeHeight });
 
@@ -688,9 +634,7 @@ void Renderer::DrawGeometryGLTF(std::vector<VulkanglTFModel>& bucket)
 /*
 void Renderer::DrawBoundingBoxes(std::vector<RabbitModel*>& bucket)
 {
-	BindGraphicsPipeline();
-
-	BindDescriptorSets();
+	BindPipeline<GraphicsPipeline>();
 
 	BeginRenderPass({ GetNativeWidth, GetNativeHeight });
 
@@ -801,15 +745,13 @@ std::vector<char> Renderer::ReadFile(const std::string& filepath)
 	return buffer;
 }
 
-void Renderer::DrawFullScreenQuad(bool isPostUpscale)
+void Renderer::DrawFullScreenQuad()
 {
-	BindGraphicsPipeline(isPostUpscale);
-
-	BindDescriptorSets();
+	BindPipeline<GraphicsPipeline>();
 
 	Extent2D renderExtent{};
-	renderExtent.width = isPostUpscale ? GetUpscaledWidth : GetNativeWidth;
-	renderExtent.height = isPostUpscale ? GetUpscaledHeight : GetNativeHeight;
+	renderExtent.width = m_StateManager->GetFramebufferExtent().width;
+	renderExtent.height = m_StateManager->GetFramebufferExtent().height;
 
 	BeginRenderPass(renderExtent);
 
@@ -841,7 +783,7 @@ void Renderer::UpdateEntityPickId()
 
 void Renderer::CopyToSwapChain()
 {
-	BindGraphicsPipeline(true);
+	BindPipeline<GraphicsPipeline>();
 
 #ifdef RABBITHOLE_USING_IMGUI
 	if (!m_ImguiInitialized)
@@ -851,8 +793,6 @@ void Renderer::CopyToSwapChain()
 		m_ImguiInitialized = true;
 	}
 #endif
-
-	BindDescriptorSets();
 
 	BeginRenderPass({ GetUpscaledWidth, GetUpscaledHeight });
 
@@ -1154,43 +1094,43 @@ void Renderer::RecordCommandBuffer(int imageIndex)
 	//replace with call once impl
 	if (!init3dnoise)
 	{
-		ExecuteRenderPass(noise3DLUTGeneration);
+		ExecuteRabbitPass(noise3DLUTGeneration);
 		init3dnoise = true;
 	}
 
-	ExecuteRenderPass(gbuffer);
-	ExecuteRenderPass(ssao);
-	ExecuteRenderPass(ssaoBlur);
-	ExecuteRenderPass(RTShadows);
-	ExecuteRenderPass(shadowDenoisePrepass);
-	ExecuteRenderPass(shadowDenoiseTileClassification);
-	ExecuteRenderPass(shadowDenoiseFilter0);
-	ExecuteRenderPass(shadowDenoiseFilter1);
-	ExecuteRenderPass(shadowDenoiseFilter2);
-	ExecuteRenderPass(volumetric);
-	ExecuteRenderPass(computeScattering);
-	ExecuteRenderPass(skybox);
-	ExecuteRenderPass(lighting);
-	ExecuteRenderPass(applyVolumerticFog);
-    ExecuteRenderPass(textureDebug);
+	ExecuteRabbitPass(gbuffer);
+	ExecuteRabbitPass(ssao);
+	ExecuteRabbitPass(ssaoBlur);
+	ExecuteRabbitPass(RTShadows);
+	ExecuteRabbitPass(shadowDenoisePrepass);
+	ExecuteRabbitPass(shadowDenoiseTileClassification);
+	ExecuteRabbitPass(shadowDenoiseFilter0);
+	ExecuteRabbitPass(shadowDenoiseFilter1);
+	ExecuteRabbitPass(shadowDenoiseFilter2);
+	ExecuteRabbitPass(volumetric);
+	ExecuteRabbitPass(computeScattering);
+	ExecuteRabbitPass(skybox);
+	ExecuteRabbitPass(lighting);
+	ExecuteRabbitPass(applyVolumerticFog);
+    ExecuteRabbitPass(textureDebug);
 
 #ifdef USE_RABBITHOLE_TOOLS
 	if (m_RenderOutlinedEntity)
 	{
-		ExecuteRenderPass(outlineEntity);
+		ExecuteRabbitPass(outlineEntity);
 	}
 
 	if (m_DrawBoundingBox)
 	{ 
-		ExecuteRenderPass(bbPass);
+		ExecuteRabbitPass(bbPass);
 	}
 #endif
 
-	ExecuteRenderPass(fsr2);
+	ExecuteRabbitPass(fsr2);
 
-	ExecuteRenderPass(tonemapping);
+	ExecuteRabbitPass(tonemapping);
 
-	ExecuteRenderPass(copyToSwapchain);
+	ExecuteRabbitPass(copyToSwapchain);
 
 	if (m_RecordGPUTimeStamps)
 	{
@@ -1507,8 +1447,11 @@ void Renderer::ImguiProfilerWindow(std::vector<TimeStamp>& timeStamps)
 
 	uint32_t fps = static_cast<uint32_t>(1.f / m_CurrentDeltaTime);
 	float frameTime_ms = m_CurrentDeltaTime * 1000.f;
+	float numOfTriangles = static_cast<float>(trianglesBuffer->GetSize()) / static_cast<float>(sizeof(Triangle)) / 1000.f;
 
 	ImGui::Text("FPS        : %d (%.2f ms)", fps, frameTime_ms);
+	ImGui::Text("Num of triangles   : %.2fk", numOfTriangles);
+
 
 	if (ImGui::CollapsingHeader("GPU Timings", ImGuiTreeNodeFlags_DefaultOpen))
 	{
@@ -1662,9 +1605,8 @@ void Renderer::BindVertexData(size_t offset)
 
 void Renderer::DrawVertices(uint32_t count)
 {
-	BindGraphicsPipeline();
+	BindPipeline<GraphicsPipeline>();
 
-	BindDescriptorSets();
 
 	BeginRenderPass({ GetNativeWidth, GetNativeHeight });
 
@@ -1686,6 +1628,8 @@ void Renderer::DrawIndicesIndirect(uint32_t count, uint32_t offset)
 
 void Renderer::Dispatch(uint32_t x, uint32_t y, uint32_t z)
 {
+	BindPipeline<ComputePipeline>();
+
 	vkCmdDispatch(GetCurrentCommandBuffer(), x, y, z);
 }
 
@@ -1769,3 +1713,6 @@ void IndexedIndirectBuffer::Reset()
 {
 	currentOffset = 0;
 }
+
+
+

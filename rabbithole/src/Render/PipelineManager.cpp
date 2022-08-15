@@ -60,7 +60,7 @@ VulkanPipeline* PipelineManager::FindOrCreateGraphicsPipeline(VulkanDevice& devi
 	else
 	{
 		LOG_WARNING("If you're seeing this every frame, you're doing something wrong! Check GraphicsPipelineKey!");
-		VulkanPipeline* pipeline = new VulkanPipeline(device, pipelineInfo);
+		GraphicsPipeline* pipeline = new GraphicsPipeline(device, pipelineInfo);
 		m_GraphicPipelines[key] = pipeline;
 		return pipeline;
 	}
@@ -83,7 +83,7 @@ VulkanPipeline* PipelineManager::FindOrCreateComputePipeline(VulkanDevice& devic
 	else
 	{
 		LOG_WARNING("If you're seeing this every frame, you're doing something wrong! Check ComputePipelineKey!");
-		auto newPipeline = new VulkanPipeline(device, pipelineInfo, PipelineType::Compute);
+		ComputePipeline* newPipeline = new ComputePipeline(device, pipelineInfo);
 		m_ComputePipelines[key] = newPipeline;
 		return newPipeline;
 	}
@@ -209,4 +209,14 @@ VulkanDescriptorSet* PipelineManager::FindOrCreateDescriptorSet(VulkanDevice& de
 	}
 
 	return nullptr;
+}
+
+void GraphicsPipeline::Bind(VkCommandBuffer commandBuffer)
+{
+	vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_Pipeline);
+}
+
+void ComputePipeline::Bind(VkCommandBuffer commandBuffer)
+{
+	vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, m_Pipeline);
 }

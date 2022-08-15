@@ -78,7 +78,7 @@ public:
 	VulkanPipeline(const VulkanPipeline&) = delete;
 	VulkanPipeline operator=(const VulkanPipeline&) = delete;
 
-	void							 Bind(VkCommandBuffer commandBuffer);
+	virtual void					 Bind(VkCommandBuffer commandBuffer) {}
 
 	static void						 DefaultPipelineConfigInfo(PipelineConfigInfo*& configInfo, uint32_t width, uint32_t height);
 	const VulkanDescriptorSetLayout* GetDescriptorSetLayout() { return m_DescriptorSetLayout; }
@@ -92,9 +92,11 @@ private:
 
 	VulkanDevice&							m_VulkanDevice;
 	PipelineConfigInfo&						m_PipelineInfo;
-	VkPipeline								m_Pipeline;
 	VkPipelineLayout						m_PipelineLayout;
 	VulkanDescriptorSetLayout*				m_DescriptorSetLayout;
 	VulkanRenderPass*						m_RenderPass;
 	PipelineType							m_Type;
+
+protected:
+	VkPipeline								m_Pipeline;
 };

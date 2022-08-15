@@ -137,7 +137,7 @@
     <ClCompile Include="src\Render\BVH.cpp" />
     <ClCompile Include="src\Render\Model\TextureLoading.cpp" />
     <ClCompile Include="src\Render\PipelineManager.cpp" />
-    <ClCompile Include="src\Render\RenderPass.cpp" />
+    <ClCompile Include="src\Render\RabbitPass.cpp" />
     <ClCompile Include="src\Render\ResourceManager.cpp" />
     <ClCompile Include="src\Render\ResourceStateTracking.cpp" />
     <ClCompile Include="src\Render\SuperResolutionManager.cpp" />
@@ -186,7 +186,8 @@
     <ClInclude Include="src\Render\BVH.h" />
     <ClInclude Include="src\Render\Model\TextureLoading.h" />
     <ClInclude Include="src\Render\PipelineManager.h" />
-    <ClInclude Include="src\Render\RenderPass.h" />
+    <ClInclude Include="src\Render\RabbitPass.h" />
+    <ClInclude Include="src\Render\Renderer.hpp" />
     <ClInclude Include="src\Render\ResourceManager.h" />
     <ClInclude Include="src\Render\ResourceStateTracking.h" />
     <ClInclude Include="src\Render\SuperResolutionManager.h" />

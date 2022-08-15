@@ -1,10 +1,10 @@
 #include "Camera.h"
-#include "RenderPass.h"
+#include "RabbitPass.h"
 #include "Renderer.h"
 #include "ResourceStateTracking.h"
 #include "SuperResolutionManager.h"
 
-void RenderPass::SetCombinedImageSampler(Renderer* renderer, int slot, VulkanTexture* texture)
+void RabbitPass::SetCombinedImageSampler(Renderer* renderer, int slot, VulkanTexture* texture)
 {
 	auto stateManager = renderer->GetStateManager();
 	stateManager->UpdateResourceStage(texture);
@@ -14,7 +14,7 @@ void RenderPass::SetCombinedImageSampler(Renderer* renderer, int slot, VulkanTex
 	renderer->GetStateManager()->SetCombinedImageSampler(slot, texture);
 }
 
-void RenderPass::SetSampledImage(Renderer* renderer, int slot, VulkanTexture* texture)
+void RabbitPass::SetSampledImage(Renderer* renderer, int slot, VulkanTexture* texture)
 {
 	auto stateManager = renderer->GetStateManager();
 	stateManager->UpdateResourceStage(texture);
@@ -24,7 +24,7 @@ void RenderPass::SetSampledImage(Renderer* renderer, int slot, VulkanTexture* te
 	renderer->GetStateManager()->SetSampledImage(slot, texture);
 }
 
-void RenderPass::SetStorageImage(Renderer* renderer, int slot, VulkanTexture* texture)
+void RabbitPass::SetStorageImage(Renderer* renderer, int slot, VulkanTexture* texture)
 {
 	auto stateManager = renderer->GetStateManager();
 	stateManager->UpdateResourceStage(texture);
@@ -34,22 +34,22 @@ void RenderPass::SetStorageImage(Renderer* renderer, int slot, VulkanTexture* te
 	renderer->GetStateManager()->SetStorageImage(slot, texture);
 }
 
-void RenderPass::SetConstantBuffer(Renderer* renderer, int slot, VulkanBuffer* buffer)
+void RabbitPass::SetConstantBuffer(Renderer* renderer, int slot, VulkanBuffer* buffer)
 {
 	renderer->GetStateManager()->SetConstantBuffer(slot, buffer);
 }
 
-void RenderPass::SetStorageBuffer(Renderer* renderer, int slot, VulkanBuffer* buffer)
+void RabbitPass::SetStorageBuffer(Renderer* renderer, int slot, VulkanBuffer* buffer)
 {
     renderer->GetStateManager()->SetStorageBuffer(slot, buffer);
 }
 
-void RenderPass::SetSampler(Renderer* renderer, int slot, VulkanTexture* texture)
+void RabbitPass::SetSampler(Renderer* renderer, int slot, VulkanTexture* texture)
 {
 	renderer->GetStateManager()->SetSampler(slot, texture);
 }
 
-void RenderPass::SetRenderTarget(Renderer* renderer, int slot, VulkanTexture* texture)
+void RabbitPass::SetRenderTarget(Renderer* renderer, int slot, VulkanTexture* texture)
 {
 	VulkanStateManager* stateManager = renderer->GetStateManager();
 	stateManager->UpdateResourceStage(texture);
@@ -80,7 +80,7 @@ void RenderPass::SetRenderTarget(Renderer* renderer, int slot, VulkanTexture* te
 	}
 }
 
-void RenderPass::SetDepthStencil(Renderer* renderer, VulkanTexture* texture)
+void RabbitPass::SetDepthStencil(Renderer* renderer, VulkanTexture* texture)
 {
 	VulkanStateManager* stateManager = renderer->GetStateManager();
 	stateManager->UpdateResourceStage(texture);
@@ -223,7 +223,6 @@ void GBufferPass::Setup(Renderer* renderer)
 
 void GBufferPass::Render(Renderer* renderer)
 {
-	//renderer->DrawGeometry(renderer->GetModels());
 	renderer->DrawGeometryGLTF(renderer->gltfModels);
 }
 
@@ -238,8 +237,6 @@ void LightingPass::Setup(Renderer* renderer)
 
 	stateManager->SetVertexShader(renderer->GetShader("VS_PassThrough"));
 	stateManager->SetPixelShader(renderer->GetShader("FS_PBR"));
-
-	stateManager->ShouldCleanColor(true);
 
 	//fill the light buffer
 	if (renderer->imguiReady)
@@ -269,6 +266,7 @@ void LightingPass::Setup(Renderer* renderer)
 
 		ImGui::End();
 	}
+
 	renderer->GetLightParams()->FillBuffer(renderer->lightParams, sizeof(LightParams) * numOfLights);
 
 	SetCombinedImageSampler(renderer, 0, renderer->albedoGBuffer);
@@ -298,11 +296,12 @@ void CopyToSwapchainPass::DeclareResources(Renderer* renderer)
 void CopyToSwapchainPass::Setup(Renderer* renderer)
 {
 	VulkanStateManager* stateManager = renderer->GetStateManager();
+	
+	stateManager->SetFramebufferExtent(Extent2D{ GetUpscaledWidth , GetUpscaledHeight });
+	renderer->BindViewport(0, 0, static_cast<float>(GetUpscaledWidth), static_cast<float>(GetUpscaledHeight));
 
 	stateManager->SetVertexShader(renderer->GetShader("VS_PassThrough"));
 	stateManager->SetPixelShader(renderer->GetShader("FS_PassThrough"));
-
-	renderer->BindViewport(0, 0, static_cast<float>(GetUpscaledWidth), static_cast<float>(GetUpscaledHeight));
 
 	SetCombinedImageSampler(renderer, 0, renderer->postUpscalePostEffects);
 
@@ -491,15 +490,12 @@ void RTShadowsPass::Setup(Renderer* renderer)
 	SetStorageBuffer(renderer, 5, renderer->triangleIndxsBuffer);
 	SetStorageBuffer(renderer, 6, renderer->cfbvhNodesBuffer);
 	SetConstantBuffer(renderer, 7, renderer->GetLightParams());
-	SetCombinedImageSampler(renderer, 8, renderer->blueNoise2DTexture);
+	SetStorageImage(renderer, 8, renderer->blueNoise2DTexture);
 	SetConstantBuffer(renderer, 9, renderer->GetMainConstBuffer());
 }
 
 void RTShadowsPass::Render(Renderer* renderer)
 {
-	renderer->BindComputePipeline();
-
-	renderer->BindDescriptorSets();
 
 	static const int threadGroupWorkRegionDim = 8;
 	int dispatchX = (GetNativeWidth + (threadGroupWorkRegionDim - 1)) / threadGroupWorkRegionDim;
@@ -583,9 +579,6 @@ void VolumetricPass::Setup(Renderer* renderer)
 
 void VolumetricPass::Render(Renderer* renderer)
 {
-	renderer->BindComputePipeline();
-	renderer->BindDescriptorSets();
-
 	int texWidth = renderer->mediaDensity3DLUT->GetWidth();
 	int texHeight = renderer->mediaDensity3DLUT->GetHeight();
 	int texDepth = renderer->mediaDensity3DLUT->GetDepth();
@@ -613,9 +606,6 @@ void Create3DNoiseTexturePass::Setup(Renderer* renderer)
 
 void Create3DNoiseTexturePass::Render(Renderer* renderer)
 {
-	renderer->BindComputePipeline();
-	renderer->BindDescriptorSets();
-
 	renderer->Dispatch(256, 256, 256);
 }
 
@@ -639,9 +629,6 @@ void ComputeScatteringPass::Setup(Renderer* renderer)
 
 void ComputeScatteringPass::Render(Renderer* renderer)
 {
-	renderer->BindComputePipeline();
-	renderer->BindDescriptorSets();
-
 	int texWidth = renderer->scatteringTexture->GetWidth();
 	int texHeight = renderer->scatteringTexture->GetHeight();
 
@@ -686,11 +673,12 @@ void TonemappingPass::DeclareResources(Renderer* renderer)
 void TonemappingPass::Setup(Renderer* renderer)
 {
 	VulkanStateManager* stateManager = renderer->GetStateManager();
+	
+	stateManager->SetFramebufferExtent(Extent2D{ GetUpscaledWidth , GetUpscaledHeight });
+	renderer->BindViewport(0, 0, static_cast<float>(GetUpscaledWidth), static_cast<float>(GetUpscaledHeight));
 
 	stateManager->SetVertexShader(renderer->GetShader("VS_PassThrough"));
 	stateManager->SetPixelShader(renderer->GetShader("FS_Tonemap"));
-
-	renderer->BindViewport(0, 0, static_cast<float>(GetUpscaledWidth), static_cast<float>(GetUpscaledHeight));
 
 	SetCombinedImageSampler(renderer, 0, renderer->fsrOutputTexture);
 
@@ -699,7 +687,7 @@ void TonemappingPass::Setup(Renderer* renderer)
 
 void TonemappingPass::Render(Renderer* renderer)
 {
-	renderer->DrawFullScreenQuad(true);
+	renderer->DrawFullScreenQuad();
 }
 
 void TextureDebugPass::DeclareResources(Renderer* renderer)
@@ -780,9 +768,6 @@ void ShadowDenoisePrePass::Setup(Renderer* renderer)
 
 void ShadowDenoisePrePass::Render(Renderer* renderer)
 {
-	renderer->BindComputePipeline();
-	renderer->BindDescriptorSets();
-
 	constexpr uint32_t threadGroupWorkRegionDimX = 8;
 	constexpr uint32_t threadGroupWorkRegionDimY = 4;
 
@@ -835,9 +820,6 @@ void ShadowDenoiseTileClassificationPass::Setup(Renderer* renderer)
 
 void ShadowDenoiseTileClassificationPass::Render(Renderer* renderer)
 {
-	renderer->BindComputePipeline();
-	renderer->BindDescriptorSets();
-
 	constexpr uint32_t threadGroupWorkRegionDim = 8;
 
 	int texWidth = renderer->shadowMap->GetWidth();
@@ -881,9 +863,6 @@ void ShadowDenoiseFilterPass0::Setup(Renderer* renderer)
 
 void ShadowDenoiseFilterPass0::Render(Renderer* renderer)
 {
-	renderer->BindComputePipeline();
-	renderer->BindDescriptorSets();
-
 	constexpr uint32_t threadGroupWorkRegionDim = 8;
 
 	int texWidth = renderer->shadowMap->GetWidth();
@@ -914,9 +893,6 @@ void ShadowDenoiseFilterPass1::Setup(Renderer* renderer)
 
 void ShadowDenoiseFilterPass1::Render(Renderer* renderer)
 {
-	renderer->BindComputePipeline();
-	renderer->BindDescriptorSets();
-
 	constexpr uint32_t threadGroupWorkRegionDim = 8;
 
 	int texWidth = renderer->shadowMap->GetWidth();
@@ -947,9 +923,6 @@ void ShadowDenoiseFilterPass2::Setup(Renderer* renderer)
 
 void ShadowDenoiseFilterPass2::Render(Renderer* renderer)
 {
-	renderer->BindComputePipeline();
-	renderer->BindDescriptorSets();
-
 	constexpr uint32_t threadGroupWorkRegionDim = 8;
 
 	int texWidth = renderer->shadowMap->GetWidth();

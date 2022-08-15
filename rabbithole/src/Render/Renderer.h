@@ -8,6 +8,8 @@
 #include "Model/Model.h"
 #include "BVH.h"
 #include "Render/ResourceManager.h"
+#include "Render/ResourceStateTracking.h"
+#include "PipelineManager.h"
 
 #include <unordered_map>
 #include <string>
@@ -29,7 +31,7 @@ class VulkanDevice;
 class VulkanStateManager;
 class Entity;
 class Shader;
-class RenderPass;
+class RabbitPass;
 
 typedef VkExtent2D Extent2D;
 
@@ -246,7 +248,7 @@ public:
 	
 	void CopyToSwapChain();
 	void DrawGeometryGLTF(std::vector<VulkanglTFModel>& bucket);
-	void DrawFullScreenQuad(bool isPostUpscale = false);
+	void DrawFullScreenQuad();
 
 	template <typename T>
 	void BindPushConstant(T& push)
@@ -270,8 +272,11 @@ public:
 	void EndRenderPass();
 
 	void BindCameraMatrices(Camera* camera);
-	void BindGraphicsPipeline(bool isPostUpscale = false);
-	void BindComputePipeline();
+	
+	template<class T = Pipeline> void BindPipeline();
+	template<> void BindPipeline<GraphicsPipeline>();
+	template<> void BindPipeline<ComputePipeline>();
+
 	void BindDescriptorSets();
 	void BindUBO();
 
@@ -279,7 +284,7 @@ public:
 
 	void BeginCommandBuffer();
 	void RecordGPUTimeStamp(const char* label);
-	void ExecuteRenderPass(RenderPass& renderpass);
+	void ExecuteRabbitPass(RabbitPass& rabbitPass);
 	void EndCommandBuffer();
 
 	//helper functions
@@ -394,3 +399,6 @@ public:
 	//Don't ask, Imgui init wants swapchain renderpass to be ready, but its not. So basically we need 2 init phases..
 	bool imguiReady = false;
 };
+
+
+#include "Renderer.hpp"

@@ -2,6 +2,8 @@
 
 #include "common.h"
 
+#define SOFT_SHADOWS
+
 #define MAXLEN 1000.0
 #define SHADOW 0.0000001
 #define MOLLER_TRUMBORE
@@ -42,7 +44,7 @@ layout(binding = 7) uniform LightParams
 	Light[lightCount] light;
 } Lights;
 
-layout(binding = 8) uniform sampler2D samplerNoise;
+layout(rgba8, binding = 8) readonly uniform image2D noiseTexture;
 
 layout(binding = 9) uniform UniformBufferObjectBuffer 
 {
@@ -179,8 +181,8 @@ vec2 GetNoiseFromTexture(uvec2 aPixel, uint aSeed)
     t.x = aSeed * 1664525u + 1013904223u;
     t.y = t.x * (1u << 16u) + (t.x >> 16u);
     t.x += t.y * t.x;
-    vec2 uv = ((aPixel + t) & 0x3f) / 256.f;
-    vec2 noise = texture(samplerNoise, uv).xy;
+    uvec2 uv = ((aPixel + t) & 0x3f);
+    vec2 noise = imageLoad(noiseTexture, ivec2(uv)).xy;
     return noise;
 }
 
@@ -195,13 +197,13 @@ float CalculateShadowForLight(vec3 positionOfOrigin, vec3 normalOfOrigin, Light 
 
     vec3 lightVec = normalize(light.position - positionOfOrigin);
 
-    //###______SOFT_SHADOWS
+#ifdef SOFT_SHADOWS
     vec2 noise = GetNoiseFromTexture(uv, uint(UBO.currentFrameInfo.x));
     noise = fract(noise + (uint(UBO.currentFrameInfo.x) ) * PI);
     lightVec = normalize(GetPointInDisk(light.position.xyz , 5.f, -lightVec, noise) - positionOfOrigin);
-    //###______HARD_SHADOWS
-    //lightVec = normalize(light.position - positionOfOrigin);
-    //###______END
+#else
+    lightVec = normalize(light.position - positionOfOrigin);
+#endif
     float pointToLightDistance = length(light.position.xyz - positionOfOrigin);
     
     //if position is not facing light

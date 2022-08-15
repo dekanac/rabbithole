@@ -5,6 +5,8 @@ class VulkanRenderPass;
 class VulkanFramebuffer;
 struct UniformBufferObject;
 
+typedef VkExtent2D Extent2D;
+
 //keep in sync with UniformBufferObject in Renderer.h
 enum class UBOElement : uint32_t
 {
@@ -34,7 +36,7 @@ public:
 	//pipeline
 	PipelineConfigInfo* GetPipelineInfo() { return m_PipelineConfig; }
 	VulkanPipeline*		GetPipeline() const { return m_Pipeline; }
-	void SetPipeline(VulkanPipeline* pipeline) { m_Pipeline = pipeline; }
+	void SetPipeline(VulkanPipeline* pipeline) { m_Pipeline = pipeline; m_DirtyPipeline = false; }
 	bool GetPipelineDirty() { return m_DirtyPipeline; }
 	void SetPipelineDirty(bool dirty) { m_DirtyPipeline = dirty; }
 
@@ -48,14 +50,14 @@ public:
 	//renderpass
 	VulkanRenderPass*	    GetRenderPass() const { return m_RenderPass; }
     RenderPassConfigInfo*   GetRenderPassInfo() { return m_RenderPassConfig; }
-	void SetRenderPass(VulkanRenderPass* renderPass) { m_RenderPass = renderPass; }
+	void SetRenderPass(VulkanRenderPass* renderPass) { m_RenderPass = renderPass; m_DirtyRenderPass = false; }
 	bool GetRenderPassDirty() { return m_DirtyRenderPass; }
 	void SetRenderPassDirty(bool dirty) { m_DirtyRenderPass = dirty; }
 
 	//framebuffer
 	VulkanFramebuffer*	GetFramebuffer() const { return m_Framebuffer; }
-	void SetFramebuffer(VulkanFramebuffer* framebuffer) { m_Framebuffer = framebuffer; }
-	bool GetGramebufferDirty() { return m_DirtyFramebuffer; }
+	void SetFramebuffer(VulkanFramebuffer* framebuffer) { m_Framebuffer = framebuffer; m_DirtyFramebuffer = false; }
+	bool GetFramebufferDirty() { return m_DirtyFramebuffer; }
 	void SetFramebufferDirty(bool dirty) { m_DirtyFramebuffer = dirty; }
 
 	//descriptor set
@@ -97,6 +99,9 @@ public:
 	uint8_t GetRenderTargetCount();
 	bool HasDepthStencil() { return m_DepthStencil ? true : false; }
 
+	Extent2D GetFramebufferExtent() const { return m_FramebufferExtent; }
+	void SetFramebufferExtent(Extent2D extent) { m_FramebufferExtent = extent; m_DirtyFramebuffer = true; }
+
 	PipelineType GetCurrentPipelineType() { return m_CurrentPipelinetype; }
 
 	void Reset();
@@ -110,15 +115,15 @@ private:
 	VulkanFramebuffer*	    m_Framebuffer;
 	UniformBufferObject*    m_UBO;
 
-	std::vector<VulkanDescriptor*> m_Descriptors;
-	VulkanDescriptorSet*	m_DescriptorSet;
-	DescriptorSetManager*	m_DescriptorSetManager;
+	std::vector<VulkanDescriptor*>	m_Descriptors;
+	VulkanDescriptorSet*			m_DescriptorSet;
+	DescriptorSetManager*			m_DescriptorSetManager;
 
-	bool m_DirtyPipeline;
-	bool m_DirtyRenderPass;
-	bool m_DirtyFramebuffer;
-	bool m_DirtyDescriptorSet;
-	bool m_DirtyUBO;
+	bool m_DirtyPipeline = true;
+	bool m_DirtyRenderPass = true;
+	bool m_DirtyFramebuffer = true;
+	bool m_DirtyDescriptorSet = true;
+	bool m_DirtyUBO = true;
 
     VulkanImageView* m_RenderTarget0 = nullptr;
     VulkanImageView* m_RenderTarget1 = nullptr;
@@ -126,9 +131,10 @@ private:
 	VulkanImageView* m_RenderTarget3 = nullptr;
 	VulkanImageView* m_RenderTarget4 = nullptr;
 
-	std::vector<VulkanImageView*> m_RenderTargets;
+	std::vector<VulkanImageView*>	m_RenderTargets;
+    VulkanImageView*				m_DepthStencil = nullptr;
 
-    VulkanImageView* m_DepthStencil = nullptr;
+	Extent2D						m_FramebufferExtent{};
 
 	PipelineType m_CurrentPipelinetype;
 };

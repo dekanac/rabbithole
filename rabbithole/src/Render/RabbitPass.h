@@ -1,12 +1,13 @@
 #pragma once
 
 #include <vector>
+#include <unordered_map>
 
 class Renderer;
 class VulkanTexture;
 class VulkanBuffer;
 
-class RenderPass
+class RabbitPass
 {
 public:
 	virtual void DeclareResources(Renderer* renderer) = 0;
@@ -27,8 +28,20 @@ protected:
 	void SetDepthStencil(Renderer* renderer, VulkanTexture* texture);
 };
 
-#define DECLARE_RENDERPASS(name) \
-class name : public RenderPass \
+class RabbitPassManager
+{
+	SingletonClass(RabbitPassManager)
+
+public:
+	void AddPass(RabbitPass* pass) { m_RabbitPasses[pass->GetName()] = pass; }
+
+private:
+	std::unordered_map<const char*, RabbitPass*> m_RabbitPasses;
+
+};
+
+#define DECLARE_RABBITPASS(name) \
+class name : public RabbitPass \
 { \
 public: \
 	virtual void DeclareResources(Renderer* renderer) override; \
@@ -39,24 +52,24 @@ private: \
 	const char* m_PassName = #name; \
 };
 
-DECLARE_RENDERPASS(GBufferPass)
-DECLARE_RENDERPASS(LightingPass)
-DECLARE_RENDERPASS(OutlineEntityPass)
-DECLARE_RENDERPASS(CopyToSwapchainPass)
-DECLARE_RENDERPASS(SkyboxPass)
-DECLARE_RENDERPASS(SSAOPass); 
-DECLARE_RENDERPASS(SSAOBlurPass); 
-DECLARE_RENDERPASS(BoundingBoxPass); 
-DECLARE_RENDERPASS(RTShadowsPass);
-DECLARE_RENDERPASS(VolumetricPass);
-DECLARE_RENDERPASS(Create3DNoiseTexturePass);
-DECLARE_RENDERPASS(ComputeScatteringPass);
-DECLARE_RENDERPASS(ApplyVolumetricFogPass);
-DECLARE_RENDERPASS(FSR2Pass);
-DECLARE_RENDERPASS(TonemappingPass);
-DECLARE_RENDERPASS(TextureDebugPass); 
-DECLARE_RENDERPASS(ShadowDenoisePrePass); 
-DECLARE_RENDERPASS(ShadowDenoiseTileClassificationPass); 
-DECLARE_RENDERPASS(ShadowDenoiseFilterPass0); 
-DECLARE_RENDERPASS(ShadowDenoiseFilterPass1); 
-DECLARE_RENDERPASS(ShadowDenoiseFilterPass2);
+DECLARE_RABBITPASS(GBufferPass)
+DECLARE_RABBITPASS(LightingPass)
+DECLARE_RABBITPASS(OutlineEntityPass)
+DECLARE_RABBITPASS(CopyToSwapchainPass)
+DECLARE_RABBITPASS(SkyboxPass)
+DECLARE_RABBITPASS(SSAOPass); 
+DECLARE_RABBITPASS(SSAOBlurPass); 
+DECLARE_RABBITPASS(BoundingBoxPass); 
+DECLARE_RABBITPASS(RTShadowsPass);
+DECLARE_RABBITPASS(VolumetricPass);
+DECLARE_RABBITPASS(Create3DNoiseTexturePass);
+DECLARE_RABBITPASS(ComputeScatteringPass);
+DECLARE_RABBITPASS(ApplyVolumetricFogPass);
+DECLARE_RABBITPASS(FSR2Pass);
+DECLARE_RABBITPASS(TonemappingPass);
+DECLARE_RABBITPASS(TextureDebugPass); 
+DECLARE_RABBITPASS(ShadowDenoisePrePass); 
+DECLARE_RABBITPASS(ShadowDenoiseTileClassificationPass); 
+DECLARE_RABBITPASS(ShadowDenoiseFilterPass0); 
+DECLARE_RABBITPASS(ShadowDenoiseFilterPass1); 
+DECLARE_RABBITPASS(ShadowDenoiseFilterPass2);

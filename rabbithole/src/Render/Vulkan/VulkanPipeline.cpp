@@ -31,18 +31,8 @@ VulkanPipeline::~VulkanPipeline()
 	vkDestroyPipeline(m_VulkanDevice.GetGraphicDevice(), m_Pipeline, nullptr);
 }
 
-
-void VulkanPipeline::Bind(VkCommandBuffer commandBuffer)
-{
-	vkCmdBindPipeline(
-		commandBuffer, 
-		m_Type == PipelineType::Graphics ? VK_PIPELINE_BIND_POINT_GRAPHICS : VK_PIPELINE_BIND_POINT_COMPUTE, 
-		m_Pipeline);
-}
-
 void VulkanPipeline::DefaultPipelineConfigInfo(PipelineConfigInfo*& configInfo, uint32_t width, uint32_t height) 
 {
-
 	configInfo->inputAssemblyInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
 	configInfo->SetTopology(Topology::TriangleList);
 
