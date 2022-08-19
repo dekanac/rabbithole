@@ -83,11 +83,17 @@ VulkanDescriptorSetLayout::VulkanDescriptorSetLayout(const VulkanDevice* device,
 	: m_Device(device)
 {
 	std::vector<VkDescriptorSetLayoutBinding> descriptorSetLayoutBindings;
+	std::vector<VkPushConstantRange> descritorSetPushConstants;
+
 	for (const Shader* shader : shaders)
 	{
 		for (const VkDescriptorSetLayoutBinding& binding : shader->GetDescriptorSetLayoutBindings())
 		{
 			descriptorSetLayoutBindings.push_back(binding);
+		}
+		for (const VkPushConstantRange& pushConst : shader->GetPushConstants())
+		{
+			descritorSetPushConstants.push_back(pushConst);
 		}
 	}
 
@@ -97,17 +103,12 @@ VulkanDescriptorSetLayout::VulkanDescriptorSetLayout(const VulkanDevice* device,
 
 	VULKAN_API_CALL(vkCreateDescriptorSetLayout(m_Device->GetGraphicDevice(), &descriptorSetLayoutCreateInfo, nullptr, &m_Layout));
 	
-	VkPushConstantRange pushConstantRange{}; //TODO: this is hard coded...need to provide this through arguments
-	pushConstantRange.stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
-	pushConstantRange.offset = 0;
-	pushConstantRange.size = sizeof(SimplePushConstantData);
-	
 	VkPipelineLayoutCreateInfo pipelineLayoutCreateInfo = { VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO };
 	pipelineLayoutCreateInfo.setLayoutCount = 1;
 	pipelineLayoutCreateInfo.pSetLayouts = &m_Layout;
 
-	pipelineLayoutCreateInfo.pushConstantRangeCount = 1;
-	pipelineLayoutCreateInfo.pPushConstantRanges = &pushConstantRange;
+	pipelineLayoutCreateInfo.pushConstantRangeCount = static_cast<uint32_t>(descritorSetPushConstants.size());
+	pipelineLayoutCreateInfo.pPushConstantRanges = descritorSetPushConstants.data();
 
 	VULKAN_API_CALL(vkCreatePipelineLayout(m_Device->GetGraphicDevice(), &pipelineLayoutCreateInfo, nullptr, &m_PipelineLayout));
 }

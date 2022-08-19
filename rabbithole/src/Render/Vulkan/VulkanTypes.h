@@ -359,8 +359,8 @@ enum class TextureFlags : uint16_t
 	RenderTarget = 0x1 << 4,
 	LinearTiling = 0x1 << 5,
 	TransferSrc = 0x1 << 6,
-	TransferDst = 0x1 << 7
-
+	TransferDst = 0x1 << 7,
+	Storage = 0x1 << 8
 };
 RABBITHOLE_FLAG_TYPE_SETUP(TextureFlags)
 

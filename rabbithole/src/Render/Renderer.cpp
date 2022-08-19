@@ -83,6 +83,11 @@ bool Renderer::Init()
 		CreateGeometryDescriptors(gltfModels, i);
 	}
 
+	const float shadowResolutionMultiplier = 1.f;
+
+	const uint32_t shadowResX = GetNativeWidth * shadowResolutionMultiplier;
+	const uint32_t shadowResY = GetNativeHeight * shadowResolutionMultiplier;
+
 	//GBUFFER RENDER SET
 	depthStencil = m_ResourceManager->CreateTexture(m_VulkanDevice, RWTextureCreateInfo{ 
 			.dimensions = {GetNativeWidth , GetNativeHeight, 1},
@@ -120,15 +125,18 @@ bool Renderer::Init()
 		});
 	
 	//for now max 1024 commands
+	constexpr uint32_t numOfIndirectCommands = 1024;
+
 	geomDataIndirectDraw = new IndexedIndirectBuffer();
 	geomDataIndirectDraw->gpuBuffer = m_ResourceManager->CreateBuffer(m_VulkanDevice, BufferCreateInfo{
 			.flags = {BufferUsageFlags::IndirectBuffer | BufferUsageFlags::TransferSrc},
 			.memoryAccess = {MemoryAccess::CPU2GPU},
-			.size = {sizeof(IndexIndirectDrawData) * 1024},
+			.size = {sizeof(IndexIndirectDrawData) * numOfIndirectCommands},
 			.name = {"GeomDataIndirectDraw"}
 		});
 
-	geomDataIndirectDraw->localBuffer = (IndexIndirectDrawData*)malloc(sizeof(IndexIndirectDrawData) * 10240);
+	//TODO: do this better, brother
+	geomDataIndirectDraw->localBuffer = (IndexIndirectDrawData*)malloc(sizeof(IndexIndirectDrawData) * numOfIndirectCommands);
 
 	debugTexture = m_ResourceManager->CreateTexture(m_VulkanDevice, RWTextureCreateInfo{
 			.dimensions = {GetNativeWidth, GetNativeHeight, 1},
@@ -161,7 +169,7 @@ bool Renderer::Init()
 #endif
 
 	shadowMap = m_ResourceManager->CreateTexture(m_VulkanDevice, RWTextureCreateInfo{
-			.dimensions = {GetNativeWidth, GetNativeHeight, 1},
+			.dimensions = {shadowResX, shadowResY, 1},
 			.flags = {TextureFlags::Read},
 			.format = {Format::R8_UNORM},
 			.name = {"Shadow Map"},
@@ -223,8 +231,8 @@ bool Renderer::Init()
 	//shadow denoise
 
 	//prepass
-	const uint32_t tileW = GetCSDispatchCount(GetNativeWidth, 8);
-	const uint32_t tileH = GetCSDispatchCount(GetNativeHeight, 4);
+	const uint32_t tileW = GetCSDispatchCount(shadowResX, 8);
+	const uint32_t tileH = GetCSDispatchCount(shadowResY, 4);
 
 	const uint32_t tileSize = tileH * tileW;
 
@@ -259,35 +267,35 @@ bool Renderer::Init()
 		});
 
 	denoiseMomentsBuffer0 = m_ResourceManager->CreateTexture(m_VulkanDevice, RWTextureCreateInfo{
-			.dimensions = {GetNativeWidth, GetNativeHeight, 1},
+			.dimensions = {shadowResX, shadowResY, 1},
 			.flags = {TextureFlags::Read},
 			.format = {Format::R11G11B10_FLOAT},
 			.name = {"Denoise Moments Buffer0"}
 		});
 
 	denoiseMomentsBuffer1 = m_ResourceManager->CreateTexture(m_VulkanDevice, RWTextureCreateInfo{
-			.dimensions = {GetNativeWidth, GetNativeHeight, 1},
+			.dimensions = {shadowResX, shadowResY, 1},
 			.flags = {TextureFlags::Read},
 			.format = {Format::R11G11B10_FLOAT},
 			.name = {"Denoise Moments Buffer1"}
 		});
 
 	denoiseReprojectionBuffer0 = m_ResourceManager->CreateTexture(m_VulkanDevice, RWTextureCreateInfo{
-			.dimensions = {GetNativeWidth, GetNativeHeight, 1},
+			.dimensions = {shadowResX, shadowResY, 1},
 			.flags = {TextureFlags::Read},
 			.format = {Format::R16G16_FLOAT},
 			.name = {"Denoise Reprojection Buffer0"}
 		});
 
 	denoiseReprojectionBuffer1 = m_ResourceManager->CreateTexture(m_VulkanDevice, RWTextureCreateInfo{
-			.dimensions = {GetNativeWidth, GetNativeHeight, 1},
+			.dimensions = {shadowResX, shadowResY, 1},
 			.flags = {TextureFlags::Read},
 			.format = {Format::R16G16_FLOAT},
 			.name = {"Denoise Reprojection Buffer1"}
 		});
 
 	denoiseLastFrameDepth = m_ResourceManager->CreateTexture(m_VulkanDevice, RWTextureCreateInfo{
-			.dimensions = {GetNativeWidth, GetNativeHeight, 1},
+			.dimensions = {shadowResX, shadowResY, 1},
 			.flags = {TextureFlags::DepthStencil | TextureFlags::Read | TextureFlags::TransferDst },
 			.format = {Format::D32_SFLOAT},
 			.name = {"Denoise Last Frame Depth"}
@@ -301,7 +309,7 @@ bool Renderer::Init()
 		});
 
 	denoisedShadowOutput = m_ResourceManager->CreateTexture(m_VulkanDevice, RWTextureCreateInfo{
-			.dimensions = {GetNativeWidth, GetNativeHeight, 1},
+			.dimensions = {shadowResX, shadowResY, 1},
 			.flags = {TextureFlags::Read},
 			.format = {Format::R16G16B16A16_UNORM},
 			.name = {"Denoised Shadow Output"},
@@ -453,7 +461,6 @@ void Renderer::CreateGeometryDescriptors(std::vector<VulkanglTFModel>& models, u
 			modelMaterial.materialDescriptorSet[imageIndex] = descriptorSet;
 		}
 	}
-
 }
 
 void Renderer::InitImgui()
@@ -542,7 +549,7 @@ void Renderer::InitNoiseTextures()
 	
 	blueNoise2DTexture = m_ResourceManager->CreateTexture(m_VulkanDevice, ROTextureCreateInfo{
 			.filePath = {"res/textures/noise.png"},
-			.flags = {TextureFlags::Color | TextureFlags::Read | TextureFlags::TransferDst},
+			.flags = {TextureFlags::Color | TextureFlags::Read | TextureFlags::TransferDst | TextureFlags::Storage},
 			.format = {Format::B8G8R8A8_UNORM},
 			.name = {"BlueNoise2D"}
 		});
@@ -1003,6 +1010,7 @@ void Renderer::ResourceBarrier(VulkanTexture* texture, ResourceState oldLayout, 
 	);
 
 	texture->SetResourceState(newLayout);
+	texture->SetCurrentResourceStage(dstStage);
 }
 
 void Renderer::UpdateDebugOptions()
@@ -1073,9 +1081,7 @@ void Renderer::RecordCommandBuffer(int imageIndex)
 	RTShadowsPass RTShadows{};
 	ShadowDenoisePrePass shadowDenoisePrepass{};
 	ShadowDenoiseTileClassificationPass shadowDenoiseTileClassification{};
-	ShadowDenoiseFilterPass0 shadowDenoiseFilter0{};
-	ShadowDenoiseFilterPass1 shadowDenoiseFilter1{};
-	ShadowDenoiseFilterPass2 shadowDenoiseFilter2{};
+	ShadowDenoiseFilterPass shadowDenoiseFilter{};
 	VolumetricPass volumetric{};
 	ComputeScatteringPass computeScattering{};
 	LightingPass lighting{};
@@ -1105,9 +1111,7 @@ void Renderer::RecordCommandBuffer(int imageIndex)
 	ExecuteRabbitPass(RTShadows);
 	ExecuteRabbitPass(shadowDenoisePrepass);
 	ExecuteRabbitPass(shadowDenoiseTileClassification);
-	ExecuteRabbitPass(shadowDenoiseFilter0);
-	ExecuteRabbitPass(shadowDenoiseFilter1);
-	ExecuteRabbitPass(shadowDenoiseFilter2);
+	ExecuteRabbitPass(shadowDenoiseFilter);
 	ExecuteRabbitPass(volumetric);
 	ExecuteRabbitPass(computeScattering);
 	ExecuteRabbitPass(skybox);
@@ -1607,7 +1611,6 @@ void Renderer::BindVertexData(size_t offset)
 void Renderer::DrawVertices(uint32_t count)
 {
 	BindPipeline<GraphicsPipeline>();
-
 
 	BeginRenderPass({ GetNativeWidth, GetNativeHeight });
 

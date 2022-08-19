@@ -228,7 +228,7 @@ public:
 	void CopyImageToBuffer(VulkanTexture* texture, VulkanBuffer* buffer);
 	void CopyImage(VulkanTexture* src, VulkanTexture* dst);
 
-	inline Shader*			GetShader(const std::string& name) { return m_ResourceManager->GetShader(name); }
+	inline Shader*			GetShader(const std::string& name) const { return m_ResourceManager->GetShader(name); }
 	inline VulkanTexture*	GetTextureWithID(uint32_t textureId) { return m_ResourceManager->GetTextures()[textureId]; }
 	inline Camera*			GetCamera() { return MainCamera; }
 	inline UIState*			GetUIState() { return m_CurrentUIState; }
@@ -255,7 +255,7 @@ public:
 	{
 		vkCmdPushConstants(GetCurrentCommandBuffer(), 
 			*(m_StateManager->GetPipeline()->GetPipelineLayout()), 
-			VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_VERTEX_BIT, //TODO: HC
+			VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_COMPUTE_BIT, //TODO: HC
 			0, 
 			sizeof(T), 
 			&push);
@@ -299,8 +299,10 @@ public:
 	VulkanTexture* g_DefaultBlackTexture;
 	VulkanTexture* g_Default3DTexture;
 	VulkanTexture* g_DefaultArrayTexture;
+	
 	//TODO: do something with these
 	VulkanTexture* depthStencil;
+
 	//geometry
 	IndexedIndirectBuffer* geomDataIndirectDraw;
 

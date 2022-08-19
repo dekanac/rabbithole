@@ -147,7 +147,8 @@ void VulkanTexture::CreateResource(VulkanDevice* device, TextureData* texData, b
 		(IsFlagSet(m_Flags & TextureFlags::TransferDst) ? ImageUsageFlags::TransferDst : ImageUsageFlags::None) | 
 		(IsFlagSet(m_Flags & TextureFlags::TransferSrc) ? ImageUsageFlags::TransferSrc : ImageUsageFlags::None) | 
 		(IsFlagSet(m_Flags & TextureFlags::DepthStencil) ? ImageUsageFlags::DepthStencil : ImageUsageFlags::None) | 
-		(IsFlagSet(m_Flags & TextureFlags::RenderTarget) ? ImageUsageFlags::RenderTarget : ImageUsageFlags::None);
+		(IsFlagSet(m_Flags & TextureFlags::RenderTarget) ? ImageUsageFlags::RenderTarget : ImageUsageFlags::None) |
+		(IsFlagSet(m_Flags & TextureFlags::Storage) ? ImageUsageFlags::Storage : ImageUsageFlags::None);
 	textureResourceInfo.MemoryAccess = MemoryAccess::GPU;
 	textureResourceInfo.Format = m_Format;
 	textureResourceInfo.Extent.Width = texData->width;

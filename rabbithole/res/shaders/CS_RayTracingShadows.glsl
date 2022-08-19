@@ -5,7 +5,7 @@
 #define SOFT_SHADOWS
 
 #define MAXLEN 1000.0
-#define SHADOW 0.0000001
+#define IN_SHADOW 0.0000001
 #define MOLLER_TRUMBORE
 #define MAX_STACK_HEIGHT 100
 
@@ -209,12 +209,12 @@ float CalculateShadowForLight(vec3 positionOfOrigin, vec3 normalOfOrigin, Light 
     //if position is not facing light
     if (dot(normalOfOrigin, lightVec) < 0)
     {
-        return shadow;
+        return IN_SHADOW;
     }
 
     if (light.type == LightType_Point && pointToLightDistance > light.radius)
     {
-        return shadow;
+        return IN_SHADOW;
     }
 
     Ray ray;
@@ -224,7 +224,7 @@ float CalculateShadowForLight(vec3 positionOfOrigin, vec3 normalOfOrigin, Light 
     ray.t = pointToLightDistance;
 
     if (FindTriangleIntersection(ray))
-        shadow = SHADOW;
+        shadow = IN_SHADOW;
 
     return shadow;
 }

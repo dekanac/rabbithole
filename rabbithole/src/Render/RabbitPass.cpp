@@ -496,10 +496,13 @@ void RTShadowsPass::Setup(Renderer* renderer)
 
 void RTShadowsPass::Render(Renderer* renderer)
 {
-
 	static const int threadGroupWorkRegionDim = 8;
-	int dispatchX = (GetNativeWidth + (threadGroupWorkRegionDim - 1)) / threadGroupWorkRegionDim;
-	int dispatchY = (GetNativeHeight + (threadGroupWorkRegionDim - 1)) / threadGroupWorkRegionDim;
+
+	int texWidth = renderer->shadowMap->GetWidth();
+	int texHeight = renderer->shadowMap->GetHeight();
+
+	int dispatchX = GetCSDispatchCount(texWidth, threadGroupWorkRegionDim);
+	int dispatchY = GetCSDispatchCount(texHeight, threadGroupWorkRegionDim);
 
 	renderer->Dispatch(dispatchX, dispatchY, 1);
 }
@@ -760,8 +763,8 @@ void ShadowDenoisePrePass::Setup(Renderer* renderer)
 	SetStorageBuffer(renderer, 2, renderer->denoiseShadowMaskBuffer);
 
 	DenoiseBufferDimensions bufferDim{};
-	bufferDim.dimensions[0] = (uint32_t)renderer->shadowMap->GetWidth();
-	bufferDim.dimensions[1] = (uint32_t)renderer->shadowMap->GetHeight();
+	bufferDim.dimensions[0] = (uint32_t)renderer->denoisedShadowOutput->GetWidth();
+	bufferDim.dimensions[1] = (uint32_t)renderer->denoisedShadowOutput->GetHeight();
 
 	renderer->denoiseBufferDimensions->FillBuffer(&bufferDim);
 }
@@ -771,8 +774,8 @@ void ShadowDenoisePrePass::Render(Renderer* renderer)
 	constexpr uint32_t threadGroupWorkRegionDimX = 8;
 	constexpr uint32_t threadGroupWorkRegionDimY = 4;
 
-	int texWidth = renderer->shadowMap->GetWidth();
-	int texHeight = renderer->shadowMap->GetHeight();
+	int texWidth = renderer->denoisedShadowOutput->GetWidth();
+	int texHeight = renderer->denoisedShadowOutput->GetHeight();
 
 	int dispatchX = GetCSDispatchCount(texWidth, threadGroupWorkRegionDimX * 4);
 	int dispatchY = GetCSDispatchCount(texHeight, threadGroupWorkRegionDimY * 4);
@@ -791,13 +794,16 @@ void ShadowDenoiseTileClassificationPass::Setup(Renderer* renderer)
 
 	CameraState* cameraState = renderer->GetCameraState();
 
+	int texWidth = renderer->denoisedShadowOutput->GetWidth();
+	int texHeight = renderer->denoisedShadowOutput->GetHeight();
+
 	DenoiseShadowData shadowData{};
 	shadowData.Eye = cameraState->m_CameraPosition;
 	shadowData.FirstFrame = (int)(renderer->GetCurrentFrameIndex() == 0);
-	shadowData.BufferDimensions[0] = static_cast<int>(GetNativeWidth);
-	shadowData.BufferDimensions[1] = static_cast<int>(GetNativeHeight);
-	shadowData.InvBufferDimensions[0] = 1.f / float(GetNativeWidth);
-	shadowData.InvBufferDimensions[1] = 1.f / float(GetNativeHeight);
+	shadowData.BufferDimensions[0] = static_cast<int>(texWidth);
+	shadowData.BufferDimensions[1] = static_cast<int>(texHeight);
+	shadowData.InvBufferDimensions[0] = 1.f / float(texWidth);
+	shadowData.InvBufferDimensions[1] = 1.f / float(texHeight);
 	shadowData.ProjectionInverse = cameraState->m_ProjectionInverseMatrix;
 	shadowData.ViewProjectionInverse = cameraState->m_ViewProjInverseMatrix;
 	shadowData.ReprojectionMatrix = cameraState->m_ProjectionMatrix * (cameraState->m_PrevViewMatrix * cameraState->m_ViewProjInverseMatrix);
@@ -821,8 +827,8 @@ void ShadowDenoiseTileClassificationPass::Render(Renderer* renderer)
 {
 	constexpr uint32_t threadGroupWorkRegionDim = 8;
 
-	int texWidth = renderer->shadowMap->GetWidth();
-	int texHeight = renderer->shadowMap->GetHeight();
+	int texWidth = renderer->denoisedShadowOutput->GetWidth();
+	int texHeight = renderer->denoisedShadowOutput->GetHeight();
 
 	int dispatchX = GetCSDispatchCount(texWidth, threadGroupWorkRegionDim);
 	int dispatchY = GetCSDispatchCount(texHeight, threadGroupWorkRegionDim);
@@ -830,14 +836,24 @@ void ShadowDenoiseTileClassificationPass::Render(Renderer* renderer)
 	renderer->Dispatch(dispatchX, dispatchY, 1);
 }
 
-void ShadowDenoiseFilterPass0::DeclareResources(Renderer* renderer)
+void ShadowDenoiseFilterPass::DeclareResources(Renderer* renderer)
 {}
 
-void ShadowDenoiseFilterPass0::Setup(Renderer* renderer)
+void ShadowDenoiseFilterPass::Setup(Renderer* renderer)
+{}
+
+void ShadowDenoiseFilterPass::Render(Renderer* renderer)
+{
+	RenderFilterPass0(renderer);
+	RenderFilterPass1(renderer);
+	RenderFilterPass2(renderer);
+}
+
+void ShadowDenoiseFilterPass::RenderFilterPass0(Renderer* renderer)
 {
 	VulkanStateManager* stateManager = renderer->GetStateManager();
 	CameraState* cameraState = renderer->GetCameraState();
-	
+
 	stateManager->SetComputeShader(renderer->GetShader("CS_FilterSoftShadowsPass0"), "Pass0");
 
 	renderer->CopyImage(renderer->depthStencil, renderer->denoiseLastFrameDepth);
@@ -858,14 +874,11 @@ void ShadowDenoiseFilterPass0::Setup(Renderer* renderer)
 	SetStorageBuffer(renderer, 3, renderer->denoiseTileMetadataBuffer);
 	SetSampledImage(renderer, 4, renderer->denoiseReprojectionBuffer0);
 	SetStorageImage(renderer, 5, renderer->denoiseReprojectionBuffer1);
-}
 
-void ShadowDenoiseFilterPass0::Render(Renderer* renderer)
-{
 	constexpr uint32_t threadGroupWorkRegionDim = 8;
 
-	int texWidth = renderer->shadowMap->GetWidth();
-	int texHeight = renderer->shadowMap->GetHeight();
+	int texWidth = renderer->denoisedShadowOutput->GetWidth();
+	int texHeight = renderer->denoisedShadowOutput->GetHeight();
 
 	int dispatchX = GetCSDispatchCount(texWidth, threadGroupWorkRegionDim);
 	int dispatchY = GetCSDispatchCount(texHeight, threadGroupWorkRegionDim);
@@ -873,10 +886,7 @@ void ShadowDenoiseFilterPass0::Render(Renderer* renderer)
 	renderer->Dispatch(dispatchX, dispatchY, 1);
 }
 
-void ShadowDenoiseFilterPass1::DeclareResources(Renderer* renderer)
-{}
-
-void ShadowDenoiseFilterPass1::Setup(Renderer* renderer)
+void ShadowDenoiseFilterPass::RenderFilterPass1(Renderer* renderer)
 {
 	VulkanStateManager* stateManager = renderer->GetStateManager();
 
@@ -888,14 +898,11 @@ void ShadowDenoiseFilterPass1::Setup(Renderer* renderer)
 	SetStorageBuffer(renderer, 3, renderer->denoiseTileMetadataBuffer);
 	SetSampledImage(renderer, 4, renderer->denoiseReprojectionBuffer1);
 	SetStorageImage(renderer, 5, renderer->denoiseReprojectionBuffer0);
-}
 
-void ShadowDenoiseFilterPass1::Render(Renderer* renderer)
-{
 	constexpr uint32_t threadGroupWorkRegionDim = 8;
 
-	int texWidth = renderer->shadowMap->GetWidth();
-	int texHeight = renderer->shadowMap->GetHeight();
+	int texWidth = renderer->denoisedShadowOutput->GetWidth();
+	int texHeight = renderer->denoisedShadowOutput->GetHeight();
 
 	int dispatchX = GetCSDispatchCount(texWidth, threadGroupWorkRegionDim);
 	int dispatchY = GetCSDispatchCount(texHeight, threadGroupWorkRegionDim);
@@ -903,10 +910,7 @@ void ShadowDenoiseFilterPass1::Render(Renderer* renderer)
 	renderer->Dispatch(dispatchX, dispatchY, 1);
 }
 
-void ShadowDenoiseFilterPass2::DeclareResources(Renderer* renderer)
-{}
-
-void ShadowDenoiseFilterPass2::Setup(Renderer* renderer)
+void ShadowDenoiseFilterPass::RenderFilterPass2(Renderer* renderer)
 {
 	VulkanStateManager* stateManager = renderer->GetStateManager();
 
@@ -918,14 +922,11 @@ void ShadowDenoiseFilterPass2::Setup(Renderer* renderer)
 	SetStorageBuffer(renderer, 3, renderer->denoiseTileMetadataBuffer);
 	SetSampledImage(renderer, 4, renderer->denoiseReprojectionBuffer0);
 	SetStorageImage(renderer, 6, renderer->denoisedShadowOutput);
-}
 
-void ShadowDenoiseFilterPass2::Render(Renderer* renderer)
-{
 	constexpr uint32_t threadGroupWorkRegionDim = 8;
 
-	int texWidth = renderer->shadowMap->GetWidth();
-	int texHeight = renderer->shadowMap->GetHeight();
+	int texWidth = renderer->denoisedShadowOutput->GetWidth();
+	int texHeight = renderer->denoisedShadowOutput->GetHeight();
 
 	int dispatchX = GetCSDispatchCount(texWidth, threadGroupWorkRegionDim);
 	int dispatchY = GetCSDispatchCount(texHeight, threadGroupWorkRegionDim);
