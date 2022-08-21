@@ -45,6 +45,8 @@ void Renderer::BindPipeline<GraphicsPipeline>()
 	pipeline->Bind(GetCurrentCommandBuffer());
 
 	BindDescriptorSets();
+
+	BindPushConstInternal();
 }
 
 template<>
@@ -63,4 +65,6 @@ void Renderer::BindPipeline<ComputePipeline>()
 	computePipeline->Bind(GetCurrentCommandBuffer());
 
 	BindDescriptorSets();
+
+	BindPushConstInternal();
 }

@@ -7,6 +7,7 @@
 #define DEFAULT_UBO_ELEMENT_SIZE (uint32_t)16
 
 VulkanStateManager::VulkanStateManager()
+	: m_PushConst(nullptr, 0)
 {
 	m_Pipeline = nullptr;
 	m_RenderPass = nullptr;

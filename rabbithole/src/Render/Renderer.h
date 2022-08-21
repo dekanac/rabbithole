@@ -92,7 +92,9 @@ struct LightParams
 	float radius;
 	float color[3];
 	float intensity;
-	alignas(16) uint32_t type;
+	uint32_t type;
+	float size;
+	uint32_t padding[2];
 };
 
 enum LightType : uint32_t
@@ -251,15 +253,14 @@ public:
 	void DrawFullScreenQuad();
 
 	template <typename T>
-	void BindPushConstant(T& push)
+	void BindPushConstant(T&& push)
 	{
-		vkCmdPushConstants(GetCurrentCommandBuffer(), 
-			*(m_StateManager->GetPipeline()->GetPipelineLayout()), 
-			VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_COMPUTE_BIT, //TODO: HC
-			0, 
-			sizeof(T), 
-			&push);
+		PushConstant pushConst(reinterpret_cast<void*>(push), static_cast<uint32_t>(sizeof(T)));
+
+		m_StateManager->SetPushConst(pushConst);
 	}
+
+	void BindPushConstInternal();
 
 	void		SetCurrentImageIndex(int imageIndex) { m_CurrentImageIndex = imageIndex; }
 	int			GetCurrentImageIndex() { return m_CurrentImageIndex; }
@@ -289,7 +290,7 @@ public:
 
 	//helper functions
 	std::vector<char>	ReadFile(const std::string& filepath);
-	void				FillTheLightParam(LightParams& lightParam, rabbitVec3f position, rabbitVec3f color, float radius, float intensity, LightType type);
+	void				FillTheLightParam(LightParams& lightParam, rabbitVec3f position, rabbitVec3f color, float radius, float intensity, LightType type, float size);
 
 public:
 	std::vector<VulkanglTFModel> gltfModels;
@@ -365,13 +366,13 @@ public:
 	VulkanTexture* postUpscalePostEffects;
 
 	//shadow denoise
-	VulkanBuffer* denoiseShadowMaskBuffer;
+	VulkanBuffer* denoiseShadowMaskBuffer[MAX_NUM_OF_LIGHTS];
 	VulkanBuffer* denoiseBufferDimensions;
-	VulkanBuffer* denoiseTileMetadataBuffer;
-	VulkanTexture* denoiseMomentsBuffer0;
-	VulkanTexture* denoiseMomentsBuffer1;
-	VulkanTexture* denoiseReprojectionBuffer0;
-	VulkanTexture* denoiseReprojectionBuffer1;
+	VulkanBuffer* denoiseTileMetadataBuffer[MAX_NUM_OF_LIGHTS];
+	VulkanTexture* denoiseMomentsBuffer0[MAX_NUM_OF_LIGHTS];
+	VulkanTexture* denoiseMomentsBuffer1[MAX_NUM_OF_LIGHTS];
+	VulkanTexture* denoiseReprojectionBuffer0[MAX_NUM_OF_LIGHTS];
+	VulkanTexture* denoiseReprojectionBuffer1[MAX_NUM_OF_LIGHTS];
 	VulkanTexture* denoiseLastFrameDepth;
 	VulkanBuffer* denoiseShadowDataBuffer;
 	VulkanBuffer* denoiseShadowFilterDataBuffer;

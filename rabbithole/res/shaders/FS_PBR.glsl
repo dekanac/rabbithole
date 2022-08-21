@@ -11,7 +11,7 @@ layout (binding = 5) uniform sampler2D samplerSSAO;
 layout (binding = 6) uniform sampler2DArray samplerShadowMap;
 layout (binding = 7) uniform sampler2D samplerVelocity;
 layout (binding = 8) uniform sampler2D samplerDepth;
-layout (binding = 9) uniform sampler2D samplerDenoisedShadow;
+layout (binding = 9) uniform sampler2DArray samplerDenoisedShadow;
 
 layout (location = 0) out vec4 outColor;
 
@@ -151,14 +151,14 @@ vec3 DoPBRLighting(SceneInfo sceneInfo, in vec3 diffuseColor, in vec3 specularCo
     {
         Light light = Lights.light[i];
         
+        float shadowFactor = texture(samplerDenoisedShadow, vec3(inUV, i)).r;
+        
         if (light.type == LightType_Point)
         {
-            float shadowFactor = texture(samplerShadowMap, vec3(inUV, i)).r;
             color += ApplyPointLight(light, materialInfo, normal, worldPos, view) * shadowFactor;
         }
         else if (light.type == LightType_Directional)
         {
-            float shadowFactor = texture(samplerDenoisedShadow, inUV).r;
             color += ApplyDirectionalLight(light, materialInfo, normal, view) * shadowFactor;
         }
         //else if (light.type == LightType_Spot)

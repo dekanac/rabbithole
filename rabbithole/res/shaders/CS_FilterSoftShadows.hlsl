@@ -12,6 +12,13 @@ struct FFX_DNSR_Shadows_Data_Defn
     float    DepthSimilaritySigma;
 };
 
+struct SliceIndex
+{
+    uint idx;
+};
+
+[[vk::push_constant]] SliceIndex ShadowIndex;
+
 [[vk::binding(0)]] cbuffer cbPassData : register(b0)
 {
     FFX_DNSR_Shadows_Data_Defn FFX_DNSR_Shadows_Data;
@@ -24,7 +31,7 @@ struct FFX_DNSR_Shadows_Data_Defn
 [[vk::binding(4)]] Texture2D<float2>            rqt2d_input  : register(t0, space1);
 
 [[vk::binding(5)]] RWTexture2D<float2>          rwt2d_history   : register(u0);
-[[vk::binding(6)]] RWTexture2D<unorm float4>    rwt2d_output    : register(u0);
+[[vk::binding(6)]] RWTexture2DArray<unorm float4>    rwt2d_output    : register(u0);
 
 float2 FFX_DNSR_Shadows_GetInvBufferDimensions()
 {
@@ -131,6 +138,6 @@ void Pass2(uint2 gid : SV_GroupID, uint2 gtid : SV_GroupThreadID, uint2 did : SV
 
     if (bWriteOutput)
     {
-        rwt2d_output[did].x = mean;
+        rwt2d_output[uint3(did, ShadowIndex.idx)].x = mean;
     }
 }

@@ -85,8 +85,8 @@ bool Renderer::Init()
 
 	const float shadowResolutionMultiplier = 1.f;
 
-	const uint32_t shadowResX = GetNativeWidth * shadowResolutionMultiplier;
-	const uint32_t shadowResY = GetNativeHeight * shadowResolutionMultiplier;
+	const uint32_t shadowResX = static_cast<uint32_t>(GetNativeWidth * shadowResolutionMultiplier);
+	const uint32_t shadowResY = static_cast<uint32_t>(GetNativeHeight * shadowResolutionMultiplier);
 
 	//GBUFFER RENDER SET
 	depthStencil = m_ResourceManager->CreateTexture(m_VulkanDevice, RWTextureCreateInfo{ 
@@ -236,13 +236,6 @@ bool Renderer::Init()
 
 	const uint32_t tileSize = tileH * tileW;
 
-	denoiseShadowMaskBuffer = m_ResourceManager->CreateBuffer(m_VulkanDevice, BufferCreateInfo{
-			.flags = {BufferUsageFlags::StorageBuffer},
-			.memoryAccess = {MemoryAccess::GPU},
-			.size = {tileSize * sizeof(uint32_t)},
-			.name = {"Denoise Shadow Mask Buffer"}
-		});
-
 	denoiseBufferDimensions = m_ResourceManager->CreateBuffer(m_VulkanDevice, BufferCreateInfo{
 			.flags = {BufferUsageFlags::UniformBuffer},
 			.memoryAccess = {MemoryAccess::CPU2GPU},
@@ -250,56 +243,66 @@ bool Renderer::Init()
 			.name = {"Denoise Dimensions buffer"}
 		});
 
-	//classify
-
 	denoiseShadowDataBuffer = m_ResourceManager->CreateBuffer(m_VulkanDevice, BufferCreateInfo{
 			.flags = {BufferUsageFlags::UniformBuffer},
 			.memoryAccess = {MemoryAccess::CPU2GPU},
 			.size = {sizeof(DenoiseShadowData)},
 			.name = {"Denoise Shadow Data Buffer"}
 		});
-
-	denoiseTileMetadataBuffer = m_ResourceManager->CreateBuffer(m_VulkanDevice, BufferCreateInfo{
-			.flags = {BufferUsageFlags::StorageBuffer},
-			.memoryAccess = {MemoryAccess::GPU},
-			.size = {tileSize * sizeof(uint32_t)},
-			.name = {"Denoise Metadata buffer"}
-		});
-
-	denoiseMomentsBuffer0 = m_ResourceManager->CreateTexture(m_VulkanDevice, RWTextureCreateInfo{
-			.dimensions = {shadowResX, shadowResY, 1},
-			.flags = {TextureFlags::Read},
-			.format = {Format::R11G11B10_FLOAT},
-			.name = {"Denoise Moments Buffer0"}
-		});
-
-	denoiseMomentsBuffer1 = m_ResourceManager->CreateTexture(m_VulkanDevice, RWTextureCreateInfo{
-			.dimensions = {shadowResX, shadowResY, 1},
-			.flags = {TextureFlags::Read},
-			.format = {Format::R11G11B10_FLOAT},
-			.name = {"Denoise Moments Buffer1"}
-		});
-
-	denoiseReprojectionBuffer0 = m_ResourceManager->CreateTexture(m_VulkanDevice, RWTextureCreateInfo{
-			.dimensions = {shadowResX, shadowResY, 1},
-			.flags = {TextureFlags::Read},
-			.format = {Format::R16G16_FLOAT},
-			.name = {"Denoise Reprojection Buffer0"}
-		});
-
-	denoiseReprojectionBuffer1 = m_ResourceManager->CreateTexture(m_VulkanDevice, RWTextureCreateInfo{
-			.dimensions = {shadowResX, shadowResY, 1},
-			.flags = {TextureFlags::Read},
-			.format = {Format::R16G16_FLOAT},
-			.name = {"Denoise Reprojection Buffer1"}
-		});
-
+	
 	denoiseLastFrameDepth = m_ResourceManager->CreateTexture(m_VulkanDevice, RWTextureCreateInfo{
-			.dimensions = {shadowResX, shadowResY, 1},
-			.flags = {TextureFlags::DepthStencil | TextureFlags::Read | TextureFlags::TransferDst },
-			.format = {Format::D32_SFLOAT},
-			.name = {"Denoise Last Frame Depth"}
+		.dimensions = {shadowResX, shadowResY, 1},
+		.flags = {TextureFlags::DepthStencil | TextureFlags::Read | TextureFlags::TransferDst },
+		.format = {Format::D32_SFLOAT},
+		.name = {"Denoise Last Frame Depth"}
 		});
+
+	for (uint32_t i = 0; i < MAX_NUM_OF_LIGHTS; i++)
+	{
+
+		denoiseShadowMaskBuffer[i] = m_ResourceManager->CreateBuffer(m_VulkanDevice, BufferCreateInfo{
+				.flags = {BufferUsageFlags::StorageBuffer},
+				.memoryAccess = {MemoryAccess::GPU},
+				.size = {tileSize * sizeof(uint32_t)},
+				.name = {"Denoise Shadow Mask Buffer"}
+			});
+
+		denoiseTileMetadataBuffer[i] = m_ResourceManager->CreateBuffer(m_VulkanDevice, BufferCreateInfo{
+				.flags = {BufferUsageFlags::StorageBuffer},
+				.memoryAccess = {MemoryAccess::GPU},
+				.size = {tileSize * sizeof(uint32_t)},
+				.name = {"Denoise Metadata buffer"}
+			});
+
+		//classify
+		denoiseMomentsBuffer0[i] = m_ResourceManager->CreateTexture(m_VulkanDevice, RWTextureCreateInfo{
+				.dimensions = {shadowResX, shadowResY, 1},
+				.flags = {TextureFlags::Read},
+				.format = {Format::R11G11B10_FLOAT},
+				.name = {"Denoise Moments Buffer0"}
+			});
+
+		denoiseMomentsBuffer1[i] = m_ResourceManager->CreateTexture(m_VulkanDevice, RWTextureCreateInfo{
+				.dimensions = {shadowResX, shadowResY, 1},
+				.flags = {TextureFlags::Read},
+				.format = {Format::R11G11B10_FLOAT},
+				.name = {"Denoise Moments Buffer1"}
+			});
+
+		denoiseReprojectionBuffer0[i] = m_ResourceManager->CreateTexture(m_VulkanDevice, RWTextureCreateInfo{
+				.dimensions = {shadowResX, shadowResY, 1},
+				.flags = {TextureFlags::Read},
+				.format = {Format::R16G16_FLOAT},
+				.name = {"Denoise Reprojection Buffer0"}
+			});
+
+		denoiseReprojectionBuffer1[i] = m_ResourceManager->CreateTexture(m_VulkanDevice, RWTextureCreateInfo{
+				.dimensions = {shadowResX, shadowResY, 1},
+				.flags = {TextureFlags::Read},
+				.format = {Format::R16G16_FLOAT},
+				.name = {"Denoise Reprojection Buffer1"}
+			});
+	}
 
 	denoiseShadowFilterDataBuffer = m_ResourceManager->CreateBuffer(m_VulkanDevice, BufferCreateInfo{
 			.flags = {BufferUsageFlags::UniformBuffer},
@@ -313,12 +316,13 @@ bool Renderer::Init()
 			.flags = {TextureFlags::Read},
 			.format = {Format::R16G16B16A16_UNORM},
 			.name = {"Denoised Shadow Output"},
-			.arraySize = {1},
+			.arraySize = {MAX_NUM_OF_LIGHTS},
 			.isCube = { false },
 			.multisampleType = {MultisampleType::Sample_1},
 			.samplerType = { SamplerType::Trilinear },
 			.addressMode = { AddressMode::Clamp }
 		});
+
 
 	InitNoiseTextures();
 	InitSSAO();
@@ -720,7 +724,7 @@ void Renderer::EndCommandBuffer()
 	VULKAN_API_CALL(vkEndCommandBuffer(GetCurrentCommandBuffer()));
 }
 
-void Renderer::FillTheLightParam(LightParams& lightParam, rabbitVec3f position, rabbitVec3f color, float radius, float intensity, LightType type)
+void Renderer::FillTheLightParam(LightParams& lightParam, rabbitVec3f position, rabbitVec3f color, float radius, float intensity, LightType type, float size)
 {
 	lightParam.position[0] = position.x;
 	lightParam.position[1] = position.y;
@@ -731,6 +735,7 @@ void Renderer::FillTheLightParam(LightParams& lightParam, rabbitVec3f position, 
 	lightParam.radius = radius;
 	lightParam.intensity = intensity;
 	lightParam.type = (uint32_t)type;
+	lightParam.size = size;
 }
 
 std::vector<char> Renderer::ReadFile(const std::string& filepath)
@@ -767,6 +772,23 @@ void Renderer::DrawFullScreenQuad()
 	EndRenderPass();
 }
 
+void Renderer::BindPushConstInternal()
+{
+	if (m_StateManager->ShouldBindPushConst())
+	{
+		VkShaderStageFlagBits shaderStage = (m_StateManager->GetPipeline()->GetType() == PipelineType::Graphics) ? VkShaderStageFlagBits(VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_VERTEX_BIT) : (VK_SHADER_STAGE_COMPUTE_BIT);
+		//TODO: what the hell is going on here
+		vkCmdPushConstants(GetCurrentCommandBuffer(),
+			*(m_StateManager->GetPipeline()->GetPipelineLayout()),
+			shaderStage,
+			0,
+			m_StateManager->GetPushConst().size,
+			&m_StateManager->GetPushConst().data);
+
+		m_StateManager->SetShouldBindPushConst(false);
+	}
+}
+
 void Renderer::UpdateEntityPickId()
 {
 	//steal input comp from camera to retrieve mouse pos
@@ -784,8 +806,7 @@ void Renderer::UpdateEntityPickId()
 	PushMousePos push{};
 	push.x = static_cast<uint32_t>(x);
 	push.y = static_cast<uint32_t>(y);
-	BindPushConstant(push);
-
+	//BindPushConstant(push); //TODO: fix this
 }
 
 void Renderer::CopyToSwapChain()
@@ -1177,34 +1198,34 @@ void Renderer::CreateDescriptorPool()
 {
 	//TODO: see what to do with this, now its hard coded number of descriptors
 	VulkanDescriptorPoolSize uboPoolSize{};
-	uboPoolSize.Count = 300;
+	uboPoolSize.Count = 400;
 	uboPoolSize.Type = DescriptorType::UniformBuffer;
 
 	VulkanDescriptorPoolSize samImgPoolSize{};
-	samImgPoolSize.Count = 300;
+	samImgPoolSize.Count = 400;
 	samImgPoolSize.Type = DescriptorType::SampledImage;
 
 	VulkanDescriptorPoolSize sPoolSize{};
-	sPoolSize.Count = 300;
+	sPoolSize.Count = 400;
 	sPoolSize.Type = DescriptorType::Sampler;
 
 	VulkanDescriptorPoolSize cisPoolSize{};
-	cisPoolSize.Count = 300;
+	cisPoolSize.Count = 400;
 	cisPoolSize.Type = DescriptorType::CombinedSampler;
 
 	VulkanDescriptorPoolSize siPoolSize{};
-	siPoolSize.Count = 300;
+	siPoolSize.Count = 400;
 	siPoolSize.Type = DescriptorType::StorageImage;
 
 	VulkanDescriptorPoolSize sbPoolSize{};
-	sbPoolSize.Count = 300;
+	sbPoolSize.Count = 400;
 	sbPoolSize.Type = DescriptorType::StorageBuffer;
 
 	VulkanDescriptorPoolInfo vulkanDescriptorPoolInfo{};
 
 	vulkanDescriptorPoolInfo.DescriptorSizes = { uboPoolSize, cisPoolSize, siPoolSize, sbPoolSize, samImgPoolSize, sPoolSize };
 
-	vulkanDescriptorPoolInfo.MaxSets = 1000;
+	vulkanDescriptorPoolInfo.MaxSets = 2000;
 
 	m_DescriptorPool = std::make_unique<VulkanDescriptorPool>(&m_VulkanDevice, vulkanDescriptorPoolInfo);
 }
@@ -1292,10 +1313,10 @@ void Renderer::InitSSAO()
 
 void Renderer::InitLights()
 {
-	FillTheLightParam(lightParams[0], { 70.0f, 300.75f, -20.75f }, { 1.f, 0.6f, 0.2f }, 25.f, 1.f, LightType_Directional);
-	FillTheLightParam(lightParams[1], { 5.0f, 20.0f, -1.0f }, { 0.95f, 0.732f, 0.36f }, 0.f, 1.f, LightType_Point);
-	FillTheLightParam(lightParams[2], { -10.0f, 10.0f, -10.0f }, { 1.f, 0.6f, 0.2f }, 0.f, 1.f, LightType_Point);
-	FillTheLightParam(lightParams[3], { 5.f, 5.0f, 4.f }, { 1.f, 1.0f, 1.0f }, 0.f, 1.f, LightType_Point);
+	FillTheLightParam(lightParams[0], { 70.0f, 300.75f, -20.75f }, { 1.f, 0.6f, 0.2f }, 25.f, 1.f, LightType_Directional, 5.f);
+	FillTheLightParam(lightParams[1], { 5.0f, 20.0f, -1.0f }, { 0.95f, 0.732f, 0.36f }, 0.f, 1.f, LightType_Point, 0.5f);
+	FillTheLightParam(lightParams[2], { -10.0f, 10.0f, -10.0f }, { 1.f, 0.6f, 0.2f }, 0.f, 1.f, LightType_Point, 0.5f);
+	FillTheLightParam(lightParams[3], { 5.f, 5.0f, 4.f }, { 1.f, 1.0f, 1.0f }, 0.f, 1.f, LightType_Point, 1.f);
 }
 
 void Renderer::InitMeshDataForCompute()

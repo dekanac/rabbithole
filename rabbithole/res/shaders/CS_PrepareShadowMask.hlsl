@@ -10,6 +10,13 @@ of the results for use in the denoiser.
 #define TILE_SIZE_X 8
 #define TILE_SIZE_Y 4
 
+struct SliceIndex
+{
+    uint idx;
+};
+
+[[vk::push_constant]] SliceIndex ShadowIndex;
+
 [[vk::binding(0)]] cbuffer PassData : register(b0)
 {
     int2 BufferDimensions;
@@ -26,7 +33,7 @@ int2 FFX_DNSR_Shadows_GetBufferDimensions()
 bool FFX_DNSR_Shadows_HitsLight(uint2 did, uint2 gtid, uint2 gid)
 {
     //todo: for now just one light, sun light
-    return t2d_hitMaskResults[uint3(did, 0)].x > 0.f;
+    return t2d_hitMaskResults[uint3(did, ShadowIndex.idx)].x > 0.f;
 }
 
 void FFX_DNSR_Shadows_WriteMask(uint offset, uint value)

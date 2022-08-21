@@ -200,7 +200,7 @@ float CalculateShadowForLight(vec3 positionOfOrigin, vec3 normalOfOrigin, Light 
 #ifdef SOFT_SHADOWS
     vec2 noise = GetNoiseFromTexture(uv, uint(UBO.currentFrameInfo.x));
     noise = fract(noise + (uint(UBO.currentFrameInfo.x) ) * PI);
-    lightVec = normalize(GetPointInDisk(light.position.xyz , 5.f, -lightVec, noise) - positionOfOrigin);
+    lightVec = normalize(GetPointInDisk(light.position.xyz , light.size, -lightVec, noise) - positionOfOrigin);
 #else
     lightVec = normalize(light.position - positionOfOrigin);
 #endif

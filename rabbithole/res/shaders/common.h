@@ -19,6 +19,8 @@ struct Light
 	vec3 color;
 	float intensity;
 	uint type;
+    float size;
+    uvec2 padding;
 };
 
 struct CFBVHNode

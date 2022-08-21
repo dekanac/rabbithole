@@ -103,13 +103,15 @@ BEGIN_DECLARE_RABBITPASS(TextureDebugPass);
 END_DECLARE_RABBITPASS
 
 BEGIN_DECLARE_RABBITPASS(ShadowDenoisePrePass);
+void PrepareDenoisePass(Renderer* renderer, uint32_t shadowSlice);
 END_DECLARE_RABBITPASS
 
 BEGIN_DECLARE_RABBITPASS(ShadowDenoiseTileClassificationPass);
+void ClassifyTiles(Renderer* renderer, uint32_t shadowSlice);
 END_DECLARE_RABBITPASS
 
 BEGIN_DECLARE_RABBITPASS(ShadowDenoiseFilterPass);
-void RenderFilterPass0(Renderer* renderer);
-void RenderFilterPass1(Renderer* renderer);
-void RenderFilterPass2(Renderer* renderer);
+void RenderFilterPass0(Renderer* renderer, uint32_t shadowSlice);
+void RenderFilterPass1(Renderer* renderer, uint32_t shadowSlice);
+void RenderFilterPass2(Renderer* renderer, uint32_t shadowSlice);
 END_DECLARE_RABBITPASS

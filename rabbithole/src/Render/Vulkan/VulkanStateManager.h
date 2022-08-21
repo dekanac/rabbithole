@@ -7,6 +7,16 @@ struct UniformBufferObject;
 
 typedef VkExtent2D Extent2D;
 
+struct PushConstant
+{
+	PushConstant(void* data_, uint32_t size_)
+		: data(data_), size(size_)
+	{}
+
+	void*		data;
+	uint32_t	size;
+};
+
 //keep in sync with UniformBufferObject in Renderer.h
 enum class UBOElement : uint32_t
 {
@@ -77,6 +87,11 @@ public:
     std::vector<VulkanImageView*>&  GetRenderTargets();
     VulkanImageView*                GetDepthStencil() const { return m_DepthStencil; }
 
+	void SetPushConst(PushConstant& pc) { m_PushConst = pc; m_ShouldBindPushConst = true; }
+	PushConstant& GetPushConst() { return m_PushConst; }
+	bool ShouldBindPushConst() const { return m_ShouldBindPushConst; }
+	void SetShouldBindPushConst(bool should) { m_ShouldBindPushConst = should; }
+
     void SetRenderTarget0(VulkanImageView* rt);
     void SetRenderTarget1(VulkanImageView* rt);
     void SetRenderTarget2(VulkanImageView* rt);
@@ -135,6 +150,9 @@ private:
     VulkanImageView*				m_DepthStencil = nullptr;
 
 	Extent2D						m_FramebufferExtent{};
+
+	PushConstant					m_PushConst;
+	bool							m_ShouldBindPushConst = false;
 
 	PipelineType m_CurrentPipelinetype;
 };
