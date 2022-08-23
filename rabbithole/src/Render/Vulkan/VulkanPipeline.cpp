@@ -8,6 +8,7 @@
 #include "Render/Shader.h"
 #include "Render/Renderer.h"
 #include "Render/SuperResolutionManager.h"
+#include "Render/Converters.h"
 #include "Render/Model/Model.h"
 
 VulkanPipeline::VulkanPipeline(VulkanDevice& device, PipelineConfigInfo& configInfo, PipelineType type)

@@ -1,6 +1,7 @@
 #include "PipelineManager.h"
 
 #include "Render/Vulkan/VulkanPipeline.h"
+#include "Render/Converters.h"
 #include "Render/Shader.h"
 #include "Logger/Logger.h"
 

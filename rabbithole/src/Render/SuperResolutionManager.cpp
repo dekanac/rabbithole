@@ -5,6 +5,7 @@
 #include "Render/Window.h"
 #include "Render/Renderer.h"
 #include "Render/Camera.h"
+#include "Render/Converters.h"
 
 #include <fsr2.0/ffx_fsr2.h>
 #include <fsr2.0/vk/ffx_fsr2_vk.h>

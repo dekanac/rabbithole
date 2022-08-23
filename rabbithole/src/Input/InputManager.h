@@ -13,7 +13,7 @@ struct InputComponent;
 
 class InputManager
 {
-    SingletonClass(InputManager)
+	SingletonClass(InputManager);
 public:
 	bool Init();
 	void Update(float dt);

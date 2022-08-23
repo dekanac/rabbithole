@@ -8,7 +8,7 @@
 
 class EntityManager
 {
-    SingletonClass(EntityManager)
+	SingletonClass(EntityManager);
 public:
 	bool Init();
 	void Update(float dt);

@@ -19,7 +19,7 @@ struct WindowData
 
 class Window
 {
-    SingletonClass(Window)
+	SingletonClass(Window);
 
 public:
 	bool Init(const WindowData& windowData_ = WindowData());

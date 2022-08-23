@@ -9,7 +9,7 @@ struct UIState;
 
 class SuperResolutionManager
 {
-	SingletonClass(SuperResolutionManager)
+	SingletonClass(SuperResolutionManager);
 
 public:
 

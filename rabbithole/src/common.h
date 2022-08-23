@@ -6,7 +6,6 @@
 
 #define RABBITHOLE_DEBUG
 
-
 #define SingletonClass(className) \
 public: \
     className(className const&)         = delete; \
@@ -17,7 +16,14 @@ public: \
     } \
 private: \
     className() = default; \
-    ~className() = default;
+    ~className() = default
+
+#define NonCopyableAndMovable(className) \
+public: \
+	className(const className&) = delete; \
+	className operator= (const className&) = delete; \
+	className(className&&) = delete; \
+	className& operator= (className&&) = delete
 
 #define VULKAN_API_CALL(call) \
 		{ \

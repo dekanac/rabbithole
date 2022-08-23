@@ -1,5 +1,7 @@
 #include "precomp.h"
 
+#include "Render/Converters.h"
+
 VulkanImage::VulkanImage(const VulkanDevice* device, const VulkanImageInfo& info, const char* name)
 	: m_VulkanDevice(device)
 	, m_Info(info)

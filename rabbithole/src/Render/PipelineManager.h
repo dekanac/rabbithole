@@ -23,7 +23,6 @@ struct GraphicsPipelineKey
 	uint32_t m_PixelShaderEntryPointCRC;
 	uint32_t m_Topology;
 	uint32_t m_PolygonMode;
-
 	uint32_t m_CullMode;
 	uint32_t m_Frontface;
 	//TODO: implement this fully
@@ -134,7 +133,7 @@ public:
 
 class PipelineManager
 {
-	SingletonClass(PipelineManager)
+	SingletonClass(PipelineManager);
 
 public:
 	std::unordered_map<GraphicsPipelineKey, GraphicsPipeline*>					m_GraphicPipelines;

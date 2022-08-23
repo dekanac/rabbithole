@@ -182,7 +182,7 @@ struct DenoiseShadowFilterData
 
 class Renderer
 {
-	SingletonClass(Renderer)
+	SingletonClass(Renderer);
 
 private:
 	VulkanDevice								m_VulkanDevice{};

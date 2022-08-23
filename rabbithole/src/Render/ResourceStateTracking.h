@@ -6,7 +6,7 @@ class ManagableResource;
 
 class ResourceStateTrackingManager
 {
-	SingletonClass(ResourceStateTrackingManager)
+	SingletonClass(ResourceStateTrackingManager);
 
 public:
 	void CommitBarriers();

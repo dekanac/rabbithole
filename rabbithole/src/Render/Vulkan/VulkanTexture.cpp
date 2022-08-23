@@ -2,6 +2,7 @@
 
 #include "Render/Model/Model.h"
 #include "Render/Model/TextureLoading.h"
+#include "Render/Converters.h"
 
 VulkanTexture::VulkanTexture(VulkanDevice* device, std::string filePath, TextureFlags flags, Format format, std::string name, bool generateMips)
 	: m_Format(format)
@@ -218,9 +219,10 @@ void VulkanTexture::CreateResource(VulkanDevice* device, const uint32_t width, c
 	textureResourceInfo.UsageFlags = 
 		(IsFlagSet(m_Flags & TextureFlags::TransferDst) ? ImageUsageFlags::TransferDst : ImageUsageFlags::None) |
 		(IsFlagSet(m_Flags & TextureFlags::TransferSrc) ? ImageUsageFlags::TransferSrc : ImageUsageFlags::None) |
-		(IsFlagSet(m_Flags & TextureFlags::DepthStencil) ? ImageUsageFlags::DepthStencil : ImageUsageFlags::Storage) | //TODO: investigate this storage flag
+		(IsFlagSet(m_Flags & TextureFlags::DepthStencil) ? ImageUsageFlags::DepthStencil : ImageUsageFlags::None) | //TODO: investigate this storage flag
 		(IsFlagSet(m_Flags & TextureFlags::Read) ? ImageUsageFlags::Resource : ImageUsageFlags::None) |
-		(IsFlagSet(m_Flags & TextureFlags::RenderTarget) ? ImageUsageFlags::RenderTarget : ImageUsageFlags::None);
+		(IsFlagSet(m_Flags & TextureFlags::RenderTarget) ? ImageUsageFlags::RenderTarget : ImageUsageFlags::None) |
+		(IsFlagSet(m_Flags & TextureFlags::Storage) ? ImageUsageFlags::Storage : ImageUsageFlags::None);
 
 	textureResourceInfo.MemoryAccess = MemoryAccess::GPU;
 	textureResourceInfo.Format = m_Format;
@@ -261,21 +263,6 @@ void VulkanTexture::CreateResource(VulkanDevice* device, const uint32_t width, c
 
 void VulkanTexture::CreateView(VulkanDevice* device)
 {
-	ClearValue clearValue;
-	//TODO: use GET CV FOR FORMAT
-	if (IsFlagSet(m_Flags & TextureFlags::DepthStencil))
-	{
-		clearValue.DepthStencil.Depth = 1.0f;
-		clearValue.DepthStencil.Stencil = 0;
-	}
-	else
-	{
-		clearValue.Color.value[0] = 0.0f;
-		clearValue.Color.value[1] = 0.0f;
-		clearValue.Color.value[2] = 0.0f;
-		clearValue.Color.value[3] = 1.0f;
-	}
-
 	VulkanImageViewInfo imageViewInfo;
 	imageViewInfo.Resource = m_Resource;
 	imageViewInfo.Format = m_Format;
@@ -284,7 +271,7 @@ void VulkanTexture::CreateView(VulkanDevice* device)
 	imageViewInfo.Subresource.MipSize = m_Region.Subresource.MipSize;
 	imageViewInfo.Subresource.ArraySlice = 0;
 	imageViewInfo.Subresource.ArraySize = m_Region.Subresource.ArraySize;
-	imageViewInfo.ClearValue = clearValue;
+	imageViewInfo.ClearValue = GetClearColorValueFor(m_Format);
 
 	m_View = new VulkanImageView(device, imageViewInfo, m_Name.c_str());
 }

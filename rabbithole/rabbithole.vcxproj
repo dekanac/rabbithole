@@ -141,6 +141,7 @@
     <ClCompile Include="src\Render\ResourceManager.cpp" />
     <ClCompile Include="src\Render\ResourceStateTracking.cpp" />
     <ClCompile Include="src\Render\SuperResolutionManager.cpp" />
+    <ClCompile Include="src\Render\Converters.cpp" />
     <ClCompile Include="src\Render\Vulkan\precomp.cpp" />
     <ClCompile Include="src\Core\Application.cpp" />
     <ClCompile Include="src\Core\main.cpp" />
@@ -184,6 +185,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\Render\BVH.h" />
+    <ClInclude Include="src\Render\Converters.h" />
     <ClInclude Include="src\Render\Model\TextureLoading.h" />
     <ClInclude Include="src\Render\PipelineManager.h" />
     <ClInclude Include="src\Render\RabbitPass.h" />

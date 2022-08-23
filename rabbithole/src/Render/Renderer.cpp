@@ -6,6 +6,7 @@
 #include "Input/InputManager.h"
 #include "Model/Model.h"
 #include "Render/Camera.h"
+#include "Render/Converters.h"
 #include "Render/Window.h"
 #include "Render/RabbitPass.h"
 #include "Render/ResourceStateTracking.h"
@@ -105,21 +106,21 @@ bool Renderer::Init()
 
 	normalGBuffer = m_ResourceManager->CreateTexture(m_VulkanDevice, RWTextureCreateInfo{
 			.dimensions = {GetNativeWidth , GetNativeHeight, 1},
-			.flags = {TextureFlags::RenderTarget | TextureFlags::Read},
+			.flags = {TextureFlags::RenderTarget | TextureFlags::Read | TextureFlags::Storage},
 			.format = {Format::R16G16B16A16_FLOAT},
 			.name = {"GBuffer Normal"}
 		});
 
 	worldPositionGBuffer = m_ResourceManager->CreateTexture(m_VulkanDevice, RWTextureCreateInfo{
 			.dimensions = {GetNativeWidth , GetNativeHeight, 1},
-			.flags = {TextureFlags::RenderTarget | TextureFlags::Read},
+			.flags = {TextureFlags::RenderTarget | TextureFlags::Read | TextureFlags::Storage},
 			.format = {Format::R16G16B16A16_FLOAT},
 			.name = {"GBuffer World Position"}
 		});
 
 	velocityGBuffer = m_ResourceManager->CreateTexture(m_VulkanDevice, RWTextureCreateInfo{
 			.dimensions = {GetNativeWidth , GetNativeHeight, 1},
-			.flags = {TextureFlags::RenderTarget | TextureFlags::Read},
+			.flags = {TextureFlags::RenderTarget | TextureFlags::Read | TextureFlags::Storage},
 			.format = {Format::R32G32_FLOAT},
 			.name = {"GBuffer Velocity"}
 		});
@@ -170,7 +171,7 @@ bool Renderer::Init()
 
 	shadowMap = m_ResourceManager->CreateTexture(m_VulkanDevice, RWTextureCreateInfo{
 			.dimensions = {shadowResX, shadowResY, 1},
-			.flags = {TextureFlags::Read},
+			.flags = {TextureFlags::Read | TextureFlags::Storage},
 			.format = {Format::R8_UNORM},
 			.name = {"Shadow Map"},
 			.arraySize = {MAX_NUM_OF_LIGHTS},
@@ -186,7 +187,7 @@ bool Renderer::Init()
 	//init fsr
 	fsrOutputTexture = m_ResourceManager->CreateTexture(m_VulkanDevice, RWTextureCreateInfo{
 			.dimensions = {GetUpscaledWidth, GetUpscaledHeight, 1},
-			.flags = {TextureFlags::RenderTarget | TextureFlags::Read},
+			.flags = {TextureFlags::RenderTarget | TextureFlags::Read | TextureFlags::Storage},
 			.format = {Format::R16G16B16A16_FLOAT},
 			.name = {"FSR2 Output"},
 		});
@@ -201,14 +202,14 @@ bool Renderer::Init()
 	
 	mediaDensity3DLUT = m_ResourceManager->CreateTexture(m_VulkanDevice, RWTextureCreateInfo{
 			.dimensions = {160, 90, 128},
-			.flags = {TextureFlags::Read | TextureFlags::TransferSrc},
+			.flags = {TextureFlags::Read | TextureFlags::TransferSrc | TextureFlags::Storage},
 			.format = {Format::R16G16B16A16_FLOAT},
 			.name = {"Media Density"},
 		});
 
 	scatteringTexture = m_ResourceManager->CreateTexture(m_VulkanDevice, RWTextureCreateInfo{
 			.dimensions = {160, 90, 64},
-			.flags = {TextureFlags::Read | TextureFlags::TransferSrc},
+			.flags = {TextureFlags::Read | TextureFlags::TransferSrc | TextureFlags::Storage},
 			.format = {Format::R16G16B16A16_FLOAT},
 			.name = {"Scattering Calculation"},
 		});
@@ -277,28 +278,28 @@ bool Renderer::Init()
 		//classify
 		denoiseMomentsBuffer0[i] = m_ResourceManager->CreateTexture(m_VulkanDevice, RWTextureCreateInfo{
 				.dimensions = {shadowResX, shadowResY, 1},
-				.flags = {TextureFlags::Read},
+				.flags = {TextureFlags::Read | TextureFlags::Storage},
 				.format = {Format::R11G11B10_FLOAT},
 				.name = {"Denoise Moments Buffer0"}
 			});
 
 		denoiseMomentsBuffer1[i] = m_ResourceManager->CreateTexture(m_VulkanDevice, RWTextureCreateInfo{
 				.dimensions = {shadowResX, shadowResY, 1},
-				.flags = {TextureFlags::Read},
+				.flags = {TextureFlags::Read | TextureFlags::Storage},
 				.format = {Format::R11G11B10_FLOAT},
 				.name = {"Denoise Moments Buffer1"}
 			});
 
 		denoiseReprojectionBuffer0[i] = m_ResourceManager->CreateTexture(m_VulkanDevice, RWTextureCreateInfo{
 				.dimensions = {shadowResX, shadowResY, 1},
-				.flags = {TextureFlags::Read},
+				.flags = {TextureFlags::Read | TextureFlags::Storage},
 				.format = {Format::R16G16_FLOAT},
 				.name = {"Denoise Reprojection Buffer0"}
 			});
 
 		denoiseReprojectionBuffer1[i] = m_ResourceManager->CreateTexture(m_VulkanDevice, RWTextureCreateInfo{
 				.dimensions = {shadowResX, shadowResY, 1},
-				.flags = {TextureFlags::Read},
+				.flags = {TextureFlags::Read | TextureFlags::Storage},
 				.format = {Format::R16G16_FLOAT},
 				.name = {"Denoise Reprojection Buffer1"}
 			});
@@ -313,7 +314,7 @@ bool Renderer::Init()
 
 	denoisedShadowOutput = m_ResourceManager->CreateTexture(m_VulkanDevice, RWTextureCreateInfo{
 			.dimensions = {shadowResX, shadowResY, 1},
-			.flags = {TextureFlags::Read},
+			.flags = {TextureFlags::Read | TextureFlags::Storage},
 			.format = {Format::R16G16B16A16_UNORM},
 			.name = {"Denoised Shadow Output"},
 			.arraySize = {MAX_NUM_OF_LIGHTS},
@@ -560,7 +561,7 @@ void Renderer::InitNoiseTextures()
 
 	noise3DLUT = m_ResourceManager->CreateTexture(m_VulkanDevice, RWTextureCreateInfo{
 			.dimensions = {256, 256, 256},
-			.flags = {TextureFlags::Color | TextureFlags::Read},
+			.flags = {TextureFlags::Color | TextureFlags::Read | TextureFlags::Storage},
 			.format = {Format::R32_SFLOAT},
 			.name = {"Noise 3D LUT"}
 		});

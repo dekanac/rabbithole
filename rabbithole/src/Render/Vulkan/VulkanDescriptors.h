@@ -94,8 +94,6 @@ public:
 
 public:
 	const VkDescriptorSet* GetVkDescriptorSet() const { return &m_DescriptorSet; }
-	VkDescriptorSet GetVkDescriptorSet2() const { return m_DescriptorSet; }
-	//TODO: maaan what the hell
 
 private:
 	VkDescriptorSet m_DescriptorSet = VK_NULL_HANDLE;

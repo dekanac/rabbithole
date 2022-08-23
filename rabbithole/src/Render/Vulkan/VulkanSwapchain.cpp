@@ -11,6 +11,7 @@
 
 #include "Render/SuperResolutionManager.h"
 #include "Render/Window.h"
+#include "Render/Converters.h"
 
 VulkanSwapchain::VulkanSwapchain(VulkanDevice& deviceRef, VkExtent2D extent)
 	: m_VulkanDevice{ deviceRef }, m_WindowExtent{ extent } 

@@ -30,7 +30,7 @@ protected:
 
 class RabbitPassManager
 {
-	SingletonClass(RabbitPassManager)
+	SingletonClass(RabbitPassManager);
 
 public:
 	void AddPass(RabbitPass* pass) { m_RabbitPasses[pass->GetName()] = pass; }

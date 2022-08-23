@@ -1,4 +1,5 @@
 #pragma once
+#include "common.h"
 
 #include "vk_mem_alloc.h"
 #include "spirv-reflect/spirv_reflect.h"
@@ -45,12 +46,7 @@ public:
 	VulkanDevice();
 	~VulkanDevice();
 
-	//Not copyable or movable -> TODO: add macro for this
-	VulkanDevice(const VulkanDevice&) = delete;
-	VulkanDevice operator= (const VulkanDevice&) = delete;
-	VulkanDevice(VulkanDevice&&) = delete;
-	VulkanDevice& operator= (VulkanDevice&&) = delete;
-
+	NonCopyableAndMovable(VulkanDevice);
 public:
 	VkCommandPool				GetCommandPool() const { return m_CommandPool; }
 	VkDevice					GetGraphicDevice() const { return m_Device; }
@@ -59,13 +55,11 @@ public:
 	VkQueue						GetPresentQueue() const { return m_PresentQueue; }
 	VmaAllocator				GetVmaAllocator() const { return m_VmaAllocator; }
 	VkPhysicalDevice			GetPhysicalDevice() const { return m_PhysicalDevice; }
-	VkPhysicalDeviceProperties	GetPhysicalDeviceProperties() const { return properties; }
+	VkPhysicalDeviceProperties	GetPhysicalDeviceProperties() const { return m_Properties; }
+	SwapChainSupportDetails		GetSwapChainSupport() { return QuerySwapChainSupport(m_PhysicalDevice); }
+	QueueFamilyIndices			FindPhysicalQueueFamilies() { return FindQueueFamilies(m_PhysicalDevice); }
+	VkFormat					FindSupportedFormat(const std::vector<VkFormat>& candidates, VkImageTiling tiling, VkFormatFeatureFlags features);
 
-	//TODO: see what to do with this
-	SwapChainSupportDetails GetSwapChainSupport() { return QuerySwapChainSupport(m_PhysicalDevice); }
-	uint32_t				FindMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties);
-	QueueFamilyIndices		FindPhysicalQueueFamilies() { return FindQueueFamilies(m_PhysicalDevice); }
-	VkFormat				FindSupportedFormat(const std::vector<VkFormat>& candidates, VkImageTiling tiling, VkFormatFeatureFlags features);
 
 	// Buffer Helper Functions
 	VkCommandBuffer		BeginSingleTimeCommands();
@@ -74,7 +68,6 @@ public:
 	void				CopyBufferToImage(VkCommandBuffer commandBuffer, VulkanBuffer* buffer, VulkanTexture* texture, bool copyFirstMipOnly = false);
 	void				CopyBufferToImageCubeMap(VkCommandBuffer commandBuffer, VulkanBuffer* buffer, VulkanTexture* texture);
 	void				TransitionImageLayout(VkCommandBuffer commandBuffer, VulkanTexture* texture, ResourceState oldLayout, ResourceState newLayout, uint32_t mipLevel = 0, uint32_t mipCount = 1);
-	void				CreateImageWithInfo(const VkImageCreateInfo& imageInfo, VkMemoryPropertyFlags properties, VkImage& image, VkDeviceMemory& imageMemory);
 	void				InitImguiForVulkan(ImGui_ImplVulkan_InitInfo& info);
 	
 	//debug utils
@@ -101,6 +94,7 @@ private:
 	void						HasGflwRequiredInstanceExtensions();
 	bool						CheckDeviceExtensionSupport(VkPhysicalDevice device);
 	SwapChainSupportDetails		QuerySwapChainSupport(VkPhysicalDevice device);
+	uint32_t					FindMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties);
 	
 private:
 	VkInstance					m_Instance;
@@ -112,47 +106,9 @@ private:
 	VkQueue						m_GraphicsQueue;
 	VkQueue						m_PresentQueue;
 	VkDebugUtilsMessengerEXT	m_DebugMessenger;
-
-	VkPhysicalDeviceProperties	properties;
+	VkPhysicalDeviceProperties	m_Properties;
 
 	const std::vector<const char*> m_ValidationLayers = { "VK_LAYER_KHRONOS_validation" };
 	const std::vector<const char*> m_DeviceExtensions = { VK_KHR_SWAPCHAIN_EXTENSION_NAME, VK_GOOGLE_HLSL_FUNCTIONALITY_1_EXTENSION_NAME, VK_GOOGLE_USER_TYPE_EXTENSION_NAME };
-
-	//TODO: this is for test purposes, this should be moved to future statemanager
-	std::unordered_map<std::string, VulkanRenderPass*>	m_RenderPassCollection;
-	std::unordered_map<std::string, VulkanPipeline*>	m_PipelineCollection;
 };
-
-//converter functions //TODO: move to separate file
-VkBufferUsageFlags		GetVkBufferUsageFlags(const BufferUsageFlags usageFlags);
-VmaMemoryUsage			GetVmaMemoryUsageFrom(const MemoryAccess memoryAccess);
-VkDescriptorType		GetVkDescriptorTypeFrom(const DescriptorType descriptorSetBinding);
-VkDescriptorType		GetVkDescriptorTypeFrom(const SpvReflectDescriptorType reflectDescriptorType);
-VkShaderStageFlagBits	GetVkShaderStageFrom(const ShaderType shaderType);
-VkFormat				GetVkFormatFrom(const Format format);
-VkColorSpaceKHR			GetVkColorSpaceFrom(const ColorSpace colorSpace);
-uint32_t				GetBlockSizeFrom(const VkFormat format);
-VkImageType				GetVkImageTypeFrom(const uint32_t imageDepth);
-VkImageAspectFlags		GetVkImageAspectFlagsFrom(const VkFormat format);
-VkImageLayout			GetVkImageLayoutFrom(const ResourceState resourceState);
-VkAccessFlags			GetVkAccessFlagsFrom(const ResourceState resourceState);
-VkPipelineStageFlagBits GetGraphicsPipelineStage(const ResourceState resourceState);
-VkPipelineStageFlagBits GetTransferPipelineStage(const ResourceState resourceState);
-VkPrimitiveTopology		GetVkPrimitiveTopologyFrom(const Topology topology);
-VkSampleCountFlagBits	GetVkSampleFlagsFrom(const MultisampleType multiSampleType);
-VkCompareOp				GetVkCompareOperationFrom(const CompareOperation compareOperation);
-VkStencilOp				GetVkStencilOpFrom(const StencilOperation stencilOperation);
-VkFilter				GetVkFilterFrom(const FilterType filterType);
-VkSamplerMipmapMode		GetVkMipmapModeFrom(const FilterType filterType);
-VkSamplerAddressMode	GetVkAddressModeFrom(const AddressMode addressMode);
-VkBlendFactor			GetVkBlendFactorFrom(const BlendValue blendValue);
-VkBlendOp				GetVkBlendOpFrom(const BlendOperation blendOperation);
-VkVertexInputRate		GetVkVertexInputRateFrom(const VertexInputRate inputRate);
-VkClearValue			GetVkClearColorValueFor(const Format format);
-uint32_t				GetBPPFrom(const Format format);
-VkImageUsageFlags		GetVkImageUsageFlagsFrom(const ImageUsageFlags usageFlags);
-VkBorderColor			GetVkBorderColorFrom(const Color color);
-bool					IsDepthFormat(const Format format);
-VkPipelineStageFlags GetVkPipelineStageFromResourceStageAndState(const ResourceStage stage, const ResourceState state);
-VkAccessFlags			GetVkAccessFlagsFromResourceState(const ResourceState state);
 

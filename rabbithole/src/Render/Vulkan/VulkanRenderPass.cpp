@@ -1,5 +1,7 @@
 #include "precomp.h"
 
+#include "Render/Converters.h"
+
 VulkanRenderPass::VulkanRenderPass(
 	const VulkanDevice* device, 
 	const std::vector<VulkanImageView*> renderTargetViews, 

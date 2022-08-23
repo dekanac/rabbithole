@@ -2,6 +2,8 @@
 
 #include "Render/Shader.h"
 #include "Render/Model/Model.h"
+#include "Render/Converters.h"
+
 
 VulkanDescriptor::VulkanDescriptor(const VulkanDescriptorInfo& info)
 	: m_Info(info)
@@ -188,28 +190,28 @@ DescriptorSetManager::DescriptorSetManager()
 
 void DescriptorSetManager::SetCombinedImageSampler(uint32_t slot, VulkanTexture* texture)
 {
-	VkWriteDescriptorSet& write = m_Writes[m_CurrentWriteIndex++];
-	write.dstSet = m_DescriptorSet->GetVkDescriptorSet2();
-	write.dstBinding = slot;
-	write.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-	VkDescriptorImageInfo& info = m_ImageInfos[m_CurrentImageInfoIndex++];
-	write.pImageInfo = &info;
-	info.sampler = texture->GetSampler()->GetSampler();
-	info.imageView = texture->GetView()->GetImageView();
-	info.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+	//VkWriteDescriptorSet& write = m_Writes[m_CurrentWriteIndex++];
+	//write.dstSet = m_DescriptorSet->GetVkDescriptorSet2();
+	//write.dstBinding = slot;
+	//write.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+	//VkDescriptorImageInfo& info = m_ImageInfos[m_CurrentImageInfoIndex++];
+	//write.pImageInfo = &info;
+	//info.sampler = texture->GetSampler()->GetSampler();
+	//info.imageView = texture->GetView()->GetImageView();
+	//info.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 }
 
 void DescriptorSetManager::SetConstantBuffer(uint32_t slot, VulkanBuffer* buffer, uint64_t offset, uint64_t range)
 {
-	VkWriteDescriptorSet& write = m_Writes[m_CurrentWriteIndex++];
-	write.dstSet = m_DescriptorSet->GetVkDescriptorSet2();
-	write.dstBinding = slot;
-	write.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-	VkDescriptorBufferInfo& info = m_BufferInfos[m_CurrentBufferInfoIndex++];
-	write.pBufferInfo = &info;
-	info.buffer = buffer->GetBuffer();
-	info.offset = offset;
-	info.range = range;
+	//VkWriteDescriptorSet& write = m_Writes[m_CurrentWriteIndex++];
+	//write.dstSet = m_DescriptorSet->GetVkDescriptorSet2();
+	//write.dstBinding = slot;
+	//write.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+	//VkDescriptorBufferInfo& info = m_BufferInfos[m_CurrentBufferInfoIndex++];
+	//write.pBufferInfo = &info;
+	//info.buffer = buffer->GetBuffer();
+	//info.offset = offset;
+	//info.range = range;
 }
 
 void DescriptorSetManager::Reset()
