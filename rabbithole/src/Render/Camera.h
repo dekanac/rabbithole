@@ -58,22 +58,22 @@ public:
 
 struct CameraState
 {
-	rabbitMat4f m_PrevViewProjMatrix{ 1.f };
-	rabbitMat4f m_ViewMatrix{ 1.f };
-	rabbitMat4f m_PrevViewMatrix{ 1.f };
-	rabbitMat4f m_ViewInverseMatrix{ 1.f };
+	rabbitMat4f PrevViewProjMatrix{ 1.f };
+	rabbitMat4f ViewMatrix{ 1.f };
+	rabbitMat4f PrevViewMatrix{ 1.f };
+	rabbitMat4f ViewInverseMatrix{ 1.f };
 
-	rabbitMat4f m_ProjectionMatrix{ 1.f };
-	rabbitMat4f m_ProjectionInverseMatrix{ 1.f };
+	rabbitMat4f ProjectionMatrix{ 1.f };
+	rabbitMat4f ProjectionInverseMatrix{ 1.f };
 
-	rabbitMat4f m_ProjMatrixJittered{ 1.f };
-	rabbitMat4f m_ViewProjMatrix{ 1.f };
-	rabbitMat4f m_ViewProjInverseMatrix{ 1.f };
-	rabbitVec3f m_CameraPosition{ 1.f };
+	rabbitMat4f ProjMatrixJittered{ 1.f };
+	rabbitMat4f ViewProjMatrix{ 1.f };
+	rabbitMat4f ViewProjInverseMatrix{ 1.f };
+	rabbitVec3f CameraPosition{ 1.f };
 
-	rabbitVec4f m_EyeXAxis{ 1.f };
-	rabbitVec4f m_EyeYAxis{ 1.f };
-	rabbitVec4f m_EyeZAxis{ 1.f };
+	rabbitVec4f EyeXAxis{ 1.f };
+	rabbitVec4f EyeYAxis{ 1.f };
+	rabbitVec4f EyeZAxis{ 1.f };
 
-	bool m_HasViewProjMatrixChanged = false;
+	bool HasViewProjMatrixChanged = false;
 };

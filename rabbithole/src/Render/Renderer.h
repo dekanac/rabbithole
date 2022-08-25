@@ -3,6 +3,7 @@
 #include "Logger/Logger.h"
 
 #include "Vulkan/Include/VulkanWrapper.h"
+#include "Camera.h"
 #include "SuperResolutionManager.h"
 #include "Window.h"
 #include "Model/Model.h"
@@ -191,15 +192,15 @@ private:
 	std::unique_ptr<VulkanSwapchain>			m_VulkanSwapchain;
 	std::unique_ptr<VulkanDescriptorPool>		m_DescriptorPool;
 	std::vector<VkCommandBuffer>				m_CommandBuffers;
-	uint8_t										m_CurrentImageIndex = 0;
+	uint32_t									m_CurrentImageIndex = 0;
 	uint64_t									m_CurrentFrameIndex = 0;
 
 	VulkanBuffer* m_MainConstBuffer[MAX_FRAMES_IN_FLIGHT];
 	VulkanBuffer* m_VertexUploadBuffer;
 	
 	Camera*			MainCamera{};
-	CameraState*	m_CurrentCameraState{};
-	UIState*		m_CurrentUIState{};
+	CameraState		m_CurrentCameraState{};
+	UIState			m_CurrentUIState{};
 	GPUTimeStamps	m_GPUTimeStamps{};
 	
 	void LoadModels();
@@ -233,8 +234,8 @@ public:
 	inline Shader*			GetShader(const std::string& name) const { return m_ResourceManager->GetShader(name); }
 	inline VulkanTexture*	GetTextureWithID(uint32_t textureId) { return m_ResourceManager->GetTextures()[textureId]; }
 	inline Camera*			GetCamera() { return MainCamera; }
-	inline UIState*			GetUIState() { return m_CurrentUIState; }
-	inline CameraState*		GetCameraState() const { return m_CurrentCameraState; }
+	inline UIState&			GetUIState() { return m_CurrentUIState; }
+	inline CameraState&		GetCameraState() { return m_CurrentCameraState; }
 
 	inline VulkanBuffer* GetMainConstBuffer() { return m_MainConstBuffer[m_CurrentImageIndex]; }
 	inline VulkanBuffer* GetLightParams() { return m_LightParams; }
@@ -263,12 +264,12 @@ public:
 	void BindPushConstInternal();
 
 	void		SetCurrentImageIndex(int imageIndex) { m_CurrentImageIndex = imageIndex; }
-	int			GetCurrentImageIndex() { return m_CurrentImageIndex; }
+	uint32_t	GetCurrentImageIndex() { return m_CurrentImageIndex; }
 	uint64_t	GetCurrentFrameIndex() { return m_CurrentFrameIndex; }
 	
 	VkCommandBuffer GetCurrentCommandBuffer() { return m_CommandBuffers[m_CurrentImageIndex]; }
-	void RecordCommandBuffer(int imageIndex);
 	
+	void RecordCommandBuffer();
 	void BeginRenderPass(VkExtent2D extent);
 	void EndRenderPass();
 

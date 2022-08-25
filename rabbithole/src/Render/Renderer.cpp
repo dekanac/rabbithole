@@ -57,8 +57,6 @@ bool Renderer::Init()
 	MainCamera = new Camera();
 	MainCamera->Init();
 
-	m_CurrentUIState = new UIState;
-	m_CurrentCameraState = new CameraState;
 	SuperResolutionManager::instance().Init(&m_VulkanDevice);
 
 	m_ResourceManager = new ResourceManager();
@@ -338,8 +336,6 @@ bool Renderer::Shutdown()
 {
 	//TODO: clear everything properly
 	delete MainCamera;
-	delete m_CurrentUIState;
-	delete m_CurrentCameraState;
 	gltfModels.clear();
 	m_GPUTimeStamps.OnDestroy();
 	delete m_ResourceManager;
@@ -367,8 +363,7 @@ void Renderer::Draw(float dt)
 
 void Renderer::DrawFrame()
 {
-	uint32_t imageIndex;
-	auto result = m_VulkanSwapchain->AcquireNextImage(&imageIndex);
+	auto result = m_VulkanSwapchain->AcquireNextImage(&m_CurrentImageIndex);
 	if (result != VK_SUCCESS && result != VK_SUBOPTIMAL_KHR) 
 	{
 		LOG_ERROR("failed to acquire swap chain image!");
@@ -380,9 +375,9 @@ void Renderer::DrawFrame()
 		return;
 	}
 
-	RecordCommandBuffer(imageIndex);
+	RecordCommandBuffer();
 
-	result = m_VulkanSwapchain->SubmitCommandBuffers(&m_CommandBuffers[imageIndex], &imageIndex);
+	result = m_VulkanSwapchain->SubmitCommandBuffers(&m_CommandBuffers[m_CurrentImageIndex], &m_CurrentImageIndex);
 
 	if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR || m_FramebufferResized)
 	{
@@ -845,51 +840,51 @@ void Renderer::BindCameraMatrices(Camera* camera)
 	auto projection = camera->Projection();
 	auto view = camera->View();
 
-	m_StateManager->UpdateUBOElement(UBOElement::PrevViewProjMatrix, 4, &m_CurrentCameraState->m_PrevViewProjMatrix);
+	m_StateManager->UpdateUBOElement(UBOElement::PrevViewProjMatrix, 4, &m_CurrentCameraState.PrevViewProjMatrix);
 
-	m_CurrentCameraState->m_ViewMatrix = view;
-	m_StateManager->UpdateUBOElement(UBOElement::ViewMatrix, 4, &m_CurrentCameraState->m_ViewMatrix);
+	m_CurrentCameraState.ViewMatrix = view;
+	m_StateManager->UpdateUBOElement(UBOElement::ViewMatrix, 4, &m_CurrentCameraState.ViewMatrix);
 
-	m_CurrentCameraState->m_ProjectionMatrix = projection;
-	m_StateManager->UpdateUBOElement(UBOElement::ProjectionMatrix, 4, &m_CurrentCameraState->m_ProjectionMatrix);
+	m_CurrentCameraState.ProjectionMatrix = projection;
+	m_StateManager->UpdateUBOElement(UBOElement::ProjectionMatrix, 4, &m_CurrentCameraState.ProjectionMatrix);
 
 	//todo: double check this, for now I use jittered matrix in VS_Gbuffer FS_SSAO and VS_Skybox
-	m_CurrentCameraState->m_ProjMatrixJittered = camera->ProjectionJittered();
-	m_StateManager->UpdateUBOElement(UBOElement::ProjectionMatrixJittered, 4, &m_CurrentCameraState->m_ProjMatrixJittered);
+	m_CurrentCameraState.ProjMatrixJittered = camera->ProjectionJittered();
+	m_StateManager->UpdateUBOElement(UBOElement::ProjectionMatrixJittered, 4, &m_CurrentCameraState.ProjMatrixJittered);
 
-	m_CurrentCameraState->m_ViewProjMatrix = projection * view;
-	m_StateManager->UpdateUBOElement(UBOElement::ViewProjMatrix, 4, &m_CurrentCameraState->m_ViewProjMatrix);
+	m_CurrentCameraState.ViewProjMatrix = projection * view;
+	m_StateManager->UpdateUBOElement(UBOElement::ViewProjMatrix, 4, &m_CurrentCameraState.ViewProjMatrix);
 
-	m_CurrentCameraState->m_CameraPosition = camera->GetPosition();
-	m_StateManager->UpdateUBOElement(UBOElement::CameraPosition, 1, &m_CurrentCameraState->m_CameraPosition);
+	m_CurrentCameraState.CameraPosition = camera->GetPosition();
+	m_StateManager->UpdateUBOElement(UBOElement::CameraPosition, 1, &m_CurrentCameraState.CameraPosition);
 	
-	m_CurrentCameraState->m_ViewInverseMatrix = glm::inverse(view);
-	m_StateManager->UpdateUBOElement(UBOElement::ViewInverse, 4, &m_CurrentCameraState->m_ViewInverseMatrix);
+	m_CurrentCameraState.ViewInverseMatrix = glm::inverse(view);
+	m_StateManager->UpdateUBOElement(UBOElement::ViewInverse, 4, &m_CurrentCameraState.ViewInverseMatrix);
 
-	m_CurrentCameraState->m_ProjectionInverseMatrix = glm::inverse(projection);
-	m_StateManager->UpdateUBOElement(UBOElement::ProjInverse, 4, &m_CurrentCameraState->m_ProjectionInverseMatrix);
+	m_CurrentCameraState.ProjectionInverseMatrix = glm::inverse(projection);
+	m_StateManager->UpdateUBOElement(UBOElement::ProjInverse, 4, &m_CurrentCameraState.ProjectionInverseMatrix);
 
-	m_CurrentCameraState->m_ViewProjInverseMatrix = m_CurrentCameraState->m_ViewInverseMatrix * m_CurrentCameraState->m_ProjectionInverseMatrix;
-	m_StateManager->UpdateUBOElement(UBOElement::ViewProjInverse, 4, &m_CurrentCameraState->m_ViewProjInverseMatrix);
+	m_CurrentCameraState.ViewProjInverseMatrix = m_CurrentCameraState.ViewInverseMatrix * m_CurrentCameraState.ProjectionInverseMatrix;
+	m_StateManager->UpdateUBOElement(UBOElement::ViewProjInverse, 4, &m_CurrentCameraState.ViewProjInverseMatrix);
 
 	float width = projection[0][0];
 	float height = projection[1][1];
 
-	m_CurrentCameraState->m_EyeXAxis = m_CurrentCameraState->m_ViewInverseMatrix * rabbitVec4f(-1.0 / width, 0, 0, 0);
-	m_CurrentCameraState->m_EyeYAxis = m_CurrentCameraState->m_ViewInverseMatrix * rabbitVec4f(0, -1.0 / height, 0, 0);
-	m_CurrentCameraState->m_EyeZAxis = m_CurrentCameraState->m_ViewInverseMatrix * rabbitVec4f(0, 0, 1.f, 0);
+	m_CurrentCameraState.EyeXAxis = m_CurrentCameraState.ViewInverseMatrix * rabbitVec4f(-1.0 / width, 0, 0, 0);
+	m_CurrentCameraState.EyeYAxis = m_CurrentCameraState.ViewInverseMatrix * rabbitVec4f(0, -1.0 / height, 0, 0);
+	m_CurrentCameraState.EyeZAxis = m_CurrentCameraState.ViewInverseMatrix * rabbitVec4f(0, 0, 1.f, 0);
 
-	m_StateManager->UpdateUBOElement(UBOElement::EyeXAxis, 1, &m_CurrentCameraState->m_EyeXAxis);
-	m_StateManager->UpdateUBOElement(UBOElement::EyeYAxis, 1, &m_CurrentCameraState->m_EyeYAxis);
-	m_StateManager->UpdateUBOElement(UBOElement::EyeZAxis, 1, &m_CurrentCameraState->m_EyeZAxis);
+	m_StateManager->UpdateUBOElement(UBOElement::EyeXAxis, 1, &m_CurrentCameraState.EyeXAxis);
+	m_StateManager->UpdateUBOElement(UBOElement::EyeYAxis, 1, &m_CurrentCameraState.EyeYAxis);
+	m_StateManager->UpdateUBOElement(UBOElement::EyeZAxis, 1, &m_CurrentCameraState.EyeZAxis);
 
-	if (m_CurrentCameraState->m_ViewProjMatrix == m_CurrentCameraState->m_PrevViewProjMatrix)
-		m_CurrentCameraState->m_HasViewProjMatrixChanged = false;
+	if (m_CurrentCameraState.ViewProjMatrix == m_CurrentCameraState.PrevViewProjMatrix)
+		m_CurrentCameraState.HasViewProjMatrixChanged = false;
 	else
-		m_CurrentCameraState->m_HasViewProjMatrixChanged = true;
+		m_CurrentCameraState.HasViewProjMatrixChanged = true;
 
-	m_CurrentCameraState->m_PrevViewProjMatrix = m_CurrentCameraState->m_ViewProjMatrix;
-	m_CurrentCameraState->m_PrevViewMatrix = m_CurrentCameraState->m_ViewMatrix;
+	m_CurrentCameraState.PrevViewProjMatrix = m_CurrentCameraState.ViewProjMatrix;
+	m_CurrentCameraState.PrevViewMatrix = m_CurrentCameraState.ViewMatrix;
 }
 
 void Renderer::BindUBO()
@@ -1057,9 +1052,8 @@ void Renderer::UpdateDebugOptions()
 	m_StateManager->UpdateUBOElement(UBOElement::DebugOption, 1, &renderDebugOption);
 
 }
-void Renderer::RecordCommandBuffer(int imageIndex)
+void Renderer::RecordCommandBuffer()
 {
-	SetCurrentImageIndex(imageIndex);
 	BeginCommandBuffer();
 
 	std::vector<TimeStamp> timeStamps{};
@@ -1452,16 +1446,16 @@ void Renderer::UpdateConstantBuffer()
 
 void Renderer::UpdateUIStateAndFSR2PreDraw()
 {
-	m_CurrentUIState->camera = MainCamera;
-	m_CurrentUIState->deltaTime = m_CurrentDeltaTime * 1000.f; //needs to be in ms
-	m_CurrentUIState->renderHeight = static_cast<float>(GetNativeHeight);
-	m_CurrentUIState->renderWidth = static_cast<float>(GetNativeWidth);
-	m_CurrentUIState->sharpness = 1.f;
-	m_CurrentUIState->reset = m_CurrentCameraState->m_HasViewProjMatrixChanged;
-	m_CurrentUIState->useRcas = true;
-	m_CurrentUIState->useTaa = true;
+	m_CurrentUIState.camera = MainCamera;
+	m_CurrentUIState.deltaTime = m_CurrentDeltaTime * 1000.f; //needs to be in ms
+	m_CurrentUIState.renderHeight = static_cast<float>(GetNativeHeight);
+	m_CurrentUIState.renderWidth = static_cast<float>(GetNativeWidth);
+	m_CurrentUIState.sharpness = 1.f;
+	m_CurrentUIState.reset = m_CurrentCameraState.HasViewProjMatrixChanged;
+	m_CurrentUIState.useRcas = true;
+	m_CurrentUIState.useTaa = true;
 
-	SuperResolutionManager::instance().PreDraw(m_CurrentUIState);
+	SuperResolutionManager::instance().PreDraw(&m_CurrentUIState);
 }
 
 void Renderer::ImguiProfilerWindow(std::vector<TimeStamp>& timeStamps)

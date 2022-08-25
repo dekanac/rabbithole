@@ -62,6 +62,7 @@ bool IntersectAABB(Ray ray, vec3 boxMin, vec3 boxMax)
     return tFar >= tNear;
 }
 
+//Möller-Trumbore
 bool RayTriangleIntersect(const Ray ray, const vec3 v0, const vec3 v1, const vec3 v2)
 { 
     vec3 v0v1 = v1 - v0; 

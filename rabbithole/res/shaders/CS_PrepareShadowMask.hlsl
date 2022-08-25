@@ -32,7 +32,6 @@ int2 FFX_DNSR_Shadows_GetBufferDimensions()
 
 bool FFX_DNSR_Shadows_HitsLight(uint2 did, uint2 gtid, uint2 gid)
 {
-    //todo: for now just one light, sun light
     return t2d_hitMaskResults[uint3(did, ShadowIndex.idx)].x > 0.f;
 }
 

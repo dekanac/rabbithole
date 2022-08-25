@@ -542,7 +542,7 @@ void FSR2Pass::Render(Renderer* renderer)
 	fsrSetup.unresolvedColorResource = renderer->volumetricOutput;
 	fsrSetup.resolvedColorResource = renderer->fsrOutputTexture;
 
-	SuperResolutionManager::instance().Draw(renderer->GetCurrentCommandBuffer(), fsrSetup, renderer->GetUIState());
+	SuperResolutionManager::instance().Draw(renderer->GetCurrentCommandBuffer(), fsrSetup, &renderer->GetUIState());
 
 	renderer->ResourceBarrier(renderer->fsrOutputTexture, ResourceState::GeneralCompute, ResourceState::GenericRead, ResourceStage::Compute, ResourceStage::Graphics);
 }
@@ -808,21 +808,21 @@ void ShadowDenoiseTileClassificationPass::Setup(Renderer* renderer)
 
 	stateManager->SetComputeShader(renderer->GetShader("CS_TileClassification"));
 
-	CameraState* cameraState = renderer->GetCameraState();
+	CameraState& cameraState = renderer->GetCameraState();
 
 	int texWidth = renderer->denoisedShadowOutput->GetWidth();
 	int texHeight = renderer->denoisedShadowOutput->GetHeight();
 
 	DenoiseShadowData shadowData{};
-	shadowData.Eye = cameraState->m_CameraPosition;
+	shadowData.Eye = cameraState.CameraPosition;
 	shadowData.FirstFrame = (int)(renderer->GetCurrentFrameIndex() == 0);
 	shadowData.BufferDimensions[0] = static_cast<int>(texWidth);
 	shadowData.BufferDimensions[1] = static_cast<int>(texHeight);
 	shadowData.InvBufferDimensions[0] = 1.f / float(texWidth);
 	shadowData.InvBufferDimensions[1] = 1.f / float(texHeight);
-	shadowData.ProjectionInverse = cameraState->m_ProjectionInverseMatrix;
-	shadowData.ViewProjectionInverse = cameraState->m_ViewProjInverseMatrix;
-	shadowData.ReprojectionMatrix = cameraState->m_ProjectionMatrix * (cameraState->m_PrevViewMatrix * cameraState->m_ViewProjInverseMatrix);
+	shadowData.ProjectionInverse = cameraState.ProjectionInverseMatrix;
+	shadowData.ViewProjectionInverse = cameraState.ViewProjInverseMatrix;
+	shadowData.ReprojectionMatrix = cameraState.ProjectionMatrix * (cameraState.PrevViewMatrix * cameraState.ViewProjInverseMatrix);
 	renderer->denoiseShadowDataBuffer->FillBuffer(&shadowData);
 }
 
@@ -864,12 +864,12 @@ void ShadowDenoiseFilterPass::DeclareResources(Renderer* renderer)
 void ShadowDenoiseFilterPass::Setup(Renderer* renderer)
 {
 	VulkanStateManager* stateManager = renderer->GetStateManager();
-	CameraState* cameraState = renderer->GetCameraState();
+	CameraState& cameraState = renderer->GetCameraState();
 
 	renderer->CopyImage(renderer->depthStencil, renderer->denoiseLastFrameDepth);
 
 	DenoiseShadowFilterData shadowFilterData{};
-	shadowFilterData.ProjectionInverse = cameraState->m_ProjectionInverseMatrix;
+	shadowFilterData.ProjectionInverse = cameraState.ProjectionInverseMatrix;
 	shadowFilterData.DepthSimilaritySigma = 1.f;
 	shadowFilterData.BufferDimensions[0] = static_cast<int>(GetNativeWidth);
 	shadowFilterData.BufferDimensions[1] = static_cast<int>(GetNativeHeight);
