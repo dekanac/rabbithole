@@ -227,7 +227,7 @@ public:
 	inline VulkanImageView*		GetSwapchainImage() { return m_VulkanSwapchain->GetImageView(m_CurrentImageIndex); }
 	inline VulkanBuffer*		GetVertexUploadBuffer() { return m_VertexUploadBuffer; }
 
-	void ResourceBarrier(VulkanTexture* texture, ResourceState oldLayout, ResourceState newLayout, ResourceStage srcStage, ResourceStage dstStage);
+	void ResourceBarrier(VulkanTexture* texture, ResourceState oldLayout, ResourceState newLayout, ResourceStage srcStage, ResourceStage dstStage, uint32_t mipLevel = 0);
 	void CopyImageToBuffer(VulkanTexture* texture, VulkanBuffer* buffer);
 	void CopyImage(VulkanTexture* src, VulkanTexture* dst);
 

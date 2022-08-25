@@ -117,6 +117,7 @@ enum class ResourceStage : uint8_t
 	Transfer,
 	Graphics,
 	Compute,
+	Undefined,
 
 	Count
 };

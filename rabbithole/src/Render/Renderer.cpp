@@ -990,44 +990,9 @@ void Renderer::RecreateSwapchain()
 	CreateDescriptorPool();
 }
 
-void Renderer::ResourceBarrier(VulkanTexture* texture, ResourceState oldLayout, ResourceState newLayout, ResourceStage srcStage, ResourceStage dstStage)
+void Renderer::ResourceBarrier(VulkanTexture* texture, ResourceState oldLayout, ResourceState newLayout, ResourceStage srcStage, ResourceStage dstStage, uint32_t mipLevel)
 {
-	VkCommandBuffer commandBuffer = GetCurrentCommandBuffer();
-
-	uint32_t arraySize = texture->GetResource()->GetInfo().ArraySize;
-
-	bool isDepth = GetVkImageAspectFlagsFrom(GetVkFormatFrom(texture->GetFormat())) == VK_IMAGE_ASPECT_DEPTH_BIT;
-
-	VkImageMemoryBarrier barrier{};
-	barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
-	barrier.oldLayout = GetVkImageLayoutFrom(oldLayout);
-	barrier.newLayout = GetVkImageLayoutFrom(newLayout);
-	barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-	barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-	barrier.image = texture->GetResource()->GetImage();
-	barrier.subresourceRange.aspectMask = GetVkImageAspectFlagsFrom(GetVkFormatFrom(texture->GetFormat()));
-	barrier.subresourceRange.baseMipLevel = 0;
-	barrier.subresourceRange.levelCount = 1;
-	barrier.subresourceRange.baseArrayLayer = 0;
-	barrier.subresourceRange.layerCount = arraySize;
-	
-	barrier.srcAccessMask = GetVkAccessFlagsFromResourceState(oldLayout);
-	barrier.dstAccessMask = GetVkAccessFlagsFromResourceState(newLayout);
-	
-	VkPipelineStageFlags sourceStage =		GetVkPipelineStageFromResourceStageAndState(srcStage, oldLayout);
-	VkPipelineStageFlags destinationStage = GetVkPipelineStageFromResourceStageAndState(dstStage, newLayout);
-
-	vkCmdPipelineBarrier(
-		commandBuffer,
-		sourceStage, destinationStage,
-		0,
-		0, nullptr,
-		0, nullptr,
-		1, &barrier
-	);
-
-	texture->SetResourceState(newLayout);
-	texture->SetCurrentResourceStage(dstStage);
+	m_VulkanDevice.ResourceBarrier(GetCurrentCommandBuffer(), texture, oldLayout, newLayout, srcStage, dstStage, mipLevel);
 }
 
 void Renderer::UpdateDebugOptions()
@@ -1655,64 +1620,12 @@ void Renderer::Dispatch(uint32_t x, uint32_t y, uint32_t z)
 
 void Renderer::CopyImageToBuffer(VulkanTexture* texture, VulkanBuffer* buffer)
 {
-	VkCommandBuffer commandBuffer = m_VulkanDevice.BeginSingleTimeCommands();
-
-	ImageRegion texRegion = texture->GetRegion();
-
-	VkBufferImageCopy region{};
-	region.bufferOffset = 0;
-	region.bufferRowLength = 0;
-	region.bufferImageHeight = 0;
-
-	region.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-	region.imageSubresource.mipLevel = texRegion.Subresource.MipSlice;
-	region.imageSubresource.baseArrayLayer = texRegion.Subresource.ArraySlice;
-	region.imageSubresource.layerCount = texRegion.Subresource.MipSize;
-
-	region.imageOffset = { texRegion.Offset.X, texRegion.Offset.Y, texRegion.Offset.Z };
-	region.imageExtent = { texRegion.Extent.Width, texRegion.Extent.Height, 1 };
-
-	vkCmdCopyImageToBuffer(commandBuffer, texture->GetResource()->GetImage(), VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, buffer->GetBuffer(), 1, &region);
-	m_VulkanDevice.EndSingleTimeCommands(commandBuffer);
+	m_VulkanDevice.CopyImageToBuffer(GetCurrentCommandBuffer(), texture, buffer);
 }
 
 void Renderer::CopyImage(VulkanTexture* src, VulkanTexture* dst)
 {
-	VkCommandBuffer commandBuffer = GetCurrentCommandBuffer();
-
-	VkImageCopy imageCopyRegion{};
-	imageCopyRegion.srcSubresource.aspectMask = GetVkImageAspectFlagsFrom(GetVkFormatFrom(src->GetFormat()));
-	imageCopyRegion.srcSubresource.layerCount = src->GetRegion().Subresource.ArraySize;
-	imageCopyRegion.dstSubresource.aspectMask = GetVkImageAspectFlagsFrom(GetVkFormatFrom(dst->GetFormat()));
-	imageCopyRegion.dstSubresource.layerCount = dst->GetRegion().Subresource.ArraySize;
-	imageCopyRegion.extent.width = src->GetWidth();
-	imageCopyRegion.extent.height = src->GetHeight();
-	imageCopyRegion.extent.depth = src->GetDepth();
-
-	ResourceStage srcStage = src->GetCurrentResourceStage();
-	ResourceStage dstStage = dst->GetCurrentResourceStage();
-
-	ResourceState srcState = src->GetResourceState();
-	ResourceState dstState = dst->GetResourceState();
-
-	if (srcState != ResourceState::TransferSrc)
-		ResourceBarrier(src, srcState, ResourceState::TransferSrc, srcStage, ResourceStage::Transfer);
-	if (dstState != ResourceState::TransferDst)
-		ResourceBarrier(dst, dstState, ResourceState::TransferDst, dstStage, ResourceStage::Transfer);
-
-	vkCmdCopyImage(
-		commandBuffer, 
-		src->GetResource()->GetImage(), 
-		VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, 
-		dst->GetResource()->GetImage(), 
-		VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 
-		1, 
-		&imageCopyRegion);
-
-	if (srcState != ResourceState::TransferSrc)
-		ResourceBarrier(src, ResourceState::TransferSrc, srcState, ResourceStage::Transfer, srcStage);
-	if (dstState != ResourceState::TransferDst)
-		ResourceBarrier(dst, ResourceState::TransferDst, dstState, ResourceStage::Transfer, dstStage);
+	m_VulkanDevice.CopyImage(GetCurrentCommandBuffer(), src, dst);
 }
 
 void IndexedIndirectBuffer::SubmitToGPU()

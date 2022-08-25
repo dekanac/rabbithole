@@ -181,7 +181,7 @@ void VulkanTexture::CreateResource(VulkanDevice* device, TextureData* texData, b
 
 	VkCommandBuffer commandBuffer = device->BeginSingleTimeCommands();
 
-	device->TransitionImageLayout(commandBuffer, this, ResourceState::None, ResourceState::TransferDst, 0, mipCount);
+	device->ResourceBarrier(commandBuffer, this, ResourceState::None, ResourceState::TransferDst, ResourceStage::None, ResourceStage::Transfer);
 
 	if (isCubeMap)
 	{
@@ -200,7 +200,7 @@ void VulkanTexture::CreateResource(VulkanDevice* device, TextureData* texData, b
 	}
 	else
 	{
-		device->TransitionImageLayout(commandBuffer, this, ResourceState::TransferDst, stateAfter, 0, mipCount);
+		device->ResourceBarrier(commandBuffer, this, ResourceState::TransferDst, stateAfter, ResourceStage::Transfer, ResourceStage::Undefined);
 	}
 
 	device->EndSingleTimeCommands(commandBuffer);
@@ -254,7 +254,7 @@ void VulkanTexture::CreateResource(VulkanDevice* device, const uint32_t width, c
 
 	VkCommandBuffer commandBuffer = device->BeginSingleTimeCommands();
 
-	device->TransitionImageLayout(commandBuffer, this, ResourceState::None, stateAfter);
+	device->ResourceBarrier(commandBuffer, this, ResourceState::None, stateAfter, ResourceStage::None, ResourceStage::Undefined);
 
 	m_ShouldBeResourceState = m_CurrentResourceState = stateAfter;
 
@@ -315,19 +315,17 @@ void VulkanTexture::InitializeRegion(const uint32_t width, const uint32_t height
 void VulkanTexture::GenerateMips(VkCommandBuffer commandBuffer, VulkanDevice* device, const uint32_t width, const uint32_t height, uint32_t mipCount)
 {
 	// Check if image format supports linear blitting
-// 	VkFormatProperties formatProperties;
-// 	vkGetPhysicalDeviceFormatProperties(physicalDevice, imageFormat, &formatProperties);
+ 	VkFormatProperties formatProperties;
+ 	vkGetPhysicalDeviceFormatProperties(device->GetPhysicalDevice(), GetVkFormatFrom(m_Format), &formatProperties);
 
-	//if (!(formatProperties.optimalTilingFeatures & VK_FORMAT_FEATURE_SAMPLED_IMAGE_FILTER_LINEAR_BIT)) {
-	//	throw std::runtime_error("texture image format does not support linear blitting!");
-	//}
+	ASSERT(formatProperties.optimalTilingFeatures & VK_FORMAT_FEATURE_SAMPLED_IMAGE_FILTER_LINEAR_BIT, "Format doesn't support linear filtering and you're trying to generate mips");
 
 	int32_t mipWidth = width;
 	int32_t mipHeight = height;
 
 	for (uint32_t i = 1; i < mipCount; i++) 
 	{
-		device->TransitionImageLayout(commandBuffer, this, ResourceState::TransferDst, ResourceState::TransferSrc, i - 1);
+		device->ResourceBarrier(commandBuffer, this, ResourceState::TransferDst, ResourceState::TransferSrc, ResourceStage::Transfer, ResourceStage::Transfer, i - 1);
 
 		VkImageBlit blit{};
 		blit.srcOffsets[0] = { 0, 0, 0 };
@@ -349,11 +347,11 @@ void VulkanTexture::GenerateMips(VkCommandBuffer commandBuffer, VulkanDevice* de
 			1, &blit,
 			VK_FILTER_LINEAR);
 
-		device->TransitionImageLayout(commandBuffer, this, ResourceState::TransferSrc, m_ShouldBeResourceState, i - 1);
+		device->ResourceBarrier(commandBuffer, this, ResourceState::TransferSrc, m_ShouldBeResourceState, ResourceStage::Transfer, ResourceStage::Undefined, i - 1);
 
 		if (mipWidth > 1) mipWidth /= 2;
 		if (mipHeight > 1) mipHeight /= 2;
 	}
 
-	device->TransitionImageLayout(commandBuffer, this, ResourceState::TransferDst, m_ShouldBeResourceState, mipCount - 1);
+	device->ResourceBarrier(commandBuffer, this, ResourceState::TransferDst, m_ShouldBeResourceState, ResourceStage::Transfer, ResourceStage::Undefined, mipCount - 1);
 }

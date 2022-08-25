@@ -600,12 +600,16 @@ VkPipelineStageFlags GetVkPipelineStageFromResourceStageAndState(const ResourceS
 
 	switch (stage)
 	{
+	case ResourceStage::None:
+		return VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT; //TODO: double check this
 	case ResourceStage::Compute:
 		return VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT;
 	case ResourceStage::Graphics:
 		return VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT; //TODO: fix this, but this should be ok for now
 	case ResourceStage::Transfer:
 		return VK_PIPELINE_STAGE_TRANSFER_BIT;
+	case ResourceStage::Undefined:
+		return VK_PIPELINE_STAGE_ALL_COMMANDS_BIT;
 	default:
 		return VK_PIPELINE_STAGE_ALL_COMMANDS_BIT;
 	}
@@ -615,6 +619,8 @@ VkAccessFlags GetVkAccessFlagsFromResourceState(const ResourceState state)
 {
 	switch (state)
 	{
+	case ResourceState::None:
+		return VK_ACCESS_NONE_KHR;
 	case ResourceState::GenericRead:
 		return VK_ACCESS_SHADER_READ_BIT;
 	case ResourceState::RenderTarget:

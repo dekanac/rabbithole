@@ -67,9 +67,12 @@ public:
 	void				CopyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size);
 	void				CopyBufferToImage(VkCommandBuffer commandBuffer, VulkanBuffer* buffer, VulkanTexture* texture, bool copyFirstMipOnly = false);
 	void				CopyBufferToImageCubeMap(VkCommandBuffer commandBuffer, VulkanBuffer* buffer, VulkanTexture* texture);
-	void				TransitionImageLayout(VkCommandBuffer commandBuffer, VulkanTexture* texture, ResourceState oldLayout, ResourceState newLayout, uint32_t mipLevel = 0, uint32_t mipCount = 1);
 	void				InitImguiForVulkan(ImGui_ImplVulkan_InitInfo& info);
 	
+	void ResourceBarrier(VkCommandBuffer commandBuffer, VulkanTexture* texture, ResourceState oldLayout, ResourceState newLayout, ResourceStage srcStage, ResourceStage dstStage, uint32_t mipLevel = 0);
+	void CopyImageToBuffer(VkCommandBuffer commandBuffer, VulkanTexture* texture, VulkanBuffer* buffer);
+	void CopyImage(VkCommandBuffer commandBuffer, VulkanTexture* src, VulkanTexture* dst);
+
 	//debug utils
 	void SetObjectName(uint64_t object, VkObjectType objectType, const char* name);
 	void BeginLabel(VkCommandBuffer commandBuffer, const char* name);
