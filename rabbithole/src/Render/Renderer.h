@@ -153,7 +153,7 @@ struct IndexedIndirectBuffer
 	uint64_t currentOffset = 0;
 
 	void SubmitToGPU();
-	void AddIndirectDrawCommand(VkCommandBuffer commandBuffer, IndexIndirectDrawData& drawData);
+	void AddIndirectDrawCommand(VulkanCommandBuffer& commandBuffer, IndexIndirectDrawData& drawData);
 	void Reset();
 };
 
@@ -186,19 +186,19 @@ class Renderer
 	SingletonClass(Renderer);
 
 private:
-	VulkanDevice								m_VulkanDevice{};
-	VulkanStateManager*							m_StateManager;
-	ResourceManager*							m_ResourceManager;
-	std::unique_ptr<VulkanSwapchain>			m_VulkanSwapchain;
-	std::unique_ptr<VulkanDescriptorPool>		m_DescriptorPool;
-	std::vector<VkCommandBuffer>				m_CommandBuffers;
-	uint32_t									m_CurrentImageIndex = 0;
-	uint64_t									m_CurrentFrameIndex = 0;
+	VulkanDevice										m_VulkanDevice{};
+	VulkanStateManager*									m_StateManager;
+	ResourceManager*									m_ResourceManager;
+	std::unique_ptr<VulkanSwapchain>					m_VulkanSwapchain;
+	std::unique_ptr<VulkanDescriptorPool>				m_DescriptorPool;
+	std::vector<std::unique_ptr<VulkanCommandBuffer>>	m_MainRenderCommandBuffers;
+	uint32_t											m_CurrentImageIndex = 0;
+	uint64_t											m_CurrentFrameIndex = 0;
 
 	VulkanBuffer* m_MainConstBuffer[MAX_FRAMES_IN_FLIGHT];
 	VulkanBuffer* m_VertexUploadBuffer;
 	
-	Camera*			MainCamera{};
+	Camera			m_MainCamera{};
 	CameraState		m_CurrentCameraState{};
 	UIState			m_CurrentUIState{};
 	GPUTimeStamps	m_GPUTimeStamps{};
@@ -233,7 +233,7 @@ public:
 
 	inline Shader*			GetShader(const std::string& name) const { return m_ResourceManager->GetShader(name); }
 	inline VulkanTexture*	GetTextureWithID(uint32_t textureId) { return m_ResourceManager->GetTextures()[textureId]; }
-	inline Camera*			GetCamera() { return MainCamera; }
+	inline Camera&			GetCamera() { return m_MainCamera; }
 	inline UIState&			GetUIState() { return m_CurrentUIState; }
 	inline CameraState&		GetCameraState() { return m_CurrentCameraState; }
 
@@ -267,7 +267,7 @@ public:
 	uint32_t	GetCurrentImageIndex() { return m_CurrentImageIndex; }
 	uint64_t	GetCurrentFrameIndex() { return m_CurrentFrameIndex; }
 	
-	VkCommandBuffer GetCurrentCommandBuffer() { return m_CommandBuffers[m_CurrentImageIndex]; }
+	VulkanCommandBuffer& GetCurrentCommandBuffer() { return *m_MainRenderCommandBuffers[m_CurrentImageIndex]; }
 	
 	void RecordCommandBuffer();
 	void BeginRenderPass(VkExtent2D extent);
@@ -282,12 +282,8 @@ public:
 	void BindDescriptorSets();
 	void BindUBO();
 
-	//void DrawBoundingBoxes(std::vector<RabbitModel*>& bucket);
-
-	void BeginCommandBuffer();
 	void RecordGPUTimeStamp(const char* label);
 	void ExecuteRabbitPass(RabbitPass& rabbitPass);
-	void EndCommandBuffer();
 
 	//helper functions
 	std::vector<char>	ReadFile(const std::string& filepath);
@@ -382,7 +378,6 @@ public:
 	bool m_RenderOutlinedEntity = false;
     bool m_FramebufferResized = false;
 	bool m_RenderTAA = false;
-	bool m_DrawBoundingBox = false;
 	bool m_RecordGPUTimeStamps = true;
 
 	bool Init();

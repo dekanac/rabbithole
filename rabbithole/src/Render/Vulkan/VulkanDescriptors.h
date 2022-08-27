@@ -93,7 +93,7 @@ public:
 		const char* name);
 
 public:
-	const VkDescriptorSet* GetVkDescriptorSet() const { return &m_DescriptorSet; }
+	const VkDescriptorSet* GetVkHandle() const { return &m_DescriptorSet; }
 
 private:
 	VkDescriptorSet m_DescriptorSet = VK_NULL_HANDLE;

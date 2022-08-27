@@ -119,7 +119,7 @@ public:
 	GraphicsPipeline(VulkanDevice& device, PipelineConfigInfo& configInfo)
 		: Pipeline(device, configInfo, PipelineType::Graphics) {}
 
-	virtual void Bind(VkCommandBuffer commandBuffer) override;
+	virtual void Bind(VulkanCommandBuffer& commandBuffer) override;
 };
 
 class ComputePipeline : public Pipeline
@@ -128,7 +128,7 @@ public:
 	ComputePipeline(VulkanDevice& device, PipelineConfigInfo& configInfo)
 		: Pipeline(device, configInfo, PipelineType::Compute) {}
 
-	virtual void Bind(VkCommandBuffer commandBuffer) override;
+	virtual void Bind(VulkanCommandBuffer& commandBuffer) override;
 };
 
 class PipelineManager

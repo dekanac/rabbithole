@@ -14,12 +14,12 @@ VulkanFramebuffer::VulkanFramebuffer(const VulkanDevice* device,
 
 	for (uint32_t i = 0; i < attachmentCount; i++)
 	{
-		att[i] = attachments[i]->GetImageView();
+		att[i] = GET_VK_HANDLE_PTR(attachments[i]);
 	}
 
 	if (depthStencil)
 	{
-		att.push_back(depthStencil->GetImageView());
+		att.push_back(GET_VK_HANDLE_PTR(depthStencil));
 		attachmentCount++;
 	}
 

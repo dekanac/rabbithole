@@ -18,21 +18,17 @@ VulkanSwapchain::VulkanSwapchain(VulkanDevice& deviceRef, VkExtent2D extent)
 {
 	CreateSwapChain();
 	CreateImageViews();
-	CreateRenderPass();
-	CreateFramebuffers();
 	CreateSyncObjects();
 }
 
 VulkanSwapchain::~VulkanSwapchain() 
 {
-	
 	if (m_SwapChain != nullptr) 
 	{
 		vkDestroySwapchainKHR(m_VulkanDevice.GetGraphicDevice(), m_SwapChain, nullptr);
 		m_SwapChain = nullptr;
 	}
 
-	delete(m_RenderPass);
 	// cleanup synchronization objects
 	for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) 
 	{
@@ -44,12 +40,7 @@ VulkanSwapchain::~VulkanSwapchain()
 
 VkResult VulkanSwapchain::AcquireNextImage(uint32_t* imageIndex) 
 {
-	vkWaitForFences(
-		m_VulkanDevice.GetGraphicDevice(),
-		1,
-		&m_InFlightFences[m_CurrentFrame],
-		VK_TRUE,
-		std::numeric_limits<uint64_t>::max());
+	vkWaitForFences(m_VulkanDevice.GetGraphicDevice(), 1, &m_InFlightFences[m_CurrentFrame], VK_TRUE, std::numeric_limits<uint64_t>::max());
 
 	VkResult result = vkAcquireNextImageKHR(
 		m_VulkanDevice.GetGraphicDevice(),
@@ -62,7 +53,7 @@ VkResult VulkanSwapchain::AcquireNextImage(uint32_t* imageIndex)
 	return result;
 }
 
-VkResult VulkanSwapchain::SubmitCommandBuffers(const VkCommandBuffer* buffers, uint32_t* imageIndex) 
+VkResult VulkanSwapchain::SubmitCommandBufferAndPresent(VulkanCommandBuffer& buffer, uint32_t* imageIndex)
 {
 	if (m_ImagesInFlight[*imageIndex] != VK_NULL_HANDLE) 
 	{
@@ -79,8 +70,9 @@ VkResult VulkanSwapchain::SubmitCommandBuffers(const VkCommandBuffer* buffers, u
 	submitInfo.pWaitSemaphores = waitSemaphores;
 	submitInfo.pWaitDstStageMask = waitStages;
 
+	VkCommandBuffer commandBuffer = GET_VK_HANDLE(buffer);
 	submitInfo.commandBufferCount = 1;
-	submitInfo.pCommandBuffers = buffers;
+	submitInfo.pCommandBuffers = &commandBuffer;
 
 	VkSemaphore signalSemaphores[] = { m_RenderFinishedSemaphores[m_CurrentFrame] };
 	submitInfo.signalSemaphoreCount = 1;
@@ -204,38 +196,6 @@ void VulkanSwapchain::CreateImageViews()
 		imageViewInfo.Subresource.MipSlice = 0;
 
 		m_SwapChainVulkanImageViews[i] = new VulkanImageView(&m_VulkanDevice, imageViewInfo, "swapchain image views");
-
-	}
-}
-
-void VulkanSwapchain::CreateRenderPass() 
-{
-	RenderPassConfigInfo renderPassInfo{};
-
-	renderPassInfo.ClearDepth = true;
-	renderPassInfo.ClearRenderTargets = true;
-	renderPassInfo.ClearStencil = true;
-	renderPassInfo.InitialRenderTargetState = ResourceState::None;
-	renderPassInfo.FinalRenderTargetState = ResourceState::Present;
-    renderPassInfo.InitialDepthStencilState = ResourceState::None;
-    renderPassInfo.FinalDepthStencilState = ResourceState::None;
-
-	std::vector<VulkanImageView*> renderTargetViews;
-	renderTargetViews.push_back(m_SwapChainVulkanImageViews[0]);
-
-	m_RenderPass = new VulkanRenderPass(&m_VulkanDevice, renderTargetViews, nullptr, renderPassInfo, "swapchain");
-}
-
-void VulkanSwapchain::CreateFramebuffers() 
-{
-	m_SwapChainFramebuffers.resize(GetImageCount());
-	for (size_t i = 0; i < GetImageCount(); i++) 
-	{
-		VulkanFramebufferInfo framebufferInfo{};
-		framebufferInfo.height = GetSwapChainExtent().height;
-		framebufferInfo.width = GetSwapChainExtent().width;
-			
-		m_SwapChainFramebuffers[i] = new VulkanFramebuffer(&m_VulkanDevice, framebufferInfo, m_RenderPass, { m_SwapChainVulkanImageViews[i] }, nullptr);
 	}
 }
 
@@ -266,8 +226,7 @@ void VulkanSwapchain::CreateSyncObjects()
 	}
 }
 
-VkSurfaceFormatKHR VulkanSwapchain::ChooseSwapSurfaceFormat(
-	const std::vector<VkSurfaceFormatKHR>& availableFormats) 
+VkSurfaceFormatKHR VulkanSwapchain::ChooseSwapSurfaceFormat(const std::vector<VkSurfaceFormatKHR>& availableFormats) 
 {
 	for (const auto& availableFormat : availableFormats) 
 	{
@@ -291,21 +250,21 @@ VkPresentModeKHR VulkanSwapchain::ChooseSwapPresentMode(const std::vector<VkPres
 	{
 		if (availablePresentMode == VK_PRESENT_MODE_MAILBOX_KHR)
 		{
-			std::cout << "Present mode: Mailbox" << std::endl;
+			LOG_INFO("Present mode: Mailbox");
 			return availablePresentMode;
 		}
 	}
 
 	for (const auto &availablePresentMode : availablePresentModes) 
 	{
-	  if (availablePresentMode == VK_PRESENT_MODE_IMMEDIATE_KHR) 
-	  {
-	    std::cout << "Present mode: Immediate" << std::endl;
-	    return availablePresentMode;
-	  }
+		if (availablePresentMode == VK_PRESENT_MODE_IMMEDIATE_KHR) 
+		{
+			LOG_INFO("Present mode: Immediate");
+			return availablePresentMode;
+		}
 	}
 
-	std::cout << "Present mode: V-Sync" << std::endl;
+	LOG_INFO("Present mode: V - Sync");
 	return VK_PRESENT_MODE_FIFO_KHR;
 }
 
@@ -318,12 +277,8 @@ VkExtent2D VulkanSwapchain::ChooseSwapExtent(const VkSurfaceCapabilitiesKHR& cap
 	else 
 	{
 		VkExtent2D actualExtent = m_WindowExtent;
-		actualExtent.width = std::max(
-			capabilities.minImageExtent.width,
-			std::min(capabilities.maxImageExtent.width, actualExtent.width));
-		actualExtent.height = std::max(
-			capabilities.minImageExtent.height,
-			std::min(capabilities.maxImageExtent.height, actualExtent.height));
+		actualExtent.width = std::max(capabilities.minImageExtent.width, std::min(capabilities.maxImageExtent.width, actualExtent.width));
+		actualExtent.height = std::max(capabilities.minImageExtent.height, std::min(capabilities.maxImageExtent.height, actualExtent.height));
 
 		return actualExtent;
 	}

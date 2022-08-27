@@ -37,6 +37,9 @@ public: \
 			ASSERT(result == SPV_REFLECT_RESULT_SUCCESS, "Vulkan Spir-V reflect call fail"); \
 		}
 
+#define GET_VK_HANDLE(object) (object.GetVkHandle())
+#define GET_VK_HANDLE_PTR(object) (object->GetVkHandle())
+
 //move this to separate math lib
 typedef glm::vec4 rabbitVec4f;
 typedef glm::vec3 rabbitVec3f;

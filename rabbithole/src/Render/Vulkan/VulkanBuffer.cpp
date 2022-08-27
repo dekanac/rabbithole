@@ -86,7 +86,7 @@ void VulkanBuffer::FillBuffer(void* inputData, uint64_t size)
 
 		stagingBuffer.FillBuffer(inputData, static_cast<size_t>(size));
 
-		m_Device.CopyBuffer(stagingBuffer.GetBuffer(), m_Buffer, size);
+		m_Device.CopyBuffer(GET_VK_HANDLE(stagingBuffer), m_Buffer, size);
 	}
 }
 

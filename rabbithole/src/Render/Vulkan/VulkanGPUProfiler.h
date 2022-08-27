@@ -17,9 +17,9 @@ public:
 	void OnCreate(VulkanDevice* device, uint32_t numberOfBackBuffers);
 	void OnDestroy();
 
-	void GetTimeStamp(VkCommandBuffer cmd_buf, const char* label);
+	void GetTimeStamp(VulkanCommandBuffer& cmd_buf, const char* label);
 	void GetTimeStampUser(TimeStamp ts);
-	void OnBeginFrame(VkCommandBuffer cmd_buf, std::vector<TimeStamp>* pTimestamp);
+	void OnBeginFrame(VulkanCommandBuffer& cmd_buf, std::vector<TimeStamp>* pTimestamp);
 	void OnEndFrame();
 
 private:

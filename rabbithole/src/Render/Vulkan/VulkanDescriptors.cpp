@@ -13,25 +13,25 @@ VulkanDescriptor::VulkanDescriptor(const VulkanDescriptorInfo& info)
 	case DescriptorType::CombinedSampler:
 	{
 		m_ResourceInfo.m_ResourceInfo.ImageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-		m_ResourceInfo.m_ResourceInfo.ImageInfo.imageView = m_Info.imageView->GetImageView();
-		m_ResourceInfo.m_ResourceInfo.ImageInfo.sampler = m_Info.imageSampler->GetSampler();
+		m_ResourceInfo.m_ResourceInfo.ImageInfo.imageView = GET_VK_HANDLE_PTR(m_Info.imageView);
+		m_ResourceInfo.m_ResourceInfo.ImageInfo.sampler = GET_VK_HANDLE_PTR(m_Info.imageSampler);
 		break;
 	}
 	case DescriptorType::SampledImage:
 	{
 		m_ResourceInfo.m_ResourceInfo.ImageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-		m_ResourceInfo.m_ResourceInfo.ImageInfo.imageView = m_Info.imageView->GetImageView();
+		m_ResourceInfo.m_ResourceInfo.ImageInfo.imageView = GET_VK_HANDLE_PTR(m_Info.imageView);
 		break;
 	}
 	case DescriptorType::Sampler:
 	{
 		m_ResourceInfo.m_ResourceInfo.ImageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-		m_ResourceInfo.m_ResourceInfo.ImageInfo.sampler = m_Info.imageSampler->GetSampler();
+		m_ResourceInfo.m_ResourceInfo.ImageInfo.sampler = GET_VK_HANDLE_PTR(m_Info.imageSampler);
 		break;
 	}
 	case DescriptorType::UniformBuffer:
 	{
-		m_ResourceInfo.m_ResourceInfo.BufferInfo.buffer = m_Info.buffer->GetBuffer();
+		m_ResourceInfo.m_ResourceInfo.BufferInfo.buffer = GET_VK_HANDLE_PTR(m_Info.buffer);
 		m_ResourceInfo.m_ResourceInfo.BufferInfo.offset = 0;
 		m_ResourceInfo.m_ResourceInfo.BufferInfo.range = m_Info.buffer->GetInfo().size;
 		break;
@@ -39,12 +39,12 @@ VulkanDescriptor::VulkanDescriptor(const VulkanDescriptorInfo& info)
 	case DescriptorType::StorageImage:
 	{
 		m_ResourceInfo.m_ResourceInfo.ImageInfo.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
-		m_ResourceInfo.m_ResourceInfo.ImageInfo.imageView = m_Info.imageView->GetImageView();
+		m_ResourceInfo.m_ResourceInfo.ImageInfo.imageView = GET_VK_HANDLE_PTR(m_Info.imageView);
 		break;
 	}
 	case DescriptorType::StorageBuffer:
 	{
-		m_ResourceInfo.m_ResourceInfo.BufferInfo.buffer = m_Info.buffer->GetBuffer();
+		m_ResourceInfo.m_ResourceInfo.BufferInfo.buffer = GET_VK_HANDLE_PTR(m_Info.buffer);
 		m_ResourceInfo.m_ResourceInfo.BufferInfo.offset = 0;
 		m_ResourceInfo.m_ResourceInfo.BufferInfo.range = m_Info.buffer->GetInfo().size;
 		break;

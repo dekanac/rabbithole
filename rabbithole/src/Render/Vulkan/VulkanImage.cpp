@@ -101,7 +101,7 @@ VulkanImageView::VulkanImageView(const VulkanDevice* device, const VulkanImageVi
 	imageViewCreateInfo.subresourceRange.baseArrayLayer = m_Info.Subresource.ArraySlice;
 	imageViewCreateInfo.subresourceRange.layerCount = m_Info.Subresource.ArraySize;
 	imageViewCreateInfo.components = { VK_COMPONENT_SWIZZLE_R, VK_COMPONENT_SWIZZLE_G, VK_COMPONENT_SWIZZLE_B, VK_COMPONENT_SWIZZLE_A };
-	imageViewCreateInfo.image = m_Image->GetImage();
+	imageViewCreateInfo.image = GET_VK_HANDLE_PTR(m_Image);
 
 	VULKAN_API_CALL(vkCreateImageView(m_VulkanDevice->GetGraphicDevice(), &imageViewCreateInfo, nullptr, &m_ImageView));
 }

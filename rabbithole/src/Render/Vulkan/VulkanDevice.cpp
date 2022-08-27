@@ -42,35 +42,22 @@ PFN_vkCmdEndDebugUtilsLabelEXT pfnCmdEndDebugUtilsLabelEXT;
 PFN_vkDebugMarkerSetObjectTagEXT pfnDebugMarkerSetObjectTag;
 PFN_vkSetDebugUtilsObjectNameEXT pfnDebugUtilsObjectName;
 
-VkResult CreateDebugUtilsMessengerEXT(
-	VkInstance instance,
-	const VkDebugUtilsMessengerCreateInfoEXT* pCreateInfo,
-	const VkAllocationCallbacks* pAllocator,
-	VkDebugUtilsMessengerEXT* pDebugMessenger) {
-	auto func = (PFN_vkCreateDebugUtilsMessengerEXT)vkGetInstanceProcAddr(
-		instance,
-		"vkCreateDebugUtilsMessengerEXT");
+VkResult CreateDebugUtilsMessengerEXT(VkInstance instance, const VkDebugUtilsMessengerCreateInfoEXT* pCreateInfo, const VkAllocationCallbacks* pAllocator, VkDebugUtilsMessengerEXT* pDebugMessenger) 
+{
+	auto func = (PFN_vkCreateDebugUtilsMessengerEXT)vkGetInstanceProcAddr(instance, "vkCreateDebugUtilsMessengerEXT");
 	
 	if (func != nullptr) 
-	{
 		return func(instance, pCreateInfo, pAllocator, pDebugMessenger);
-	}
-	else {
+	else 
 		return VK_ERROR_EXTENSION_NOT_PRESENT;
-	}
 }
 
-void DestroyDebugUtilsMessengerEXT(
-	VkInstance instance,
-	VkDebugUtilsMessengerEXT debugMessenger,
-	const VkAllocationCallbacks* pAllocator) 
+void DestroyDebugUtilsMessengerEXT(VkInstance instance, VkDebugUtilsMessengerEXT debugMessenger, const VkAllocationCallbacks* pAllocator) 
 {
-	auto func = (PFN_vkDestroyDebugUtilsMessengerEXT)vkGetInstanceProcAddr(
-		instance,
-		"vkDestroyDebugUtilsMessengerEXT");
-	if (func != nullptr) {
+	auto func = (PFN_vkDestroyDebugUtilsMessengerEXT)vkGetInstanceProcAddr(instance, "vkDestroyDebugUtilsMessengerEXT");
+	
+	if (func != nullptr) 
 		func(instance, debugMessenger, pAllocator);
-	}
 }
 
 // class member functions
@@ -287,11 +274,9 @@ void VulkanDevice::PopulateDebugMessengerCreateInfo(VkDebugUtilsMessengerCreateI
 {
 	createInfo = {};
 	createInfo.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT;
-#ifndef MUTE_VALIDATION_ERROR_SPAM
 	createInfo.messageSeverity = VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT |
 		VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT |
 		VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT;
-#endif
 	createInfo.messageType = VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT |
 		VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT |
 		VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT;
@@ -393,11 +378,7 @@ bool VulkanDevice::CheckDeviceExtensionSupport(VkPhysicalDevice device)
 	vkEnumerateDeviceExtensionProperties(device, nullptr, &extensionCount, nullptr);
 
 	std::vector<VkExtensionProperties> availableExtensions(extensionCount);
-	vkEnumerateDeviceExtensionProperties(
-		device,
-		nullptr,
-		&extensionCount,
-		availableExtensions.data());
+	vkEnumerateDeviceExtensionProperties(device, nullptr, &extensionCount, availableExtensions.data());
 
 	std::set<std::string> requiredExtensions(m_DeviceExtensions.begin(), m_DeviceExtensions.end());
 
@@ -517,54 +498,35 @@ uint32_t VulkanDevice::FindMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags
 	return UINT_MAX;
 }
 
-VkCommandBuffer VulkanDevice::BeginSingleTimeCommands() 
+void VulkanDevice::CopyBuffer(VulkanBuffer& srcBuffer, VulkanBuffer& dstBuffer, VkDeviceSize size)
 {
-	VkCommandBufferAllocateInfo allocInfo{};
-	allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
-	allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-	allocInfo.commandPool = m_CommandPool;
-	allocInfo.commandBufferCount = 1;
-
-	VkCommandBuffer commandBuffer;
-	vkAllocateCommandBuffers(m_Device, &allocInfo, &commandBuffer);
-
-	VkCommandBufferBeginInfo beginInfo{};
-	beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-	beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
-
-	vkBeginCommandBuffer(commandBuffer, &beginInfo);
-	return commandBuffer;
-}
-
-void VulkanDevice::EndSingleTimeCommands(VkCommandBuffer commandBuffer) 
-{
-	vkEndCommandBuffer(commandBuffer);
-
-	VkSubmitInfo submitInfo{};
-	submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-	submitInfo.commandBufferCount = 1;
-	submitInfo.pCommandBuffers = &commandBuffer;
-
-	vkQueueSubmit(m_GraphicsQueue, 1, &submitInfo, VK_NULL_HANDLE);
-	vkQueueWaitIdle(m_GraphicsQueue);
-
-	vkFreeCommandBuffers(m_Device, m_CommandPool, 1, &commandBuffer);
-}
-
-void VulkanDevice::CopyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size)
-{
-	VkCommandBuffer commandBuffer = BeginSingleTimeCommands();
+	VulkanCommandBuffer tempCommandBuffer(*this, "Temp Copy Buffer Command Buffer");
+	tempCommandBuffer.BeginCommandBuffer(true);
 
 	VkBufferCopy copyRegion{};
 	copyRegion.srcOffset = 0;  // Optional
 	copyRegion.dstOffset = 0;  // Optional
 	copyRegion.size = size;
-	vkCmdCopyBuffer(commandBuffer, srcBuffer, dstBuffer, 1, &copyRegion);
+	vkCmdCopyBuffer(GET_VK_HANDLE(tempCommandBuffer), GET_VK_HANDLE(srcBuffer), GET_VK_HANDLE(dstBuffer), 1, &copyRegion);
 
-	EndSingleTimeCommands(commandBuffer);
+	tempCommandBuffer.EndAndSubmitCommandBuffer();
 }
 
-void VulkanDevice::CopyBufferToImage(VkCommandBuffer commandBuffer, VulkanBuffer* buffer, VulkanTexture* texture, bool copyFirstMipOnly)
+void VulkanDevice::CopyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size)
+{
+	VulkanCommandBuffer tempCommandBuffer(*this, "Temp Copy Buffer Command Buffer");
+	tempCommandBuffer.BeginCommandBuffer(true);
+
+	VkBufferCopy copyRegion{};
+	copyRegion.srcOffset = 0;  // Optional
+	copyRegion.dstOffset = 0;  // Optional
+	copyRegion.size = size;
+	vkCmdCopyBuffer(GET_VK_HANDLE(tempCommandBuffer), srcBuffer, dstBuffer, 1, &copyRegion);
+
+	tempCommandBuffer.EndAndSubmitCommandBuffer();
+}
+
+void VulkanDevice::CopyBufferToImage(VulkanCommandBuffer& commandBuffer, VulkanBuffer* buffer, VulkanTexture* texture, bool copyFirstMipOnly)
 {
 	ImageRegion texRegion = texture->GetRegion();
 
@@ -582,9 +544,9 @@ void VulkanDevice::CopyBufferToImage(VkCommandBuffer commandBuffer, VulkanBuffer
 	region.imageExtent = { texRegion.Extent.Width, texRegion.Extent.Height, 1 };
 
 	vkCmdCopyBufferToImage(
-		commandBuffer,
-		buffer->GetBuffer(),
-		texture->GetResource()->GetImage(),
+		GET_VK_HANDLE(commandBuffer),
+		GET_VK_HANDLE_PTR(buffer),
+		GET_VK_HANDLE_PTR(texture->GetResource()),
 		VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
 		1,
 		&region);
@@ -592,7 +554,7 @@ void VulkanDevice::CopyBufferToImage(VkCommandBuffer commandBuffer, VulkanBuffer
 	texture->SetCurrentResourceStage(ResourceStage::Transfer);
 }
 
-void VulkanDevice::CopyBufferToImageCubeMap(VkCommandBuffer commandBuffer, VulkanBuffer* buffer, VulkanTexture* texture)
+void VulkanDevice::CopyBufferToImageCubeMap(VulkanCommandBuffer& commandBuffer, VulkanBuffer* buffer, VulkanTexture* texture)
 {
 	ImageRegion texRegion = texture->GetRegion();
 	auto width = texRegion.Extent.Width;
@@ -618,9 +580,9 @@ void VulkanDevice::CopyBufferToImageCubeMap(VkCommandBuffer commandBuffer, Vulka
 	}
 
 	vkCmdCopyBufferToImage(
-		commandBuffer,
-		buffer->GetBuffer(),
-		texture->GetResource()->GetImage(),
+		GET_VK_HANDLE(commandBuffer),
+		GET_VK_HANDLE_PTR(buffer),
+		GET_VK_HANDLE_PTR(texture->GetResource()),
 		VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
 		6,
 		bufferCopyRegions.data());
@@ -628,7 +590,7 @@ void VulkanDevice::CopyBufferToImageCubeMap(VkCommandBuffer commandBuffer, Vulka
 	texture->SetCurrentResourceStage(ResourceStage::Transfer);
 }
 
-void VulkanDevice::CopyImage(VkCommandBuffer commandBuffer, VulkanTexture* src, VulkanTexture* dst)
+void VulkanDevice::CopyImage(VulkanCommandBuffer& commandBuffer, VulkanTexture* src, VulkanTexture* dst)
 {
 	VkImageCopy imageCopyRegion{};
 	imageCopyRegion.srcSubresource.aspectMask = GetVkImageAspectFlagsFrom(GetVkFormatFrom(src->GetFormat()));
@@ -651,10 +613,10 @@ void VulkanDevice::CopyImage(VkCommandBuffer commandBuffer, VulkanTexture* src, 
 		ResourceBarrier(commandBuffer, dst, dstState, ResourceState::TransferDst, dstStage, ResourceStage::Transfer);
 
 	vkCmdCopyImage(
-		commandBuffer,
-		src->GetResource()->GetImage(),
+		GET_VK_HANDLE(commandBuffer),
+		GET_VK_HANDLE_PTR(src->GetResource()),
 		VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-		dst->GetResource()->GetImage(),
+		GET_VK_HANDLE_PTR(dst->GetResource()),
 		VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
 		1,
 		&imageCopyRegion);
@@ -690,7 +652,7 @@ void VulkanDevice::SetObjectName(uint64_t object, VkObjectType objectType, const
 #endif // RABBITHOLE_DEBUG
 }
 
-void VulkanDevice::BeginLabel(VkCommandBuffer commandBuffer, const char* name)
+void VulkanDevice::BeginLabel(VulkanCommandBuffer& commandBuffer, const char* name)
 {
 #ifdef RABBITHOLE_DEBUG
 	glm::vec4 color = GetNextColor();
@@ -702,18 +664,18 @@ void VulkanDevice::BeginLabel(VkCommandBuffer commandBuffer, const char* name)
 	labelInfo.color[3] = color[3];
 	labelInfo.pLabelName = name;
 
-	pfnCmdBeginDebugUtilsLabelEXT(commandBuffer, &labelInfo);
+	pfnCmdBeginDebugUtilsLabelEXT(GET_VK_HANDLE(commandBuffer), &labelInfo);
 #endif // RABBITHOLE_DEBUG
 }
 
-void VulkanDevice::EndLabel(VkCommandBuffer commandBuffer)
+void VulkanDevice::EndLabel(VulkanCommandBuffer& commandBuffer)
 {
 #ifdef RABBITHOLE_DEBUG
-	pfnCmdEndDebugUtilsLabelEXT(commandBuffer);
+	pfnCmdEndDebugUtilsLabelEXT(GET_VK_HANDLE(commandBuffer));
 #endif // RABBITHOLE_DEBUG
 }
 
-void VulkanDevice::ResourceBarrier(VkCommandBuffer commandBuffer, VulkanTexture* texture, ResourceState oldLayout, ResourceState newLayout, ResourceStage srcStage, ResourceStage dstStage, uint32_t mipLevel)
+void VulkanDevice::ResourceBarrier(VulkanCommandBuffer& commandBuffer, VulkanTexture* texture, ResourceState oldLayout, ResourceState newLayout, ResourceStage srcStage, ResourceStage dstStage, uint32_t mipLevel, uint32_t mipCount)
 {
 	uint32_t arraySize = texture->GetResource()->GetInfo().ArraySize;
 
@@ -725,10 +687,10 @@ void VulkanDevice::ResourceBarrier(VkCommandBuffer commandBuffer, VulkanTexture*
 	barrier.newLayout = GetVkImageLayoutFrom(newLayout);
 	barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
 	barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-	barrier.image = texture->GetResource()->GetImage();
+	barrier.image = GET_VK_HANDLE_PTR(texture->GetResource());
 	barrier.subresourceRange.aspectMask = GetVkImageAspectFlagsFrom(GetVkFormatFrom(texture->GetFormat()));
 	barrier.subresourceRange.baseMipLevel = mipLevel;
-	barrier.subresourceRange.levelCount = texture->GetRegion().Subresource.MipSize;
+	barrier.subresourceRange.levelCount = mipCount;
 	barrier.subresourceRange.baseArrayLayer = 0;
 	barrier.subresourceRange.layerCount = arraySize;
 
@@ -739,7 +701,7 @@ void VulkanDevice::ResourceBarrier(VkCommandBuffer commandBuffer, VulkanTexture*
 	VkPipelineStageFlags destinationStage = GetVkPipelineStageFromResourceStageAndState(dstStage, newLayout);
 
 	vkCmdPipelineBarrier(
-		commandBuffer,
+		GET_VK_HANDLE(commandBuffer),
 		sourceStage, destinationStage,
 		0,
 		0, nullptr,
@@ -751,7 +713,7 @@ void VulkanDevice::ResourceBarrier(VkCommandBuffer commandBuffer, VulkanTexture*
 	texture->SetCurrentResourceStage(dstStage);
 }
 
-void VulkanDevice::CopyImageToBuffer(VkCommandBuffer commandBuffer, VulkanTexture* texture, VulkanBuffer* buffer)
+void VulkanDevice::CopyImageToBuffer(VulkanCommandBuffer& commandBuffer, VulkanTexture* texture, VulkanBuffer* buffer)
 {
 	ImageRegion texRegion = texture->GetRegion();
 
@@ -774,8 +736,8 @@ void VulkanDevice::CopyImageToBuffer(VkCommandBuffer commandBuffer, VulkanTextur
 	if (srcState != ResourceState::TransferSrc)
 		ResourceBarrier(commandBuffer, texture, srcState, ResourceState::TransferSrc, srcStage, ResourceStage::Transfer);
 	
-	vkCmdCopyImageToBuffer(commandBuffer, texture->GetResource()->GetImage(), VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, buffer->GetBuffer(), 1, &region);
+	vkCmdCopyImageToBuffer(GET_VK_HANDLE(commandBuffer), GET_VK_HANDLE_PTR(texture->GetResource()), VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, GET_VK_HANDLE_PTR(buffer), 1, &region);
 
 	if (srcState != ResourceState::TransferSrc)
-		ResourceBarrier(commandBuffer, texture, srcState, ResourceState::TransferSrc, srcStage, ResourceStage::Transfer);
+		ResourceBarrier(commandBuffer, texture, ResourceState::TransferSrc,srcState , ResourceStage::Transfer, srcStage);
 }

@@ -54,8 +54,7 @@ void Renderer::ExecuteRabbitPass(RabbitPass& rabbitPass)
 
 bool Renderer::Init()
 {
-	MainCamera = new Camera();
-	MainCamera->Init();
+	m_MainCamera.Init();
 
 	SuperResolutionManager::instance().Init(&m_VulkanDevice);
 
@@ -335,7 +334,6 @@ bool Renderer::Init()
 bool Renderer::Shutdown()
 {
 	//TODO: clear everything properly
-	delete MainCamera;
 	gltfModels.clear();
 	m_GPUTimeStamps.OnDestroy();
 	delete m_ResourceManager;
@@ -352,7 +350,7 @@ void Renderer::Draw(float dt)
 {
 	m_CurrentDeltaTime = dt;
 
-	MainCamera->Update(dt);
+	m_MainCamera.Update(dt);
 
     DrawFrame();
 
@@ -377,7 +375,7 @@ void Renderer::DrawFrame()
 
 	RecordCommandBuffer();
 
-	result = m_VulkanSwapchain->SubmitCommandBuffers(&m_CommandBuffers[m_CurrentImageIndex], &m_CurrentImageIndex);
+	result = m_VulkanSwapchain->SubmitCommandBufferAndPresent(GetCurrentCommandBuffer(), &m_CurrentImageIndex);
 
 	if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR || m_FramebufferResized)
 	{
@@ -489,9 +487,10 @@ void Renderer::InitImgui()
 
 	ImGui_ImplVulkan_Init(&init_info, m_StateManager->GetRenderPass()->GetVkRenderPass());
 
-	auto commandBuffer = m_VulkanDevice.BeginSingleTimeCommands();
-	ImGui_ImplVulkan_CreateFontsTexture(commandBuffer);
-	m_VulkanDevice.EndSingleTimeCommands(commandBuffer);
+	VulkanCommandBuffer tempCommandBuffer(m_VulkanDevice, "Temp Imgui Command Buffer");
+	tempCommandBuffer.BeginCommandBuffer(true);
+	ImGui_ImplVulkan_CreateFontsTexture(GET_VK_HANDLE(tempCommandBuffer));
+	tempCommandBuffer.EndAndSubmitCommandBuffer();
 
 	//clear font textures from cpu data
 	ImGui_ImplVulkan_DestroyFontUploadObjects();
@@ -564,8 +563,8 @@ void Renderer::InitNoiseTextures()
 
 void Renderer::LoadModels()
 {
-	gltfModels.emplace_back(&m_VulkanDevice, "res/meshes/separateObjects.gltf");
-	//gltfModels.emplace_back(&m_VulkanDevice, "res/meshes/cottage.gltf");
+	//gltfModels.emplace_back(&m_VulkanDevice, "res/meshes/separateObjects.gltf");
+	gltfModels.emplace_back(&m_VulkanDevice, "res/meshes/cottage.gltf");
 	//gltfModels.emplace_back(&m_VulkanDevice, "res/meshes/sponza/sponza.gltf");
 }
 
@@ -600,12 +599,12 @@ void Renderer::BeginRenderPass(VkExtent2D extent)
 	renderPassInfo.clearValueCount = static_cast<uint32_t>(renderTargetCount);
 	renderPassInfo.pClearValues = clearValues.data();
 
-	vkCmdBeginRenderPass(GetCurrentCommandBuffer(), &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
+	vkCmdBeginRenderPass(GET_VK_HANDLE(GetCurrentCommandBuffer()), &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
 }
 
 void Renderer::EndRenderPass()
 {
-	vkCmdEndRenderPass(GetCurrentCommandBuffer());
+	vkCmdEndRenderPass(GET_VK_HANDLE(GetCurrentCommandBuffer()));
 	m_StateManager->Reset();
 }
 
@@ -638,88 +637,6 @@ void Renderer::DrawGeometryGLTF(std::vector<VulkanglTFModel>& bucket)
 	EndRenderPass();
 }
 
-/*
-void Renderer::DrawBoundingBoxes(std::vector<RabbitModel*>& bucket)
-{
-	BindPipeline<GraphicsPipeline>();
-
-	BeginRenderPass({ GetNativeWidth, GetNativeHeight });
-
-	BindUBO();
-
-	for (auto model : bucket)
-	{
-		//TODO: implement this
-		std::vector<Vertex> vertex;
-
-		rabbitVec3f a = model->m_BoundingBox.bounds[0];
-		rabbitVec3f f = model->m_BoundingBox.bounds[1];
-
-		//TODO: what are you doin' boi
-		{
-			vertex.push_back(Vertex{ a });
-			vertex.push_back(Vertex{ {f.x, a.y, a.z} }); //b
-
-			vertex.push_back(Vertex{ {f.x, a.y, a.z} }); //b
-			vertex.push_back(Vertex{ {f.x, a.y, f.z} }); //c
-
-			vertex.push_back(Vertex{ {f.x, a.y, f.z} }); //c
-			vertex.push_back(Vertex{ {a.x, a.y, f.z} }); //d
-
-			vertex.push_back(Vertex{ {a.x, a.y, f.z} }); //d
-			vertex.push_back(Vertex{ a });
-
-			vertex.push_back(Vertex{ f });
-			vertex.push_back(Vertex{ {a.x, f.y, f.z} }); //e
-
-			vertex.push_back(Vertex{ {a.x, f.y, f.z} }); //e
-			vertex.push_back(Vertex{ {a.x, f.y, a.z} }); //h
-
-			vertex.push_back(Vertex{ {a.x, f.y, a.z} }); //h
-			vertex.push_back(Vertex{ {f.x, f.y, a.z} }); //g
-
-			vertex.push_back(Vertex{ {f.x, f.y, a.z} }); //g
-			vertex.push_back(Vertex{ f });
-
-			vertex.push_back(Vertex{ a });
-			vertex.push_back(Vertex{ {a.x, f.y, a.z} }); //h
-
-			vertex.push_back(Vertex{ {f.x, a.y, a.z} }); //b
-			vertex.push_back(Vertex{ {f.x, f.y, a.z} }); //g
-
-			vertex.push_back(Vertex{ {f.x, a.y, f.z} }); //c
-			vertex.push_back(Vertex{ f });
-
-			vertex.push_back(Vertex{ {a.x, a.y, f.z} }); //d
-			vertex.push_back(Vertex{ {a.x, f.y, f.z} }); //e
-		}
-		
-		m_VertexUploadBuffer->FillBuffer(vertex.data(), this offset is from skybox, TODO: automate this sizeof(Vertex) * 36, vertex.size() * sizeof(Vertex));
-
-		BindVertexData(sizeof(Vertex) * 36);
-
-		BindModelMatrix(model);
-
-		vkCmdDraw(GetCurrentCommandBuffer(), 24, 1, 0, 0);
-	}
-
-	EndRenderPass();
-}
-*/
-
-void Renderer::BeginCommandBuffer()
-{
-	VkCommandBufferBeginInfo beginInfo{};
-	beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-
-	VULKAN_API_CALL(vkBeginCommandBuffer(GetCurrentCommandBuffer(), &beginInfo));
-}
-
-void Renderer::EndCommandBuffer()
-{
-	VULKAN_API_CALL(vkEndCommandBuffer(GetCurrentCommandBuffer()));
-}
-
 void Renderer::FillTheLightParam(LightParams& lightParam, rabbitVec3f position, rabbitVec3f color, float radius, float intensity, LightType type, float size)
 {
 	lightParam.position[0] = position.x;
@@ -734,25 +651,6 @@ void Renderer::FillTheLightParam(LightParams& lightParam, rabbitVec3f position, 
 	lightParam.size = size;
 }
 
-std::vector<char> Renderer::ReadFile(const std::string& filepath)
-{
-	std::ifstream file{ filepath, std::ios::ate | std::ios::binary };
-
-	if (!file.is_open())
-	{
-		LOG_ERROR("failed to open file: " + filepath);
-	}
-
-	size_t fileSize = static_cast<size_t>(file.tellg());
-	std::vector<char> buffer(fileSize);
-
-	file.seekg(0);
-	file.read(buffer.data(), fileSize);
-
-	file.close();
-	return buffer;
-}
-
 void Renderer::DrawFullScreenQuad()
 {
 	BindPipeline<GraphicsPipeline>();
@@ -763,7 +661,7 @@ void Renderer::DrawFullScreenQuad()
 
 	BeginRenderPass(renderExtent);
 
-	vkCmdDraw(GetCurrentCommandBuffer(), 3, 1, 0, 0);
+	vkCmdDraw(GET_VK_HANDLE(GetCurrentCommandBuffer()), 3, 1, 0, 0);
 
 	EndRenderPass();
 }
@@ -774,7 +672,7 @@ void Renderer::BindPushConstInternal()
 	{
 		VkShaderStageFlagBits shaderStage = (m_StateManager->GetPipeline()->GetType() == PipelineType::Graphics) ? VkShaderStageFlagBits(VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_VERTEX_BIT) : (VK_SHADER_STAGE_COMPUTE_BIT);
 		//TODO: what the hell is going on here
-		vkCmdPushConstants(GetCurrentCommandBuffer(),
+		vkCmdPushConstants(GET_VK_HANDLE(GetCurrentCommandBuffer()),
 			*(m_StateManager->GetPipeline()->GetPipelineLayout()),
 			shaderStage,
 			0,
@@ -821,14 +719,14 @@ void Renderer::CopyToSwapChain()
 	BeginRenderPass({ GetUpscaledWidth, GetUpscaledHeight });
 
 	//COPY TO SWAPCHAIN
-	vkCmdDraw(GetCurrentCommandBuffer(), 3, 1, 0, 0);
+	vkCmdDraw(GET_VK_HANDLE(GetCurrentCommandBuffer()), 3, 1, 0, 0);
 
 #ifdef RABBITHOLE_USING_IMGUI
 	//DRAW UI(imgui)
 	if (m_ImguiInitialized && imguiReady)
 	{
 		ImGui::Render();
-		ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), GetCurrentCommandBuffer());
+		ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), GET_VK_HANDLE(GetCurrentCommandBuffer()));
 	}
 #endif
 
@@ -904,7 +802,7 @@ void Renderer::BindDescriptorSets()
 	auto pipeline = m_StateManager->GetPipeline();
 	auto bindPoint = pipeline->GetType() == PipelineType::Graphics ? VK_PIPELINE_BIND_POINT_GRAPHICS : VK_PIPELINE_BIND_POINT_COMPUTE;
 
-	vkCmdBindDescriptorSets(GetCurrentCommandBuffer(), bindPoint, *pipeline->GetPipelineLayout(), 0, 1, descriptorSet->GetVkDescriptorSet(), 0, nullptr);
+	vkCmdBindDescriptorSets(GET_VK_HANDLE(GetCurrentCommandBuffer()), bindPoint, *pipeline->GetPipelineLayout(), 0, 1, GET_VK_HANDLE_PTR(descriptorSet), 0, nullptr);
 }
 
 void Renderer::LoadAndCreateShaders()
@@ -932,7 +830,7 @@ void Renderer::LoadAndCreateShaders()
 				{
 					std::string fileNameFinal = fileNameWithExt.substr(0, foundLastDot);
 
-					auto shaderCode = ReadFile(filePath);
+					auto shaderCode = Utils::ReadFile(filePath);
 					
 					ShaderInfo createInfo{};
 					createInfo.CodeEntry = nullptr;
@@ -962,18 +860,11 @@ void Renderer::LoadAndCreateShaders()
 
 void Renderer::CreateCommandBuffers() 
 {
-	m_CommandBuffers.resize(m_VulkanSwapchain->GetImageCount());
+	m_MainRenderCommandBuffers.resize(m_VulkanSwapchain->GetImageCount());
 
-	VkCommandBufferAllocateInfo allocInfo{};
-	allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
-	allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-	allocInfo.commandPool = m_VulkanDevice.GetCommandPool();
-	allocInfo.commandBufferCount = static_cast<uint32_t>(m_CommandBuffers.size());
-
-	if (vkAllocateCommandBuffers(m_VulkanDevice.GetGraphicDevice(), &allocInfo, m_CommandBuffers.data()) !=
-		VK_SUCCESS) 
+	for (uint32_t i = 0; i < m_VulkanSwapchain->GetImageCount(); i++)
 	{
-		LOG_ERROR("failed to allocate command buffers!");
+		m_MainRenderCommandBuffers[i] = std::make_unique<VulkanCommandBuffer>(m_VulkanDevice, "Main Render Command Buffer");
 	}
 }
 
@@ -1019,7 +910,7 @@ void Renderer::UpdateDebugOptions()
 }
 void Renderer::RecordCommandBuffer()
 {
-	BeginCommandBuffer();
+	GetCurrentCommandBuffer().BeginCommandBuffer();
 
 	std::vector<TimeStamp> timeStamps{};
 
@@ -1038,7 +929,6 @@ void Renderer::RecordCommandBuffer()
 		ImGui::Begin("Main debug frame");
 		ImGui::Checkbox("GPU Profiler Enabled: ", &m_RecordGPUTimeStamps);
 #ifdef USE_RABBITHOLE_TOOLS
-		ImGui::Checkbox("Draw Bounding Box", &m_DrawBoundingBox);
 		ImGui::Checkbox("Enable Entity picking", &m_RenderOutlinedEntity);
 #endif
 
@@ -1056,7 +946,6 @@ void Renderer::RecordCommandBuffer()
 
 	Create3DNoiseTexturePass noise3DLUTGeneration{};
 	GBufferPass gbuffer{};
-	BoundingBoxPass bbPass{};
 	SSAOPass ssao{};
 	SSAOBlurPass ssaoBlur{};
 	RTShadowsPass RTShadows{};
@@ -1077,7 +966,7 @@ void Renderer::RecordCommandBuffer()
 	UpdateUIStateAndFSR2PreDraw();
 	UpdateDebugOptions();
 	UpdateConstantBuffer();
-	BindCameraMatrices(MainCamera);
+	BindCameraMatrices(&m_MainCamera);
 
 	//replace with call once impl
 	if (!init3dnoise)
@@ -1105,11 +994,6 @@ void Renderer::RecordCommandBuffer()
 	{
 		ExecuteRabbitPass(outlineEntity);
 	}
-
-	if (m_DrawBoundingBox)
-	{ 
-		ExecuteRabbitPass(bbPass);
-	}
 #endif
 
 	ExecuteRabbitPass(fsr2);
@@ -1123,7 +1007,7 @@ void Renderer::RecordCommandBuffer()
 		m_GPUTimeStamps.OnEndFrame();
 	}
 
-	EndCommandBuffer();
+	GetCurrentCommandBuffer().EndCommandBuffer();
 }
 
 
@@ -1292,14 +1176,14 @@ void Renderer::InitMeshDataForCompute()
 	auto modelIndexBuffer = model.GetIndexBuffer();
 
 	VulkanBuffer stagingBuffer(m_VulkanDevice, BufferUsageFlags::TransferDst, MemoryAccess::CPU, modelVertexBuffer->GetSize(), "StagingBuffer");
-	m_VulkanDevice.CopyBuffer(modelVertexBuffer->GetBuffer(), stagingBuffer.GetBuffer(), modelVertexBuffer->GetSize());
+	m_VulkanDevice.CopyBuffer(*modelVertexBuffer, stagingBuffer, modelVertexBuffer->GetSize());
 
 	Vertex* vertexBufferCpu = (Vertex*)stagingBuffer.Map();
 	uint32_t vertexCount = static_cast<uint32_t>(modelVertexBuffer->GetSize() / sizeof(Vertex));
 	verticesMultipliedWithMatrix.resize(vertexCount);
 
 	VulkanBuffer stagingBuffer2(m_VulkanDevice, BufferUsageFlags::TransferDst, MemoryAccess::CPU, modelIndexBuffer->GetSize(), "StagingBuffer");
-	m_VulkanDevice.CopyBuffer(modelIndexBuffer->GetBuffer(), stagingBuffer2.GetBuffer(), modelIndexBuffer->GetSize());
+	m_VulkanDevice.CopyBuffer(*modelIndexBuffer, stagingBuffer2, modelIndexBuffer->GetSize());
 
 	uint32_t* indexBufferCpu = (uint32_t*)stagingBuffer2.Map();
 	uint32_t indexCount = static_cast<uint32_t>(modelIndexBuffer->GetSize() / sizeof(uint32_t));
@@ -1398,8 +1282,8 @@ void Renderer::UpdateConstantBuffer()
 	rabbitVec4f frustrumInfo{};
 	frustrumInfo.x = static_cast<float>(GetNativeWidth);
 	frustrumInfo.y = static_cast<float>(GetNativeHeight);
-    frustrumInfo.z = MainCamera->GetNearPlane();
-    frustrumInfo.w = MainCamera->GetFarPlane();
+    frustrumInfo.z = m_MainCamera.GetNearPlane();
+    frustrumInfo.w = m_MainCamera.GetFarPlane();
 
     m_StateManager->UpdateUBOElement(UBOElement::FrustrumInfo, 1, &frustrumInfo);
 
@@ -1411,7 +1295,7 @@ void Renderer::UpdateConstantBuffer()
 
 void Renderer::UpdateUIStateAndFSR2PreDraw()
 {
-	m_CurrentUIState.camera = MainCamera;
+	m_CurrentUIState.camera = &m_MainCamera;
 	m_CurrentUIState.deltaTime = m_CurrentDeltaTime * 1000.f; //needs to be in ms
 	m_CurrentUIState.renderHeight = static_cast<float>(GetNativeHeight);
 	m_CurrentUIState.renderWidth = static_cast<float>(GetNativeWidth);
@@ -1474,7 +1358,7 @@ void Renderer::ImguiProfilerWindow(std::vector<TimeStamp>& timeStamps)
 
 void Renderer::RegisterTexturesToImGui()
 {
-	debugTextureImGuiDS = ImGui_ImplVulkan_AddTexture(debugTexture->GetSampler()->GetSampler(), debugTexture->GetView()->GetImageView(), GetVkImageLayoutFrom(ResourceState::GenericRead));
+	debugTextureImGuiDS = ImGui_ImplVulkan_AddTexture(GET_VK_HANDLE_PTR(debugTexture->GetSampler()), GET_VK_HANDLE_PTR(debugTexture->GetView()), GetVkImageLayoutFrom(ResourceState::GenericRead));
 }
 
 void Renderer::ImGuiTextureDebugger()
@@ -1578,15 +1462,15 @@ void Renderer::BindViewport(float x, float y, float width, float height)
 	scissor.offset = { 0, 0 };
 	scissor.extent = { static_cast<uint32_t>(viewport.width), static_cast<uint32_t>(viewport.height) };
 
-	vkCmdSetViewport(GetCurrentCommandBuffer(), 0, 1, &viewport);
-	vkCmdSetScissor(GetCurrentCommandBuffer(), 0, 1, &scissor);
+	vkCmdSetViewport(GET_VK_HANDLE(GetCurrentCommandBuffer()), 0, 1, &viewport);
+	vkCmdSetScissor(GET_VK_HANDLE(GetCurrentCommandBuffer()), 0, 1, &scissor);
 }
 
 void Renderer::BindVertexData(size_t offset)
 {
-	VkBuffer buffers[] = { m_VertexUploadBuffer->GetBuffer() };
+	VkBuffer buffers[] = { GET_VK_HANDLE_PTR(m_VertexUploadBuffer) };
 	VkDeviceSize offsets[] = { (VkDeviceSize)offset };
-	vkCmdBindVertexBuffers(GetCurrentCommandBuffer(), 0, 1, buffers, offsets);
+	vkCmdBindVertexBuffers(GET_VK_HANDLE(GetCurrentCommandBuffer()), 0, 1, buffers, offsets);
 }
 
 void Renderer::DrawVertices(uint32_t count)
@@ -1595,14 +1479,14 @@ void Renderer::DrawVertices(uint32_t count)
 
 	BeginRenderPass({ GetNativeWidth, GetNativeHeight });
 
-	vkCmdDraw(GetCurrentCommandBuffer(), count, 1, 0, 0);
+	vkCmdDraw(GET_VK_HANDLE(GetCurrentCommandBuffer()), count, 1, 0, 0);
 
 	EndRenderPass();
 }
 
 void Renderer::DrawIndicesIndirect(uint32_t count, uint32_t offset)
 {
-	vkCmdDrawIndexedIndirect(GetCurrentCommandBuffer(), geomDataIndirectDraw->gpuBuffer->GetBuffer(), offset * sizeof(IndexIndirectDrawData), 1, sizeof(IndexIndirectDrawData));
+	vkCmdDrawIndexedIndirect(GET_VK_HANDLE(GetCurrentCommandBuffer()), GET_VK_HANDLE_PTR(geomDataIndirectDraw->gpuBuffer), offset * sizeof(IndexIndirectDrawData), 1, sizeof(IndexIndirectDrawData));
 
 	geomDataIndirectDraw->localBuffer[offset].firstIndex = 0;
 	geomDataIndirectDraw->localBuffer[offset].firstInstance = 0;
@@ -1615,7 +1499,7 @@ void Renderer::Dispatch(uint32_t x, uint32_t y, uint32_t z)
 {
 	BindPipeline<ComputePipeline>();
 
-	vkCmdDispatch(GetCurrentCommandBuffer(), x, y, z);
+	vkCmdDispatch(GET_VK_HANDLE(GetCurrentCommandBuffer()), x, y, z);
 }
 
 void Renderer::CopyImageToBuffer(VulkanTexture* texture, VulkanBuffer* buffer)
@@ -1634,9 +1518,9 @@ void IndexedIndirectBuffer::SubmitToGPU()
 }
 
 
-void IndexedIndirectBuffer::AddIndirectDrawCommand(VkCommandBuffer commandBuffer, IndexIndirectDrawData& drawData)
+void IndexedIndirectBuffer::AddIndirectDrawCommand(VulkanCommandBuffer& commandBuffer, IndexIndirectDrawData& drawData)
 {
-    vkCmdDrawIndexedIndirect(commandBuffer, gpuBuffer->GetBuffer(), currentOffset * sizeof(IndexIndirectDrawData), 1, sizeof(IndexIndirectDrawData));
+    vkCmdDrawIndexedIndirect(GET_VK_HANDLE(commandBuffer), GET_VK_HANDLE_PTR(gpuBuffer), currentOffset * sizeof(IndexIndirectDrawData), 1, sizeof(IndexIndirectDrawData));
 	
 	localBuffer[currentOffset] = drawData;
 	currentOffset++;

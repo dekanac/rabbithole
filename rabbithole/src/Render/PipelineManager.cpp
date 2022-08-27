@@ -212,12 +212,12 @@ VulkanDescriptorSet* PipelineManager::FindOrCreateDescriptorSet(VulkanDevice& de
 	return nullptr;
 }
 
-void GraphicsPipeline::Bind(VkCommandBuffer commandBuffer)
+void GraphicsPipeline::Bind(VulkanCommandBuffer& commandBuffer)
 {
-	vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_Pipeline);
+	vkCmdBindPipeline(GET_VK_HANDLE(commandBuffer), VK_PIPELINE_BIND_POINT_GRAPHICS, m_Pipeline);
 }
 
-void ComputePipeline::Bind(VkCommandBuffer commandBuffer)
+void ComputePipeline::Bind(VulkanCommandBuffer& commandBuffer)
 {
-	vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, m_Pipeline);
+	vkCmdBindPipeline(GET_VK_HANDLE(commandBuffer), VK_PIPELINE_BIND_POINT_COMPUTE, m_Pipeline);
 }

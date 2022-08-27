@@ -29,9 +29,9 @@ VulkanTexture::VulkanTexture(VulkanDevice* device, const uint32_t width, const u
 	CreateView(device);
 	CreateSampler(device, SamplerType::Trilinear, AddressMode::Repeat);
 
-	device->SetObjectName((uint64_t)(m_Resource->GetImage()), VK_OBJECT_TYPE_IMAGE, name);
-	device->SetObjectName((uint64_t)m_View->GetImageView(), VK_OBJECT_TYPE_IMAGE_VIEW, name);
-	device->SetObjectName((uint64_t)m_Sampler->GetSampler(), VK_OBJECT_TYPE_SAMPLER, name);
+	device->SetObjectName((uint64_t)GET_VK_HANDLE_PTR(m_Resource), VK_OBJECT_TYPE_IMAGE, name);
+	device->SetObjectName((uint64_t)GET_VK_HANDLE_PTR(m_View), VK_OBJECT_TYPE_IMAGE_VIEW, name);
+	device->SetObjectName((uint64_t)GET_VK_HANDLE_PTR(m_Sampler), VK_OBJECT_TYPE_SAMPLER, name);
 }
 
 VulkanTexture::VulkanTexture(VulkanDevice* device, TextureData* texData, TextureFlags flags, Format format, std::string name, bool generateMips)
@@ -55,9 +55,9 @@ VulkanTexture::VulkanTexture(VulkanDevice* device, const uint32_t width, const u
 	CreateView(device);
 	CreateSampler(device, SamplerType::Trilinear, AddressMode::Repeat);
 
-	device->SetObjectName((uint64_t)(m_Resource->GetImage()), VK_OBJECT_TYPE_IMAGE, name);
-	device->SetObjectName((uint64_t)m_View->GetImageView(), VK_OBJECT_TYPE_IMAGE_VIEW, name);
-	device->SetObjectName((uint64_t)m_Sampler->GetSampler(), VK_OBJECT_TYPE_SAMPLER, name);
+	device->SetObjectName((uint64_t)GET_VK_HANDLE_PTR(m_Resource), VK_OBJECT_TYPE_IMAGE, name);
+	device->SetObjectName((uint64_t)GET_VK_HANDLE_PTR(m_View), VK_OBJECT_TYPE_IMAGE_VIEW, name);
+	device->SetObjectName((uint64_t)GET_VK_HANDLE_PTR(m_Sampler), VK_OBJECT_TYPE_SAMPLER, name);
 }
 
 VulkanTexture::VulkanTexture(VulkanDevice& device, RWTextureCreateInfo& createInfo)
@@ -70,9 +70,9 @@ VulkanTexture::VulkanTexture(VulkanDevice& device, RWTextureCreateInfo& createIn
 	CreateView(&device);
 	CreateSampler(&device, createInfo.samplerType, createInfo.addressMode);
 
-	device.SetObjectName((uint64_t)(m_Resource->GetImage()), VK_OBJECT_TYPE_IMAGE, createInfo.name.c_str());
-	device.SetObjectName((uint64_t)m_View->GetImageView(), VK_OBJECT_TYPE_IMAGE_VIEW, createInfo.name.c_str());
-	device.SetObjectName((uint64_t)m_Sampler->GetSampler(), VK_OBJECT_TYPE_SAMPLER, createInfo.name.c_str());
+	device.SetObjectName((uint64_t)GET_VK_HANDLE_PTR(m_Resource), VK_OBJECT_TYPE_IMAGE, createInfo.name.c_str());
+	device.SetObjectName((uint64_t)GET_VK_HANDLE_PTR(m_View), VK_OBJECT_TYPE_IMAGE_VIEW, createInfo.name.c_str());
+	device.SetObjectName((uint64_t)GET_VK_HANDLE_PTR(m_Sampler), VK_OBJECT_TYPE_SAMPLER, createInfo.name.c_str());
 }
 
 VulkanTexture::VulkanTexture(VulkanDevice& device, ROTextureCreateInfo& createInfo)
@@ -179,31 +179,32 @@ void VulkanTexture::CreateResource(VulkanDevice* device, TextureData* texData, b
 		stateAfter = ResourceState::RenderTarget;
 	}
 
-	VkCommandBuffer commandBuffer = device->BeginSingleTimeCommands();
+	VulkanCommandBuffer tempCommandBuffer(*device, "Temp Texture Creation Command Buffer");
+	tempCommandBuffer.BeginCommandBuffer(true);
 
-	device->ResourceBarrier(commandBuffer, this, ResourceState::None, ResourceState::TransferDst, ResourceStage::None, ResourceStage::Transfer);
+	device->ResourceBarrier(tempCommandBuffer, this, ResourceState::None, ResourceState::TransferDst, ResourceStage::None, ResourceStage::Transfer, 0, mipCount);
 
 	if (isCubeMap)
 	{
-		device->CopyBufferToImageCubeMap(commandBuffer, &stagingBuffer, this);
+		device->CopyBufferToImageCubeMap(tempCommandBuffer, &stagingBuffer, this);
 	}
 	else
 	{
-		device->CopyBufferToImage(commandBuffer, &stagingBuffer, this, true);
+		device->CopyBufferToImage(tempCommandBuffer, &stagingBuffer, this, true);
 	}
 
 	m_ShouldBeResourceState = m_CurrentResourceState = stateAfter;
 
 	if (generateMips)
 	{
-		GenerateMips(commandBuffer, device, texData->width, texData->height, mipCount);
+		GenerateMips(tempCommandBuffer, device, texData->width, texData->height, mipCount);
 	}
 	else
 	{
-		device->ResourceBarrier(commandBuffer, this, ResourceState::TransferDst, stateAfter, ResourceStage::Transfer, ResourceStage::Undefined);
+		device->ResourceBarrier(tempCommandBuffer, this, ResourceState::TransferDst, stateAfter, ResourceStage::Transfer, ResourceStage::Undefined);
 	}
 
-	device->EndSingleTimeCommands(commandBuffer);
+	tempCommandBuffer.EndAndSubmitCommandBuffer();
 	
 	m_CurrentResourceStage = m_PreviousResourceStage = ResourceStage::Count;
 }
@@ -252,13 +253,14 @@ void VulkanTexture::CreateResource(VulkanDevice* device, const uint32_t width, c
 		stateAfter = ResourceState::RenderTarget;
 	}
 
-	VkCommandBuffer commandBuffer = device->BeginSingleTimeCommands();
+	VulkanCommandBuffer tempCommandBuffer(*device, "Temp Texture Creation Command Buffer");
+	tempCommandBuffer.BeginCommandBuffer(true);
 
-	device->ResourceBarrier(commandBuffer, this, ResourceState::None, stateAfter, ResourceStage::None, ResourceStage::Undefined);
+	device->ResourceBarrier(tempCommandBuffer, this, ResourceState::None, stateAfter, ResourceStage::None, ResourceStage::Undefined);
 
 	m_ShouldBeResourceState = m_CurrentResourceState = stateAfter;
 
-	device->EndSingleTimeCommands(commandBuffer);
+	tempCommandBuffer.EndAndSubmitCommandBuffer();
 }
 
 void VulkanTexture::CreateView(VulkanDevice* device)
@@ -312,7 +314,7 @@ void VulkanTexture::InitializeRegion(const uint32_t width, const uint32_t height
 	m_Region.Subresource.ArraySize = arraySize;
 }
 
-void VulkanTexture::GenerateMips(VkCommandBuffer commandBuffer, VulkanDevice* device, const uint32_t width, const uint32_t height, uint32_t mipCount)
+void VulkanTexture::GenerateMips(VulkanCommandBuffer& commandBuffer, VulkanDevice* device, const uint32_t width, const uint32_t height, uint32_t mipCount)
 {
 	// Check if image format supports linear blitting
  	VkFormatProperties formatProperties;
@@ -341,9 +343,9 @@ void VulkanTexture::GenerateMips(VkCommandBuffer commandBuffer, VulkanDevice* de
 		blit.dstSubresource.baseArrayLayer = 0;
 		blit.dstSubresource.layerCount = 1;
 
-		vkCmdBlitImage(commandBuffer,
-			m_Resource->GetImage(), VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-			m_Resource->GetImage(), VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+		vkCmdBlitImage(GET_VK_HANDLE(commandBuffer),
+			GET_VK_HANDLE_PTR(m_Resource), VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+			GET_VK_HANDLE_PTR(m_Resource), VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
 			1, &blit,
 			VK_FILTER_LINEAR);
 

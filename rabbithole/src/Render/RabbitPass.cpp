@@ -132,46 +132,6 @@ float skyboxVertices[] = {
 
 uint32_t GetCurrentIDFromFrameIndex(uint32_t id) { return (Renderer::instance().GetCurrentFrameIndex() + id) % 2; }
 
-void BoundingBoxPass::DeclareResources(Renderer* renderer)
-{
-
-}
-
-void BoundingBoxPass::Setup(Renderer* renderer)
-{
-	VulkanStateManager* stateManager = renderer->GetStateManager();
-
-	stateManager->SetVertexShader(renderer->GetShader("VS_SimpleGeometry"));
-	stateManager->SetPixelShader(renderer->GetShader("FS_SimpleGeometry"));
-
-	renderer->BindViewport(0, 0, static_cast<float>(GetNativeWidth), static_cast<float>(GetNativeHeight));
-	stateManager->ShouldCleanColor(false);
-	stateManager->ShouldCleanDepth(false);
-
-	auto pipelineInfo = stateManager->GetPipelineInfo();
-	pipelineInfo->SetTopology(Topology::LineList);
-	pipelineInfo->SetCullMode(CullMode::None);
-
-	SetConstantBuffer(renderer, 0, renderer->GetMainConstBuffer());
-
-	SetRenderTarget(renderer, 0, renderer->lightingMain);
-	SetDepthStencil(renderer, renderer->depthStencil);
-
-	auto renderPassInfo = stateManager->GetRenderPassInfo();
-
-	stateManager->GetPipelineInfo()->SetDepthTestEnabled(true);
-	renderPassInfo->InitialRenderTargetState = ResourceState::RenderTarget;
-	renderPassInfo->FinalRenderTargetState = ResourceState::RenderTarget;
-	renderPassInfo->InitialDepthStencilState = ResourceState::DepthStencilWrite;
-	renderPassInfo->FinalDepthStencilState = ResourceState::DepthStencilWrite;
-
-}
-
-void BoundingBoxPass::Render(Renderer* renderer)
-{
-	//renderer->DrawBoundingBoxes(renderer->GetModels());
-}
-
 void GBufferPass::DeclareResources(Renderer* renderer)
 {
 
@@ -532,10 +492,10 @@ void FSR2Pass::Render(Renderer* renderer)
 
 	const auto& MainCamera = renderer->GetCamera();
 
-	fsrSetup.cameraSetup.cameraPos = rabbitVec4f{ MainCamera->GetPosition(), 1.0f };
-	fsrSetup.cameraSetup.cameraProj = MainCamera->ProjectionJittered();
-	fsrSetup.cameraSetup.cameraView = MainCamera->View();
-	fsrSetup.cameraSetup.cameraViewInv = glm::inverse(MainCamera->View());
+	fsrSetup.cameraSetup.cameraPos = rabbitVec4f{ MainCamera.GetPosition(), 1.0f };
+	fsrSetup.cameraSetup.cameraProj = MainCamera.ProjectionJittered();
+	fsrSetup.cameraSetup.cameraView = MainCamera.View();
+	fsrSetup.cameraSetup.cameraViewInv = glm::inverse(MainCamera.View());
 
 	fsrSetup.depthbufferResource = renderer->depthStencil;
 	fsrSetup.motionvectorResource = renderer->velocityGBuffer;

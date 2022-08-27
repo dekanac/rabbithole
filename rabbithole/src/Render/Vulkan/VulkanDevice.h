@@ -12,6 +12,7 @@ class VulkanTexture;
 class VulkanBuffer;
 class VulkanRenderPass;
 class VulkanPipeline;
+class VulkanCommandBuffer;
 
 //#define MUTE_VALIDATION_ERROR_SPAM
 
@@ -51,7 +52,7 @@ public:
 	VkCommandPool				GetCommandPool() const { return m_CommandPool; }
 	VkDevice					GetGraphicDevice() const { return m_Device; }
 	VkSurfaceKHR				GetPresentingSurface() const { return m_PresetingSurface; }
-	VkQueue						GetGraphicsQueue() { return m_GraphicsQueue; }
+	VkQueue						GetGraphicsQueue() const { return m_GraphicsQueue; }
 	VkQueue						GetPresentQueue() const { return m_PresentQueue; }
 	VmaAllocator				GetVmaAllocator() const { return m_VmaAllocator; }
 	VkPhysicalDevice			GetPhysicalDevice() const { return m_PhysicalDevice; }
@@ -62,21 +63,20 @@ public:
 
 
 	// Buffer Helper Functions
-	VkCommandBuffer		BeginSingleTimeCommands();
-	void				EndSingleTimeCommands(VkCommandBuffer commandBuffer);
-	void				CopyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size);
-	void				CopyBufferToImage(VkCommandBuffer commandBuffer, VulkanBuffer* buffer, VulkanTexture* texture, bool copyFirstMipOnly = false);
-	void				CopyBufferToImageCubeMap(VkCommandBuffer commandBuffer, VulkanBuffer* buffer, VulkanTexture* texture);
-	void				InitImguiForVulkan(ImGui_ImplVulkan_InitInfo& info);
+	void					CopyBuffer(VulkanBuffer& srcBuffer, VulkanBuffer& dstBuffer, VkDeviceSize size);
+	void					CopyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size);
+	void					CopyBufferToImage(VulkanCommandBuffer& commandBuffer, VulkanBuffer* buffer, VulkanTexture* texture, bool copyFirstMipOnly = false);
+	void					CopyBufferToImageCubeMap(VulkanCommandBuffer& commandBuffer, VulkanBuffer* buffer, VulkanTexture* texture);
+	void					InitImguiForVulkan(ImGui_ImplVulkan_InitInfo& info);
 	
-	void ResourceBarrier(VkCommandBuffer commandBuffer, VulkanTexture* texture, ResourceState oldLayout, ResourceState newLayout, ResourceStage srcStage, ResourceStage dstStage, uint32_t mipLevel = 0);
-	void CopyImageToBuffer(VkCommandBuffer commandBuffer, VulkanTexture* texture, VulkanBuffer* buffer);
-	void CopyImage(VkCommandBuffer commandBuffer, VulkanTexture* src, VulkanTexture* dst);
+	void ResourceBarrier(VulkanCommandBuffer& commandBuffer, VulkanTexture* texture, ResourceState oldLayout, ResourceState newLayout, ResourceStage srcStage, ResourceStage dstStage, uint32_t mipLevel = 0, uint32_t mipCount = 1);
+	void CopyImageToBuffer(VulkanCommandBuffer& commandBuffer, VulkanTexture* texture, VulkanBuffer* buffer);
+	void CopyImage(VulkanCommandBuffer& commandBuffer, VulkanTexture* src, VulkanTexture* dst);
 
 	//debug utils
 	void SetObjectName(uint64_t object, VkObjectType objectType, const char* name);
-	void BeginLabel(VkCommandBuffer commandBuffer, const char* name);
-	void EndLabel(VkCommandBuffer commandBuffer);
+	void BeginLabel(VulkanCommandBuffer& commandBuffer, const char* name);
+	void EndLabel(VulkanCommandBuffer& commandBuffer);
 
 private:
 	void CreateInstance();

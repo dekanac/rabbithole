@@ -758,7 +758,7 @@ void VulkanglTFModel::LoadNode(const tinygltf::Node& inputNode, const tinygltf::
 	}
 }
 
-void VulkanglTFModel::DrawNode(VkCommandBuffer commandBuffer, const VkPipelineLayout* pipelineLayout, VulkanglTFModel::Node node, uint8_t backBufferIndex, IndexedIndirectBuffer* indirectBuffer)
+void VulkanglTFModel::DrawNode(VulkanCommandBuffer& commandBuffer, const VkPipelineLayout* pipelineLayout, VulkanglTFModel::Node node, uint8_t backBufferIndex, IndexedIndirectBuffer* indirectBuffer)
 {
 	if (node.mesh.primitives.size() > 0) 
 	{
@@ -781,7 +781,7 @@ void VulkanglTFModel::DrawNode(VkCommandBuffer commandBuffer, const VkPipelineLa
 			pushData.modelMatrix = nodeMatrix;
 			pushData.useNormalMap = m_Materials[primitive.materialIndex].normalTextureIndex != 0xFFFF;
 
-			vkCmdPushConstants(commandBuffer, *pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(SimplePushConstantData), &pushData);
+			vkCmdPushConstants(GET_VK_HANDLE(commandBuffer), *pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(SimplePushConstantData), &pushData);
 
 			//TODO: decrease num of descriptor set binding to number of different materials
 			//sort primitives by materialIndexNumber
@@ -789,7 +789,7 @@ void VulkanglTFModel::DrawNode(VkCommandBuffer commandBuffer, const VkPipelineLa
 			{
 				VulkanDescriptorSet* materialDescriptorSet = m_Materials[primitive.materialIndex].materialDescriptorSet[backBufferIndex];
 				// Bind the descriptor for the current primitive's texture
-				vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, *pipelineLayout, 0, 1, materialDescriptorSet->GetVkDescriptorSet(), 0, nullptr);
+				vkCmdBindDescriptorSets(GET_VK_HANDLE(commandBuffer), VK_PIPELINE_BIND_POINT_GRAPHICS, *pipelineLayout, 0, 1, GET_VK_HANDLE_PTR(materialDescriptorSet), 0, nullptr);
 
 				IndexIndirectDrawData indexIndirectDrawCommand{};
                 indexIndirectDrawCommand.firstIndex = primitive.firstIndex;
@@ -810,7 +810,7 @@ void VulkanglTFModel::DrawNode(VkCommandBuffer commandBuffer, const VkPipelineLa
 
 
 
-void VulkanglTFModel::Draw(VkCommandBuffer commandBuffer, const VkPipelineLayout* pipeLayout, uint8_t backBufferIndex, IndexedIndirectBuffer* indirectBuffer)
+void VulkanglTFModel::Draw(VulkanCommandBuffer& commandBuffer, const VkPipelineLayout* pipeLayout, uint8_t backBufferIndex, IndexedIndirectBuffer* indirectBuffer)
 {
 	for (auto& node : m_Nodes)
 	{
@@ -818,10 +818,10 @@ void VulkanglTFModel::Draw(VkCommandBuffer commandBuffer, const VkPipelineLayout
 	}
 }
 
-void VulkanglTFModel::BindBuffers(VkCommandBuffer commandBuffer)
+void VulkanglTFModel::BindBuffers(VulkanCommandBuffer& commandBuffer)
 {
 	VkDeviceSize offsets[1] = { 0 };
-	VkBuffer vertexBuffer = m_VertexBuffer->GetBuffer();
-	vkCmdBindVertexBuffers(commandBuffer, 0, 1, &vertexBuffer, offsets);
-	vkCmdBindIndexBuffer(commandBuffer, m_IndexBuffer->GetBuffer(), 0, VK_INDEX_TYPE_UINT32);
+	VkBuffer vertexBuffer = GET_VK_HANDLE_PTR(m_VertexBuffer);
+	vkCmdBindVertexBuffers(GET_VK_HANDLE(commandBuffer), 0, 1, &vertexBuffer, offsets);
+	vkCmdBindIndexBuffer(GET_VK_HANDLE(commandBuffer), GET_VK_HANDLE_PTR(m_IndexBuffer), 0, VK_INDEX_TYPE_UINT32);
 }

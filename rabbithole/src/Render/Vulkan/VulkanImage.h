@@ -35,7 +35,7 @@ private:
 public:
 	inline VulkanImageInfo GetInfo() const { return m_Info; }
 	inline VkImageType	   GetImageType() const { return m_ImageType; }
-	inline VkImage		   GetImage() const { return m_Image; }
+	inline VkImage		   GetVkHandle() const { return m_Image; }
 	uint32_t			   GetID() const  { return m_Id; }
 
 private:
@@ -66,7 +66,7 @@ public:
 
 public:
 	inline const VulkanImageViewInfo GetInfo() const { return m_Info; }
-	VkImageView						 GetImageView() const { return m_ImageView; }
+	VkImageView						 GetVkHandle() const { return m_ImageView; }
 	uint32_t						 GetID() const { return m_Id; }
 	Format							 GetFormat() const { return m_Info.Format; }
 
@@ -104,7 +104,7 @@ public:
 
 public:
 	inline const VulkanImageSamplerInfo GetInfo() const { return m_Info; }
-	VkSampler							GetSampler() const { return m_Sampler; }
+	VkSampler							GetVkHandle() const { return m_Sampler; }
 	uint32_t							GetID() const { return m_Id; }
 
 private:
