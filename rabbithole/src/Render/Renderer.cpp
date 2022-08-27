@@ -481,11 +481,11 @@ void Renderer::InitImgui()
 
 	ImGui_ImplVulkan_InitInfo init_info = {};
 	m_VulkanDevice.InitImguiForVulkan(init_info);
-	init_info.DescriptorPool = imguiDescriptorPool->GetPool();
+	init_info.DescriptorPool = GET_VK_HANDLE_PTR(imguiDescriptorPool);
 	init_info.MinImageCount = m_VulkanSwapchain->GetImageCount();
 	init_info.ImageCount = m_VulkanSwapchain->GetImageCount();
 
-	ImGui_ImplVulkan_Init(&init_info, m_StateManager->GetRenderPass()->GetVkRenderPass());
+	ImGui_ImplVulkan_Init(&init_info, GET_VK_HANDLE_PTR(m_StateManager->GetRenderPass()));
 
 	VulkanCommandBuffer tempCommandBuffer(m_VulkanDevice, "Temp Imgui Command Buffer");
 	tempCommandBuffer.BeginCommandBuffer(true);
@@ -572,8 +572,8 @@ void Renderer::BeginRenderPass(VkExtent2D extent)
 {
 	VkRenderPassBeginInfo renderPassInfo{};
 	renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-	renderPassInfo.renderPass = m_StateManager->GetRenderPass()->GetVkRenderPass();
-	renderPassInfo.framebuffer = m_StateManager->GetFramebuffer()->GetVkFramebuffer();
+	renderPassInfo.renderPass = GET_VK_HANDLE_PTR(m_StateManager->GetRenderPass());
+	renderPassInfo.framebuffer = GET_VK_HANDLE_PTR(m_StateManager->GetFramebuffer());
 	renderPassInfo.renderArea.offset = { 0, 0 };
 	renderPassInfo.renderArea.extent = extent;
 

@@ -183,7 +183,7 @@ void VulkanPipeline::CreateGraphicsPipeline()
 	pipelineInfo.pDynamicState = &dynamicStateInfo;
 
 	pipelineInfo.layout = *(m_DescriptorSetLayout->GetPipelineLayout());
-	pipelineInfo.renderPass = m_RenderPass->GetVkRenderPass();
+	pipelineInfo.renderPass = GET_VK_HANDLE_PTR(m_RenderPass);
 	pipelineInfo.subpass = m_PipelineInfo.subpass;
 
 	pipelineInfo.basePipelineIndex = -1;

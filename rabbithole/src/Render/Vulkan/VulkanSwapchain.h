@@ -31,7 +31,6 @@ public:
 	VulkanImage*	      GetSwapChainImage(uint32_t imageIndex) const { return m_SwapChainVulkanImages[imageIndex]; }
 
 	float			ExtentAspectRatio() { return static_cast<float>(m_SwapChainExtent.width) / static_cast<float>(m_SwapChainExtent.height); }
-	VkFormat		FindDepthFormat();
 
 	VkResult		AcquireNextImage(uint32_t* imageIndex);
 	VkResult		SubmitCommandBufferAndPresent(VulkanCommandBuffer& buffer, uint32_t* imageIndex);

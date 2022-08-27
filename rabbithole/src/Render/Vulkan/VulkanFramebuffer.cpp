@@ -26,7 +26,7 @@ VulkanFramebuffer::VulkanFramebuffer(const VulkanDevice* device,
 	VkFramebufferCreateInfo framebufferInfo = {};
 	framebufferInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
 	framebufferInfo.pNext = NULL;
-	framebufferInfo.renderPass = renderPass->GetVkRenderPass();
+	framebufferInfo.renderPass = GET_VK_HANDLE_PTR(renderPass);
 	framebufferInfo.attachmentCount = attachmentCount;
 	framebufferInfo.pAttachments = att.data();
 	framebufferInfo.width = info.width;

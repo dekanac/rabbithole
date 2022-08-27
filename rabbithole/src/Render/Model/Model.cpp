@@ -5,8 +5,6 @@
 #include <stddef.h>
 #include <iostream>
 
-#define TINYOBJLOADER_IMPLEMENTATION
-#include "tiny_obj_loader/tiny_obj_loader.h"
 #include "stb_image/stb_image.h"
 #include <glm/glm.hpp>
 #include <glm/gtc/type_ptr.hpp>

@@ -125,7 +125,7 @@ VulkanDescriptorSet::VulkanDescriptorSet(const VulkanDevice* device,const Vulkan
 	VkDescriptorSetAllocateInfo descriptorSetAllocateInfo = { VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO };
 	descriptorSetAllocateInfo.pSetLayouts = descriptorSetLayout->GetLayout();
 	descriptorSetAllocateInfo.descriptorSetCount = 1;
-	descriptorSetAllocateInfo.descriptorPool = desciptorPool->GetPool();
+	descriptorSetAllocateInfo.descriptorPool = GET_VK_HANDLE_PTR(desciptorPool);
 	VULKAN_API_CALL(vkAllocateDescriptorSets(device->GetGraphicDevice(), &descriptorSetAllocateInfo, &m_DescriptorSet));
 	
 

@@ -86,7 +86,7 @@ public:
 	const VkPipelineLayout*			 GetPipelineLayout() const { return &m_PipelineLayout; }
 	const PipelineType				 GetType() const { return m_Type; }
 
-	VkPipeline						 GetVkPipeline() { return m_Pipeline; }
+	VkPipeline						 GetVkHandle() { return m_Pipeline; }
 
 private:
 	void							 CreateGraphicsPipeline();
