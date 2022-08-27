@@ -9,24 +9,24 @@ VulkanFramebuffer::VulkanFramebuffer(const VulkanDevice* device,
 	: m_VulkanDevice(device)
 	, m_Info(info)
 {
-	uint32_t attachmentCount = attachments.size();
+	uint32_t attachmentCount = static_cast<uint32_t>(attachments.size());
 	std::vector<VkImageView> att(attachmentCount);
 
 	for (uint32_t i = 0; i < attachmentCount; i++)
 	{
-		att[i] = attachments[i]->GetImageView();
+		att[i] = GET_VK_HANDLE_PTR(attachments[i]);
 	}
 
 	if (depthStencil)
 	{
-		att.push_back(depthStencil->GetImageView());
+		att.push_back(GET_VK_HANDLE_PTR(depthStencil));
 		attachmentCount++;
 	}
 
 	VkFramebufferCreateInfo framebufferInfo = {};
 	framebufferInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
 	framebufferInfo.pNext = NULL;
-	framebufferInfo.renderPass = renderPass->GetVkRenderPass();
+	framebufferInfo.renderPass = GET_VK_HANDLE_PTR(renderPass);
 	framebufferInfo.attachmentCount = attachmentCount;
 	framebufferInfo.pAttachments = att.data();
 	framebufferInfo.width = info.width;

@@ -3,11 +3,14 @@
 #include "Logger/Logger.h"
 
 #include "Vulkan/Include/VulkanWrapper.h"
+#include "Camera.h"
 #include "SuperResolutionManager.h"
 #include "Window.h"
 #include "Model/Model.h"
 #include "BVH.h"
 #include "Render/ResourceManager.h"
+#include "Render/ResourceStateTracking.h"
+#include "PipelineManager.h"
 
 #include <unordered_map>
 #include <string>
@@ -18,9 +21,10 @@
 	#define RABBITHOLE_USING_IMGUI
 //#endif
 #define MAX_NUM_OF_LIGHTS 4
-constexpr size_t numOfLights = 4;
+constexpr size_t numOfLights = MAX_NUM_OF_LIGHTS;
 
 class Camera;
+struct CameraState;
 class EntityManager;
 struct GLFWwindow;
 struct Vertex;
@@ -28,7 +32,7 @@ class VulkanDevice;
 class VulkanStateManager;
 class Entity;
 class Shader;
-class RenderPass;
+class RabbitPass;
 
 typedef VkExtent2D Extent2D;
 
@@ -69,7 +73,7 @@ struct UniformBufferObject
 	rabbitVec4f eyeYAxis;
 	rabbitVec4f eyeZAxis;
 	rabbitMat4f projJittered;
-
+	rabbitVec4f currentFrameInfo;
 };
 
 struct SSAOSamples
@@ -89,7 +93,9 @@ struct LightParams
 	float radius;
 	float color[3];
 	float intensity;
-	alignas(16) uint32_t type;
+	uint32_t type;
+	float size;
+	uint32_t padding[2];
 };
 
 enum LightType : uint32_t
@@ -147,36 +153,60 @@ struct IndexedIndirectBuffer
 	uint64_t currentOffset = 0;
 
 	void SubmitToGPU();
-	void AddIndirectDrawCommand(VkCommandBuffer commandBuffer, IndexIndirectDrawData& drawData);
+	void AddIndirectDrawCommand(VulkanCommandBuffer& commandBuffer, IndexIndirectDrawData& drawData);
 	void Reset();
+};
+
+struct DenoiseBufferDimensions
+{
+	uint32_t dimensions[2];
+};
+
+struct DenoiseShadowData
+{
+	rabbitVec3f		Eye;
+	int				FirstFrame;
+	int32_t			BufferDimensions[2];
+	float			InvBufferDimensions[2];
+	rabbitMat4f		ProjectionInverse;
+	rabbitMat4f		ReprojectionMatrix;
+	rabbitMat4f		ViewProjectionInverse;
+};
+
+struct DenoiseShadowFilterData
+{
+	rabbitMat4f ProjectionInverse;
+	int32_t     BufferDimensions[2];
+	float		InvBufferDimensions[2];
+	float		DepthSimilaritySigma;
 };
 
 class Renderer
 {
-	SingletonClass(Renderer)
+	SingletonClass(Renderer);
 
 private:
-
-	VulkanDevice								m_VulkanDevice{};
-	VulkanStateManager*							m_StateManager;
-	ResourceManager*							m_ResourceManager;
-	std::unique_ptr<VulkanSwapchain>			m_VulkanSwapchain;
-	std::unique_ptr<VulkanDescriptorPool>		m_DescriptorPool;
-	std::vector<VkCommandBuffer>				m_CommandBuffers;
-	uint8_t										m_CurrentImageIndex = 0;
+	VulkanDevice										m_VulkanDevice{};
+	VulkanStateManager*									m_StateManager;
+	ResourceManager*									m_ResourceManager;
+	std::unique_ptr<VulkanSwapchain>					m_VulkanSwapchain;
+	std::unique_ptr<VulkanDescriptorPool>				m_DescriptorPool;
+	std::vector<std::unique_ptr<VulkanCommandBuffer>>	m_MainRenderCommandBuffers;
+	uint32_t											m_CurrentImageIndex = 0;
+	uint64_t											m_CurrentFrameIndex = 0;
 
 	VulkanBuffer* m_MainConstBuffer[MAX_FRAMES_IN_FLIGHT];
 	VulkanBuffer* m_VertexUploadBuffer;
 	
-	Camera* MainCamera{};
-	UIState* m_CurrentUIState{};
-	GPUTimeStamps m_GPUTimeStamps{};
+	Camera			m_MainCamera{};
+	CameraState		m_CurrentCameraState{};
+	UIState			m_CurrentUIState{};
+	GPUTimeStamps	m_GPUTimeStamps{};
 	
 	void LoadModels();
 	void LoadAndCreateShaders();
 	void CreateCommandBuffers();
 	void RecreateSwapchain();
-	void RecordCommandBuffer(int imageIndex);
 	void CreateUniformBuffers();
 	void CreateDescriptorPool();
 
@@ -188,74 +218,76 @@ private:
 	void ImguiProfilerWindow(std::vector<TimeStamp>& timestamps);
 	void RegisterTexturesToImGui();
 	void ImGuiTextureDebugger();
-public:
-	inline VulkanDevice& GetVulkanDevice() { return m_VulkanDevice; }
-	inline VulkanStateManager* GetStateManager() const { return m_StateManager; }
-	inline VulkanSwapchain* GetSwapchain() const { return m_VulkanSwapchain.get(); }
-	inline ResourceManager* GetResourceManager() const { return m_ResourceManager; }
-	inline VulkanImageView* GetSwapchainImage() { return m_VulkanSwapchain->GetImageView(m_CurrentImageIndex); }
-	inline VulkanBuffer* GetVertexUploadBuffer() { return m_VertexUploadBuffer; }
 
-	void ResourceBarrier(VulkanTexture* texture, ResourceState oldLayout, ResourceState newLayout, ResourceStage srcStage, ResourceStage dstStage);
+public:
+	inline VulkanDevice&		GetVulkanDevice() { return m_VulkanDevice; }
+	inline VulkanStateManager*	GetStateManager() const { return m_StateManager; }
+	inline VulkanSwapchain*		GetSwapchain() const { return m_VulkanSwapchain.get(); }
+	inline ResourceManager*		GetResourceManager() const { return m_ResourceManager; }
+	inline VulkanImageView*		GetSwapchainImage() { return m_VulkanSwapchain->GetImageView(m_CurrentImageIndex); }
+	inline VulkanBuffer*		GetVertexUploadBuffer() { return m_VertexUploadBuffer; }
+
+	void ResourceBarrier(VulkanTexture* texture, ResourceState oldLayout, ResourceState newLayout, ResourceStage srcStage, ResourceStage dstStage, uint32_t mipLevel = 0);
 	void CopyImageToBuffer(VulkanTexture* texture, VulkanBuffer* buffer);
 	void CopyImage(VulkanTexture* src, VulkanTexture* dst);
 
-	inline Shader* GetShader(const std::string& name) { return m_ResourceManager->GetShader(name); }
-	inline VulkanTexture* GetTextureWithID(uint32_t textureId) { return m_ResourceManager->GetTextures()[textureId]; }
-	inline Camera* GetCamera() { return MainCamera; }
-	inline UIState* GetUIState() { return m_CurrentUIState; }
+	inline Shader*			GetShader(const std::string& name) const { return m_ResourceManager->GetShader(name); }
+	inline VulkanTexture*	GetTextureWithID(uint32_t textureId) { return m_ResourceManager->GetTextures()[textureId]; }
+	inline Camera&			GetCamera() { return m_MainCamera; }
+	inline UIState&			GetUIState() { return m_CurrentUIState; }
+	inline CameraState&		GetCameraState() { return m_CurrentCameraState; }
 
 	inline VulkanBuffer* GetMainConstBuffer() { return m_MainConstBuffer[m_CurrentImageIndex]; }
 	inline VulkanBuffer* GetLightParams() { return m_LightParams; }
 
 	void UpdateDebugOptions();
+	void UpdateEntityPickId();
 	void BindViewport(float x, float y, float width, float height);
 	void BindVertexData(size_t offset);
 
-	void DrawVertices(uint64_t count);
+	void DrawVertices(uint32_t count);
 	void DrawIndicesIndirect(uint32_t count, uint32_t offset);
 	void Dispatch(uint32_t x, uint32_t y, uint32_t z);
+	
+	void CopyToSwapChain();
+	void DrawGeometryGLTF(std::vector<VulkanglTFModel>& bucket);
+	void DrawFullScreenQuad();
 
 	template <typename T>
-	void BindPushConstant(T& push)
+	void BindPushConstant(T&& push)
 	{
-		vkCmdPushConstants(GetCurrentCommandBuffer(), 
-			*(m_StateManager->GetPipeline()->GetPipelineLayout()), 
-			VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_VERTEX_BIT, //TODO: HC
-			0, 
-			sizeof(T), 
-			&push);
+		PushConstant pushConst(reinterpret_cast<void*>(push), static_cast<uint32_t>(sizeof(T)));
+
+		m_StateManager->SetPushConst(pushConst);
 	}
 
-	void SetCurrentImageIndex(int imageIndex) { m_CurrentImageIndex = imageIndex; }
-	int GetCurrentImageIndex() { return m_CurrentImageIndex; }
+	void BindPushConstInternal();
+
+	void		SetCurrentImageIndex(int imageIndex) { m_CurrentImageIndex = imageIndex; }
+	uint32_t	GetCurrentImageIndex() { return m_CurrentImageIndex; }
+	uint64_t	GetCurrentFrameIndex() { return m_CurrentFrameIndex; }
 	
+	VulkanCommandBuffer& GetCurrentCommandBuffer() { return *m_MainRenderCommandBuffers[m_CurrentImageIndex]; }
+	
+	void RecordCommandBuffer();
 	void BeginRenderPass(VkExtent2D extent);
 	void EndRenderPass();
 
-	void RecordGPUTimeStamp(const char* label);
+	void BindCameraMatrices(Camera* camera);
+	
+	template<class T = Pipeline> void BindPipeline();
+	template<> void BindPipeline<GraphicsPipeline>();
+	template<> void BindPipeline<ComputePipeline>();
 
-	void BindGraphicsPipeline(bool isPostUpscale = false);
-	void BindComputePipeline();
 	void BindDescriptorSets();
 	void BindUBO();
-	VkCommandBuffer GetCurrentCommandBuffer() { return m_CommandBuffers[m_CurrentImageIndex]; }
 
-	void BindCameraMatrices(Camera* camera);
-
-	void DrawGeometryGLTF(std::vector<VulkanglTFModel>& bucket);
-	//void DrawBoundingBoxes(std::vector<RabbitModel*>& bucket);
-	void DrawFullScreenQuad(bool isPostUpscale = false);
-	void UpdateEntityPickId();
-
-	void BeginCommandBuffer();
-	void EndCommandBuffer();
+	void RecordGPUTimeStamp(const char* label);
+	void ExecuteRabbitPass(RabbitPass& rabbitPass);
 
 	//helper functions
-	std::vector<char> ReadFile(const std::string& filepath);
-	void FillTheLightParam(LightParams& lightParam, rabbitVec3f position, rabbitVec3f color, float radius, float intensity, LightType type);
-	void CopyToSwapChain();
-	void ExecuteRenderPass(RenderPass& renderpass);
+	std::vector<char>	ReadFile(const std::string& filepath);
+	void				FillTheLightParam(LightParams& lightParam, rabbitVec3f position, rabbitVec3f color, float radius, float intensity, LightType type, float size);
 
 public:
 	std::vector<VulkanglTFModel> gltfModels;
@@ -265,8 +297,10 @@ public:
 	VulkanTexture* g_DefaultBlackTexture;
 	VulkanTexture* g_Default3DTexture;
 	VulkanTexture* g_DefaultArrayTexture;
+	
 	//TODO: do something with these
 	VulkanTexture* depthStencil;
+
 	//geometry
 	IndexedIndirectBuffer* geomDataIndirectDraw;
 
@@ -320,6 +354,7 @@ public:
 	VulkanTexture* scatteringTexture;
 	VulkanTexture* noise3DLUT;
 	VulkanTexture* noise2DTexture;
+	VulkanTexture* blueNoise2DTexture;
 	VulkanBuffer* volumetricFogParamsBuffer;
 	VolumetricFogParams volumetricFogParams{};
 	bool init3dnoise = false;
@@ -327,10 +362,22 @@ public:
 	//posteffects
 	VulkanTexture* postUpscalePostEffects;
 
+	//shadow denoise
+	VulkanBuffer* denoiseShadowMaskBuffer[MAX_NUM_OF_LIGHTS];
+	VulkanBuffer* denoiseBufferDimensions;
+	VulkanBuffer* denoiseTileMetadataBuffer[MAX_NUM_OF_LIGHTS];
+	VulkanTexture* denoiseMomentsBuffer0[MAX_NUM_OF_LIGHTS];
+	VulkanTexture* denoiseMomentsBuffer1[MAX_NUM_OF_LIGHTS];
+	VulkanTexture* denoiseReprojectionBuffer0[MAX_NUM_OF_LIGHTS];
+	VulkanTexture* denoiseReprojectionBuffer1[MAX_NUM_OF_LIGHTS];
+	VulkanTexture* denoiseLastFrameDepth;
+	VulkanBuffer* denoiseShadowDataBuffer;
+	VulkanBuffer* denoiseShadowFilterDataBuffer;
+	VulkanTexture* denoisedShadowOutput;
+
 	bool m_RenderOutlinedEntity = false;
     bool m_FramebufferResized = false;
 	bool m_RenderTAA = false;
-	bool m_DrawBoundingBox = false;
 	bool m_RecordGPUTimeStamps = true;
 
 	bool Init();
@@ -341,15 +388,16 @@ public:
 
 private:
 	void CreateGeometryDescriptors(std::vector<VulkanglTFModel>& models, uint32_t imageIndex);
-
+	void InitTextures();
+	void InitNoiseTextures();
 	void InitImgui();
 	bool m_ImguiInitialized = false;
 	float m_CurrentDeltaTime;
+
 public:
 	//Don't ask, Imgui init wants swapchain renderpass to be ready, but its not. So basically we need 2 init phases..
 	bool imguiReady = false;
-
-private:
-	void InitTextures();
-	void InitNoiseTextures();
 };
+
+
+#include "Renderer.hpp"

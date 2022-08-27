@@ -2,6 +2,8 @@
 
 #include "Render/Shader.h"
 #include "Render/Model/Model.h"
+#include "Render/Converters.h"
+
 
 VulkanDescriptor::VulkanDescriptor(const VulkanDescriptorInfo& info)
 	: m_Info(info)
@@ -11,25 +13,25 @@ VulkanDescriptor::VulkanDescriptor(const VulkanDescriptorInfo& info)
 	case DescriptorType::CombinedSampler:
 	{
 		m_ResourceInfo.m_ResourceInfo.ImageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-		m_ResourceInfo.m_ResourceInfo.ImageInfo.imageView = m_Info.imageView->GetImageView();
-		m_ResourceInfo.m_ResourceInfo.ImageInfo.sampler = m_Info.imageSampler->GetSampler();
+		m_ResourceInfo.m_ResourceInfo.ImageInfo.imageView = GET_VK_HANDLE_PTR(m_Info.imageView);
+		m_ResourceInfo.m_ResourceInfo.ImageInfo.sampler = GET_VK_HANDLE_PTR(m_Info.imageSampler);
 		break;
 	}
 	case DescriptorType::SampledImage:
 	{
 		m_ResourceInfo.m_ResourceInfo.ImageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-		m_ResourceInfo.m_ResourceInfo.ImageInfo.imageView = m_Info.imageView->GetImageView();
+		m_ResourceInfo.m_ResourceInfo.ImageInfo.imageView = GET_VK_HANDLE_PTR(m_Info.imageView);
 		break;
 	}
 	case DescriptorType::Sampler:
 	{
 		m_ResourceInfo.m_ResourceInfo.ImageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-		m_ResourceInfo.m_ResourceInfo.ImageInfo.sampler = m_Info.imageSampler->GetSampler();
+		m_ResourceInfo.m_ResourceInfo.ImageInfo.sampler = GET_VK_HANDLE_PTR(m_Info.imageSampler);
 		break;
 	}
 	case DescriptorType::UniformBuffer:
 	{
-		m_ResourceInfo.m_ResourceInfo.BufferInfo.buffer = m_Info.buffer->GetBuffer();
+		m_ResourceInfo.m_ResourceInfo.BufferInfo.buffer = GET_VK_HANDLE_PTR(m_Info.buffer);
 		m_ResourceInfo.m_ResourceInfo.BufferInfo.offset = 0;
 		m_ResourceInfo.m_ResourceInfo.BufferInfo.range = m_Info.buffer->GetInfo().size;
 		break;
@@ -37,12 +39,12 @@ VulkanDescriptor::VulkanDescriptor(const VulkanDescriptorInfo& info)
 	case DescriptorType::StorageImage:
 	{
 		m_ResourceInfo.m_ResourceInfo.ImageInfo.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
-		m_ResourceInfo.m_ResourceInfo.ImageInfo.imageView = m_Info.imageView->GetImageView();
+		m_ResourceInfo.m_ResourceInfo.ImageInfo.imageView = GET_VK_HANDLE_PTR(m_Info.imageView);
 		break;
 	}
 	case DescriptorType::StorageBuffer:
 	{
-		m_ResourceInfo.m_ResourceInfo.BufferInfo.buffer = m_Info.buffer->GetBuffer();
+		m_ResourceInfo.m_ResourceInfo.BufferInfo.buffer = GET_VK_HANDLE_PTR(m_Info.buffer);
 		m_ResourceInfo.m_ResourceInfo.BufferInfo.offset = 0;
 		m_ResourceInfo.m_ResourceInfo.BufferInfo.range = m_Info.buffer->GetInfo().size;
 		break;
@@ -83,11 +85,17 @@ VulkanDescriptorSetLayout::VulkanDescriptorSetLayout(const VulkanDevice* device,
 	: m_Device(device)
 {
 	std::vector<VkDescriptorSetLayoutBinding> descriptorSetLayoutBindings;
+	std::vector<VkPushConstantRange> descritorSetPushConstants;
+
 	for (const Shader* shader : shaders)
 	{
 		for (const VkDescriptorSetLayoutBinding& binding : shader->GetDescriptorSetLayoutBindings())
 		{
 			descriptorSetLayoutBindings.push_back(binding);
+		}
+		for (const VkPushConstantRange& pushConst : shader->GetPushConstants())
+		{
+			descritorSetPushConstants.push_back(pushConst);
 		}
 	}
 
@@ -97,17 +105,12 @@ VulkanDescriptorSetLayout::VulkanDescriptorSetLayout(const VulkanDevice* device,
 
 	VULKAN_API_CALL(vkCreateDescriptorSetLayout(m_Device->GetGraphicDevice(), &descriptorSetLayoutCreateInfo, nullptr, &m_Layout));
 	
-	VkPushConstantRange pushConstantRange{}; //TODO: this is hard coded...need to provide this through arguments
-	pushConstantRange.stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
-	pushConstantRange.offset = 0;
-	pushConstantRange.size = sizeof(SimplePushConstantData);
-	
 	VkPipelineLayoutCreateInfo pipelineLayoutCreateInfo = { VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO };
 	pipelineLayoutCreateInfo.setLayoutCount = 1;
 	pipelineLayoutCreateInfo.pSetLayouts = &m_Layout;
 
-	pipelineLayoutCreateInfo.pushConstantRangeCount = 1;
-	pipelineLayoutCreateInfo.pPushConstantRanges = &pushConstantRange;
+	pipelineLayoutCreateInfo.pushConstantRangeCount = static_cast<uint32_t>(descritorSetPushConstants.size());
+	pipelineLayoutCreateInfo.pPushConstantRanges = descritorSetPushConstants.data();
 
 	VULKAN_API_CALL(vkCreatePipelineLayout(m_Device->GetGraphicDevice(), &pipelineLayoutCreateInfo, nullptr, &m_PipelineLayout));
 }
@@ -122,7 +125,7 @@ VulkanDescriptorSet::VulkanDescriptorSet(const VulkanDevice* device,const Vulkan
 	VkDescriptorSetAllocateInfo descriptorSetAllocateInfo = { VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO };
 	descriptorSetAllocateInfo.pSetLayouts = descriptorSetLayout->GetLayout();
 	descriptorSetAllocateInfo.descriptorSetCount = 1;
-	descriptorSetAllocateInfo.descriptorPool = desciptorPool->GetPool();
+	descriptorSetAllocateInfo.descriptorPool = GET_VK_HANDLE_PTR(desciptorPool);
 	VULKAN_API_CALL(vkAllocateDescriptorSets(device->GetGraphicDevice(), &descriptorSetAllocateInfo, &m_DescriptorSet));
 	
 
@@ -132,7 +135,7 @@ VulkanDescriptorSet::VulkanDescriptorSet(const VulkanDevice* device,const Vulkan
 		VkWriteDescriptorSet& writeDescriptorSet = writeDescriptorSets[i];
 		writeDescriptorSet = { VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET };
 		writeDescriptorSet.dstSet = m_DescriptorSet;
-		writeDescriptorSet.dstBinding = i;
+		writeDescriptorSet.dstBinding = descriptors[i]->GetDescriptorInfo().Binding;
 		writeDescriptorSet.dstArrayElement = 0;
 		writeDescriptorSet.descriptorCount = 1;
 
@@ -187,28 +190,28 @@ DescriptorSetManager::DescriptorSetManager()
 
 void DescriptorSetManager::SetCombinedImageSampler(uint32_t slot, VulkanTexture* texture)
 {
-	VkWriteDescriptorSet& write = m_Writes[m_CurrentWriteIndex++];
-	write.dstSet = m_DescriptorSet->GetVkDescriptorSet2();
-	write.dstBinding = slot;
-	write.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-	VkDescriptorImageInfo& info = m_ImageInfos[m_CurrentImageInfoIndex++];
-	write.pImageInfo = &info;
-	info.sampler = texture->GetSampler()->GetSampler();
-	info.imageView = texture->GetView()->GetImageView();
-	info.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+	//VkWriteDescriptorSet& write = m_Writes[m_CurrentWriteIndex++];
+	//write.dstSet = m_DescriptorSet->GetVkDescriptorSet2();
+	//write.dstBinding = slot;
+	//write.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+	//VkDescriptorImageInfo& info = m_ImageInfos[m_CurrentImageInfoIndex++];
+	//write.pImageInfo = &info;
+	//info.sampler = texture->GetSampler()->GetSampler();
+	//info.imageView = texture->GetView()->GetImageView();
+	//info.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 }
 
 void DescriptorSetManager::SetConstantBuffer(uint32_t slot, VulkanBuffer* buffer, uint64_t offset, uint64_t range)
 {
-	VkWriteDescriptorSet& write = m_Writes[m_CurrentWriteIndex++];
-	write.dstSet = m_DescriptorSet->GetVkDescriptorSet2();
-	write.dstBinding = slot;
-	write.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-	VkDescriptorBufferInfo& info = m_BufferInfos[m_CurrentBufferInfoIndex++];
-	write.pBufferInfo = &info;
-	info.buffer = buffer->GetBuffer();
-	info.offset = offset;
-	info.range = range;
+	//VkWriteDescriptorSet& write = m_Writes[m_CurrentWriteIndex++];
+	//write.dstSet = m_DescriptorSet->GetVkDescriptorSet2();
+	//write.dstBinding = slot;
+	//write.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+	//VkDescriptorBufferInfo& info = m_BufferInfos[m_CurrentBufferInfoIndex++];
+	//write.pBufferInfo = &info;
+	//info.buffer = buffer->GetBuffer();
+	//info.offset = offset;
+	//info.range = range;
 }
 
 void DescriptorSetManager::Reset()

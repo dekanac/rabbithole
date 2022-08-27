@@ -122,7 +122,7 @@ rabbitMat4f Camera::View() const
 	return m_ViewMatrix;
 }
 
-const rabbitVec3f& Camera::GetPosition() const 
+const rabbitVec3f Camera::GetPosition() const 
 {
 	return CalculatePosition();
 }

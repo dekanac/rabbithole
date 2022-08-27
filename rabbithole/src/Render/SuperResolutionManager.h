@@ -9,7 +9,7 @@ struct UIState;
 
 class SuperResolutionManager
 {
-	SingletonClass(SuperResolutionManager)
+	SingletonClass(SuperResolutionManager);
 
 public:
 
@@ -46,8 +46,8 @@ public:
 	void DestroyFsrContext();
 
 	void PreDraw(UIState* pState);
-	void Draw(VkCommandBuffer commandBuffer, const FfxUpscaleSetup& cameraSetup, UIState* pState);
-	void GenerateReactiveMask(VkCommandBuffer pCommandList, const FfxUpscaleSetup& cameraSetup, UIState* pState);
+	void Draw(VulkanCommandBuffer& commandBuffer, const FfxUpscaleSetup& cameraSetup, UIState* pState);
+	void GenerateReactiveMask(VulkanCommandBuffer& commandBuffer, const FfxUpscaleSetup& cameraSetup, UIState* pState);
 
 private:
 	uint32_t m_NativeResolutionWidth;

@@ -1,6 +1,7 @@
 #include "precomp.h"
 
 #include "vk_mem_alloc.h"
+#include "Render/Converters.h"
 
 VulkanBuffer::VulkanBuffer(VulkanDevice& device, BufferUsageFlags flags, MemoryAccess access, uint64_t size, const char* name)
 	: m_Name(name)
@@ -71,7 +72,7 @@ void VulkanBuffer::Unmap()
 }
 
 //TODO: fix this, move code to OFFSET version and then from here call FillBuffer(data, 0, size)
-void VulkanBuffer::FillBuffer(void* inputData, size_t size)
+void VulkanBuffer::FillBuffer(void* inputData, uint64_t size)
 {
 	if (m_Info.memoryAccess != MemoryAccess::GPU)
 	{
@@ -85,11 +86,11 @@ void VulkanBuffer::FillBuffer(void* inputData, size_t size)
 
 		stagingBuffer.FillBuffer(inputData, static_cast<size_t>(size));
 
-		m_Device.CopyBuffer(stagingBuffer.GetBuffer(), m_Buffer, size);
+		m_Device.CopyBuffer(GET_VK_HANDLE(stagingBuffer), m_Buffer, size);
 	}
 }
 
-void VulkanBuffer::FillBuffer(void* inputData, size_t offset, size_t size)
+void VulkanBuffer::FillBuffer(void* inputData, uint64_t offset, uint64_t size)
 {
 	void* data = Map();
 	char* dataOffset = (char*)data + offset;

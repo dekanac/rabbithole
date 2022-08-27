@@ -85,14 +85,14 @@
       <SDLCheck>true</SDLCheck>
       <ConformanceMode>false</ConformanceMode>
       <LanguageStandard>stdcpplatest</LanguageStandard>
-      <AdditionalIncludeDirectories>$(ProjectDir)src;$(ProjectDir)src\vendor;$(ProjectDir)extern\sdl\include;$(ProjectDir)extern;$(ProjectDir)extern\glfw\include;$(VK_SDK_PATH)\Include;$(ProjectDir)extern\vma\;$(ProjectDir)extern\assimp\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(ProjectDir)src;$(ProjectDir)src\vendor;$(ProjectDir)extern\sdl\include;$(ProjectDir)extern;$(ProjectDir)extern\glfw\include;$(VK_SDK_PATH)\Include;$(ProjectDir)extern\vma\;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
       <PrecompiledHeaderFile>precomp.h</PrecompiledHeaderFile>
       <LanguageStandard_C>stdc17</LanguageStandard_C>
     </ClCompile>
     <Link>
-      <AdditionalDependencies>vulkan-1.lib;SDL2.lib;glfw3.lib;VkLayer_utils.lib;assimp-vc142-mtd.lib;ffx_fsr2_api_vk_x64.lib;%(AdditionalDependencies)</AdditionalDependencies>
-      <AdditionalLibraryDirectories>$(ProjectDir)extern\assimp\lib;$(ProjectDir)extern\sdl\lib;$(ProjectDir)extern\FSR2.0\lib;$(ProjectDir)extern\glfw\lib-vc2017;$(VK_SDK_PATH)\Lib;$(VK_SDK_PATH)\Bin;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>vulkan-1.lib;SDL2.lib;glfw3.lib;VkLayer_utils.lib;ffx_fsr2_api_vk_x64.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories>$(ProjectDir)extern\sdl\lib;$(ProjectDir)extern\FSR2.0\lib;$(ProjectDir)extern\glfw\lib-vc2017;$(VK_SDK_PATH)\Lib;$(VK_SDK_PATH)\Bin;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <SubSystem>Console</SubSystem>
     </Link>
   </ItemDefinitionGroup>
@@ -118,7 +118,7 @@
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <SDLCheck>true</SDLCheck>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>$(ProjectDir)src;$(ProjectDir)src\vendor;$(ProjectDir)extern\sdl\include;$(ProjectDir)extern;$(ProjectDir)extern\glfw\include;$(VK_SDK_PATH)\Include;$(ProjectDir)extern\vma\;$(ProjectDir)extern\assimp\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(ProjectDir)src;$(ProjectDir)src\vendor;$(ProjectDir)extern\sdl\include;$(ProjectDir)extern;$(ProjectDir)extern\glfw\include;$(VK_SDK_PATH)\Include;$(ProjectDir)extern\vma\;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpplatest</LanguageStandard>
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
       <PrecompiledHeaderFile>precomp.h</PrecompiledHeaderFile>
@@ -128,8 +128,8 @@
     <Link>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
-      <AdditionalDependencies>vulkan-1.lib;SDL2.lib;glfw3.lib;VkLayer_utils.lib;assimp-vc142-mtd.lib;ffx_fsr2_api_vk_x64.lib;%(AdditionalDependencies)</AdditionalDependencies>
-      <AdditionalLibraryDirectories>$(ProjectDir)extern\assimp\lib;$(ProjectDir)extern\sdl\lib;$(ProjectDir)extern\FSR2.0\lib;$(ProjectDir)extern\glfw\lib-vc2017;$(VK_SDK_PATH)\Lib;$(VK_SDK_PATH)\Bin;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>vulkan-1.lib;SDL2.lib;glfw3.lib;VkLayer_utils.lib;ffx_fsr2_api_vk_x64.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories>$(ProjectDir)extern\sdl\lib;$(ProjectDir)extern\FSR2.0\lib;$(ProjectDir)extern\glfw\lib-vc2017;$(VK_SDK_PATH)\Lib;$(VK_SDK_PATH)\Bin;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <SubSystem>Console</SubSystem>
     </Link>
   </ItemDefinitionGroup>
@@ -137,10 +137,11 @@
     <ClCompile Include="src\Render\BVH.cpp" />
     <ClCompile Include="src\Render\Model\TextureLoading.cpp" />
     <ClCompile Include="src\Render\PipelineManager.cpp" />
-    <ClCompile Include="src\Render\RenderPass.cpp" />
+    <ClCompile Include="src\Render\RabbitPass.cpp" />
     <ClCompile Include="src\Render\ResourceManager.cpp" />
     <ClCompile Include="src\Render\ResourceStateTracking.cpp" />
     <ClCompile Include="src\Render\SuperResolutionManager.cpp" />
+    <ClCompile Include="src\Render\Converters.cpp" />
     <ClCompile Include="src\Render\Vulkan\precomp.cpp" />
     <ClCompile Include="src\Core\Application.cpp" />
     <ClCompile Include="src\Core\main.cpp" />
@@ -184,9 +185,11 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\Render\BVH.h" />
+    <ClInclude Include="src\Render\Converters.h" />
     <ClInclude Include="src\Render\Model\TextureLoading.h" />
     <ClInclude Include="src\Render\PipelineManager.h" />
-    <ClInclude Include="src\Render\RenderPass.h" />
+    <ClInclude Include="src\Render\RabbitPass.h" />
+    <ClInclude Include="src\Render\Renderer.hpp" />
     <ClInclude Include="src\Render\ResourceManager.h" />
     <ClInclude Include="src\Render\ResourceStateTracking.h" />
     <ClInclude Include="src\Render\SuperResolutionManager.h" />

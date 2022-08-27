@@ -6,10 +6,10 @@ class ManagableResource;
 
 class ResourceStateTrackingManager
 {
-	SingletonClass(ResourceStateTrackingManager)
+	SingletonClass(ResourceStateTrackingManager);
 
 public:
-	void TransitionResources();
+	void CommitBarriers();
 	void AddResourceForTransition(ManagableResource* resource);
 	void Reset();
 

@@ -3,6 +3,7 @@
 #include "../VulkanTypes.h"
 #include "../VulkanSwapchain.h"
 #include "../VulkanDevice.h"
+#include "../VulkanCommandBuffer.h"
 #include "../VulkanPipeline.h"
 #include "../VulkanBuffer.h"
 #include "../VulkanDescriptors.h"
@@ -12,6 +13,5 @@
 #include "../VulkanRenderPass.h"
 #include "../VulkanStateManager.h"
 #include "../VulkanGPUProfiler.h"
-#include "../VulkanCommandBuffer.h"
 
 

@@ -57,7 +57,7 @@ public:
 	VulkanDescriptorPool(const VulkanDevice* device, const VulkanDescriptorPoolInfo& info);
 	~VulkanDescriptorPool();
 
-	const VkDescriptorPool GetPool() const { return m_DescriptorPool; }
+	const VkDescriptorPool GetVkHandle() const { return m_DescriptorPool; }
 private:
 	const VulkanDevice*		 m_Device;
 	VulkanDescriptorPoolInfo m_Info{};
@@ -93,9 +93,7 @@ public:
 		const char* name);
 
 public:
-	const VkDescriptorSet* GetVkDescriptorSet() const { return &m_DescriptorSet; }
-	VkDescriptorSet GetVkDescriptorSet2() const { return m_DescriptorSet; }
-	//TODO: maaan what the hell
+	const VkDescriptorSet* GetVkHandle() const { return &m_DescriptorSet; }
 
 private:
 	VkDescriptorSet m_DescriptorSet = VK_NULL_HANDLE;

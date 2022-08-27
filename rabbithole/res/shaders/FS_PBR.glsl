@@ -11,6 +11,7 @@ layout (binding = 5) uniform sampler2D samplerSSAO;
 layout (binding = 6) uniform sampler2DArray samplerShadowMap;
 layout (binding = 7) uniform sampler2D samplerVelocity;
 layout (binding = 8) uniform sampler2D samplerDepth;
+layout (binding = 9) uniform sampler2DArray samplerDenoisedShadow;
 
 layout (location = 0) out vec4 outColor;
 
@@ -149,7 +150,8 @@ vec3 DoPBRLighting(SceneInfo sceneInfo, in vec3 diffuseColor, in vec3 specularCo
     for (int i = 0; i < lightCount; ++i)
     {
         Light light = Lights.light[i];
-        float shadowFactor = texture(samplerShadowMap, vec3(inUV, i)).r;
+        
+        float shadowFactor = texture(samplerDenoisedShadow, vec3(inUV, i)).r;
         
         if (light.type == LightType_Point)
         {

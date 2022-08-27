@@ -4,7 +4,7 @@
 #include "Renderer.h"
 #include "Resource.h"
 
-void ResourceStateTrackingManager::TransitionResources()
+void ResourceStateTrackingManager::CommitBarriers()
 {
 	for (auto resource : m_ResourcesForTransition)
 	{
@@ -19,6 +19,8 @@ void ResourceStateTrackingManager::TransitionResources()
 			Renderer::instance().ResourceBarrier((VulkanTexture*)resource, resourceState, resourceShouldBe, resourcePreviousStage, resourceCurrentStage);
 		}
 	}
+
+	Reset();
 }
 
 void ResourceStateTrackingManager::AddResourceForTransition(ManagableResource* resource)

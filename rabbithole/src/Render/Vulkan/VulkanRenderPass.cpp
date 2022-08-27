@@ -1,5 +1,7 @@
 #include "precomp.h"
 
+#include "Render/Converters.h"
+
 VulkanRenderPass::VulkanRenderPass(
 	const VulkanDevice* device, 
 	const std::vector<VulkanImageView*> renderTargetViews, 
@@ -104,7 +106,7 @@ VulkanRenderPass::VulkanRenderPass(
     renderPassCreateInfo.pAttachments = attachmentDescriptions.data();
     renderPassCreateInfo.pSubpasses = &subpassDescription;
     renderPassCreateInfo.subpassCount = 1;
-    renderPassCreateInfo.dependencyCount = dependencies.size();
+    renderPassCreateInfo.dependencyCount = static_cast<uint32_t>(dependencies.size());
     renderPassCreateInfo.pDependencies = dependencies.data();
 
 	VULKAN_API_CALL(vkCreateRenderPass(m_VulkanDevice->GetGraphicDevice(), &renderPassCreateInfo, nullptr, &m_RenderPass));

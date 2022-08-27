@@ -7,6 +7,7 @@
 #define DEFAULT_UBO_ELEMENT_SIZE (uint32_t)16
 
 VulkanStateManager::VulkanStateManager()
+	: m_PushConst(nullptr, 0)
 {
 	m_Pipeline = nullptr;
 	m_RenderPass = nullptr;
@@ -17,8 +18,12 @@ VulkanStateManager::VulkanStateManager()
 
     VulkanRenderPass::DefaultRenderPassInfo(m_RenderPassConfig);
 
-	m_DirtyPipeline = false; 
+	m_DirtyPipeline = true;
+	m_DirtyFramebuffer = true;
+	m_DirtyRenderPass = true;
 	m_DirtyUBO = false;
+
+	SetFramebufferExtent(Extent2D{ GetNativeWidth, GetNativeHeight });
 
     //m_DescriptorSetManager = new DescriptorSetManager();
     m_RenderTargets.resize(MaxRenderTargetCount);
@@ -98,49 +103,60 @@ void VulkanStateManager::SetRenderTarget0(VulkanImageView* rt)
 {
     m_RenderTarget0 = rt;
     m_DirtyPipeline = true;
+	m_DirtyRenderPass = true;
 }
 
 void VulkanStateManager::SetRenderTarget1(VulkanImageView* rt)
 {
     m_RenderTarget1 = rt;
     m_DirtyPipeline = true;
+	m_DirtyRenderPass = true;
+	m_DirtyFramebuffer = true;
 }
 
 void VulkanStateManager::SetRenderTarget2(VulkanImageView* rt)
 {
     m_RenderTarget2 = rt;
     m_DirtyPipeline = true;
+	m_DirtyRenderPass = true;
+	m_DirtyFramebuffer = true;
 }
 
 void VulkanStateManager::SetRenderTarget3(VulkanImageView* rt)
 {
     m_RenderTarget3 = rt;
     m_DirtyPipeline = true;
+	m_DirtyRenderPass = true;
+	m_DirtyFramebuffer = true;
 }
 
 void VulkanStateManager::SetRenderTarget4(VulkanImageView* rt)
 {
 	m_RenderTarget4 = rt;
 	m_DirtyPipeline = true;
+	m_DirtyRenderPass = true;
+	m_DirtyFramebuffer = true;
 }
 
 void VulkanStateManager::SetDepthStencil(VulkanImageView* ds)
 {
     m_DepthStencil = ds;
     m_DirtyPipeline = true;
+	m_DirtyRenderPass = true;
+	m_DirtyFramebuffer = true;
 }
 
 void VulkanStateManager::ShouldCleanColor(bool clean)
 {
     m_RenderPassConfig->ClearRenderTargets = clean;
-    m_DirtyPipeline = true;
+	m_DirtyRenderPass = true;
 }
 
 void VulkanStateManager::ShouldCleanDepth(bool clean)
 {
 	m_RenderPassConfig->ClearDepth = clean;
 	m_RenderPassConfig->ClearStencil = clean;
-    m_DirtyPipeline = true;
+	m_DirtyRenderPass = true;
 }
 
 // for now descriptor key is vector of uint32_t with following layout:
@@ -164,7 +180,6 @@ void VulkanStateManager::SetCombinedImageSampler(uint32_t slot, VulkanTexture* t
 		VulkanDescriptorInfo info{};
 		info.Binding = slot;
 
-		//probably memory leak TODO: see whats going on here
 		info.imageSampler = texture->GetSampler();
 		info.imageView = texture->GetView();
 		info.Type = DescriptorType::CombinedSampler;
@@ -243,7 +258,6 @@ void VulkanStateManager::SetStorageBuffer(uint32_t slot, VulkanBuffer* buffer)
 	k[0] = slot;
 	k[1] = buffer->GetID();
 	k[2] = (uint32_t)DescriptorType::StorageBuffer;
-
 
 	auto& descriptorsMap = PipelineManager::instance().m_Descriptors;
 	auto descriptor = descriptorsMap.find(k);
@@ -368,6 +382,8 @@ void VulkanStateManager::Reset()
 
     VulkanPipeline::DefaultPipelineConfigInfo(m_PipelineConfig, GetNativeWidth, GetNativeHeight);
     VulkanRenderPass::DefaultRenderPassInfo(m_RenderPassConfig);
+
+	SetFramebufferExtent({ GetNativeWidth , GetNativeHeight });
 }
 
 void VulkanStateManager::SetVertexShader(Shader* shader, std::string entryPoint)

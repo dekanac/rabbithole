@@ -57,7 +57,7 @@ private:
 	void CreateView(VulkanDevice* device);
 	void CreateSampler(VulkanDevice* device, SamplerType type, AddressMode addressMode);
 	void InitializeRegion(const uint32_t width, const uint32_t height, const uint32_t depth, uint32_t arraySize = 1, uint32_t mipCount = 1);
-	void GenerateMips(VkCommandBuffer commandBuffer, VulkanDevice* device, const uint32_t width, const uint32_t height, uint32_t mipCount);
+	void GenerateMips(VulkanCommandBuffer& commandBuffer, VulkanDevice* device, const uint32_t width, const uint32_t height, uint32_t mipCount);
 
 private:
 	VulkanImage*			m_Resource;

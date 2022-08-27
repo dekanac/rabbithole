@@ -2,6 +2,7 @@
 
 #include "VulkanDevice.h"
 #include "VulkanPipeline.h"
+#include "VulkanCommandBuffer.h"
 
 #include <string>
 #include <vector>
@@ -78,13 +79,14 @@ public:
 	VulkanPipeline(const VulkanPipeline&) = delete;
 	VulkanPipeline operator=(const VulkanPipeline&) = delete;
 
-	void							 Bind(VkCommandBuffer commandBuffer);
+	virtual void					 Bind(VulkanCommandBuffer& commandBuffer) {}
 
 	static void						 DefaultPipelineConfigInfo(PipelineConfigInfo*& configInfo, uint32_t width, uint32_t height);
 	const VulkanDescriptorSetLayout* GetDescriptorSetLayout() { return m_DescriptorSetLayout; }
-	VkPipeline						 GetVkPipeline() { return m_Pipeline; }
 	const VkPipelineLayout*			 GetPipelineLayout() const { return &m_PipelineLayout; }
 	const PipelineType				 GetType() const { return m_Type; }
+
+	VkPipeline						 GetVkHandle() { return m_Pipeline; }
 
 private:
 	void							 CreateGraphicsPipeline();
@@ -92,9 +94,11 @@ private:
 
 	VulkanDevice&							m_VulkanDevice;
 	PipelineConfigInfo&						m_PipelineInfo;
-	VkPipeline								m_Pipeline;
 	VkPipelineLayout						m_PipelineLayout;
 	VulkanDescriptorSetLayout*				m_DescriptorSetLayout;
 	VulkanRenderPass*						m_RenderPass;
 	PipelineType							m_Type;
+
+protected:
+	VkPipeline								m_Pipeline;
 };

@@ -34,6 +34,7 @@ public:
 	inline const char*			GetName() const { return m_Name; }
 	inline const uint32_t		GetHash() const { return m_Hash; }
 	inline const std::vector<VkDescriptorSetLayoutBinding>& GetDescriptorSetLayoutBindings() const { return m_DescriptorSetLayoutBindings; }
+	inline const std::vector<VkPushConstantRange>& GetPushConstants() const { return m_PushConstants; }
 
 private:
 	const ShaderInfo m_Info;
@@ -41,6 +42,7 @@ private:
 	VulkanDevice& m_Device;
 	VkShaderModule m_ShaderModule;
 	std::vector<VkDescriptorSetLayoutBinding> m_DescriptorSetLayoutBindings;
+	std::vector<VkPushConstantRange> m_PushConstants;
 
 	const char* m_Name;
 	//calculate the hash function, this will be used in pipeline key

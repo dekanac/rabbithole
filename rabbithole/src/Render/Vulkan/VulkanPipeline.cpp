@@ -8,6 +8,7 @@
 #include "Render/Shader.h"
 #include "Render/Renderer.h"
 #include "Render/SuperResolutionManager.h"
+#include "Render/Converters.h"
 #include "Render/Model/Model.h"
 
 VulkanPipeline::VulkanPipeline(VulkanDevice& device, PipelineConfigInfo& configInfo, PipelineType type)
@@ -31,18 +32,8 @@ VulkanPipeline::~VulkanPipeline()
 	vkDestroyPipeline(m_VulkanDevice.GetGraphicDevice(), m_Pipeline, nullptr);
 }
 
-
-void VulkanPipeline::Bind(VkCommandBuffer commandBuffer)
-{
-	vkCmdBindPipeline(
-		commandBuffer, 
-		m_Type == PipelineType::Graphics ? VK_PIPELINE_BIND_POINT_GRAPHICS : VK_PIPELINE_BIND_POINT_COMPUTE, 
-		m_Pipeline);
-}
-
 void VulkanPipeline::DefaultPipelineConfigInfo(PipelineConfigInfo*& configInfo, uint32_t width, uint32_t height) 
 {
-
 	configInfo->inputAssemblyInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
 	configInfo->SetTopology(Topology::TriangleList);
 
@@ -168,7 +159,7 @@ void VulkanPipeline::CreateGraphicsPipeline()
 
 	VkGraphicsPipelineCreateInfo pipelineInfo{};
 	pipelineInfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
-	pipelineInfo.stageCount = shaderStages.size();
+	pipelineInfo.stageCount = static_cast<uint32_t>(shaderStages.size());
 	pipelineInfo.pStages = shaderStages.data();
 	pipelineInfo.pVertexInputState = &vertexInputInfo;
 	pipelineInfo.pInputAssemblyState = &m_PipelineInfo.inputAssemblyInfo;
@@ -192,7 +183,7 @@ void VulkanPipeline::CreateGraphicsPipeline()
 	pipelineInfo.pDynamicState = &dynamicStateInfo;
 
 	pipelineInfo.layout = *(m_DescriptorSetLayout->GetPipelineLayout());
-	pipelineInfo.renderPass = m_RenderPass->GetVkRenderPass();
+	pipelineInfo.renderPass = GET_VK_HANDLE_PTR(m_RenderPass);
 	pipelineInfo.subpass = m_PipelineInfo.subpass;
 
 	pipelineInfo.basePipelineIndex = -1;

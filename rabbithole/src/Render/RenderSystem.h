@@ -8,7 +8,7 @@ class Window;
 
 class RenderSystem
 {	
-    SingletonClass(RenderSystem)
+	SingletonClass(RenderSystem);
 
 public:
 	bool Init();

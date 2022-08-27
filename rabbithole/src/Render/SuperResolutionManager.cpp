@@ -1,10 +1,11 @@
 #include "common.h"
-#include "vulkan/precomp.h"`
+#include "vulkan/precomp.h"
 #include "SuperResolutionManager.h"
 
 #include "Render/Window.h"
 #include "Render/Renderer.h"
 #include "Render/Camera.h"
+#include "Render/Converters.h"
 
 #include <fsr2.0/ffx_fsr2.h>
 #include <fsr2.0/vk/ffx_fsr2_vk.h>
@@ -18,8 +19,8 @@ void SuperResolutionManager::Init(VulkanDevice* device)
 	m_UpscaleFactor = 3.f/4.f;
 	m_Sharpness = 0.666666f;
 
-	m_NativeResolutionWidth = m_UpscaledResolutionWidth * m_UpscaleFactor;
-	m_NativeResolutionHeight = m_UpscaledResolutionHeight * m_UpscaleFactor;
+	m_NativeResolutionWidth = static_cast<uint32_t>(m_UpscaledResolutionWidth * m_UpscaleFactor);
+	m_NativeResolutionHeight = static_cast<uint32_t>(m_UpscaledResolutionHeight * m_UpscaleFactor);
 
 	m_Hdr = true;
 
@@ -76,14 +77,14 @@ void SuperResolutionManager::PreDraw(UIState* pState)
 	}
 }
 
-void SuperResolutionManager::Draw(VkCommandBuffer commandBuffer, const FfxUpscaleSetup& cameraSetup, UIState* pState)
+void SuperResolutionManager::Draw(VulkanCommandBuffer& commandBuffer, const FfxUpscaleSetup& cameraSetup, UIState* pState)
 {
 	FfxFsr2DispatchDescription dispatchParameters = {};
-	dispatchParameters.commandList = ffxGetCommandListVK(commandBuffer);
-	dispatchParameters.color = ffxGetTextureResourceVK(&m_FsrContext, cameraSetup.unresolvedColorResource->GetResource()->GetImage(), cameraSetup.unresolvedColorResource->GetView()->GetImageView(), cameraSetup.unresolvedColorResource->GetWidth(), cameraSetup.unresolvedColorResource->GetHeight(), GetVkFormatFrom(cameraSetup.unresolvedColorResource->GetFormat()), (wchar_t*)L"FSR2_InputColor");
-	dispatchParameters.depth = ffxGetTextureResourceVK(&m_FsrContext, cameraSetup.depthbufferResource->GetResource()->GetImage(), cameraSetup.depthbufferResource->GetView()->GetImageView(), cameraSetup.depthbufferResource->GetWidth(), cameraSetup.depthbufferResource->GetHeight(), GetVkFormatFrom(cameraSetup.depthbufferResource->GetFormat()), (wchar_t*)L"FSR2_InputDepth");
-	dispatchParameters.motionVectors = ffxGetTextureResourceVK(&m_FsrContext, cameraSetup.motionvectorResource->GetResource()->GetImage(), cameraSetup.motionvectorResource->GetView()->GetImageView(), cameraSetup.motionvectorResource->GetWidth(), cameraSetup.motionvectorResource->GetHeight(), GetVkFormatFrom(cameraSetup.motionvectorResource->GetFormat()), (wchar_t*)L"FSR2_InputMotionVectors");
-	dispatchParameters.output = ffxGetTextureResourceVK(&m_FsrContext, cameraSetup.resolvedColorResource->GetResource()->GetImage(), cameraSetup.resolvedColorResource->GetView()->GetImageView(), cameraSetup.resolvedColorResource->GetWidth(), cameraSetup.resolvedColorResource->GetHeight(), GetVkFormatFrom(cameraSetup.resolvedColorResource->GetFormat()), (wchar_t*)L"FSR2_OutputUpscaledColor", FFX_RESOURCE_STATE_UNORDERED_ACCESS);
+	dispatchParameters.commandList = ffxGetCommandListVK(GET_VK_HANDLE(commandBuffer));
+	dispatchParameters.color = ffxGetTextureResourceVK(&m_FsrContext, GET_VK_HANDLE_PTR(cameraSetup.unresolvedColorResource->GetResource()), GET_VK_HANDLE_PTR(cameraSetup.unresolvedColorResource->GetView()), cameraSetup.unresolvedColorResource->GetWidth(), cameraSetup.unresolvedColorResource->GetHeight(), GetVkFormatFrom(cameraSetup.unresolvedColorResource->GetFormat()), (wchar_t*)L"FSR2_InputColor");
+	dispatchParameters.depth = ffxGetTextureResourceVK(&m_FsrContext, GET_VK_HANDLE_PTR(cameraSetup.depthbufferResource->GetResource()), GET_VK_HANDLE_PTR(cameraSetup.depthbufferResource->GetView()), cameraSetup.depthbufferResource->GetWidth(), cameraSetup.depthbufferResource->GetHeight(), GetVkFormatFrom(cameraSetup.depthbufferResource->GetFormat()), (wchar_t*)L"FSR2_InputDepth");
+	dispatchParameters.motionVectors = ffxGetTextureResourceVK(&m_FsrContext, GET_VK_HANDLE_PTR(cameraSetup.motionvectorResource->GetResource()), GET_VK_HANDLE_PTR(cameraSetup.motionvectorResource->GetView()), cameraSetup.motionvectorResource->GetWidth(), cameraSetup.motionvectorResource->GetHeight(), GetVkFormatFrom(cameraSetup.motionvectorResource->GetFormat()), (wchar_t*)L"FSR2_InputMotionVectors");
+	dispatchParameters.output = ffxGetTextureResourceVK(&m_FsrContext, GET_VK_HANDLE_PTR(cameraSetup.resolvedColorResource->GetResource()), GET_VK_HANDLE_PTR(cameraSetup.resolvedColorResource->GetView()), cameraSetup.resolvedColorResource->GetWidth(), cameraSetup.resolvedColorResource->GetHeight(), GetVkFormatFrom(cameraSetup.resolvedColorResource->GetFormat()), (wchar_t*)L"FSR2_OutputUpscaledColor", FFX_RESOURCE_STATE_UNORDERED_ACCESS);
 	dispatchParameters.jitterOffset.x = m_JitterX;
 	dispatchParameters.jitterOffset.y = m_JitterY;
 	dispatchParameters.motionVectorScale.x = pState->renderWidth;
@@ -93,8 +94,8 @@ void SuperResolutionManager::Draw(VkCommandBuffer commandBuffer, const FfxUpscal
 	dispatchParameters.sharpness = pState->sharpness;
 	dispatchParameters.frameTimeDelta = pState->deltaTime;
 	dispatchParameters.preExposure = 1.0f;
-	dispatchParameters.renderSize.width = pState->renderWidth;
-	dispatchParameters.renderSize.height = pState->renderHeight;
+	dispatchParameters.renderSize.width = static_cast<uint32_t>(pState->renderWidth);
+	dispatchParameters.renderSize.height = static_cast<uint32_t>(pState->renderHeight);
 	dispatchParameters.cameraFar = pState->camera->GetFarPlane();
 	dispatchParameters.cameraNear = pState->camera->GetNearPlane();
 	dispatchParameters.cameraFovAngleVertical = pState->camera->GetFieldOfViewVerticalRad();
@@ -104,7 +105,7 @@ void SuperResolutionManager::Draw(VkCommandBuffer commandBuffer, const FfxUpscal
 	FFX_ASSERT(errorCode == FFX_OK);
 }
 
-void SuperResolutionManager::GenerateReactiveMask(VkCommandBuffer pCommandList, const FfxUpscaleSetup& cameraSetup, UIState* pState)
+void SuperResolutionManager::GenerateReactiveMask(VulkanCommandBuffer& commandBuffer, const FfxUpscaleSetup& cameraSetup, UIState* pState)
 {
 	//implement this when transparent object are supported
 }

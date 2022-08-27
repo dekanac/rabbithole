@@ -27,17 +27,17 @@ void GPUTimeStamps::OnDestroy()
 		m_labels[i].clear();
 }
 
-void GPUTimeStamps::GetTimeStamp(VkCommandBuffer cmd_buf, const char* label)
+void GPUTimeStamps::GetTimeStamp(VulkanCommandBuffer& cmd_buf, const char* label)
 {
 	uint32_t measurements = (uint32_t)m_labels[m_Frame].size();
 	uint32_t offset = m_Frame * MaxValuesPerFrame + measurements;
 
-	vkCmdWriteTimestamp(cmd_buf, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, m_QueryPool, offset);
+	vkCmdWriteTimestamp(GET_VK_HANDLE(cmd_buf), VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, m_QueryPool, offset);
 
 	m_labels[m_Frame].push_back(label);
 }
 
-void GPUTimeStamps::OnBeginFrame(VkCommandBuffer cmd_buf, std::vector<TimeStamp>* pTimestamps)
+void GPUTimeStamps::OnBeginFrame(VulkanCommandBuffer& cmd_buf, std::vector<TimeStamp>* pTimestamps)
 {
 	std::vector<TimeStamp>& cpuTimeStamps = m_cpuTimeStamps[m_Frame];
 	std::vector<std::string>& gpuLabels = m_labels[m_Frame];
@@ -78,7 +78,7 @@ void GPUTimeStamps::OnBeginFrame(VkCommandBuffer cmd_buf, std::vector<TimeStamp>
 		}
 	}
 
-	vkCmdResetQueryPool(cmd_buf, m_QueryPool, offset, MaxValuesPerFrame);
+	vkCmdResetQueryPool(GET_VK_HANDLE(cmd_buf), m_QueryPool, offset, MaxValuesPerFrame);
 
 	// we always need to clear these ones
 	cpuTimeStamps.clear();

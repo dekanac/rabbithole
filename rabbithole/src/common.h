@@ -1,10 +1,10 @@
+#pragma once
+
 #include <glm/glm.hpp>
 
 #include <limits>
 
 #define RABBITHOLE_DEBUG
-
-#pragma once
 
 #define SingletonClass(className) \
 public: \
@@ -16,7 +16,14 @@ public: \
     } \
 private: \
     className() = default; \
-    ~className() = default;
+    ~className() = default
+
+#define NonCopyableAndMovable(className) \
+public: \
+	className(const className&) = delete; \
+	className operator= (const className&) = delete; \
+	className(className&&) = delete; \
+	className& operator= (className&&) = delete
 
 #define VULKAN_API_CALL(call) \
 		{ \
@@ -29,6 +36,9 @@ private: \
 			SpvReflectResult result = call; \
 			ASSERT(result == SPV_REFLECT_RESULT_SUCCESS, "Vulkan Spir-V reflect call fail"); \
 		}
+
+#define GET_VK_HANDLE(object) (object.GetVkHandle())
+#define GET_VK_HANDLE_PTR(object) (object->GetVkHandle())
 
 //move this to separate math lib
 typedef glm::vec4 rabbitVec4f;
@@ -50,7 +60,9 @@ typedef glm::mat4 rabbitMat4f;
 
 #define MAX_FRAMES_IN_FLIGHT (2)
 
-const float Epsilon = 1e-8;
+#define GetCSDispatchCount(A, B) (((A) + ((B) - 1)) / (B))
+
+const double Epsilon = 1e-8;
 const float Infinity = std::numeric_limits<float>::max();
 
 struct WindowExtent

@@ -17,7 +17,7 @@
 class VulkanImage;
 class VulkanImageView;
 class VulkanImageSampler;
-class IndexedIndirectBuffer;
+struct IndexedIndirectBuffer;
 
 struct IndexIndirectDrawData
 {
@@ -155,11 +155,10 @@ class VulkanglTFModel
 {
 public:
 	VulkanglTFModel(VulkanDevice* device, std::string filename);
+	~VulkanglTFModel();
+	
 	VulkanglTFModel(const VulkanglTFModel& other) = delete;
 	VulkanglTFModel(VulkanglTFModel&& other) = default;
-
-	~VulkanglTFModel();
-
 private:
 	VulkanDevice*	m_Device;
 
@@ -231,7 +230,7 @@ private:
 	void LoadModelFromFile(VulkanDevice* device, std::string filename);
 
 public:
-	void DrawNode(VkCommandBuffer commandBuffer, const VkPipelineLayout* pipelineLayout, VulkanglTFModel::Node node, uint8_t backBufferIndex, IndexedIndirectBuffer* indirectBuffer);
-	void Draw(VkCommandBuffer commandBuffer, const VkPipelineLayout* pipeLayout, uint8_t backBufferIndex, IndexedIndirectBuffer* indirectBuffer);
-	void BindBuffers(VkCommandBuffer commandBuffer);
+	void DrawNode(VulkanCommandBuffer& commandBuffer, const VkPipelineLayout* pipelineLayout, VulkanglTFModel::Node node, uint8_t backBufferIndex, IndexedIndirectBuffer* indirectBuffer);
+	void Draw(VulkanCommandBuffer& commandBuffer, const VkPipelineLayout* pipeLayout, uint8_t backBufferIndex, IndexedIndirectBuffer* indirectBuffer);
+	void BindBuffers(VulkanCommandBuffer& commandBuffer);
 };

@@ -65,11 +65,15 @@ enum class Format : uint8_t
 	R8G8B8A8_UNORM,
 	R8G8B8A8_UNORM_SRGB,
 	R8_UNORM,
+	R8_UINT,
 	R32_SFLOAT,
 	R16G16B16A16_FLOAT,
+	R16G16B16A16_UNORM,
 	R32G32B32A32_FLOAT,
 	R32G32B32_FLOAT,
+	R11G11B10_FLOAT,
 	R32G32_FLOAT,
+	R16G16_FLOAT,
 	BC1_UNORM,
 	BC1_UNORM_SRGB,
 	BC2_UNORM,
@@ -113,6 +117,7 @@ enum class ResourceStage : uint8_t
 	Transfer,
 	Graphics,
 	Compute,
+	Undefined,
 
 	Count
 };
@@ -355,8 +360,8 @@ enum class TextureFlags : uint16_t
 	RenderTarget = 0x1 << 4,
 	LinearTiling = 0x1 << 5,
 	TransferSrc = 0x1 << 6,
-	TransferDst = 0x1 << 7
-
+	TransferDst = 0x1 << 7,
+	Storage = 0x1 << 8
 };
 RABBITHOLE_FLAG_TYPE_SETUP(TextureFlags)
 

@@ -9,11 +9,11 @@ using KeyboardButton = int;
 
 class Window;
 class EntityManager;
-class InputComponent;
+struct InputComponent;
 
 class InputManager
 {
-    SingletonClass(InputManager)
+	SingletonClass(InputManager);
 public:
 	bool Init();
 	void Update(float dt);

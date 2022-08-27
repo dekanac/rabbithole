@@ -22,9 +22,9 @@ public:
 		const VulkanImageView* depthStencilView, const RenderPassConfigInfo& info, const char* name);
 	~VulkanRenderPass();
 
-	VkRenderPass GetVkRenderPass() const { return m_RenderPass; }
     static void DefaultRenderPassInfo(RenderPassConfigInfo*& renderPassInfo);
 
+	VkRenderPass GetVkHandle() const { return m_RenderPass; }
 private:
 	VkRenderPass				m_RenderPass;
 	

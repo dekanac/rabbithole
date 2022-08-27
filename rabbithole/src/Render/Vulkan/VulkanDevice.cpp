@@ -2,7 +2,8 @@
 
 #include "vk_mem_alloc.h"
 
-#include "..\Window.h"
+#include "Render/Window.h"
+#include "Render/Converters.h"
 // std headers
 #include <cstring>
 #include <iostream>
@@ -41,35 +42,22 @@ PFN_vkCmdEndDebugUtilsLabelEXT pfnCmdEndDebugUtilsLabelEXT;
 PFN_vkDebugMarkerSetObjectTagEXT pfnDebugMarkerSetObjectTag;
 PFN_vkSetDebugUtilsObjectNameEXT pfnDebugUtilsObjectName;
 
-VkResult CreateDebugUtilsMessengerEXT(
-	VkInstance instance,
-	const VkDebugUtilsMessengerCreateInfoEXT* pCreateInfo,
-	const VkAllocationCallbacks* pAllocator,
-	VkDebugUtilsMessengerEXT* pDebugMessenger) {
-	auto func = (PFN_vkCreateDebugUtilsMessengerEXT)vkGetInstanceProcAddr(
-		instance,
-		"vkCreateDebugUtilsMessengerEXT");
+VkResult CreateDebugUtilsMessengerEXT(VkInstance instance, const VkDebugUtilsMessengerCreateInfoEXT* pCreateInfo, const VkAllocationCallbacks* pAllocator, VkDebugUtilsMessengerEXT* pDebugMessenger) 
+{
+	auto func = (PFN_vkCreateDebugUtilsMessengerEXT)vkGetInstanceProcAddr(instance, "vkCreateDebugUtilsMessengerEXT");
 	
 	if (func != nullptr) 
-	{
 		return func(instance, pCreateInfo, pAllocator, pDebugMessenger);
-	}
-	else {
+	else 
 		return VK_ERROR_EXTENSION_NOT_PRESENT;
-	}
 }
 
-void DestroyDebugUtilsMessengerEXT(
-	VkInstance instance,
-	VkDebugUtilsMessengerEXT debugMessenger,
-	const VkAllocationCallbacks* pAllocator) 
+void DestroyDebugUtilsMessengerEXT(VkInstance instance, VkDebugUtilsMessengerEXT debugMessenger, const VkAllocationCallbacks* pAllocator) 
 {
-	auto func = (PFN_vkDestroyDebugUtilsMessengerEXT)vkGetInstanceProcAddr(
-		instance,
-		"vkDestroyDebugUtilsMessengerEXT");
-	if (func != nullptr) {
+	auto func = (PFN_vkDestroyDebugUtilsMessengerEXT)vkGetInstanceProcAddr(instance, "vkDestroyDebugUtilsMessengerEXT");
+	
+	if (func != nullptr) 
 		func(instance, debugMessenger, pAllocator);
-	}
 }
 
 // class member functions
@@ -171,8 +159,8 @@ void VulkanDevice::PickPhysicalDevice()
 		LOG_ERROR("failed to find a suitable GPU!");
 	}
 
-	vkGetPhysicalDeviceProperties(m_PhysicalDevice, &properties);
-	std::cout << "physical device: " << properties.deviceName << std::endl;
+	vkGetPhysicalDeviceProperties(m_PhysicalDevice, &m_Properties);
+	std::cout << "physical device: " << m_Properties.deviceName << std::endl;
 }
 
 void VulkanDevice::CreateLogicalDevice() 
@@ -286,11 +274,9 @@ void VulkanDevice::PopulateDebugMessengerCreateInfo(VkDebugUtilsMessengerCreateI
 {
 	createInfo = {};
 	createInfo.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT;
-#ifndef MUTE_VALIDATION_ERROR_SPAM
 	createInfo.messageSeverity = VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT |
 		VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT |
 		VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT;
-#endif
 	createInfo.messageType = VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT |
 		VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT |
 		VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT;
@@ -392,11 +378,7 @@ bool VulkanDevice::CheckDeviceExtensionSupport(VkPhysicalDevice device)
 	vkEnumerateDeviceExtensionProperties(device, nullptr, &extensionCount, nullptr);
 
 	std::vector<VkExtensionProperties> availableExtensions(extensionCount);
-	vkEnumerateDeviceExtensionProperties(
-		device,
-		nullptr,
-		&extensionCount,
-		availableExtensions.data());
+	vkEnumerateDeviceExtensionProperties(device, nullptr, &extensionCount, availableExtensions.data());
 
 	std::set<std::string> requiredExtensions(m_DeviceExtensions.begin(), m_DeviceExtensions.end());
 
@@ -491,13 +473,13 @@ VkFormat VulkanDevice::FindSupportedFormat(const std::vector<VkFormat>& candidat
 		{
 			return format;
 		}
-		else if (
-			tiling == VK_IMAGE_TILING_OPTIMAL && (props.optimalTilingFeatures & features) == features) 
+		else if (tiling == VK_IMAGE_TILING_OPTIMAL && (props.optimalTilingFeatures & features) == features) 
 		{
 			return format;
 		}
 	}
 	LOG_ERROR("failed to find supported format!");
+	return VK_FORMAT_UNDEFINED;
 }
 
 uint32_t VulkanDevice::FindMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties) 
@@ -512,58 +494,39 @@ uint32_t VulkanDevice::FindMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags
 			return i;
 		}
 	}
-
 	LOG_ERROR("failed to find suitable memory type!");
+	return UINT_MAX;
 }
 
-VkCommandBuffer VulkanDevice::BeginSingleTimeCommands() 
+void VulkanDevice::CopyBuffer(VulkanBuffer& srcBuffer, VulkanBuffer& dstBuffer, VkDeviceSize size)
 {
-	VkCommandBufferAllocateInfo allocInfo{};
-	allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
-	allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-	allocInfo.commandPool = m_CommandPool;
-	allocInfo.commandBufferCount = 1;
-
-	VkCommandBuffer commandBuffer;
-	vkAllocateCommandBuffers(m_Device, &allocInfo, &commandBuffer);
-
-	VkCommandBufferBeginInfo beginInfo{};
-	beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-	beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
-
-	vkBeginCommandBuffer(commandBuffer, &beginInfo);
-	return commandBuffer;
-}
-
-void VulkanDevice::EndSingleTimeCommands(VkCommandBuffer commandBuffer) 
-{
-	vkEndCommandBuffer(commandBuffer);
-
-	VkSubmitInfo submitInfo{};
-	submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-	submitInfo.commandBufferCount = 1;
-	submitInfo.pCommandBuffers = &commandBuffer;
-
-	vkQueueSubmit(m_GraphicsQueue, 1, &submitInfo, VK_NULL_HANDLE);
-	vkQueueWaitIdle(m_GraphicsQueue);
-
-	vkFreeCommandBuffers(m_Device, m_CommandPool, 1, &commandBuffer);
-}
-
-void VulkanDevice::CopyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size)
-{
-	VkCommandBuffer commandBuffer = BeginSingleTimeCommands();
+	VulkanCommandBuffer tempCommandBuffer(*this, "Temp Copy Buffer Command Buffer");
+	tempCommandBuffer.BeginCommandBuffer(true);
 
 	VkBufferCopy copyRegion{};
 	copyRegion.srcOffset = 0;  // Optional
 	copyRegion.dstOffset = 0;  // Optional
 	copyRegion.size = size;
-	vkCmdCopyBuffer(commandBuffer, srcBuffer, dstBuffer, 1, &copyRegion);
+	vkCmdCopyBuffer(GET_VK_HANDLE(tempCommandBuffer), GET_VK_HANDLE(srcBuffer), GET_VK_HANDLE(dstBuffer), 1, &copyRegion);
 
-	EndSingleTimeCommands(commandBuffer);
+	tempCommandBuffer.EndAndSubmitCommandBuffer();
 }
 
-void VulkanDevice::CopyBufferToImage(VkCommandBuffer commandBuffer, VulkanBuffer* buffer, VulkanTexture* texture, bool copyFirstMipOnly)
+void VulkanDevice::CopyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size)
+{
+	VulkanCommandBuffer tempCommandBuffer(*this, "Temp Copy Buffer Command Buffer");
+	tempCommandBuffer.BeginCommandBuffer(true);
+
+	VkBufferCopy copyRegion{};
+	copyRegion.srcOffset = 0;  // Optional
+	copyRegion.dstOffset = 0;  // Optional
+	copyRegion.size = size;
+	vkCmdCopyBuffer(GET_VK_HANDLE(tempCommandBuffer), srcBuffer, dstBuffer, 1, &copyRegion);
+
+	tempCommandBuffer.EndAndSubmitCommandBuffer();
+}
+
+void VulkanDevice::CopyBufferToImage(VulkanCommandBuffer& commandBuffer, VulkanBuffer* buffer, VulkanTexture* texture, bool copyFirstMipOnly)
 {
 	ImageRegion texRegion = texture->GetRegion();
 
@@ -581,9 +544,9 @@ void VulkanDevice::CopyBufferToImage(VkCommandBuffer commandBuffer, VulkanBuffer
 	region.imageExtent = { texRegion.Extent.Width, texRegion.Extent.Height, 1 };
 
 	vkCmdCopyBufferToImage(
-		commandBuffer,
-		buffer->GetBuffer(),
-		texture->GetResource()->GetImage(),
+		GET_VK_HANDLE(commandBuffer),
+		GET_VK_HANDLE_PTR(buffer),
+		GET_VK_HANDLE_PTR(texture->GetResource()),
 		VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
 		1,
 		&region);
@@ -591,7 +554,7 @@ void VulkanDevice::CopyBufferToImage(VkCommandBuffer commandBuffer, VulkanBuffer
 	texture->SetCurrentResourceStage(ResourceStage::Transfer);
 }
 
-void VulkanDevice::CopyBufferToImageCubeMap(VkCommandBuffer commandBuffer, VulkanBuffer* buffer, VulkanTexture* texture)
+void VulkanDevice::CopyBufferToImageCubeMap(VulkanCommandBuffer& commandBuffer, VulkanBuffer* buffer, VulkanTexture* texture)
 {
 	ImageRegion texRegion = texture->GetRegion();
 	auto width = texRegion.Extent.Width;
@@ -617,9 +580,9 @@ void VulkanDevice::CopyBufferToImageCubeMap(VkCommandBuffer commandBuffer, Vulka
 	}
 
 	vkCmdCopyBufferToImage(
-		commandBuffer,
-		buffer->GetBuffer(),
-		texture->GetResource()->GetImage(),
+		GET_VK_HANDLE(commandBuffer),
+		GET_VK_HANDLE_PTR(buffer),
+		GET_VK_HANDLE_PTR(texture->GetResource()),
 		VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
 		6,
 		bufferCopyRegions.data());
@@ -627,142 +590,43 @@ void VulkanDevice::CopyBufferToImageCubeMap(VkCommandBuffer commandBuffer, Vulka
 	texture->SetCurrentResourceStage(ResourceStage::Transfer);
 }
 
-
-void VulkanDevice::TransitionImageLayout(VkCommandBuffer commandBuffer, VulkanTexture* texture, ResourceState oldLayout, ResourceState newLayout, uint32_t mipLevel, uint32_t mipCount)
+void VulkanDevice::CopyImage(VulkanCommandBuffer& commandBuffer, VulkanTexture* src, VulkanTexture* dst)
 {
-	uint32_t arraySize = texture->GetResource()->GetInfo().ArraySize;
+	VkImageCopy imageCopyRegion{};
+	imageCopyRegion.srcSubresource.aspectMask = GetVkImageAspectFlagsFrom(GetVkFormatFrom(src->GetFormat()));
+	imageCopyRegion.srcSubresource.layerCount = src->GetRegion().Subresource.ArraySize;
+	imageCopyRegion.dstSubresource.aspectMask = GetVkImageAspectFlagsFrom(GetVkFormatFrom(dst->GetFormat()));
+	imageCopyRegion.dstSubresource.layerCount = dst->GetRegion().Subresource.ArraySize;
+	imageCopyRegion.extent.width = src->GetWidth();
+	imageCopyRegion.extent.height = src->GetHeight();
+	imageCopyRegion.extent.depth = src->GetDepth();
 
-	VkImageMemoryBarrier barrier{};
-	barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
-	barrier.oldLayout = GetVkImageLayoutFrom(oldLayout);
-	barrier.newLayout = GetVkImageLayoutFrom(newLayout);
-	barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-	barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-	barrier.image = texture->GetResource()->GetImage();
-	barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-	barrier.subresourceRange.baseMipLevel = mipLevel;
-	barrier.subresourceRange.levelCount = mipCount;
-	barrier.subresourceRange.baseArrayLayer = 0;
-	barrier.subresourceRange.layerCount = arraySize;
+	ResourceStage srcStage = src->GetCurrentResourceStage();
+	ResourceStage dstStage = dst->GetCurrentResourceStage();
 
-	VkPipelineStageFlags sourceStage;
-	VkPipelineStageFlags destinationStage;
+	ResourceState srcState = src->GetResourceState();
+	ResourceState dstState = dst->GetResourceState();
 
-	if (oldLayout == ResourceState::None && newLayout == ResourceState::TransferDst) {
-		barrier.srcAccessMask = 0;
-		barrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+	if (srcState != ResourceState::TransferSrc)
+		ResourceBarrier(commandBuffer, src, srcState, ResourceState::TransferSrc, srcStage, ResourceStage::Transfer);
+	if (dstState != ResourceState::TransferDst)
+		ResourceBarrier(commandBuffer, dst, dstState, ResourceState::TransferDst, dstStage, ResourceStage::Transfer);
 
-		sourceStage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
-		destinationStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
-	}
- 	else if (oldLayout == ResourceState::None && newLayout == ResourceState::DepthStencilWrite)
- 	{
- 		barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
-		barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
- 
- 		sourceStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
- 		destinationStage = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT  | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT;
- 	}
-	else if (oldLayout == ResourceState::TransferDst && newLayout == ResourceState::GenericRead) 
-	{
-		barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
-		barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+	vkCmdCopyImage(
+		GET_VK_HANDLE(commandBuffer),
+		GET_VK_HANDLE_PTR(src->GetResource()),
+		VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+		GET_VK_HANDLE_PTR(dst->GetResource()),
+		VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+		1,
+		&imageCopyRegion);
 
-		sourceStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
-		destinationStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
-	}
-	else if (oldLayout == ResourceState::TransferSrc && newLayout == ResourceState::GenericRead)
-	{
-		barrier.srcAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
-		barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
-
-		sourceStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
-		destinationStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
-	}
-	else if (oldLayout == ResourceState::TransferDst && newLayout == ResourceState::TransferSrc)
-	{
-		barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
-		barrier.dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
-
-		sourceStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
-		destinationStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
-	}
-	else if (oldLayout == ResourceState::None && newLayout == ResourceState::RenderTarget)
-	{
-		barrier.srcAccessMask = 0;
-		barrier.dstAccessMask = VK_ACCESS_SHADER_WRITE_BIT;
-
-		sourceStage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
-		destinationStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
-	}
-	else if (oldLayout == ResourceState::None && newLayout == ResourceState::GenericRead)
-	{
-		barrier.srcAccessMask = 0;
-		barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
-
-		sourceStage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
-		destinationStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
-	}
-	else if (oldLayout == ResourceState::RenderTarget && newLayout == ResourceState::GenericRead)
-	{
-		barrier.srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT;
-		barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
-
-		sourceStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
-		destinationStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
-	}
-	else if (oldLayout == ResourceState::None && newLayout == ResourceState::DepthStencilRead)
-	{
-		barrier.srcAccessMask = VK_ACCESS_SHADER_READ_BIT;
-		barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
-
-		sourceStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
-		destinationStage = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT;
-	}
-
-	else 
-	{
-		LOG_ERROR("unsupported layout transition!");
-	}
-
-	vkCmdPipelineBarrier(
-		commandBuffer,
-		sourceStage, destinationStage,
-		0,
-		0, nullptr,
-		0, nullptr,
-		1, &barrier
-	);
+	if (srcState != ResourceState::TransferSrc)
+		ResourceBarrier(commandBuffer, src, ResourceState::TransferSrc, srcState, ResourceStage::Transfer, srcStage);
+	if (dstState != ResourceState::TransferDst)
+		ResourceBarrier(commandBuffer, dst, ResourceState::TransferDst, dstState, ResourceStage::Transfer, dstStage);
 }
 
-void VulkanDevice::CreateImageWithInfo(
-	const VkImageCreateInfo& imageInfo,
-	VkMemoryPropertyFlags properties,
-	VkImage& image,
-	VkDeviceMemory& imageMemory) 
-{
-	if (vkCreateImage(m_Device, &imageInfo, nullptr, &image) != VK_SUCCESS) 
-	{
-		LOG_ERROR("failed to create image!");
-	}
-
-	VkMemoryRequirements memRequirements;
-	vkGetImageMemoryRequirements(m_Device, image, &memRequirements);
-
-	VkMemoryAllocateInfo allocInfo{};
-	allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
-	allocInfo.allocationSize = memRequirements.size;
-	allocInfo.memoryTypeIndex = FindMemoryType(memRequirements.memoryTypeBits, properties);
-
-	if (vkAllocateMemory(m_Device, &allocInfo, nullptr, &imageMemory) != VK_SUCCESS) 
-	{
-		LOG_ERROR("failed to allocate image memory!");
-	}
-
-	if (vkBindImageMemory(m_Device, image, imageMemory, 0) != VK_SUCCESS) {
-		LOG_ERROR("failed to bind image memory!");
-	}
-}
 
 void VulkanDevice::InitImguiForVulkan(ImGui_ImplVulkan_InitInfo& info)
 {
@@ -788,7 +652,7 @@ void VulkanDevice::SetObjectName(uint64_t object, VkObjectType objectType, const
 #endif // RABBITHOLE_DEBUG
 }
 
-void VulkanDevice::BeginLabel(VkCommandBuffer commandBuffer, const char* name)
+void VulkanDevice::BeginLabel(VulkanCommandBuffer& commandBuffer, const char* name)
 {
 #ifdef RABBITHOLE_DEBUG
 	glm::vec4 color = GetNextColor();
@@ -800,759 +664,80 @@ void VulkanDevice::BeginLabel(VkCommandBuffer commandBuffer, const char* name)
 	labelInfo.color[3] = color[3];
 	labelInfo.pLabelName = name;
 
-	pfnCmdBeginDebugUtilsLabelEXT(commandBuffer, &labelInfo);
+	pfnCmdBeginDebugUtilsLabelEXT(GET_VK_HANDLE(commandBuffer), &labelInfo);
 #endif // RABBITHOLE_DEBUG
 }
 
-void VulkanDevice::EndLabel(VkCommandBuffer commandBuffer)
+void VulkanDevice::EndLabel(VulkanCommandBuffer& commandBuffer)
 {
 #ifdef RABBITHOLE_DEBUG
-	pfnCmdEndDebugUtilsLabelEXT(commandBuffer);
+	pfnCmdEndDebugUtilsLabelEXT(GET_VK_HANDLE(commandBuffer));
 #endif // RABBITHOLE_DEBUG
 }
 
-VkBufferUsageFlags GetVkBufferUsageFlags(const BufferUsageFlags usageFlags)
+void VulkanDevice::ResourceBarrier(VulkanCommandBuffer& commandBuffer, VulkanTexture* texture, ResourceState oldLayout, ResourceState newLayout, ResourceStage srcStage, ResourceStage dstStage, uint32_t mipLevel, uint32_t mipCount)
 {
-	VkBufferUsageFlags bufferUsageFlags = 0;
-	if (IsFlagSet(usageFlags & BufferUsageFlags::TransferSrc))
-	{
-		bufferUsageFlags |= VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
-	}
+	uint32_t arraySize = texture->GetResource()->GetInfo().ArraySize;
 
-	if (IsFlagSet(usageFlags & BufferUsageFlags::TransferDst))
-	{
-		bufferUsageFlags |= VK_BUFFER_USAGE_TRANSFER_DST_BIT;
-	}
+	bool isDepth = GetVkImageAspectFlagsFrom(GetVkFormatFrom(texture->GetFormat())) == VK_IMAGE_ASPECT_DEPTH_BIT;
 
-	if (IsFlagSet(usageFlags & BufferUsageFlags::ResrcBuffer))
-	{
-		bufferUsageFlags |= VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
-		bufferUsageFlags |= VK_BUFFER_USAGE_UNIFORM_TEXEL_BUFFER_BIT;
-	}
+	VkImageMemoryBarrier barrier{};
+	barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+	barrier.oldLayout = GetVkImageLayoutFrom(oldLayout);
+	barrier.newLayout = GetVkImageLayoutFrom(newLayout);
+	barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+	barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+	barrier.image = GET_VK_HANDLE_PTR(texture->GetResource());
+	barrier.subresourceRange.aspectMask = GetVkImageAspectFlagsFrom(GetVkFormatFrom(texture->GetFormat()));
+	barrier.subresourceRange.baseMipLevel = mipLevel;
+	barrier.subresourceRange.levelCount = mipCount;
+	barrier.subresourceRange.baseArrayLayer = 0;
+	barrier.subresourceRange.layerCount = arraySize;
 
-	if (IsFlagSet(usageFlags & BufferUsageFlags::StorageBuffer))
-	{
-		bufferUsageFlags |= VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
-		bufferUsageFlags |= VK_BUFFER_USAGE_STORAGE_TEXEL_BUFFER_BIT;
-	}
+	barrier.srcAccessMask = GetVkAccessFlagsFromResourceState(oldLayout);
+	barrier.dstAccessMask = GetVkAccessFlagsFromResourceState(newLayout);
 
-	if (IsFlagSet(usageFlags & BufferUsageFlags::VertexBuffer))
-	{
-		bufferUsageFlags |= VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
-	}
+	VkPipelineStageFlags sourceStage = GetVkPipelineStageFromResourceStageAndState(srcStage, oldLayout);
+	VkPipelineStageFlags destinationStage = GetVkPipelineStageFromResourceStageAndState(dstStage, newLayout);
 
-	if (IsFlagSet(usageFlags & BufferUsageFlags::IndexBuffer))
-	{
-		bufferUsageFlags |= VK_BUFFER_USAGE_INDEX_BUFFER_BIT;
-	}
+	vkCmdPipelineBarrier(
+		GET_VK_HANDLE(commandBuffer),
+		sourceStage, destinationStage,
+		0,
+		0, nullptr,
+		0, nullptr,
+		1, &barrier
+	);
 
-	if (IsFlagSet(usageFlags & BufferUsageFlags::UniformBuffer))
-	{
-		bufferUsageFlags |= VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT;
-	}
-
-	if (IsFlagSet(usageFlags & BufferUsageFlags::IndirectBuffer))
-	{
-		bufferUsageFlags |= VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT;
-	}
-
-	return bufferUsageFlags;
+	texture->SetResourceState(newLayout);
+	texture->SetCurrentResourceStage(dstStage);
 }
 
-VmaMemoryUsage GetVmaMemoryUsageFrom(const MemoryAccess memoryAccess)
+void VulkanDevice::CopyImageToBuffer(VulkanCommandBuffer& commandBuffer, VulkanTexture* texture, VulkanBuffer* buffer)
 {
-	switch (memoryAccess)
-	{
-	case MemoryAccess::CPU:
-		return VMA_MEMORY_USAGE_CPU_ONLY;
-	case MemoryAccess::GPU:
-		return VMA_MEMORY_USAGE_GPU_ONLY; 
-	case MemoryAccess::CPU2GPU:
-		return VMA_MEMORY_USAGE_CPU_TO_GPU;
-	default:
-		ASSERT(false, "Not supported MemoryAccessFlags.");
-		return VMA_MEMORY_USAGE_UNKNOWN;
-	}
-}
+	ImageRegion texRegion = texture->GetRegion();
 
-VkDescriptorType GetVkDescriptorTypeFrom(const DescriptorType descriptorSetBinding)
-{
-	switch (descriptorSetBinding)
-	{
-	case DescriptorType::CombinedSampler:
-		return VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-	case DescriptorType::UniformBuffer:
-		return VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-	case DescriptorType::StorageImage:
-		return VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
-	case DescriptorType::StorageBuffer:
-		return VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-	case DescriptorType::SampledImage:
-		return VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE;
-	case DescriptorType::Sampler:
-		return VK_DESCRIPTOR_TYPE_SAMPLER;
-	default:
-		ASSERT(false, "Not supported DescriptorSetBindingType.");
-		return VK_DESCRIPTOR_TYPE_MAX_ENUM;
-	}
-}
+	VkBufferImageCopy region{};
+	region.bufferOffset = 0;
+	region.bufferRowLength = 0;
+	region.bufferImageHeight = 0;
 
-VkShaderStageFlagBits GetVkShaderStageFrom(const ShaderType shaderType)
-{
-	switch (shaderType)
-	{
-	case ShaderType::Vertex:
-		return VK_SHADER_STAGE_VERTEX_BIT;
-	case ShaderType::Fragment:
-		return VK_SHADER_STAGE_FRAGMENT_BIT;
-	case ShaderType::Geometry:
-		return VK_SHADER_STAGE_GEOMETRY_BIT;
-	case ShaderType::Hull:
-		return VK_SHADER_STAGE_TESSELLATION_CONTROL_BIT;
-	case ShaderType::Domain:
-		return VK_SHADER_STAGE_TESSELLATION_EVALUATION_BIT;
-	case ShaderType::Compute:
-		return VK_SHADER_STAGE_COMPUTE_BIT;
-	default:
-		ASSERT(false, "Not supported ShaderType.");
-		return VK_SHADER_STAGE_FLAG_BITS_MAX_ENUM;
-	}
-}
+	region.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+	region.imageSubresource.mipLevel = texRegion.Subresource.MipSlice;
+	region.imageSubresource.baseArrayLayer = texRegion.Subresource.ArraySlice;
+	region.imageSubresource.layerCount = texRegion.Subresource.MipSize;
 
-VkDescriptorType GetVkDescriptorTypeFrom(const SpvReflectDescriptorType reflectDescriptorType)
-{
-	switch (reflectDescriptorType)
-	{
-	case SPV_REFLECT_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER:
-		return VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-	case SPV_REFLECT_DESCRIPTOR_TYPE_UNIFORM_BUFFER:
-		return VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-	case SPV_REFLECT_DESCRIPTOR_TYPE_STORAGE_IMAGE:
-		return VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
-	case SPV_REFLECT_DESCRIPTOR_TYPE_STORAGE_BUFFER:
-		return VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-	case SPV_REFLECT_DESCRIPTOR_TYPE_SAMPLED_IMAGE:
-		return VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE;
-	case SPV_REFLECT_DESCRIPTOR_TYPE_SAMPLER:
-		return VK_DESCRIPTOR_TYPE_SAMPLER;
-	default:
-		ASSERT(false, "Not supported SpvReflectDescriptorBinding.");
-		return VK_DESCRIPTOR_TYPE_MAX_ENUM;
-	}
-}
+	region.imageOffset = { texRegion.Offset.X, texRegion.Offset.Y, texRegion.Offset.Z };
+	region.imageExtent = { texRegion.Extent.Width, texRegion.Extent.Height, 1 };
 
-VkFormat GetVkFormatFrom(const Format format)
-{
-	switch (format)
-	{
-	case Format::D32_SFLOAT:
-		return VK_FORMAT_D32_SFLOAT;
-	case Format::D32_SFLOAT_S8_UINT:
-		return VK_FORMAT_D32_SFLOAT_S8_UINT;
-	case Format::B8G8R8A8_UNORM:
-		return VK_FORMAT_B8G8R8A8_UNORM;
-	case Format::B8G8R8A8_UNORM_SRGB:
-		return VK_FORMAT_B8G8R8A8_SRGB;
-	case Format::R8G8B8A8_UNORM:
-		return VK_FORMAT_R8G8B8A8_UNORM;
-	case Format::R8G8B8A8_UNORM_SRGB:
-		return VK_FORMAT_R8G8B8A8_SRGB;
-	case Format::R32_SFLOAT:
-		return VK_FORMAT_R32_SFLOAT;
-	case Format::R8_UNORM:
-		return VK_FORMAT_R8_UNORM;
-	case Format::R16G16B16A16_FLOAT:
-		return VK_FORMAT_R16G16B16A16_SFLOAT;
-	case Format::R32G32B32A32_FLOAT:
-		return VK_FORMAT_R32G32B32A32_SFLOAT;
-	case Format::R32G32B32_FLOAT:
-		return VK_FORMAT_R32G32B32_SFLOAT;
-	case Format::R32G32_FLOAT:
-		return VK_FORMAT_R32G32_SFLOAT;
-	case Format::BC1_UNORM:
-		return VK_FORMAT_BC1_RGBA_UNORM_BLOCK;
-	case Format::BC1_UNORM_SRGB:
-		return VK_FORMAT_BC1_RGBA_SRGB_BLOCK;
-	case Format::BC2_UNORM:
-		return VK_FORMAT_BC2_UNORM_BLOCK;
-	case Format::BC2_UNORM_SRGB:
-		return VK_FORMAT_BC2_SRGB_BLOCK;
-	case Format::BC3_UNORM:
-		return VK_FORMAT_BC3_UNORM_BLOCK;
-	case Format::BC3_UNORM_SRGB:
-		return VK_FORMAT_BC3_SRGB_BLOCK;
-	case Format::BC7_UNORM:
-		return VK_FORMAT_BC7_UNORM_BLOCK;
-	case Format::BC7_UNORM_SRGB:
-		return VK_FORMAT_BC7_SRGB_BLOCK;
-	case Format::R32_UINT:
-		return VK_FORMAT_R32_UINT;
-	default:
-		ASSERT(false, "Not supported Format.");
-		return VK_FORMAT_UNDEFINED;
-	}
-}
+	ResourceStage srcStage = texture->GetCurrentResourceStage();
+	ResourceState srcState = texture->GetResourceState();
 
-VkColorSpaceKHR GetVkColorSpaceFrom(const ColorSpace colorSpace)
-{
-	switch (colorSpace)
-	{
-	case ColorSpace::SRGB:
-		return VK_COLOR_SPACE_SRGB_NONLINEAR_KHR;
-	case ColorSpace::ExtendedSRGB_Linear:
-		return VK_COLOR_SPACE_EXTENDED_SRGB_LINEAR_EXT;
-	case ColorSpace::ExtendedSRGB_Nonlinear:
-		return VK_COLOR_SPACE_EXTENDED_SRGB_NONLINEAR_EXT;
-	default:
-		ASSERT(false, "Not supported ColorSpace.");
-		return VK_COLOR_SPACE_MAX_ENUM_KHR;
-	}
-}
+	if (srcState != ResourceState::TransferSrc)
+		ResourceBarrier(commandBuffer, texture, srcState, ResourceState::TransferSrc, srcStage, ResourceStage::Transfer);
+	
+	vkCmdCopyImageToBuffer(GET_VK_HANDLE(commandBuffer), GET_VK_HANDLE_PTR(texture->GetResource()), VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, GET_VK_HANDLE_PTR(buffer), 1, &region);
 
-uint32_t GetBlockSizeFrom(const VkFormat format)
-{
-	if ((format == VK_FORMAT_BC1_RGBA_UNORM_BLOCK) ||
-		(format == VK_FORMAT_BC1_RGBA_SRGB_BLOCK) ||
-		(format == VK_FORMAT_BC2_UNORM_BLOCK) ||
-		(format == VK_FORMAT_BC2_SRGB_BLOCK) ||
-		(format == VK_FORMAT_BC3_UNORM_BLOCK) ||
-		(format == VK_FORMAT_BC3_SRGB_BLOCK) ||
-		(format == VK_FORMAT_BC4_UNORM_BLOCK) ||
-		(format == VK_FORMAT_BC5_UNORM_BLOCK) ||
-		(format == VK_FORMAT_BC6H_UFLOAT_BLOCK) ||
-		(format == VK_FORMAT_BC7_UNORM_BLOCK) ||
-		(format == VK_FORMAT_BC7_SRGB_BLOCK))
-	{
-		return 4;
-	}
-	else
-	{
-		return 1;
-	}
-}
-
-VkImageUsageFlags GetVkImageUsageFlagsFrom(const ImageUsageFlags usageFlags)
-{
-	VkImageUsageFlags imageUsageFlags = 0;
-	if (IsFlagSet(usageFlags & ImageUsageFlags::TransferSrc))
-	{
-		imageUsageFlags |= VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
-	}
-
-	if (IsFlagSet(usageFlags & ImageUsageFlags::TransferDst))
-	{
-		imageUsageFlags |= VK_IMAGE_USAGE_TRANSFER_DST_BIT;
-	}
-
-	if (IsFlagSet(usageFlags & ImageUsageFlags::Resource))
-	{
-		imageUsageFlags |= VK_IMAGE_USAGE_SAMPLED_BIT;
-	}
-
-	if (IsFlagSet(usageFlags & ImageUsageFlags::Storage))
-	{
-		imageUsageFlags |= VK_IMAGE_USAGE_STORAGE_BIT;
-	}
-
-	if (IsFlagSet(usageFlags & ImageUsageFlags::RenderTarget))
-	{
-		imageUsageFlags |= VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
-	}
-
-	if (IsFlagSet(usageFlags & ImageUsageFlags::DepthStencil))
-	{
-		imageUsageFlags |= VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
-	}
-
-	return imageUsageFlags;
-}
-
-VkImageType GetVkImageTypeFrom(const uint32_t imageDepth)
-{
-	if (imageDepth > 1)
-	{
-		return VK_IMAGE_TYPE_3D;
-	}
-	else
-	{
-		return VK_IMAGE_TYPE_2D;
-	}
-}
-
-VkImageAspectFlags GetVkImageAspectFlagsFrom(VkFormat format)
-{
-	switch (format)
-	{
-	case VK_FORMAT_D16_UNORM:
-	case VK_FORMAT_X8_D24_UNORM_PACK32:
-	case VK_FORMAT_D32_SFLOAT:
-		return VK_IMAGE_ASPECT_DEPTH_BIT;
-	case VK_FORMAT_S8_UINT:
-		return VK_IMAGE_ASPECT_STENCIL_BIT;
-	case VK_FORMAT_D16_UNORM_S8_UINT:
-	case VK_FORMAT_D24_UNORM_S8_UINT:
-	case VK_FORMAT_D32_SFLOAT_S8_UINT:
-		return VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT;
-	default:
-		return VK_IMAGE_ASPECT_COLOR_BIT;
-	}
-}
-
-VkImageLayout GetVkImageLayoutFrom(const ResourceState resourceState)
-{
-	if (resourceState == ResourceState::None)
-	{
-		return VK_IMAGE_LAYOUT_UNDEFINED;
-	}
-	else if (resourceState == ResourceState::TransferSrc)
-	{
-		return VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
-	}
-	else if (resourceState == ResourceState::TransferDst)
-	{
-		return VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
-	}
-	else if (resourceState == ResourceState::DepthStencilRead)
-	{
-		return VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL;
-	}
-	else if (resourceState == ResourceState::DepthStencilWrite)
-	{
-		return VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
-	}
-	else if (resourceState == ResourceState::GenericRead)
-	{
-		return VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-	}
-	else if (resourceState == ResourceState::RenderTarget)
-	{
-		return VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-	}
-	else if (resourceState == ResourceState::Present)
-	{
-		return VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
-	}
-	else if (resourceState == ResourceState::GeneralCompute)
-	{
-		return VK_IMAGE_LAYOUT_GENERAL;
-	}
-
-	ASSERT(false, "Not supported ResourceState.");
-	return VK_IMAGE_LAYOUT_UNDEFINED;
-}
-
-VkAccessFlags GetVkAccessFlagsFrom(const ResourceState resourceState)
-{
-	if (resourceState == ResourceState::None)
-	{
-		return VkAccessFlagBits(0);
-	}
-	else if (resourceState == ResourceState::TransferSrc)
-	{
-		return VK_ACCESS_TRANSFER_READ_BIT;
-	}
-	else if (resourceState == ResourceState::TransferDst)
-	{
-		return VK_ACCESS_TRANSFER_WRITE_BIT;
-	}
-	else if (resourceState == ResourceState::DepthStencilRead)
-	{
-		return VkAccessFlagBits(VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT | VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_UNIFORM_READ_BIT);
-	}
-	else if (resourceState == ResourceState::DepthStencilWrite)
-	{
-		return VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
-	}
-	else if (resourceState == ResourceState::GenericRead)
-	{
-		return VkAccessFlagBits(VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_UNIFORM_READ_BIT |
-			VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT | VK_ACCESS_INDEX_READ_BIT |
-			VK_ACCESS_INDIRECT_COMMAND_READ_BIT | VK_ACCESS_TRANSFER_READ_BIT);
-	}
-	else if (resourceState == ResourceState::RenderTarget)
-	{
-		return VkAccessFlagBits(VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_COLOR_ATTACHMENT_READ_BIT);
-	}
-	else if (resourceState == ResourceState::Present)
-	{
-		return VK_ACCESS_MEMORY_READ_BIT;
-	}
-
-	ASSERT(false, "Not supported ResourceState.");
-	return VK_IMAGE_LAYOUT_UNDEFINED;
-}
-
-VkPipelineStageFlagBits GetGraphicsPipelineStage(const ResourceState resourceState)
-{
-	switch (resourceState)
-	{
-	case ResourceState::TransferSrc:
-	case ResourceState::TransferDst:
-		return VK_PIPELINE_STAGE_TRANSFER_BIT;
-	case ResourceState::DepthStencilRead:
-		return VkPipelineStageFlagBits(
-			VK_PIPELINE_STAGE_VERTEX_SHADER_BIT |
-			VK_PIPELINE_STAGE_GEOMETRY_SHADER_BIT |
-			VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT |
-			VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT |
-			VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT);
-	case ResourceState::DepthStencilWrite:
-		return VkPipelineStageFlagBits(
-			VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT |
-			VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT);
-	case ResourceState::GenericRead:
-		return VkPipelineStageFlagBits(
-			VK_PIPELINE_STAGE_VERTEX_SHADER_BIT |
-			VK_PIPELINE_STAGE_GEOMETRY_SHADER_BIT |
-			VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT |
-			VK_PIPELINE_STAGE_VERTEX_INPUT_BIT |
-			VK_PIPELINE_STAGE_DRAW_INDIRECT_BIT |
-			VK_PIPELINE_STAGE_TRANSFER_BIT);
-	case ResourceState::RenderTarget:
-		return VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-	case ResourceState::None:
-	case ResourceState::Present:
-		return VK_PIPELINE_STAGE_ALL_COMMANDS_BIT;
-	default:
-		ASSERT(false, "Not supported ResourceState.");
-	}
-
-	return VK_PIPELINE_STAGE_ALL_COMMANDS_BIT;
-}
-
-VkPipelineStageFlagBits GetTransferPipelineStage(const ResourceState resourceState)
-{
-	if ((resourceState == ResourceState::TransferSrc) || (resourceState == ResourceState::TransferDst))
-	{
-		return VK_PIPELINE_STAGE_TRANSFER_BIT;
-	}
-
-	return VK_PIPELINE_STAGE_ALL_COMMANDS_BIT;
-}
-
-
-VkPrimitiveTopology GetVkPrimitiveTopologyFrom(const Topology topology)
-{
-	switch (topology)
-	{
-	case Topology::PointList:
-		return VK_PRIMITIVE_TOPOLOGY_POINT_LIST;
-	case Topology::LineList:
-		return VK_PRIMITIVE_TOPOLOGY_LINE_LIST;
-	case Topology::LineStrip:
-		return VK_PRIMITIVE_TOPOLOGY_LINE_STRIP;
-	case Topology::TriangleList:
-		return VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
-	case Topology::TriangleStrip:
-		return VK_PRIMITIVE_TOPOLOGY_TRIANGLE_STRIP;
-	case Topology::PatchList:
-		return VK_PRIMITIVE_TOPOLOGY_PATCH_LIST;
-	default:
-		ASSERT(false, "Not supported Topology.");
-		return VK_PRIMITIVE_TOPOLOGY_MAX_ENUM;
-	}
-}
-
-VkSampleCountFlagBits GetVkSampleFlagsFrom(const MultisampleType multiSampleType)
-{
-	switch (multiSampleType)
-	{
-	case MultisampleType::Sample_1:
-		return VK_SAMPLE_COUNT_1_BIT;
-	case MultisampleType::Sample_2:
-		return VK_SAMPLE_COUNT_2_BIT;
-	case MultisampleType::Sample_4:
-		return VK_SAMPLE_COUNT_4_BIT;
-	case MultisampleType::Sample_8:
-		return VK_SAMPLE_COUNT_8_BIT;
-	default:
-		ASSERT(false, "Not supported MultisampleType.");
-		return VK_SAMPLE_COUNT_FLAG_BITS_MAX_ENUM;
-	}
-}
-
-VkCompareOp GetVkCompareOperationFrom(const CompareOperation compareOperation)
-{
-	switch (compareOperation)
-	{
-	case CompareOperation::Never:
-		return VK_COMPARE_OP_NEVER;
-	case CompareOperation::Less:
-		return VK_COMPARE_OP_LESS;
-	case CompareOperation::Equal:
-		return VK_COMPARE_OP_EQUAL;
-	case CompareOperation::LessEqual:
-		return VK_COMPARE_OP_LESS_OR_EQUAL;
-	case CompareOperation::Greater:
-		return VK_COMPARE_OP_GREATER;
-	case CompareOperation::NotEqual:
-		return VK_COMPARE_OP_NOT_EQUAL;
-	case CompareOperation::GreaterEqual:
-		return VK_COMPARE_OP_GREATER_OR_EQUAL;
-	case CompareOperation::Always:
-		return VK_COMPARE_OP_ALWAYS;
-	default:
-		ASSERT(false, "Not supported CompareOperation.");
-		return VK_COMPARE_OP_MAX_ENUM;
-	}
-}
-
-VkStencilOp GetVkStencilOpFrom(const StencilOperation stencilOperation)
-{
-	switch (stencilOperation)
-	{
-	case StencilOperation::Keep:
-		return VK_STENCIL_OP_KEEP;
-	case StencilOperation::Zero:
-		return VK_STENCIL_OP_ZERO;
-	case StencilOperation::Replace:
-		return VK_STENCIL_OP_REPLACE;
-	case StencilOperation::IncrementAndClamp:
-		return VK_STENCIL_OP_INCREMENT_AND_CLAMP;
-	case StencilOperation::DecrementAndClamp:
-		return VK_STENCIL_OP_DECREMENT_AND_CLAMP;
-	case StencilOperation::Invert:
-		return VK_STENCIL_OP_INVERT;
-	case StencilOperation::Increment:
-		return VK_STENCIL_OP_INCREMENT_AND_WRAP;
-	case StencilOperation::Decrement:
-		return VK_STENCIL_OP_DECREMENT_AND_WRAP;
-	default:
-		ASSERT(false, "Not supported StencilOperation.");
-		return VK_STENCIL_OP_MAX_ENUM;
-	}
-}
-
-VkFilter GetVkFilterFrom(const FilterType filterType)
-{
-	switch (filterType)
-	{
-	case FilterType::Point:
-		return VK_FILTER_NEAREST;
-	case FilterType::Linear:
-	case FilterType::Anisotropic:
-		return VK_FILTER_LINEAR;
-	default:
-		ASSERT(false, "Not supported FilterType.");
-		return VK_FILTER_MAX_ENUM;
-	}
-}
-
-VkSamplerMipmapMode GetVkMipmapModeFrom(const FilterType filterType)
-{
-	switch (filterType)
-	{
-	case FilterType::Point:
-		return VK_SAMPLER_MIPMAP_MODE_NEAREST;
-	case FilterType::Linear:
-		return VK_SAMPLER_MIPMAP_MODE_LINEAR;
-	default:
-		ASSERT(false, "Not supported FilterType.");
-		return VK_SAMPLER_MIPMAP_MODE_MAX_ENUM;
-	}
-}
-
-VkSamplerAddressMode GetVkAddressModeFrom(const AddressMode addressMode)
-{
-	switch (addressMode)
-	{
-	case AddressMode::Repeat:
-		return VK_SAMPLER_ADDRESS_MODE_REPEAT;
-	case AddressMode::Mirror:
-		return VK_SAMPLER_ADDRESS_MODE_MIRRORED_REPEAT;
-	case AddressMode::Clamp:
-		return VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
-	case AddressMode::Border:
-		return VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER;
-	case AddressMode::MirrorClamp:
-		return VK_SAMPLER_ADDRESS_MODE_MIRROR_CLAMP_TO_EDGE;
-	default:
-		ASSERT(false, "Not supported AddressMode.");
-		return VK_SAMPLER_ADDRESS_MODE_MAX_ENUM;
-	}
-}
-
-VkBorderColor GetVkBorderColorFrom(const Color color)
-{
-	if (color.value[0] == 0.0f && color.value[1] == 0.0f && color.value[2] == 0.0f)
-	{
-		return color.value[3] == 1.0f ? VK_BORDER_COLOR_FLOAT_OPAQUE_BLACK : VK_BORDER_COLOR_FLOAT_TRANSPARENT_BLACK;
-	}
-	else if (color.value[0] == 1.0f && color.value[1] == 1.0f && color.value[2] == 1.0f && color.value[3] == 1.0f)
-	{
-		return VK_BORDER_COLOR_FLOAT_OPAQUE_WHITE;
-	}
-	else
-	{
-		ASSERT(false, "Not supported border Color.");
-		return VK_BORDER_COLOR_MAX_ENUM;
-	}
-}
-
-bool IsDepthFormat(const Format format)
-{
-	return (format == Format::D32_SFLOAT || format == Format::D32_SFLOAT);
-}
-
-VkPipelineStageFlags GetVkPipelineStageFromResourceStage(const ResourceStage stage)
-{
-	switch (stage)
-	{
-	case ResourceStage::Compute:
-		return VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT;
-	case ResourceStage::Graphics:
-		return VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT; //TODO: fix this, but this should be ok for now
-	case ResourceStage::Transfer:
-		return VK_PIPELINE_STAGE_TRANSFER_BIT;
-	default:
-		//ASSERT(false, "Not supported pipeline stage.");
-		return VK_PIPELINE_STAGE_ALL_COMMANDS_BIT;
-	}
-}
-
-VkAccessFlags GetVkAccessFlagsFromResourceState(const ResourceState state)
-{
-	switch (state)
-	{
-	case ResourceState::GenericRead:
-		return VK_ACCESS_SHADER_READ_BIT;
-	case ResourceState::RenderTarget:
-		return VK_ACCESS_SHADER_WRITE_BIT;
-	case ResourceState::GeneralCompute:
-		return VK_ACCESS_SHADER_WRITE_BIT | VK_ACCESS_SHADER_READ_BIT;
-	case ResourceState::TransferDst:
-		return VK_ACCESS_TRANSFER_WRITE_BIT;
-	case ResourceState::TransferSrc:
-		return VK_ACCESS_TRANSFER_READ_BIT;
-	case ResourceState::DepthStencilRead:
-		return VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT;
-	case ResourceState::DepthStencilWrite:
-		return VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
-	default:
-		ASSERT(false, "Not supported access state.");
-		return VK_ACCESS_NONE_KHR;
-	}
-}
-
-VkBlendFactor GetVkBlendFactorFrom(const BlendValue blendValue)
-{
-	switch (blendValue)
-	{
-	case BlendValue::Zero:
-		return VK_BLEND_FACTOR_ZERO;
-	case BlendValue::One:
-		return VK_BLEND_FACTOR_ONE;
-	case BlendValue::SrcColor:
-		return VK_BLEND_FACTOR_SRC_COLOR;
-	case BlendValue::InvSrcColor:
-		return VK_BLEND_FACTOR_ONE_MINUS_SRC_COLOR;
-	case BlendValue::SrcAlpha:
-		return VK_BLEND_FACTOR_SRC_ALPHA;
-	case BlendValue::InvSrcAlpha:
-		return VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
-	case BlendValue::DestAlpha:
-		return VK_BLEND_FACTOR_DST_ALPHA;
-	case BlendValue::InvDestAlpha:
-		return VK_BLEND_FACTOR_ONE_MINUS_DST_ALPHA;
-	case BlendValue::DstColor:
-		return VK_BLEND_FACTOR_DST_COLOR;
-	case BlendValue::InvDstColor:
-		return VK_BLEND_FACTOR_ONE_MINUS_DST_COLOR;
-	case BlendValue::BlendFactor:
-		return VK_BLEND_FACTOR_CONSTANT_COLOR;
-	case BlendValue::InvBlendFactor:
-		return VK_BLEND_FACTOR_ONE_MINUS_CONSTANT_COLOR;
-	case BlendValue::SrcAlphaSat:
-		return VK_BLEND_FACTOR_SRC_ALPHA_SATURATE;
-	case BlendValue::Src1Color:
-		return VK_BLEND_FACTOR_SRC1_COLOR;
-	case BlendValue::InvSrc1Color:
-		return VK_BLEND_FACTOR_ONE_MINUS_SRC1_COLOR;
-	case BlendValue::Src1Alpha:
-		return VK_BLEND_FACTOR_SRC1_ALPHA;
-	case BlendValue::InvSrc1Alpha:
-		return VK_BLEND_FACTOR_ONE_MINUS_SRC1_ALPHA;
-	default:
-		ASSERT(false, "Not supported BlendValue.");
-		return VK_BLEND_FACTOR_MAX_ENUM;
-	}
-}
-
-VkBlendOp GetVkBlendOpFrom(const BlendOperation blendOperation)
-{
-	switch (blendOperation)
-	{
-	case BlendOperation::Add:
-		return VK_BLEND_OP_ADD;
-	case BlendOperation::Subtract:
-		return VK_BLEND_OP_SUBTRACT;
-	case BlendOperation::ReverseSubtract:
-		return VK_BLEND_OP_REVERSE_SUBTRACT;
-	case BlendOperation::Min:
-		return VK_BLEND_OP_MIN;
-	case BlendOperation::Max:
-		return VK_BLEND_OP_MAX;
-	default:
-		ASSERT(false, "Not supported BlendOperation.");
-		return VK_BLEND_OP_MAX_ENUM;
-	}
-}
-
-VkVertexInputRate GetVkVertexInputRateFrom(const VertexInputRate inputRate)
-{
-	switch (inputRate)
-	{
-	case VertexInputRate::PerVertex:
-		return VK_VERTEX_INPUT_RATE_VERTEX;
-	case VertexInputRate::PerInstance:
-		return VK_VERTEX_INPUT_RATE_INSTANCE;
-	default:
-		ASSERT(false, "Not supported VertexInputRate.");
-		return VK_VERTEX_INPUT_RATE_MAX_ENUM;
-	}
-}
-
-VkClearValue GetVkClearColorValueFor(const Format format)
-{
-	switch (format)
-	{
-	case Format::R8G8B8A8_UNORM:
-	case Format::R8G8B8A8_UNORM_SRGB:
-	case Format::B8G8R8A8_UNORM:
-	case Format::B8G8R8A8_UNORM_SRGB:
-	case Format::R16G16B16A16_FLOAT:
-	case Format::R32G32B32A32_FLOAT:
-		return VkClearValue{ 0.5, 0.5, 0.5, 1.0 };
-	case Format::R8_UNORM:
-	case Format::R32_SFLOAT:
-		return VkClearValue{ 0.1f };
-	case Format::R32G32B32_FLOAT:
-		return VkClearValue{ 0.1f, 0.1f, 0.1f};
-	case Format::R32G32_FLOAT:
-		return VkClearValue{ 0.0f, 0.0f};
-	case Format::R32_UINT:
-		return VkClearValue{ 0 };
-	default:
-		ASSERT(false, "Not supported format.");
-		break;
-	}
-}
-
-size_t GetBPPFrom(const Format format)
-{
-	switch (format)
-	{
-	case Format::R8G8B8A8_UNORM:
-	case Format::R8G8B8A8_UNORM_SRGB:
-	case Format::B8G8R8A8_UNORM:
-	case Format::B8G8R8A8_UNORM_SRGB:
-		return 4;
-	case Format::R16G16B16A16_FLOAT:
-		return 8;
-	case Format::R32G32B32A32_FLOAT:
-		return 16;
-	default:
-		ASSERT(false, "Cannot get BPP from format");
-		break;
-	}
+	if (srcState != ResourceState::TransferSrc)
+		ResourceBarrier(commandBuffer, texture, ResourceState::TransferSrc,srcState , ResourceStage::Transfer, srcStage);
 }

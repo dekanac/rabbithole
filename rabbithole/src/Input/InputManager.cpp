@@ -91,8 +91,8 @@ void InputManager::Update(float dt)
         }
     }
 
-    LAST_MOUSE_POS_X = curr_mouse_x;
-    LAST_MOUSE_POS_Y = curr_mouse_y;
+    LAST_MOUSE_POS_X = static_cast<float>(curr_mouse_x);
+    LAST_MOUSE_POS_Y = static_cast<float>(curr_mouse_y);
   
 }
 

@@ -1,5 +1,6 @@
 #include "common.h"
 
+#include "Render/Converters.h"
 #include "Shader.h"
 #include "Logger/Logger.h"
 
@@ -38,6 +39,22 @@ Shader::Shader(VulkanDevice& device, size_t byteCodeSize, const char* byteCode, 
 		descriptorSetLayoutBinding.descriptorType = GetVkDescriptorTypeFrom(bindings[i]->descriptor_type);
 		descriptorSetLayoutBinding.stageFlags = GetVkShaderStageFrom(m_Info.Type);
 		descriptorSetLayoutBinding.pImmutableSamplers = nullptr;
+	}
+
+	uint32_t pushConstsCount = 0;
+	VULKAN_SPIRV_CALL(spvReflectEnumeratePushConstantBlocks(&spvModule, &pushConstsCount, nullptr));
+
+	std::vector<SpvReflectBlockVariable*> pushConstants(pushConstsCount);
+	VULKAN_SPIRV_CALL(spvReflectEnumeratePushConstantBlocks(&spvModule, &pushConstsCount, pushConstants.data()));
+
+	m_PushConstants.resize(pushConstsCount);
+
+	for (uint32_t i = 0; i < pushConstsCount; i++)
+	{
+		VkPushConstantRange& pushConstantRange = m_PushConstants[i];
+		pushConstantRange.stageFlags = GetVkShaderStageFrom(m_Info.Type);
+		pushConstantRange.offset = pushConstants[i]->offset;
+		pushConstantRange.size = pushConstants[i]->size;
 	}
 
 	spvReflectDestroyShaderModule(&spvModule);
