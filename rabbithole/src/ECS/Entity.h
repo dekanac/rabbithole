@@ -1,5 +1,5 @@
 #pragma once
-#include "ECS/Component.h" //pitaj krasica
+#include "ECS/Component.h"
 #include "Logger/Logger.h"
 
 #include <vector>

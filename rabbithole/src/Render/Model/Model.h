@@ -167,8 +167,8 @@ private:
 	uint32_t		m_IndexCount;
 
 public:
-	inline VulkanBuffer*	GetVertexBuffer()	{ return m_VertexBuffer; }
-	inline VulkanBuffer*	GetIndexBuffer()	{ return m_IndexBuffer; }
+	inline VulkanBuffer*	GetVertexBuffer() const	{ return m_VertexBuffer; }
+	inline VulkanBuffer*	GetIndexBuffer() const { return m_IndexBuffer; }
 	uint32_t				GetIndexCount()		{ return m_IndexCount; }
 
 private:
@@ -193,9 +193,6 @@ public:
 		Mesh mesh;
 		glm::mat4 matrix;
 		AABB bbox;
-
-		void SetBBOX(AABB bbox_) { bbox = bbox_; }
-		void SetMatrix(glm::mat4 matrix_) { matrix = matrix_; }
 	};
 
 	struct Material 
@@ -220,7 +217,6 @@ public:
 	std::vector<VulkanTexture*>&	GetTextures() { return m_Textures; }
 	std::vector<Material>&			GetMaterials() { return m_Materials; }
 	std::vector<uint32_t>&			GetTextureIndices() { return m_TextureIndices; }
-
 
 private:
 	void LoadImages(tinygltf::Model& input);

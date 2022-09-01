@@ -435,6 +435,11 @@ void VulkanglTFModel::LoadModelFromFile(VulkanDevice* device, std::string filena
 	tinygltf::TinyGLTF gltfContext;
 	std::string error, warning;
 
+	auto lastSlash = filename.find_last_of('/');
+	auto lastDot = filename.find_last_of('.');
+
+	auto name = filename.substr(lastSlash + 1, lastDot - lastSlash - 1);
+
 	bool fileLoaded = gltfContext.LoadASCIIFromFile(&glTFInput, &error, &warning, filename);
 
 	std::vector<uint32_t> indexBuffer;
@@ -463,24 +468,21 @@ void VulkanglTFModel::LoadModelFromFile(VulkanDevice* device, std::string filena
 
 	ResourceManager* resourceManager = Renderer::instance().GetResourceManager();
 
-	VulkanBuffer* vertexBufferGPU = resourceManager->CreateBuffer(*device, BufferCreateInfo{
+	m_VertexBuffer = resourceManager->CreateBuffer(*device, BufferCreateInfo{
 			.flags = {BufferUsageFlags::VertexBuffer | BufferUsageFlags::TransferSrc},
 			.memoryAccess = {MemoryAccess::GPU},
 			.size = {static_cast<uint32_t>(vertexBufferSize)},
-			.name = {"ModelVertexBuffer"}
+			.name = {std::format("ModelVertexBuffer_{}", name)}
 		});
-	vertexBufferGPU->FillBuffer(vertexBuffer.data(), vertexBufferSize);
+	m_VertexBuffer->FillBuffer(vertexBuffer.data(), vertexBufferSize);
 
-	VulkanBuffer* indexBufferGPU = resourceManager->CreateBuffer(*device, BufferCreateInfo{
-		.flags = {BufferUsageFlags::IndexBuffer | BufferUsageFlags::TransferSrc},
-		.memoryAccess = {MemoryAccess::GPU},
-		.size = {static_cast<uint32_t>(indexBufferSize)},
-		.name = {"ModelIndexBuffer"}
+	m_IndexBuffer = resourceManager->CreateBuffer(*device, BufferCreateInfo{
+			.flags = {BufferUsageFlags::IndexBuffer | BufferUsageFlags::TransferSrc},
+			.memoryAccess = {MemoryAccess::GPU},
+			.size = {static_cast<uint32_t>(indexBufferSize)},
+			.name = {std::format("ModelIndexBuffer_{}", name)}
 		});
-	indexBufferGPU->FillBuffer(indexBuffer.data(), indexBufferSize);
-
-	this->m_VertexBuffer = vertexBufferGPU;
-	this->m_IndexBuffer = indexBufferGPU;
+	m_IndexBuffer->FillBuffer(indexBuffer.data(), indexBufferSize);
 }
 
 VulkanglTFModel::VulkanglTFModel(VulkanDevice* device, std::string filename)
@@ -490,9 +492,6 @@ VulkanglTFModel::VulkanglTFModel(VulkanDevice* device, std::string filename)
 
 VulkanglTFModel::~VulkanglTFModel()
 {
-	delete m_VertexBuffer;
-	delete m_IndexBuffer;
-	
 	m_Textures.clear();
 }
 
@@ -536,7 +535,7 @@ void VulkanglTFModel::LoadImages(tinygltf::Model& input)
 		}
 
 		TextureData textureData{};
-		textureData.bpp = glTFImage.component;
+		textureData.bpp = 4;
 		textureData.height = input.images[i].height;
 		textureData.width = input.images[i].width;
 		textureData.pData = buffer;

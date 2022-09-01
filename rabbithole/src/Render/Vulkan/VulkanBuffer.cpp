@@ -71,36 +71,29 @@ void VulkanBuffer::Unmap()
 	}
 }
 
-//TODO: fix this, move code to OFFSET version and then from here call FillBuffer(data, 0, size)
-void VulkanBuffer::FillBuffer(void* inputData, uint64_t size)
+void VulkanBuffer::FillBuffer(void* inputData, uint64_t size, uint64_t offset)
 {
+	ASSERT(offset + size <= m_Size, "Trying to reach outside buffer's bounds!");
+
 	if (m_Info.memoryAccess != MemoryAccess::GPU)
 	{
 		void* data = Map();
-		memcpy(data, inputData, size);
+		memcpy(data, (char*)inputData + offset, size);
 		Unmap();
 	}
 	else
 	{
 		VulkanBuffer stagingBuffer = VulkanBuffer(m_Device, BufferUsageFlags::TransferSrc, MemoryAccess::CPU, size, "StagingBuffer");
 
-		stagingBuffer.FillBuffer(inputData, static_cast<size_t>(size));
+		stagingBuffer.FillBuffer(inputData);
 
-		m_Device.CopyBuffer(GET_VK_HANDLE(stagingBuffer), m_Buffer, size);
+		m_Device.CopyBuffer(stagingBuffer, *this, size, 0, offset);
 	}
-}
-
-void VulkanBuffer::FillBuffer(void* inputData, uint64_t offset, uint64_t size)
-{
-	void* data = Map();
-	char* dataOffset = (char*)data + offset;
-	memcpy(dataOffset, inputData, size);
-	Unmap();
 }
 
 void VulkanBuffer::FillBuffer(void* data)
 {
-	FillBuffer(data, GetSize());
+	FillBuffer(data, GetSize(), 0);
 }
 
 void VulkanBuffer::CreateBufferResource()

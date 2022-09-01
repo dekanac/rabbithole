@@ -246,7 +246,6 @@ public:
 	void BindVertexData(size_t offset);
 
 	void DrawVertices(uint32_t count);
-	void DrawIndicesIndirect(uint32_t count, uint32_t offset);
 	void Dispatch(uint32_t x, uint32_t y, uint32_t z);
 	
 	void CopyToSwapChain();
@@ -398,6 +397,3 @@ public:
 	//Don't ask, Imgui init wants swapchain renderpass to be ready, but its not. So basically we need 2 init phases..
 	bool imguiReady = false;
 };
-
-
-#include "Renderer.hpp"

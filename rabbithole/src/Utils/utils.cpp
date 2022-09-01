@@ -16,10 +16,10 @@ namespace Utils
 		return std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
 	}
 
-	void SetEndtimeAndPrint(long long start)
+	void SetEndtimeAndPrint(long long start, std::string label)
 	{
 		auto endtime = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
-		std::cout << endtime - start << "ms" << std::endl;
+		std::cout << label << ": " << endtime - start << "ms" << std::endl;
 	}
 
 	void PrintMatrix(const rabbitMat4f& matrix)

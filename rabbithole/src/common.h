@@ -6,6 +6,10 @@
 
 #define RABBITHOLE_DEBUG
 
+#define PROFILE_CODE(code) auto start = Utils::SetStartTime(); \
+	code \
+	Utils::SetEndtimeAndPrint(start);
+
 #define SingletonClass(className) \
 public: \
     className(className const&)         = delete; \

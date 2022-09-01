@@ -45,8 +45,7 @@ public:
 	void SetColorWriteMask(const uint32_t mrtIndex, const ColorWriteMaskFlags mask);
 	void SetColorWriteMask(const uint32_t mrtIndex, const uint32_t mrtCount, const ColorWriteMaskFlags masks[]);
 
-	PipelineConfigInfo(const PipelineConfigInfo&) = delete;
-	PipelineConfigInfo& operator=(const PipelineConfigInfo&) = delete;
+	NonCopyableAndMovable(PipelineConfigInfo);
 
 	Shader*									vertexShader;
 	std::string vsEntryPoint = "main";
@@ -76,8 +75,7 @@ public:
 	VulkanPipeline(VulkanDevice& device, PipelineConfigInfo& configInfo, PipelineType type = PipelineType::Graphics);
 	~VulkanPipeline();
 
-	VulkanPipeline(const VulkanPipeline&) = delete;
-	VulkanPipeline operator=(const VulkanPipeline&) = delete;
+	NonCopyableAndMovable(VulkanPipeline);
 
 	virtual void					 Bind(VulkanCommandBuffer& commandBuffer) {}
 

@@ -97,10 +97,10 @@ void VulkanDevice::CreateInstance()
 	VkApplicationInfo appInfo = {};
 	appInfo.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
 	appInfo.pApplicationName = "Rabbithole";
-	appInfo.applicationVersion = VK_MAKE_VERSION(1, 0, 0);
+	appInfo.applicationVersion = VK_MAKE_API_VERSION(0, 1, 3, 0);
 	appInfo.pEngineName = "Rabbithole Engine";
-	appInfo.engineVersion = VK_MAKE_VERSION(1, 0, 0);
-	appInfo.apiVersion = VK_API_VERSION_1_0;
+	appInfo.engineVersion = VK_MAKE_VERSION(1, 3, 0);
+	appInfo.apiVersion = VK_API_VERSION_1_3;
 
 	VkInstanceCreateInfo createInfo = {};
 	createInfo.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
@@ -498,30 +498,16 @@ uint32_t VulkanDevice::FindMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags
 	return UINT_MAX;
 }
 
-void VulkanDevice::CopyBuffer(VulkanBuffer& srcBuffer, VulkanBuffer& dstBuffer, VkDeviceSize size)
+void VulkanDevice::CopyBuffer(VulkanBuffer& srcBuffer, VulkanBuffer& dstBuffer, uint64_t size, uint64_t srcOffset, uint64_t dstOffset)
 {
 	VulkanCommandBuffer tempCommandBuffer(*this, "Temp Copy Buffer Command Buffer");
 	tempCommandBuffer.BeginCommandBuffer(true);
 
 	VkBufferCopy copyRegion{};
-	copyRegion.srcOffset = 0;  // Optional
-	copyRegion.dstOffset = 0;  // Optional
+	copyRegion.srcOffset = srcOffset;
+	copyRegion.dstOffset = dstOffset;
 	copyRegion.size = size;
 	vkCmdCopyBuffer(GET_VK_HANDLE(tempCommandBuffer), GET_VK_HANDLE(srcBuffer), GET_VK_HANDLE(dstBuffer), 1, &copyRegion);
-
-	tempCommandBuffer.EndAndSubmitCommandBuffer();
-}
-
-void VulkanDevice::CopyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size)
-{
-	VulkanCommandBuffer tempCommandBuffer(*this, "Temp Copy Buffer Command Buffer");
-	tempCommandBuffer.BeginCommandBuffer(true);
-
-	VkBufferCopy copyRegion{};
-	copyRegion.srcOffset = 0;  // Optional
-	copyRegion.dstOffset = 0;  // Optional
-	copyRegion.size = size;
-	vkCmdCopyBuffer(GET_VK_HANDLE(tempCommandBuffer), srcBuffer, dstBuffer, 1, &copyRegion);
 
 	tempCommandBuffer.EndAndSubmitCommandBuffer();
 }

@@ -16,8 +16,7 @@ public:
 private:
 	inline static std::unique_ptr<externLogger_t> ms_Logger;
 
-	Logger(const Logger& other) = delete;
-	Logger& operator=(Logger& other) = delete;
+    NonCopyableAndMovable(Logger);
 };
 
 

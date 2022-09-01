@@ -8,8 +8,7 @@ public:
 	VulkanCommandBuffer(const VulkanDevice& device, const char* name);
 	~VulkanCommandBuffer();
 
-	VulkanCommandBuffer(const VulkanCommandBuffer& other) = delete;
-	VulkanCommandBuffer(VulkanCommandBuffer&& other) = default;
+	NonCopyableAndMovable(VulkanCommandBuffer);
 
 	VkCommandBuffer GetVkHandle() { return m_CommandBuffer; }
 	const char*		GetName() const { return m_Name; }

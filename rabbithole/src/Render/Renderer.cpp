@@ -33,6 +33,7 @@
 #include <thread>
 #include <mutex>
 #include <filesystem>
+#include <format>
 
 rabbitVec3f renderDebugOption;
 
@@ -261,15 +262,15 @@ bool Renderer::Init()
 		denoiseShadowMaskBuffer[i] = m_ResourceManager->CreateBuffer(m_VulkanDevice, BufferCreateInfo{
 				.flags = {BufferUsageFlags::StorageBuffer},
 				.memoryAccess = {MemoryAccess::GPU},
-				.size = {tileSize * sizeof(uint32_t)},
-				.name = {"Denoise Shadow Mask Buffer"}
+				.size = {tileSize * static_cast<uint32_t>(sizeof(uint32_t))},
+				.name = {std::format("Denoise Shadow Mask Buffer {} slice", i)}
 			});
 
 		denoiseTileMetadataBuffer[i] = m_ResourceManager->CreateBuffer(m_VulkanDevice, BufferCreateInfo{
 				.flags = {BufferUsageFlags::StorageBuffer},
 				.memoryAccess = {MemoryAccess::GPU},
-				.size = {tileSize * sizeof(uint32_t)},
-				.name = {"Denoise Metadata buffer"}
+				.size = {tileSize * static_cast<uint32_t>(sizeof(uint32_t))},
+				.name = {std::format("Denoise Tile Metadata Buffer {} slice", i)}
 			});
 
 		//classify
@@ -277,28 +278,28 @@ bool Renderer::Init()
 				.dimensions = {shadowResX, shadowResY, 1},
 				.flags = {TextureFlags::Read | TextureFlags::Storage},
 				.format = {Format::R11G11B10_FLOAT},
-				.name = {"Denoise Moments Buffer0"}
+				.name = {std::format("Denoise Moments Buffer0 {} slice", i)}
 			});
 
 		denoiseMomentsBuffer1[i] = m_ResourceManager->CreateTexture(m_VulkanDevice, RWTextureCreateInfo{
 				.dimensions = {shadowResX, shadowResY, 1},
 				.flags = {TextureFlags::Read | TextureFlags::Storage},
 				.format = {Format::R11G11B10_FLOAT},
-				.name = {"Denoise Moments Buffer1"}
+				.name = {std::format("Denoise Moments Buffer1 {} slice", i)}
 			});
 
 		denoiseReprojectionBuffer0[i] = m_ResourceManager->CreateTexture(m_VulkanDevice, RWTextureCreateInfo{
 				.dimensions = {shadowResX, shadowResY, 1},
 				.flags = {TextureFlags::Read | TextureFlags::Storage},
 				.format = {Format::R16G16_FLOAT},
-				.name = {"Denoise Reprojection Buffer0"}
+				.name = {std::format("Denoise Reprojection Buffer0 {} slice", i)}
 			});
 
 		denoiseReprojectionBuffer1[i] = m_ResourceManager->CreateTexture(m_VulkanDevice, RWTextureCreateInfo{
 				.dimensions = {shadowResX, shadowResY, 1},
 				.flags = {TextureFlags::Read | TextureFlags::Storage},
 				.format = {Format::R16G16_FLOAT},
-				.name = {"Denoise Reprojection Buffer1"}
+				.name = {std::format("Denoise Reprojection Buffer1 {} slice", i)}
 			});
 	}
 
@@ -563,8 +564,8 @@ void Renderer::InitNoiseTextures()
 
 void Renderer::LoadModels()
 {
-	//gltfModels.emplace_back(&m_VulkanDevice, "res/meshes/separateObjects.gltf");
-	gltfModels.emplace_back(&m_VulkanDevice, "res/meshes/cottage.gltf");
+	gltfModels.emplace_back(&m_VulkanDevice, "res/meshes/separateObjects.gltf");
+	//gltfModels.emplace_back(&m_VulkanDevice, "res/meshes/cottage.gltf");
 	//gltfModels.emplace_back(&m_VulkanDevice, "res/meshes/sponza/sponza.gltf");
 }
 
@@ -1167,68 +1168,71 @@ void Renderer::InitMeshDataForCompute()
 {
 	std::vector<Triangle> triangles;
 	std::vector<rabbitVec4f> verticesFinal;
-	std::vector<bool> verticesMultipliedWithMatrix;
 
-	uint32_t offset = 0;
+	uint32_t vertexOffset = 0;
 
-	auto& model = gltfModels[0];
-	auto modelVertexBuffer = model.GetVertexBuffer();
-	auto modelIndexBuffer = model.GetIndexBuffer();
+	for (auto& model : gltfModels)
+	{
+		std::vector<bool> verticesMultipliedWithMatrix;
 
-	VulkanBuffer stagingBuffer(m_VulkanDevice, BufferUsageFlags::TransferDst, MemoryAccess::CPU, modelVertexBuffer->GetSize(), "StagingBuffer");
-	m_VulkanDevice.CopyBuffer(*modelVertexBuffer, stagingBuffer, modelVertexBuffer->GetSize());
+		auto modelVertexBuffer = model.GetVertexBuffer();
+		auto modelIndexBuffer = model.GetIndexBuffer();
 
-	Vertex* vertexBufferCpu = (Vertex*)stagingBuffer.Map();
-	uint32_t vertexCount = static_cast<uint32_t>(modelVertexBuffer->GetSize() / sizeof(Vertex));
-	verticesMultipliedWithMatrix.resize(vertexCount);
+		VulkanBuffer stagingBuffer(m_VulkanDevice, BufferUsageFlags::TransferDst, MemoryAccess::CPU, modelVertexBuffer->GetSize(), "StagingBuffer");
+		m_VulkanDevice.CopyBuffer(*modelVertexBuffer, stagingBuffer, modelVertexBuffer->GetSize());
 
-	VulkanBuffer stagingBuffer2(m_VulkanDevice, BufferUsageFlags::TransferDst, MemoryAccess::CPU, modelIndexBuffer->GetSize(), "StagingBuffer");
-	m_VulkanDevice.CopyBuffer(*modelIndexBuffer, stagingBuffer2, modelIndexBuffer->GetSize());
+		Vertex* vertexBufferCpu = (Vertex*)stagingBuffer.Map();
+		uint32_t vertexCount = static_cast<uint32_t>(modelVertexBuffer->GetSize() / sizeof(Vertex));
+		verticesMultipliedWithMatrix.resize(vertexCount);
 
-	uint32_t* indexBufferCpu = (uint32_t*)stagingBuffer2.Map();
-	uint32_t indexCount = static_cast<uint32_t>(modelIndexBuffer->GetSize() / sizeof(uint32_t));
-	
-	for (auto node : model.GetNodes())
-	{ 
-		glm::mat4 nodeMatrix = node.matrix;
-		VulkanglTFModel::Node* currentParent = node.parent;
-	
-		while (currentParent)
-		{
-			nodeMatrix = currentParent->matrix * nodeMatrix;
-		    currentParent = currentParent->parent;
-		}
+		VulkanBuffer stagingBuffer2(m_VulkanDevice, BufferUsageFlags::TransferDst, MemoryAccess::CPU, modelIndexBuffer->GetSize(), "StagingBuffer");
+		m_VulkanDevice.CopyBuffer(*modelIndexBuffer, stagingBuffer2, modelIndexBuffer->GetSize());
 
-		for (auto& primitive : node.mesh.primitives)
-		{
-			for (uint32_t i = primitive.firstIndex; i < primitive.firstIndex + primitive.indexCount; i++)
+		uint32_t* indexBufferCpu = (uint32_t*)stagingBuffer2.Map();
+		uint32_t indexCount = static_cast<uint32_t>(modelIndexBuffer->GetSize() / sizeof(uint32_t));
+		
+		for (auto node : model.GetNodes())
+		{ 
+			glm::mat4 nodeMatrix = node.matrix;
+			VulkanglTFModel::Node* currentParent = node.parent;
+		
+			while (currentParent)
 			{
-				auto currentIndex = indexBufferCpu[i];
-				if (!verticesMultipliedWithMatrix[currentIndex])
+				nodeMatrix = currentParent->matrix * nodeMatrix;
+			    currentParent = currentParent->parent;
+			}
+
+			for (auto& primitive : node.mesh.primitives)
+			{
+				for (uint32_t i = primitive.firstIndex; i < primitive.firstIndex + primitive.indexCount; i++)
 				{
-					vertexBufferCpu[currentIndex].position = nodeMatrix * rabbitVec4f { vertexBufferCpu[currentIndex].position, 1 };
-					verticesMultipliedWithMatrix[currentIndex] = true;
+					auto currentIndex = indexBufferCpu[i];
+					if (!verticesMultipliedWithMatrix[currentIndex])
+					{
+						vertexBufferCpu[currentIndex].position = nodeMatrix * rabbitVec4f { vertexBufferCpu[currentIndex].position, 1 };
+						verticesMultipliedWithMatrix[currentIndex] = true;
+					}
 				}
 			}
 		}
-	}
 
-	//get rid of this 
-	for (uint32_t k = 0; k < vertexCount; k++)
-	{
-		rabbitVec4f position = rabbitVec4f{ vertexBufferCpu[k].position, 1.f };
-		verticesFinal.push_back(position);
-	}
+		for (uint32_t k = 0; k < vertexCount; k++)
+		{
+			rabbitVec4f position = rabbitVec4f{ vertexBufferCpu[k].position, 1.f };
+			verticesFinal.push_back(position);
+		}
 
-	////will not work for multiple objects, need to calculate offset of vertex buffer all vertices + current index
-	for (uint32_t j = 0; j < indexCount; j += 3)
-	{
-		Triangle tri;
-		tri.indices[0] = offset + indexBufferCpu[j];
-		tri.indices[1] = offset + indexBufferCpu[j + 1];
-		tri.indices[2] = offset + indexBufferCpu[j + 2];
+		for (uint32_t j = 0; j < indexCount; j += 3)
+		{
+			Triangle tri;
+			tri.indices[0] = vertexOffset + indexBufferCpu[j];
+			tri.indices[1] = vertexOffset + indexBufferCpu[j + 1];
+			tri.indices[2] = vertexOffset + indexBufferCpu[j + 2];
 
-		triangles.push_back(tri);
+			triangles.push_back(tri);
+		}
+
+		vertexOffset += vertexCount;
 	}
 
 	std::cout << triangles.size() << " triangles!" << std::endl;
@@ -1246,28 +1250,28 @@ void Renderer::InitMeshDataForCompute()
 	vertexBuffer = m_ResourceManager->CreateBuffer(m_VulkanDevice, BufferCreateInfo{
 			.flags = {BufferUsageFlags::StorageBuffer},
 			.memoryAccess = {MemoryAccess::GPU},
-			.size = {(uint32_t)verticesFinal.size() * sizeof(rabbitVec4f)},
+			.size = {static_cast<uint32_t>(verticesFinal.size() * sizeof(rabbitVec4f))},
 			.name = {"VertexBuffer"}
 		});
 
 	trianglesBuffer = m_ResourceManager->CreateBuffer(m_VulkanDevice, BufferCreateInfo{
 			.flags = {BufferUsageFlags::StorageBuffer},
 			.memoryAccess = {MemoryAccess::GPU},
-			.size = {(uint32_t)triangles.size() * sizeof(Triangle)},
+			.size = {static_cast<uint32_t>(triangles.size() * sizeof(Triangle))},
 			.name = {"TrianglesBuffer"}
 		});
 
 	triangleIndxsBuffer = m_ResourceManager->CreateBuffer(m_VulkanDevice, BufferCreateInfo{
 			.flags = {BufferUsageFlags::StorageBuffer},
 			.memoryAccess = {MemoryAccess::GPU},
-			.size = {indicesNum * sizeof(uint32_t)},
+			.size = {static_cast<uint32_t>(indicesNum * sizeof(uint32_t))},
 			.name = {"TrianglesIndexBuffer"}
 		});
 
 	cfbvhNodesBuffer = m_ResourceManager->CreateBuffer(m_VulkanDevice, BufferCreateInfo{
 			.flags = {BufferUsageFlags::StorageBuffer},
 			.memoryAccess = {MemoryAccess::GPU},
-			.size = {nodeNum * sizeof(CacheFriendlyBVHNode)},
+			.size = {static_cast<uint32_t>(nodeNum * sizeof(CacheFriendlyBVHNode))},
 			.name = {"CfbvhNodes"}
 		});
    
@@ -1365,7 +1369,19 @@ void Renderer::ImGuiTextureDebugger()
 {
 	ImGui::Begin("Texture Debugger");
 
-	auto& textures = m_ResourceManager->GetTextures();
+	auto& texturesMap = m_ResourceManager->GetTextures();
+	std::vector<std::pair<uint32_t, VulkanTexture*>> textures(texturesMap.begin(), texturesMap.end());
+	std::sort(
+		textures.begin(), 
+		textures.end(), 
+		[](const std::pair<uint32_t, VulkanTexture*>& a, const std::pair<uint32_t, VulkanTexture*>& b) 
+		{
+			if (a.second != nullptr && b.second != nullptr)
+				return a.second->GetName() <= b.second->GetName();
+			else
+				return false;
+		}
+	);
 
 	if (ImGui::BeginCombo("##combo", currentTextureSelectedName.c_str())) // The second parameter is the label previewed before opening the combo.
 	{
@@ -1484,17 +1500,6 @@ void Renderer::DrawVertices(uint32_t count)
 	EndRenderPass();
 }
 
-void Renderer::DrawIndicesIndirect(uint32_t count, uint32_t offset)
-{
-	vkCmdDrawIndexedIndirect(GET_VK_HANDLE(GetCurrentCommandBuffer()), GET_VK_HANDLE_PTR(geomDataIndirectDraw->gpuBuffer), offset * sizeof(IndexIndirectDrawData), 1, sizeof(IndexIndirectDrawData));
-
-	geomDataIndirectDraw->localBuffer[offset].firstIndex = 0;
-	geomDataIndirectDraw->localBuffer[offset].firstInstance = 0;
-	geomDataIndirectDraw->localBuffer[offset].indexCount = count;
-	geomDataIndirectDraw->localBuffer[offset].instanceCount = 1;
-	geomDataIndirectDraw->localBuffer[offset].vertexOffset = 0;
-}
-
 void Renderer::Dispatch(uint32_t x, uint32_t y, uint32_t z)
 {
 	BindPipeline<ComputePipeline>();
@@ -1531,5 +1536,69 @@ void IndexedIndirectBuffer::Reset()
 	currentOffset = 0;
 }
 
+template<>
+void Renderer::BindPipeline<GraphicsPipeline>()
+{
+	RSTManager.CommitBarriers();
 
+	//renderpass
+	auto& attachments = m_StateManager->GetRenderTargets();
+	auto depthStencil = m_StateManager->GetDepthStencil();
+	auto renderPassInfo = m_StateManager->GetRenderPassInfo();
 
+	VulkanRenderPass* renderpass =
+		m_StateManager->GetRenderPassDirty()
+		? PipelineManager::instance().FindOrCreateRenderPass(m_VulkanDevice, attachments, depthStencil, *renderPassInfo)
+		: m_StateManager->GetRenderPass();
+
+	m_StateManager->SetRenderPass(renderpass);
+
+	//framebuffer
+	VulkanFramebufferInfo framebufferInfo{};
+	framebufferInfo.width = m_StateManager->GetFramebufferExtent().width;
+	framebufferInfo.height = m_StateManager->GetFramebufferExtent().height;
+
+	VulkanFramebuffer* framebuffer =
+		m_StateManager->GetFramebufferDirty()
+		? PipelineManager::instance().FindOrCreateFramebuffer(m_VulkanDevice, attachments, depthStencil, renderpass, framebufferInfo)
+		: m_StateManager->GetFramebuffer();
+
+	m_StateManager->SetFramebuffer(framebuffer);
+
+	//pipeline
+	auto pipelineInfo = m_StateManager->GetPipelineInfo();
+
+	pipelineInfo->renderPass = m_StateManager->GetRenderPass();
+	auto pipeline =
+		m_StateManager->GetPipelineDirty()
+		? PipelineManager::instance().FindOrCreateGraphicsPipeline(m_VulkanDevice, *pipelineInfo)
+		: m_StateManager->GetPipeline();
+
+	m_StateManager->SetPipeline(pipeline);
+
+	pipeline->Bind(GetCurrentCommandBuffer());
+
+	BindDescriptorSets();
+
+	BindPushConstInternal();
+}
+
+template<>
+void Renderer::BindPipeline<ComputePipeline>()
+{
+	RSTManager.CommitBarriers();
+
+	auto pipelineInfo = m_StateManager->GetPipelineInfo();
+
+	VulkanPipeline* computePipeline = m_StateManager->GetPipelineDirty()
+		? PipelineManager::instance().FindOrCreateComputePipeline(m_VulkanDevice, *pipelineInfo)
+		: m_StateManager->GetPipeline();
+
+	m_StateManager->SetPipeline(computePipeline);
+
+	computePipeline->Bind(GetCurrentCommandBuffer());
+
+	BindDescriptorSets();
+
+	BindPushConstInternal();
+}

@@ -25,8 +25,7 @@ public:
 	void* Map();
 	void  Unmap();
 	void  FillBuffer(void* data);
-	void  FillBuffer(void* data, uint64_t size);
-	void  FillBuffer(void* data, uint64_t offset, uint64_t size);
+	void  FillBuffer(void* data, uint64_t size, uint64_t offset = 0);
 
 public:
 	inline const VulkanBufferInfo	GetInfo() const { return m_Info; }
