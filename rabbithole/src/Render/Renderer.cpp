@@ -748,7 +748,12 @@ void Renderer::BindCameraMatrices(Camera* camera)
 	m_StateManager->UpdateUBOElement(UBOElement::ProjectionMatrix, 4, &m_CurrentCameraState.ProjectionMatrix);
 
 	//todo: double check this, for now I use jittered matrix in VS_Gbuffer FS_SSAO and VS_Skybox
-	m_CurrentCameraState.ProjMatrixJittered = camera->ProjectionJittered();
+	//disable jitter when camera is moving
+	if (m_CurrentCameraState.HasViewProjMatrixChanged)
+		m_CurrentCameraState.ProjMatrixJittered = camera->Projection();
+	else
+		m_CurrentCameraState.ProjMatrixJittered = camera->ProjectionJittered();
+
 	m_StateManager->UpdateUBOElement(UBOElement::ProjectionMatrixJittered, 4, &m_CurrentCameraState.ProjMatrixJittered);
 
 	m_CurrentCameraState.ViewProjMatrix = projection * view;
