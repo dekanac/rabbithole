@@ -355,7 +355,6 @@ VulkanDescriptorSet* VulkanStateManager::FinalizeDescriptorSet(VulkanDevice& dev
 
 uint8_t VulkanStateManager::GetRenderTargetCount()
 {
-    //man, this line makes me proud :'D
     return m_RenderTarget0 ? (m_RenderTarget1 ? (m_RenderTarget2 ? (m_RenderTarget3 ? ( m_RenderTarget4 ? 5 : 4) : 3) : 2) : 1) : 0;
 }
 

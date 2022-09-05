@@ -7,18 +7,14 @@ bool Window::Init(const WindowData& windowData_)
 {
 	LOG_INFO("Initializing Window");
 
-
 	m_WindowData = windowData_;
-	ASSERT(m_WindowData.m_Width > 0 && m_WindowData.m_Height > 0, "Window size must be greater than zero");
+	ASSERT(m_WindowData.width > 0 && m_WindowData.height > 0, "Window size must be greater than zero");
     glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
     glfwWindowHint(GLFW_RESIZABLE, GLFW_TRUE);
-	
-	m_Extent.width = m_WindowData.m_Width;
-	m_Extent.height = m_WindowData.m_Height;
 
 	m_NativeWindowHandle = glfwCreateWindow(
-		windowData_.m_Width, 
-		windowData_.m_Height, 
+		windowData_.width, 
+		windowData_.height, 
 		"Rabbithole", 
 		nullptr, //repair for full screen
 		nullptr
@@ -41,8 +37,8 @@ void Window::FramebufferResizeCallback(GLFWwindow* window, int width, int height
     auto app = reinterpret_cast<Renderer*>(glfwGetWindowUserPointer(window));
     app->m_FramebufferResized = true;
 
-	Window::instance().m_WindowData.m_Height = height;
-	Window::instance().m_WindowData.m_Width = width;
+	Window::instance().m_WindowData.width = width;
+	Window::instance().m_WindowData.height = height;
 }
 
 bool Window::Shutdown()

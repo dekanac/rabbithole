@@ -219,6 +219,7 @@ private:
 	void RegisterTexturesToImGui();
 	void ImGuiTextureDebugger();
 
+	ImVec2 GetScaledSizeWithAspectRatioKept(ImVec2 currentSize);
 public:
 	inline VulkanDevice&		GetVulkanDevice() { return m_VulkanDevice; }
 	inline VulkanStateManager*	GetStateManager() const { return m_StateManager; }
@@ -336,6 +337,7 @@ public:
 	std::string currentTextureSelectedName = "Choose texture to debug: ";
 	uint32_t currentTextureSelectedID;
 	VkDescriptorSet debugTextureImGuiDS;
+	VkDescriptorSet finalImageImGuiDS;
 	
 	//RT shadows helper
 	VulkanBuffer* vertexBuffer;
@@ -396,4 +398,5 @@ private:
 public:
 	//Don't ask, Imgui init wants swapchain renderpass to be ready, but its not. So basically we need 2 init phases..
 	bool imguiReady = false;
+	bool isInEditorMode = true;
 };

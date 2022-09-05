@@ -183,6 +183,8 @@ void GBufferPass::Setup(Renderer* renderer)
 
 void GBufferPass::Render(Renderer* renderer)
 {
+	renderer->CopyImage(renderer->depthStencil, renderer->denoiseLastFrameDepth);
+
 	renderer->DrawGeometryGLTF(renderer->gltfModels);
 }
 
@@ -206,31 +208,31 @@ void LightingPass::Setup(Renderer* renderer)
 		auto& lightParams = renderer->lightParams;
 
 		ImGui::Text("Sun");
-		ImGui::ColorEdit3("SunColor: ", lightParams[0].color);
-        ImGui::SliderFloat("Sun intensity: ", &(lightParams[0]).intensity, 0.f, 2.f);
-        ImGui::SliderFloat3("Sun position: ", lightParams[0].position, -200.f, 200.f);
-		ImGui::SliderFloat("Sun size: ", &lightParams[0].size, 0.1f, 10.f);
+		ImGui::ColorEdit3("col0: ", lightParams[0].color);
+        ImGui::SliderFloat("intensity0: ", &(lightParams[0]).intensity, 0.f, 2.f);
+        ImGui::SliderFloat3("position0: ", lightParams[0].position, -200.f, 200.f);
+		ImGui::SliderFloat("size0: ", &lightParams[0].size, 0.1f, 10.f);
 		
+		ImGui::Text("Light 1");
+		ImGui::ColorEdit3("col", lightParams[1].color);
+		ImGui::SliderFloat("radius1: ", &(lightParams[1]).radius, 0.f, 50.f);
+        ImGui::SliderFloat("intensity1: ", &(lightParams[1]).intensity, 0.f, 2.f);
+		ImGui::SliderFloat3("position1: ", lightParams[1].position, -20.f, 20.f);
+		ImGui::SliderFloat("size1: ", &lightParams[1].size, 0.1f, 10.f);
+
 		ImGui::Text("Light 2");
-		ImGui::ColorEdit3("Light2", lightParams[1].color);
-		ImGui::SliderFloat("Light2 radius: ", &(lightParams[1]).radius, 0.f, 50.f);
-        ImGui::SliderFloat("Light2 intensity: ", &(lightParams[1]).intensity, 0.f, 2.f);
-		ImGui::SliderFloat3("Light2 position: ", lightParams[1].position, -20.f, 20.f);
-		ImGui::SliderFloat("Light2 size: ", &lightParams[1].size, 0.1f, 10.f);
+		ImGui::ColorEdit3("col2", lightParams[2].color);
+		ImGui::SliderFloat("radius2: ", &(lightParams[2]).radius, 0.f, 50.f);
+        ImGui::SliderFloat("intensity2: ", &(lightParams[2]).intensity, 0.f, 2.f);
+		ImGui::SliderFloat3("position2: ", lightParams[2].position, -20.f, 20.f);
+		ImGui::SliderFloat("size:2 ", &lightParams[2].size, 0.1f, 10.f);
 
 		ImGui::Text("Light 3");
-		ImGui::ColorEdit3("Light3", lightParams[2].color);
-		ImGui::SliderFloat("Light3 radius: ", &(lightParams[2]).radius, 0.f, 50.f);
-        ImGui::SliderFloat("Light3 intensity: ", &(lightParams[2]).intensity, 0.f, 2.f);
-		ImGui::SliderFloat3("Light3 position: ", lightParams[2].position, -20.f, 20.f);
-		ImGui::SliderFloat("Light3 size: ", &lightParams[2].size, 0.1f, 10.f);
-
-		ImGui::Text("Light 4");
-		ImGui::ColorEdit3("Light4", lightParams[3].color);
-        ImGui::SliderFloat("Light4 radius: ", &(lightParams[3]).radius, 0.f, 50.f);
-        ImGui::SliderFloat("Light4 intensity: ", &(lightParams[3]).intensity, 0.f, 2.f);
-		ImGui::SliderFloat3("Light4 position: ", lightParams[3].position, -20.f, 20.f);
-		ImGui::SliderFloat("Light4 size: ", &lightParams[3].size, 0.1f, 10.f);
+		ImGui::ColorEdit3("col3", lightParams[3].color);
+        ImGui::SliderFloat("radius3: ", &(lightParams[3]).radius, 0.f, 50.f);
+        ImGui::SliderFloat("intensity3: ", &(lightParams[3]).intensity, 0.f, 2.f);
+		ImGui::SliderFloat3("position3: ", lightParams[3].position, -20.f, 20.f);
+		ImGui::SliderFloat("size3: ", &lightParams[3].size, 0.1f, 10.f);
 
 		ImGui::End();
 	}
@@ -265,19 +267,25 @@ void CopyToSwapchainPass::Setup(Renderer* renderer)
 {
 	VulkanStateManager* stateManager = renderer->GetStateManager();
 	
-	stateManager->SetFramebufferExtent(Extent2D{ GetUpscaledWidth , GetUpscaledHeight });
-	renderer->BindViewport(0, 0, static_cast<float>(GetUpscaledWidth), static_cast<float>(GetUpscaledHeight));
-
+	uint32_t renderWindowWidth = Window::instance().GetExtent().width;
+	uint32_t renderWindowHeight = Window::instance().GetExtent().height;
+	
+	float renderViewportWidth = static_cast<float>(renderWindowHeight) * 1.77777f;
+	float renderViewportHeight = static_cast<float>(renderWindowHeight);
+	
+	stateManager->SetFramebufferExtent(Extent2D{ renderWindowWidth, renderWindowHeight });
+	renderer->BindViewport(0, 0, renderViewportWidth, renderViewportHeight);
+	
 	stateManager->SetVertexShader(renderer->GetShader("VS_PassThrough"));
 	stateManager->SetPixelShader(renderer->GetShader("FS_PassThrough"));
-
+	
 	SetCombinedImageSampler(renderer, 0, renderer->postUpscalePostEffects);
-
+	
 	stateManager->SetRenderTarget0(renderer->GetSwapchainImage());
-
+	
 	auto pipelineInfo = stateManager->GetPipelineInfo();
 	pipelineInfo->SetDepthTestEnabled(false);
-
+	
 	auto renderPassInfo = stateManager->GetRenderPassInfo();
 	renderPassInfo->InitialRenderTargetState = ResourceState::None;
 	renderPassInfo->FinalRenderTargetState = ResourceState::Present;
@@ -825,8 +833,6 @@ void ShadowDenoiseFilterPass::Setup(Renderer* renderer)
 {
 	VulkanStateManager* stateManager = renderer->GetStateManager();
 	CameraState& cameraState = renderer->GetCameraState();
-
-	renderer->CopyImage(renderer->depthStencil, renderer->denoiseLastFrameDepth);
 
 	DenoiseShadowFilterData shadowFilterData{};
 	shadowFilterData.ProjectionInverse = cameraState.ProjectionInverseMatrix;

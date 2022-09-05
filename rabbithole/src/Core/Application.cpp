@@ -35,10 +35,10 @@ bool Application::Init()
     }
 
     WindowData wd{ 
-        .m_Title = "Rabbithole3D",
-        .m_Width = 1600, 
-        .m_Height = 900, 
-        .m_Vsync = false };
+        .title = "Rabbithole3D",
+        .width = 1600, 
+        .height = 900, 
+        .vsync = false };
 
     if (!Window::instance().Init(wd))
     {
