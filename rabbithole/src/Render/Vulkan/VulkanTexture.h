@@ -14,16 +14,11 @@ using namespace TextureLoading;
 class VulkanTexture : public ManagableResource, public AllocatedResource
 {
 public:
-	// TODO : take care of this, for now using this for textures created with data in buffer
-	VulkanTexture(VulkanDevice* device, TextureData* texData, TextureFlags flags, Format format, std::string name, bool generateMips = false);
 
 	friend class ResourceManager; //Resource Manager will take care of creation and deletion of textures
 private:
-	VulkanTexture(VulkanDevice* device, const uint32_t width, const uint32_t height, TextureFlags flags, Format format, const char* name, uint32_t arraySize = 1, MultisampleType mstype = MultisampleType::Sample_1);
-	VulkanTexture(VulkanDevice* device, const uint32_t width, const uint32_t height, const uint32_t depth, TextureFlags flags, Format format, const char* name, uint32_t arraySize = 1, MultisampleType mstype = MultisampleType::Sample_1);
-	VulkanTexture(VulkanDevice* device, std::string filePath, TextureFlags flags, Format format, std::string name, bool generateMips = false);
 	VulkanTexture(VulkanDevice& device, RWTextureCreateInfo& createInfo);
-	VulkanTexture(VulkanDevice& device, ROTextureCreateInfo& createInfo);
+	VulkanTexture(VulkanDevice& device, const TextureData* data, ROTextureCreateInfo& createInfo);
 	~VulkanTexture();
 
 public:
@@ -52,7 +47,7 @@ public:
 	uint32_t				GetDepth() const { return m_Region.Extent.Depth; }
 
 private:
-	void CreateResource(VulkanDevice* device, TextureData* texData, bool generateMips = false);
+	void CreateResource(VulkanDevice* device, const TextureData* texData, bool generateMips = false);
 	void CreateResource(VulkanDevice* device, const uint32_t width, const uint32_t height, const uint32_t depth, uint32_t arraySize = 1, MultisampleType mstype = MultisampleType::Sample_1);
 	void CreateView(VulkanDevice* device);
 	void CreateSampler(VulkanDevice* device, SamplerType type, AddressMode addressMode);
@@ -67,7 +62,6 @@ private:
 	ImageRegion				m_Region;
 	Format					m_Format;
 	TextureFlags			m_Flags;
-	std::string				m_FilePath;
 	std::string				m_Name = "DefaultTextureName";
 
 	ResourceState			m_CurrentResourceState = ResourceState::Count;

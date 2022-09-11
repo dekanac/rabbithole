@@ -1,9 +1,9 @@
 #include "precomp.h"
 
-#include "vk_mem_alloc.h"
-
-#include "Render/Window.h"
 #include "Render/Converters.h"
+#include "Render/Window.h"
+
+#include "vk_mem_alloc.h"
 // std headers
 #include <cstring>
 #include <iostream>
@@ -76,6 +76,7 @@ VulkanDevice::VulkanDevice()
 VulkanDevice::~VulkanDevice() 
 {
 	vkDestroyCommandPool(m_Device, m_CommandPool, nullptr);
+	vmaDestroyAllocator(m_VmaAllocator);
 	vkDestroyDevice(m_Device, nullptr);
 
 	if (enableValidationLayers) 

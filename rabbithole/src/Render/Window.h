@@ -22,15 +22,17 @@ class Window
 	SingletonClass(Window);
 
 public:
-	bool Init(const WindowData& windowData_ = WindowData());
-    static void FramebufferResizeCallback(GLFWwindow* window, int width, int height);
+	bool Init(const WindowData& windowData = WindowData());
     bool Shutdown();
-	GLFWwindow* GetNativeWindowHandle() const { return m_NativeWindowHandle; }
-	WindowExtent GetExtent() { return WindowExtent{ m_WindowData.width, m_WindowData.height }; }
-	bool GetVSyncEnabled() { return m_WindowData.vsync; }
+	
+	GLFWwindow*		GetNativeWindowHandle() const { return m_NativeWindowHandle; }
+	WindowExtent	GetExtent() { return WindowExtent{ m_WindowData.width, m_WindowData.height }; }
+	bool			GetVSyncEnabled() { return m_WindowData.vsync; }
+    
+	static void FramebufferResizeCallback(GLFWwindow* window, int width, int height);
 
 private:
-	WindowData m_WindowData{};
-	GLFWwindow* m_NativeWindowHandle{ };
+	WindowData	m_WindowData{};
+	GLFWwindow* m_NativeWindowHandle{};
 };
 

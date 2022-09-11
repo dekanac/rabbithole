@@ -136,6 +136,9 @@ class PipelineManager
 	SingletonClass(PipelineManager);
 
 public:
+	void Destroy();
+
+public:
 	std::unordered_map<GraphicsPipelineKey, GraphicsPipeline*>					m_GraphicPipelines;
 	std::unordered_map<ComputePipelineKey, ComputePipeline*>					m_ComputePipelines;
 	std::unordered_map<RenderPassKey, VulkanRenderPass*>						m_RenderPasses;

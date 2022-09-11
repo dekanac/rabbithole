@@ -1,15 +1,15 @@
 #include "precomp.h"
 
+#include "Render/Converters.h"
+#include "Render/Model/Model.h"
+#include "Render/Renderer.h"
+#include "Render/Shader.h"
+#include "Render/SuperResolutionManager.h"
+
 #include <cassert>
 #include <fstream>
 #include <iostream>
 #include <stdexcept>
-
-#include "Render/Shader.h"
-#include "Render/Renderer.h"
-#include "Render/SuperResolutionManager.h"
-#include "Render/Converters.h"
-#include "Render/Model/Model.h"
 
 VulkanPipeline::VulkanPipeline(VulkanDevice& device, PipelineConfigInfo& configInfo, PipelineType type)
 	: m_VulkanDevice{ device } 
@@ -30,6 +30,8 @@ VulkanPipeline::VulkanPipeline(VulkanDevice& device, PipelineConfigInfo& configI
 VulkanPipeline::~VulkanPipeline() 
 {
 	vkDestroyPipeline(m_VulkanDevice.GetGraphicDevice(), m_Pipeline, nullptr);
+	vkDestroyPipelineLayout(m_VulkanDevice.GetGraphicDevice(), m_PipelineLayout, nullptr);
+	delete m_DescriptorSetLayout;
 }
 
 void VulkanPipeline::DefaultPipelineConfigInfo(PipelineConfigInfo*& configInfo, uint32_t width, uint32_t height) 

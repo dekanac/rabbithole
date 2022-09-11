@@ -1,10 +1,10 @@
 #include "Application.h"
-#include "Render/Renderer.h"
-#include "Render/RenderSystem.h"
-#include "Render/Window.h"
 #include "ECS/EntityManager.h"
 #include "Input/InputManager.h"
 #include "Logger/Logger.h"
+#include "Render/RenderSystem.h"
+#include "Render/Renderer.h"
+#include "Render/Window.h"
 
 #include <GLFW/glfw3.h>
 #include <SDL.h>

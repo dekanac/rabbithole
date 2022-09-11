@@ -1,6 +1,5 @@
 #include "precomp.h"
 
-
 VulkanFramebuffer::VulkanFramebuffer(const VulkanDevice* device,
 	const VulkanFramebufferInfo& info, 
 	const VulkanRenderPass* renderPass, 

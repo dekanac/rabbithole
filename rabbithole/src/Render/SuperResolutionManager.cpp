@@ -1,11 +1,12 @@
 #include "common.h"
-#include "vulkan/precomp.h"
+
 #include "SuperResolutionManager.h"
 
-#include "Render/Window.h"
-#include "Render/Renderer.h"
 #include "Render/Camera.h"
 #include "Render/Converters.h"
+#include "Render/Renderer.h"
+#include "Render/Vulkan/VulkanDevice.h"
+#include "Render/Window.h"
 
 #include <fsr2.0/ffx_fsr2.h>
 #include <fsr2.0/vk/ffx_fsr2_vk.h>
@@ -25,6 +26,11 @@ void SuperResolutionManager::Init(VulkanDevice* device)
 	m_Hdr = true;
 
 	CreateFsrContext(device);
+}
+
+void SuperResolutionManager::Destroy()
+{
+	DestroyFsrContext();
 }
 
 void SuperResolutionManager::CreateFsrContext(VulkanDevice* device)

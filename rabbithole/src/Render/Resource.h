@@ -2,9 +2,12 @@
 
 #include "Render/Vulkan/VulkanTypes.h"
 #include "Render/Vulkan/VulkanDevice.h"
+#include "Render/Model/TextureLoading.h"
 
 #include <memory>
 #include <string>
+
+using TextureData = TextureLoading::TextureData;
 
 class VulkanTexture;
 class VulkanBuffer;
@@ -16,6 +19,7 @@ public:
 	virtual uint32_t GetID() { return m_Id; }
 
 	static uint32_t ms_CurrentId;
+
 protected:
 	uint32_t m_Id;
 	void UpdateID();
@@ -40,7 +44,6 @@ public:
 
 struct ROTextureCreateInfo
 {
-	std::string		filePath;
 	TextureFlags	flags = TextureFlags::None;
 	Format			format = Format::UNDEFINED;
 	std::string		name = "ROTexture";
@@ -57,7 +60,7 @@ struct RWTextureCreateInfo
 	Format			format = Format::UNDEFINED;
 	std::string		name = "RWTexture";
 	uint32_t		arraySize = 1;
-	bool			isCube;
+	bool			isCube = false;
 	MultisampleType multisampleType = MultisampleType::Sample_1;
 	SamplerType     samplerType = SamplerType::Anisotropic;
 	AddressMode		addressMode = AddressMode::Repeat;

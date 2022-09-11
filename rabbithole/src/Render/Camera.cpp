@@ -1,8 +1,8 @@
 #include "Camera.h"
-#include "Render/Window.h"
 #include "ECS/EntityManager.h"
 #include "Input/InputManager.h"
 #include "Logger/Logger.h"
+#include "Render/Window.h"
 
 #define GLM_ENABLE_EXPERIMENTAL
 #include <glm/gtx/quaternion.hpp>

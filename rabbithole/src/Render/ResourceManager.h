@@ -2,11 +2,18 @@
 
 #include "Render/Resource.h"
 #include "Render/Shader.h"
+#include "Render/Model/TextureLoading.h"
+
+using TextureData = TextureLoading::TextureData;
 
 class ResourceManager
 {
 public:
-	VulkanTexture*	CreateTexture(VulkanDevice& device, ROTextureCreateInfo createInfo);
+	~ResourceManager();
+
+public:
+	VulkanTexture* CreateTexture(VulkanDevice& device, const TextureData* data, ROTextureCreateInfo createInfo);
+	VulkanTexture* CreateTexture(VulkanDevice& device, std::string path, ROTextureCreateInfo createInfo);
 	VulkanTexture*	CreateTexture(VulkanDevice& device, RWTextureCreateInfo createInfo);
 	VulkanBuffer*	CreateBuffer(VulkanDevice& device, BufferCreateInfo createInfo);
 	void			CreateShader(VulkanDevice& device, ShaderInfo& createInfo, const std::vector<char>& code, const char* name);

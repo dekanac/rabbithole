@@ -1,4 +1,3 @@
-#define GLFW_INCLUDE_VULKAN
 #include "Renderer.h"
 
 #include "Core/Application.h"
@@ -7,14 +6,14 @@
 #include "Model/Model.h"
 #include "Render/Camera.h"
 #include "Render/Converters.h"
-#include "Render/Window.h"
+#include "Render/PipelineManager.h"
 #include "Render/RabbitPass.h"
 #include "Render/ResourceStateTracking.h"
-#include "Render/SuperResolutionManager.h"
 #include "Render/Shader.h"
+#include "Render/SuperResolutionManager.h"
+#include "Render/Window.h"
 #include "Utils/utils.h"
 #include "Vulkan/Include/VulkanWrapper.h"
-#include "Render/PipelineManager.h"
 
 #include <GLFW/glfw3.h>
 #include <glm/glm.hpp>
@@ -24,18 +23,16 @@
 #include <imgui/backends/imgui_impl_vulkan.h>
 
 #include <cmath>
-#include <vector>
-#include <iostream>
-#include <fstream>
-#include <random>
-#include <sstream>
-#include <set>
-#include <thread>
-#include <mutex>
 #include <filesystem>
 #include <format>
-
-rabbitVec3f renderDebugOption;
+#include <fstream>
+#include <iostream>
+#include <mutex>
+#include <random>
+#include <set>
+#include <sstream>
+#include <thread>
+#include <vector>
 
 void Renderer::ExecuteRabbitPass(RabbitPass& rabbitPass)
 {
@@ -67,8 +64,6 @@ bool Renderer::Init()
 #endif
 
 	InitTextures();
-
-	renderDebugOption.x = 0.f; //we use vector4f as a default UBO element
 
 	LoadModels();
 	LoadAndCreateShaders();
@@ -337,11 +332,16 @@ bool Renderer::Init()
 
 bool Renderer::Shutdown()
 {
-	//TODO: clear everything properly
+	VULKAN_API_CALL(vkDeviceWaitIdle(m_VulkanDevice.GetGraphicDevice()));
+
 	gltfModels.clear();
 	m_GPUTimeStamps.OnDestroy();
 	delete m_ResourceManager;
-	//delete m_StateManager;
+	SuperResolutionManager::instance().Destroy();
+	PipelineManager::instance().Destroy();
+	DestroyImgui();
+	delete m_StateManager;
+
     return true;
 }
 
@@ -390,7 +390,7 @@ void Renderer::DrawFrame()
 
 void Renderer::CreateGeometryDescriptors(std::vector<VulkanglTFModel>& models, uint32_t imageIndex)
 {
-	VulkanDescriptorSetLayout* descrSetLayout = new VulkanDescriptorSetLayout(&m_VulkanDevice, { GetShader("VS_GBuffer"), GetShader("FS_GBuffer") }, "GeometryDescSetLayout");
+	VulkanDescriptorSetLayout descrSetLayout(&m_VulkanDevice, { GetShader("VS_GBuffer"), GetShader("FS_GBuffer") }, "GeometryDescSetLayout");
 
 	VulkanDescriptorInfo descriptorinfo{};
 	descriptorinfo.Type = DescriptorType::UniformBuffer;
@@ -453,7 +453,7 @@ void Renderer::CreateGeometryDescriptors(std::vector<VulkanglTFModel>& models, u
 
 			VulkanDescriptor* cis3Descr = new VulkanDescriptor(descriptorinfo4);
 
-			VulkanDescriptorSet* descriptorSet = new VulkanDescriptorSet(&m_VulkanDevice, m_DescriptorPool.get(), descrSetLayout, { bufferDescr, cisDescr, cis2Descr, cis3Descr }, "GeometryDescSet");
+			VulkanDescriptorSet* descriptorSet = PipelineManager::instance().FindOrCreateDescriptorSet(m_VulkanDevice, m_DescriptorPool.get(), &descrSetLayout, { bufferDescr, cisDescr, cis2Descr, cis3Descr });
 
 			modelMaterial.materialDescriptorSet[imageIndex] = descriptorSet;
 		}
@@ -470,25 +470,12 @@ void Renderer::InitImgui()
 	//io.ConfigViewportsNoAutoMerge = true;
 	io.ConfigWindowsMoveFromTitleBarOnly = true;
 
-	VulkanDescriptorPoolSize cisSize;
-	cisSize.Count = 100;
-	cisSize.Type = DescriptorType::CombinedSampler;
-	VulkanDescriptorPoolSize bufferSize;
-	bufferSize.Count = 100;
-	bufferSize.Type = DescriptorType::UniformBuffer;
-
-	VulkanDescriptorPoolInfo info{};
-	info.DescriptorSizes = { cisSize, bufferSize };
-	info.MaxSets = 100;
-
-	VulkanDescriptorPool* imguiDescriptorPool = new VulkanDescriptorPool(&m_VulkanDevice, info);
-
 	//this initializes imgui for GLFW
 	ImGui_ImplGlfw_InitForVulkan(Window::instance().GetNativeWindowHandle(), true);
 
 	ImGui_ImplVulkan_InitInfo init_info = {};
 	m_VulkanDevice.InitImguiForVulkan(init_info);
-	init_info.DescriptorPool = GET_VK_HANDLE_PTR(imguiDescriptorPool);
+	init_info.DescriptorPool = GET_VK_HANDLE_PTR(m_DescriptorPool);
 	init_info.MinImageCount = m_VulkanSwapchain->GetImageCount();
 	init_info.ImageCount = m_VulkanSwapchain->GetImageCount();
 
@@ -557,17 +544,20 @@ void Renderer::InitImgui()
 	style.GrabRounding = style.FrameRounding = 2.3f;
 }
 
+void Renderer::DestroyImgui()
+{
+	ImGui_ImplVulkan_Shutdown();
+}
+
 void Renderer::InitTextures()
 {
-	g_DefaultWhiteTexture = m_ResourceManager->CreateTexture(m_VulkanDevice, ROTextureCreateInfo{
-			.filePath = {"res/textures/default_white.png"},
+	g_DefaultWhiteTexture = m_ResourceManager->CreateTexture(m_VulkanDevice, "res/textures/default_white.png", ROTextureCreateInfo{
 			.flags = {TextureFlags::Color | TextureFlags::Read | TextureFlags::TransferDst},
 			.format = {Format::R8G8B8A8_UNORM_SRGB},
 			.name = {"Default White"}
 		});
 	
-	g_DefaultBlackTexture = m_ResourceManager->CreateTexture(m_VulkanDevice, ROTextureCreateInfo{
-			.filePath = {"res/textures/default_black.png"},
+	g_DefaultBlackTexture = m_ResourceManager->CreateTexture(m_VulkanDevice, "res/textures/default_black.png", ROTextureCreateInfo{
 			.flags = {TextureFlags::Color | TextureFlags::Read | TextureFlags::TransferDst},
 			.format = {Format::R8G8B8A8_UNORM_SRGB},
 			.name = {"Default Black"}
@@ -588,8 +578,7 @@ void Renderer::InitTextures()
 			.arraySize = {4}
 		});
 
-	skyboxTexture = m_ResourceManager->CreateTexture(m_VulkanDevice, ROTextureCreateInfo{
-			.filePath = {"res/textures/skybox/skybox.jpg"},
+	skyboxTexture = m_ResourceManager->CreateTexture(m_VulkanDevice, "res/textures/skybox/skybox.jpg", ROTextureCreateInfo{
 			.flags = {TextureFlags::Color | TextureFlags::Read | TextureFlags::CubeMap | TextureFlags::TransferDst},
 			.format = {Format::R8G8B8A8_UNORM_SRGB},
 			.name = {"Skybox"}
@@ -598,15 +587,13 @@ void Renderer::InitTextures()
 
 void Renderer::InitNoiseTextures()
 {
-	noise2DTexture = m_ResourceManager->CreateTexture(m_VulkanDevice, ROTextureCreateInfo{
-			.filePath = {"res/textures/noise3.png"},
+	noise2DTexture = m_ResourceManager->CreateTexture(m_VulkanDevice, "res/textures/noise3.png", ROTextureCreateInfo{
 			.flags = {TextureFlags::Color | TextureFlags::Read | TextureFlags::TransferDst},
 			.format = {Format::B8G8R8A8_UNORM},
 			.name = {"Noise2D"}
 		});
 	
-	blueNoise2DTexture = m_ResourceManager->CreateTexture(m_VulkanDevice, ROTextureCreateInfo{
-			.filePath = {"res/textures/noise.png"},
+	blueNoise2DTexture = m_ResourceManager->CreateTexture(m_VulkanDevice, "res/textures/noise.png", ROTextureCreateInfo{
 			.flags = {TextureFlags::Color | TextureFlags::Read | TextureFlags::TransferDst | TextureFlags::Storage},
 			.format = {Format::B8G8R8A8_UNORM},
 			.name = {"BlueNoise2D"}
@@ -623,7 +610,6 @@ void Renderer::InitNoiseTextures()
 void Renderer::LoadModels()
 {
 	gltfModels.emplace_back(&m_VulkanDevice, "res/meshes/separateObjects.gltf");
-	//gltfModels.emplace_back(&m_VulkanDevice, "res/meshes/flightHelmet/FlightHelmet.gltf");
 	//gltfModels.emplace_back(&m_VulkanDevice, "res/meshes/cottage.gltf");
 	//gltfModels.emplace_back(&m_VulkanDevice, "res/meshes/sponza/sponza.gltf");
 }
@@ -679,17 +665,13 @@ void Renderer::DrawGeometryGLTF(std::vector<VulkanglTFModel>& bucket)
 
 	BeginRenderPass({ GetNativeWidth, GetNativeHeight });
 
-	BindUBO();
-
 	int currentModel = 0;
-
-	const VkPipelineLayout* pipelineLayout = m_StateManager->GetPipeline()->GetPipelineLayout();
 
 	for (auto& model : bucket)
 	{
 		model.BindBuffers(GetCurrentCommandBuffer());
 
-		model.Draw(GetCurrentCommandBuffer(), pipelineLayout, m_CurrentImageIndex, geomDataIndirectDraw);
+		model.Draw(GetCurrentCommandBuffer(), m_StateManager->GetPipeline()->GetPipelineLayout(), m_CurrentImageIndex, geomDataIndirectDraw);
 	}
 
     geomDataIndirectDraw->SubmitToGPU();
@@ -950,12 +932,21 @@ void Renderer::CreateCommandBuffers()
 
 void Renderer::RecreateSwapchain()
 {
-	Extent2D extent{};
-	extent.width = Window::instance().GetExtent().width;
-	extent.height = Window::instance().GetExtent().height;
+	auto nativeWindowHandle = Window::instance().GetNativeWindowHandle();
 
-	vkDeviceWaitIdle(m_VulkanDevice.GetGraphicDevice());
-	m_VulkanSwapchain = std::make_unique<VulkanSwapchain>(m_VulkanDevice, extent);
+	int currentWidth = Window::instance().GetExtent().width;
+	int currentHeight = Window::instance().GetExtent().height;
+
+	/* handles minimization of a window ? */
+	while (currentWidth == 0 || currentHeight == 0)
+	{
+		glfwGetFramebufferSize(nativeWindowHandle, &currentWidth, &currentHeight);
+		glfwWaitEvents();
+	}
+
+	VULKAN_API_CALL(vkDeviceWaitIdle(m_VulkanDevice.GetGraphicDevice()));
+
+	m_VulkanSwapchain = std::make_unique<VulkanSwapchain>(m_VulkanDevice, Extent2D{ static_cast<uint32_t>(currentWidth), static_cast<uint32_t>(currentHeight) });
 }
 
 void Renderer::ResourceBarrier(VulkanTexture* texture, ResourceState oldLayout, ResourceState newLayout, ResourceStage srcStage, ResourceStage dstStage, uint32_t mipLevel)
@@ -963,28 +954,6 @@ void Renderer::ResourceBarrier(VulkanTexture* texture, ResourceState oldLayout, 
 	m_VulkanDevice.ResourceBarrier(GetCurrentCommandBuffer(), texture, oldLayout, newLayout, srcStage, dstStage, mipLevel);
 }
 
-void Renderer::UpdateDebugOptions()
-{
-	if (InputManager::instance().IsButtonActionActive("Debug1", EInputActionState::Pressed))
-	{
-		renderDebugOption.x = 1.f;
-	}
-	else if (InputManager::instance().IsButtonActionActive("Debug2", EInputActionState::Pressed))
-	{
-		renderDebugOption.x = 2.f;
-	}
-	else if (InputManager::instance().IsButtonActionActive("Debug3", EInputActionState::Pressed))
-	{
-		renderDebugOption.x = 3.f;
-	}
-	else if (InputManager::instance().IsButtonActionActive("Debug4", EInputActionState::Pressed))
-	{
-		renderDebugOption.x = 0.f;
-	}
-
-	m_StateManager->UpdateUBOElement(UBOElement::DebugOption, 1, &renderDebugOption);
-
-}
 void Renderer::RecordCommandBuffer()
 {
 	GetCurrentCommandBuffer().BeginCommandBuffer();
@@ -1001,6 +970,11 @@ void Renderer::RecordCommandBuffer()
 	{
 		ImGui_ImplVulkan_NewFrame();
 		ImGui_ImplGlfw_NewFrame();
+		
+		//make imgui window pos and size same as the main window
+		ImGui::SetNextWindowPos(ImVec2(0.f, 0.f));
+		ImGui::SetNextWindowSize(ImVec2(static_cast<float>(Window::instance().GetExtent().width), static_cast<float>(Window::instance().GetExtent().height)));
+		
 		ImGui::NewFrame();
 
 		ImGui::Begin("Main debug frame");
@@ -1008,7 +982,6 @@ void Renderer::RecordCommandBuffer()
 #ifdef USE_RABBITHOLE_TOOLS
 		ImGui::Checkbox("Enable Entity picking", &m_RenderOutlinedEntity);
 #endif
-
 		ImGui::End();
 
 		ImGuiTextureDebugger();
@@ -1041,9 +1014,9 @@ void Renderer::RecordCommandBuffer()
 	CopyToSwapchainPass copyToSwapchain{};
 
 	UpdateUIStateAndFSR2PreDraw();
-	UpdateDebugOptions();
 	UpdateConstantBuffer();
 	BindCameraMatrices(&m_MainCamera);
+	BindUBO();
 
 	//replace with call once impl
 	if (!init3dnoise)
@@ -1220,7 +1193,11 @@ void Renderer::InitSSAO()
 	texData.width = 4;
 	texData.pData = (unsigned char*)ssaoNoise.data();
 
-	SSAONoiseTexture = new VulkanTexture(&m_VulkanDevice, &texData, TextureFlags::Color | TextureFlags::Read | TextureFlags::TransferDst, Format::R32G32B32A32_FLOAT, "SSAO Noise");
+	SSAONoiseTexture = m_ResourceManager->CreateTexture(m_VulkanDevice, &texData, ROTextureCreateInfo{
+			.flags = {TextureFlags::Color | TextureFlags::Read | TextureFlags::TransferDst},
+			.format = {Format::R32G32B32A32_FLOAT},
+			.name = {"SSAO Noise"}
+		});
 
 	//init ssao params
 	ssaoParams.radius = 0.5f;
@@ -1537,12 +1514,7 @@ void Renderer::ImGuiTextureDebugger()
 		float textureWidth = static_cast<float>(currentSelectedTexture->GetWidth());
 		float textureHeight = static_cast<float>(currentSelectedTexture->GetHeight());
 
-		float textureFinalHeight = textureDebugerSize.y - textureInfoOffset;
-		float aspectRatio = textureWidth / textureHeight;
-
-		float textureFinalWidth = textureFinalHeight * aspectRatio;
-
-		ImGui::Image((void*)debugTextureImGuiDS, ImVec2(textureFinalWidth, textureFinalHeight));
+		ImGui::Image((void*)debugTextureImGuiDS, GetScaledSizeWithAspectRatioKept(ImVec2(textureWidth, textureHeight)));
 	}
 
 	ImGui::End();

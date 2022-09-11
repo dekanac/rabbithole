@@ -1,8 +1,8 @@
 #include "precomp.h"
 
+#include "Render/PipelineManager.h"
 #include "Render/Renderer.h"
 #include "Render/SuperResolutionManager.h"
-#include "Render/PipelineManager.h"
 
 #define DEFAULT_UBO_ELEMENT_SIZE (uint32_t)16
 
@@ -34,11 +34,6 @@ VulkanStateManager::VulkanStateManager()
 
 VulkanStateManager::~VulkanStateManager()
 {
-	delete m_RenderPass;
-	delete m_Pipeline;
-	delete m_Framebuffer;
-	delete m_UBO;
-    //delete m_DescriptorSetManager;
 }
 
 void VulkanStateManager::EnableWireframe(bool enable)

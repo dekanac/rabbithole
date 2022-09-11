@@ -1,6 +1,9 @@
 #include "precomp.h"
 
-// std
+#include "Render/Converters.h"
+#include "Render/SuperResolutionManager.h"
+#include "Render/Window.h"
+
 #include <array>
 #include <cstdlib>
 #include <cstring>
@@ -8,10 +11,6 @@
 #include <limits>
 #include <set>
 #include <stdexcept>
-
-#include "Render/SuperResolutionManager.h"
-#include "Render/Window.h"
-#include "Render/Converters.h"
 
 VulkanSwapchain::VulkanSwapchain(VulkanDevice& deviceRef, VkExtent2D extent)
 	: m_VulkanDevice{ deviceRef }, m_WindowExtent{ extent } 
@@ -36,6 +35,8 @@ VulkanSwapchain::~VulkanSwapchain()
 		vkDestroySemaphore(m_VulkanDevice.GetGraphicDevice(), m_ImageAvailableSemaphores[i], nullptr);
 		vkDestroyFence(m_VulkanDevice.GetGraphicDevice(), m_InFlightFences[i], nullptr);
 	}
+
+	for (auto object : m_SwapChainVulkanImageViews) { delete (object); }
 }
 
 VkResult VulkanSwapchain::AcquireNextImage(uint32_t* imageIndex) 
@@ -215,14 +216,9 @@ void VulkanSwapchain::CreateSyncObjects()
 
 	for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) 
 	{
-		if (vkCreateSemaphore(m_VulkanDevice.GetGraphicDevice(), &semaphoreInfo, nullptr, &m_ImageAvailableSemaphores[i]) !=
-			VK_SUCCESS ||
-			vkCreateSemaphore(m_VulkanDevice.GetGraphicDevice(), &semaphoreInfo, nullptr, &m_RenderFinishedSemaphores[i]) !=
-			VK_SUCCESS ||
-			vkCreateFence(m_VulkanDevice.GetGraphicDevice(), &fenceInfo, nullptr, &m_InFlightFences[i]) != VK_SUCCESS) 
-		{
-			LOG_ERROR("failed to create synchronization objects for a frame!");
-		}
+		VULKAN_API_CALL(vkCreateSemaphore(m_VulkanDevice.GetGraphicDevice(), &semaphoreInfo, nullptr, &m_ImageAvailableSemaphores[i]));
+		VULKAN_API_CALL(vkCreateSemaphore(m_VulkanDevice.GetGraphicDevice(), &semaphoreInfo, nullptr, &m_RenderFinishedSemaphores[i]));
+		VULKAN_API_CALL(vkCreateFence(m_VulkanDevice.GetGraphicDevice(), &fenceInfo, nullptr, &m_InFlightFences[i]));
 	}
 }
 

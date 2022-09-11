@@ -1,11 +1,12 @@
 #include "RenderSystem.h"
+
 #include "Render/Renderer.h"
 #include "Render/Window.h"
 
-#include <fstream>
-#include <sstream>
-#include <iostream>
 #include <cstdlib>
+#include <fstream>
+#include <iostream>
+#include <sstream>
 
 bool RenderSystem::Init()
 {

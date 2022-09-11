@@ -1,8 +1,8 @@
 #include "precomp.h"
 
-#include "Render/Shader.h"
-#include "Render/Model/Model.h"
 #include "Render/Converters.h"
+#include "Render/Model/Model.h"
+#include "Render/Shader.h"
 
 
 VulkanDescriptor::VulkanDescriptor(const VulkanDescriptorInfo& info)
@@ -120,7 +120,7 @@ VulkanDescriptorSetLayout::~VulkanDescriptorSetLayout()
 	vkDestroyDescriptorSetLayout(m_Device->GetGraphicDevice(), m_Layout, nullptr);
 }
 
-VulkanDescriptorSet::VulkanDescriptorSet(const VulkanDevice* device,const VulkanDescriptorPool* desciptorPool,const VulkanDescriptorSetLayout* descriptorSetLayout, const std::vector<VulkanDescriptor*> descriptors, const char* name)
+VulkanDescriptorSet::VulkanDescriptorSet(const VulkanDevice* device,const VulkanDescriptorPool* desciptorPool,const VulkanDescriptorSetLayout* descriptorSetLayout, const std::vector<VulkanDescriptor*>& descriptors, const char* name)
 {
 	VkDescriptorSetAllocateInfo descriptorSetAllocateInfo = { VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO };
 	descriptorSetAllocateInfo.pSetLayouts = descriptorSetLayout->GetLayout();

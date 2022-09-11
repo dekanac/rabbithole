@@ -75,19 +75,22 @@ void VulkanBuffer::FillBuffer(void* inputData, uint64_t size, uint64_t offset)
 {
 	ASSERT(offset + size <= m_Size, "Trying to reach outside buffer's bounds!");
 
-	if (m_Info.memoryAccess != MemoryAccess::GPU)
+	if (size > 0)
 	{
-		void* data = Map();
-		memcpy(data, (char*)inputData + offset, size);
-		Unmap();
-	}
-	else
-	{
-		VulkanBuffer stagingBuffer = VulkanBuffer(m_Device, BufferUsageFlags::TransferSrc, MemoryAccess::CPU, size, "StagingBuffer");
+		if (m_Info.memoryAccess != MemoryAccess::GPU)
+		{
+			void* data = Map();
+			memcpy(data, (char*)inputData + offset, size);
+			Unmap();
+		}
+		else
+		{
+			VulkanBuffer stagingBuffer = VulkanBuffer(m_Device, BufferUsageFlags::TransferSrc, MemoryAccess::CPU, size, "StagingBuffer");
 
-		stagingBuffer.FillBuffer(inputData);
+			stagingBuffer.FillBuffer(inputData);
 
-		m_Device.CopyBuffer(stagingBuffer, *this, size, 0, offset);
+			m_Device.CopyBuffer(stagingBuffer, *this, size, 0, offset);
+		}
 	}
 }
 

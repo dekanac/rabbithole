@@ -1,8 +1,8 @@
-#include "Camera.h"
-#include "RabbitPass.h"
-#include "Renderer.h"
-#include "ResourceStateTracking.h"
-#include "SuperResolutionManager.h"
+#include "Render/Camera.h"
+#include "Render/RabbitPass.h"
+#include "Render/Renderer.h"
+#include "Render/ResourceStateTracking.h"
+#include "Render/SuperResolutionManager.h"
 
 void RabbitPass::SetCombinedImageSampler(Renderer* renderer, int slot, VulkanTexture* texture)
 {

@@ -30,8 +30,8 @@ class VulkanDescriptor
 public:
 	VulkanDescriptor(const VulkanDescriptorInfo& info);
 
-	inline VulkanDescriptorInfo			GetDescriptorInfo() { return m_Info; }
-	inline const DescriptorResourceInfo GetDescriptorResourceInfo() const { return m_ResourceInfo; }
+	inline VulkanDescriptorInfo		GetDescriptorInfo() const { return m_Info; }
+	inline DescriptorResourceInfo	GetDescriptorResourceInfo() const { return m_ResourceInfo; }
 
 private:
 	VulkanDescriptorInfo	m_Info{};
@@ -89,7 +89,7 @@ public:
 		const VulkanDevice* device,
 		const VulkanDescriptorPool* desciptorPool,
 		const VulkanDescriptorSetLayout* descriptorSetLayout,
-		const std::vector<VulkanDescriptor*> descriptors,
+		const std::vector<VulkanDescriptor*>& descriptors,
 		const char* name);
 
 public:

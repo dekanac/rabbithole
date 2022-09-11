@@ -1,20 +1,20 @@
-
 #include "Window.h"
+
 #include "Logger/Logger.h"
 #include "Render/Renderer.h"
 
-bool Window::Init(const WindowData& windowData_)
+bool Window::Init(const WindowData& windowData)
 {
 	LOG_INFO("Initializing Window");
 
-	m_WindowData = windowData_;
+	m_WindowData = windowData;
 	ASSERT(m_WindowData.width > 0 && m_WindowData.height > 0, "Window size must be greater than zero");
     glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
     glfwWindowHint(GLFW_RESIZABLE, GLFW_TRUE);
 
 	m_NativeWindowHandle = glfwCreateWindow(
-		windowData_.width, 
-		windowData_.height, 
+		windowData.width, 
+		windowData.height, 
 		"Rabbithole", 
 		nullptr, //repair for full screen
 		nullptr
@@ -26,6 +26,7 @@ bool Window::Init(const WindowData& windowData_)
 		LOG_CRITICAL("Unable to create a window.");
 		return false;
 	}
+
     glfwSetWindowUserPointer(m_NativeWindowHandle, this);
     glfwSetFramebufferSizeCallback(m_NativeWindowHandle, FramebufferResizeCallback);
 
@@ -34,8 +35,7 @@ bool Window::Init(const WindowData& windowData_)
 
 void Window::FramebufferResizeCallback(GLFWwindow* window, int width, int height) {
     
-    auto app = reinterpret_cast<Renderer*>(glfwGetWindowUserPointer(window));
-    app->m_FramebufferResized = true;
+	Renderer::instance().m_FramebufferResized = true;
 
 	Window::instance().m_WindowData.width = width;
 	Window::instance().m_WindowData.height = height;

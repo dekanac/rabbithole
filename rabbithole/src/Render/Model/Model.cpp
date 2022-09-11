@@ -10,6 +10,7 @@
 #include <glm/gtc/type_ptr.hpp>
 
 #include "Render/Renderer.h"
+#include "Render/Vulkan/VulkanDescriptors.h"
 #include "Render/Vulkan/VulkanTexture.h"
 
 #define TINYGLTF_IMPLEMENTATION
@@ -492,7 +493,6 @@ VulkanglTFModel::VulkanglTFModel(VulkanDevice* device, std::string filename)
 
 VulkanglTFModel::~VulkanglTFModel()
 {
-	m_Textures.clear();
 }
 
 /*
@@ -540,8 +540,12 @@ void VulkanglTFModel::LoadImages(tinygltf::Model& input)
 		textureData.width = input.images[i].width;
 		textureData.pData = buffer;
 
-		VulkanTexture* texture = new VulkanTexture(m_Device, &textureData, TextureFlags::Color | TextureFlags::Read | TextureFlags::TransferDst | TextureFlags::TransferSrc, Format::R8G8B8A8_UNORM, "InputTexture", true);
-		m_Textures[i] = texture;
+		m_Textures[i] = Renderer::instance().GetResourceManager()->CreateTexture(*m_Device, &textureData, ROTextureCreateInfo{
+				.flags = {TextureFlags::Color | TextureFlags::Read | TextureFlags::TransferDst | TextureFlags::TransferSrc},
+				.format = {Format::R8G8B8A8_UNORM},
+				.name = {std::format("InputTexture_{}", glTFImage.name)},
+				.generateMips = true
+			});
 
 		if (deleteBuffer) 
 		{

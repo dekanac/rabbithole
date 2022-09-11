@@ -4,7 +4,9 @@
 
 #include <fsr2.0/ffx_fsr2.h>
 
+class VulkanDevice;
 class VulkanTexture;
+class VulkanCommandBuffer;
 struct UIState;
 
 class SuperResolutionManager
@@ -36,6 +38,7 @@ public:
 	} FfxUpscaleSetup;
 
 	void Init(VulkanDevice* device);
+	void Destroy();
 
 	const std::pair<uint32_t, uint32_t> GetNativeResolution() { return std::make_pair(m_NativeResolutionWidth, m_NativeResolutionHeight); }
 	const std::pair<uint32_t, uint32_t> GetUpscaledResolution() { return std::make_pair(m_UpscaledResolutionWidth, m_UpscaledResolutionHeight); }
@@ -55,14 +58,13 @@ private:
 	uint32_t m_UpscaledResolutionWidth;
 	uint32_t m_UpscaledResolutionHeight;
 
-	float m_UpscaleFactor;
-	float m_Sharpness;
-
-	float m_JitterX;
-	float m_JitterY;
-	bool m_UseTaa;
-	bool m_Hdr;
-	uint32_t m_Index;
+	float		m_UpscaleFactor;
+	float		m_Sharpness;
+	float		m_JitterX;
+	float		m_JitterY;
+	bool		m_UseTaa;
+	bool		m_Hdr;
+	uint32_t	m_Index;
 
 	FfxFsr2ContextDescription	m_FsrContextDescription = {};
 	FfxFsr2Context				m_FsrContext;

@@ -13,13 +13,13 @@ namespace Utils
 {
 	long long SetStartTime()
 	{
-		return std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
+		return std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
 	}
 
 	void SetEndtimeAndPrint(long long start, std::string label)
 	{
-		auto endtime = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
-		std::cout << label << ": " << endtime - start << "ms" << std::endl;
+		auto endtime = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
+		std::cout << label << ": " << endtime - start << " us" << std::endl;
 	}
 
 	void PrintMatrix(const rabbitMat4f& matrix)

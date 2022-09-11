@@ -1,69 +1,12 @@
 #include "precomp.h"
 
+#include "Render/Converters.h"
 #include "Render/Model/Model.h"
 #include "Render/Model/TextureLoading.h"
-#include "Render/Converters.h"
-
-VulkanTexture::VulkanTexture(VulkanDevice* device, std::string filePath, TextureFlags flags, Format format, std::string name, bool generateMips)
-	: m_Format(format)
-	, m_Flags(flags)
-	, m_FilePath(filePath)
-	, m_Name(name)
-{
-	auto texData = TextureLoading::LoadTexture(filePath);
-
-	CreateResource(device, texData, generateMips);
-	CreateView(device);
-	CreateSampler(device, SamplerType::Trilinear, AddressMode::Repeat);
-
-	TextureLoading::FreeTexture(texData);
-}
-
-VulkanTexture::VulkanTexture(VulkanDevice* device, const uint32_t width, const uint32_t height, TextureFlags flags, Format format, const char* name, uint32_t arraySize, MultisampleType mstype)
-	: m_Format(format)
-	, m_Flags(flags)
-	, m_FilePath("")
-	, m_Name(name)
-{
-	CreateResource(device, width, height, 1, arraySize, mstype);
-	CreateView(device);
-	CreateSampler(device, SamplerType::Trilinear, AddressMode::Repeat);
-
-	device->SetObjectName((uint64_t)GET_VK_HANDLE_PTR(m_Resource), VK_OBJECT_TYPE_IMAGE, name);
-	device->SetObjectName((uint64_t)GET_VK_HANDLE_PTR(m_View), VK_OBJECT_TYPE_IMAGE_VIEW, name);
-	device->SetObjectName((uint64_t)GET_VK_HANDLE_PTR(m_Sampler), VK_OBJECT_TYPE_SAMPLER, name);
-}
-
-VulkanTexture::VulkanTexture(VulkanDevice* device, TextureData* texData, TextureFlags flags, Format format, std::string name, bool generateMips)
-	: m_Format(format)
-	, m_Flags(flags)
-	, m_FilePath("")
-	, m_Name(name)
-{
-	CreateResource(device, texData, generateMips);
-	CreateView(device);
-	CreateSampler(device, SamplerType::Trilinear, AddressMode::Repeat);
-}
-
-VulkanTexture::VulkanTexture(VulkanDevice* device, const uint32_t width, const uint32_t height, const uint32_t depth, TextureFlags flags, Format format, const char* name, uint32_t arraySize /*= 1*/, MultisampleType mstype /*= MultisampleType::Sample_1*/)
-	: m_Format(format)
-	, m_Flags(flags)
-	, m_FilePath("")
-	, m_Name(name)
-{
-	CreateResource(device, width, height, depth, arraySize, mstype);
-	CreateView(device);
-	CreateSampler(device, SamplerType::Trilinear, AddressMode::Repeat);
-
-	device->SetObjectName((uint64_t)GET_VK_HANDLE_PTR(m_Resource), VK_OBJECT_TYPE_IMAGE, name);
-	device->SetObjectName((uint64_t)GET_VK_HANDLE_PTR(m_View), VK_OBJECT_TYPE_IMAGE_VIEW, name);
-	device->SetObjectName((uint64_t)GET_VK_HANDLE_PTR(m_Sampler), VK_OBJECT_TYPE_SAMPLER, name);
-}
 
 VulkanTexture::VulkanTexture(VulkanDevice& device, RWTextureCreateInfo& createInfo)
 	: m_Format(createInfo.format)
 	, m_Flags(createInfo.flags)
-	, m_FilePath("")
 	, m_Name(createInfo.name)
 {
 	CreateResource(&device, createInfo.dimensions.Width, createInfo.dimensions.Height, createInfo.dimensions.Depth, createInfo.arraySize, createInfo.multisampleType);
@@ -75,56 +18,28 @@ VulkanTexture::VulkanTexture(VulkanDevice& device, RWTextureCreateInfo& createIn
 	device.SetObjectName((uint64_t)GET_VK_HANDLE_PTR(m_Sampler), VK_OBJECT_TYPE_SAMPLER, createInfo.name.c_str());
 }
 
-VulkanTexture::VulkanTexture(VulkanDevice& device, ROTextureCreateInfo& createInfo)
+VulkanTexture::VulkanTexture(VulkanDevice& device, const TextureData* data, ROTextureCreateInfo& createInfo)
 	: m_Format(createInfo.format)
 	, m_Flags(createInfo.flags)
-	, m_FilePath(createInfo.filePath)
 	, m_Name(createInfo.name)
 {
-
-	bool isCubeMap = IsFlagSet(createInfo.flags & TextureFlags::CubeMap);
-	
-	TextureData* texData = nullptr;
-
-	if (isCubeMap)
-	{
-		auto cubeMapData = TextureLoading::LoadCubemap(createInfo.filePath);
-
-		texData = new TextureData{};
-		texData->bpp = cubeMapData->pData[0]->bpp;
-		texData->width = cubeMapData->pData[0]->width;
-		texData->height = cubeMapData->pData[0]->height;
-
-		size_t imageSize = texData->height * texData->width * 4;
-
-		texData->pData = (unsigned char*)malloc(imageSize * 6);
-		for (int i = 0; i < 6; i++)
-		{
-			memcpy(texData->pData + i * imageSize, cubeMapData->pData[i]->pData, imageSize);
-		}
-
-		TextureLoading::FreeCubemap(cubeMapData);
-	}
-	else
-	{
-		texData = TextureLoading::LoadTexture(createInfo.filePath);
-	}
-
-	CreateResource(&device, texData, createInfo.generateMips);
+	CreateResource(&device, data, createInfo.generateMips);
 	CreateView(&device);
 	CreateSampler(&device, SamplerType::Trilinear, AddressMode::Repeat);
 
-	TextureLoading::FreeTexture(texData);
+	device.SetObjectName((uint64_t)GET_VK_HANDLE_PTR(m_Resource), VK_OBJECT_TYPE_IMAGE, createInfo.name.c_str());
+	device.SetObjectName((uint64_t)GET_VK_HANDLE_PTR(m_View), VK_OBJECT_TYPE_IMAGE_VIEW, createInfo.name.c_str());
+	device.SetObjectName((uint64_t)GET_VK_HANDLE_PTR(m_Sampler), VK_OBJECT_TYPE_SAMPLER, createInfo.name.c_str());
 }
 
 VulkanTexture::~VulkanTexture()
 {
-	delete(m_Sampler);
-	delete(m_View);
-	delete(m_Resource);
+	if (m_Sampler) delete(m_Sampler);
+	if (m_View) delete(m_View);
+	if (m_Resource) delete(m_Resource);
 }
 
-void VulkanTexture::CreateResource(VulkanDevice* device, TextureData* texData, bool generateMips)
+void VulkanTexture::CreateResource(VulkanDevice* device, const TextureData* texData, bool generateMips)
 {
 	bool isCubeMap = IsFlagSet(m_Flags & TextureFlags::CubeMap);
 

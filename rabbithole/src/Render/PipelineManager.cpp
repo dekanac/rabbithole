@@ -1,9 +1,9 @@
 #include "PipelineManager.h"
 
+#include "Logger/Logger.h"
 #include "Render/Vulkan/VulkanPipeline.h"
 #include "Render/Converters.h"
 #include "Render/Shader.h"
-#include "Logger/Logger.h"
 
 bool GraphicsPipelineKey::operator<(const GraphicsPipelineKey& k) const
 {
@@ -34,6 +34,14 @@ bool RenderPassKey::operator<(const RenderPassKey& k) const
 bool RenderPassKey::operator==(const RenderPassKey& k) const
 {
 	return memcmp(this, &k, sizeof(RenderPassKey)) == 0;
+}
+
+void PipelineManager::Destroy()
+{
+	for (auto object : m_GraphicPipelines) { delete object.second; }
+	for (auto object : m_ComputePipelines) { delete object.second; }
+	for (auto object : m_RenderPasses) { delete object.second; }
+	for (auto object : m_Framebuffers) { delete object.second; }
 }
 
 VulkanPipeline* PipelineManager::FindOrCreateGraphicsPipeline(VulkanDevice& device, PipelineConfigInfo& pipelineInfo)

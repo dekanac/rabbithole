@@ -1,16 +1,16 @@
 #pragma once
 #include "common.h"
-#include "Logger/Logger.h"
 
-#include "Vulkan/Include/VulkanWrapper.h"
-#include "Camera.h"
-#include "SuperResolutionManager.h"
-#include "Window.h"
-#include "Model/Model.h"
-#include "BVH.h"
+#include "Logger/Logger.h"
+#include "Render/BVH.h"
+#include "Render/Camera.h"
+#include "Render/Model/Model.h"
+#include "Render/PipelineManager.h"
 #include "Render/ResourceManager.h"
 #include "Render/ResourceStateTracking.h"
-#include "PipelineManager.h"
+#include "Render/SuperResolutionManager.h"
+#include "Render/Vulkan/Include/VulkanWrapper.h"
+#include "Render/Window.h"
 
 #include <unordered_map>
 #include <string>
@@ -24,15 +24,15 @@
 constexpr size_t numOfLights = MAX_NUM_OF_LIGHTS;
 
 class Camera;
-struct CameraState;
+class Entity;
 class EntityManager;
-struct GLFWwindow;
-struct Vertex;
+class RabbitPass;
+class Shader;
 class VulkanDevice;
 class VulkanStateManager;
-class Entity;
-class Shader;
-class RabbitPass;
+struct CameraState;
+struct GLFWwindow;
+struct Vertex;
 
 typedef VkExtent2D Extent2D;
 
@@ -241,7 +241,6 @@ public:
 	inline VulkanBuffer* GetMainConstBuffer() { return m_MainConstBuffer[m_CurrentImageIndex]; }
 	inline VulkanBuffer* GetLightParams() { return m_LightParams; }
 
-	void UpdateDebugOptions();
 	void UpdateEntityPickId();
 	void BindViewport(float x, float y, float width, float height);
 	void BindVertexData(size_t offset);
@@ -392,11 +391,16 @@ private:
 	void InitTextures();
 	void InitNoiseTextures();
 	void InitImgui();
+	void DestroyImgui();
 	bool m_ImguiInitialized = false;
 	float m_CurrentDeltaTime;
 
 public:
 	//Don't ask, Imgui init wants swapchain renderpass to be ready, but its not. So basically we need 2 init phases..
 	bool imguiReady = false;
+#ifdef RABBITHOLE_USING_IMGUI
 	bool isInEditorMode = true;
+#else
+	bool isInEditorMode = false;
+#endif
 };
