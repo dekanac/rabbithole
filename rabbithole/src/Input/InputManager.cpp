@@ -5,8 +5,6 @@
 #include "ECS/EntityManager.h"
 #include "Render/Window.h"
 
-#include <SDL.h>
-
 #include <iostream>
 
 static float LAST_MOUSE_POS_Y = Window::instance().GetExtent().height / 2.f;

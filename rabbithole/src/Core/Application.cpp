@@ -7,7 +7,6 @@
 #include "Render/Window.h"
 
 #include <GLFW/glfw3.h>
-#include <SDL.h>
 
 #include <iostream>
 #include <fstream>
@@ -24,8 +23,6 @@ bool Application::Init()
 {
 	Logger::Init();
 	LOG_INFO("Logger succesfully created.");
-	
-	SDL_Init(SDL_INIT_TIMER | SDL_INIT_EVENTS);
     
     glfwSetErrorCallback(ErrorCallback);
     const int ret = glfwInit();
@@ -87,7 +84,6 @@ void Application::Run()
 {
 	auto previousFrameTime = glfwGetTimerValue();
 	auto previousOutputTime = glfwGetTimerValue();
-	SDL_Event event{};
 
 	while (m_IsRunning)
 	{
@@ -95,8 +91,6 @@ void Application::Run()
         {
 			m_IsRunning = false;
 		}
-
-		SDL_PollEvent(&event);
 
 		auto frameTime = glfwGetTimerValue();
 		float deltaTime = (frameTime - previousFrameTime)  / static_cast<float>(glfwGetTimerFrequency());
