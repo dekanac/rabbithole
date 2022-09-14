@@ -584,7 +584,7 @@ void Renderer::InitTextures()
 			.name = {"Skybox"}
 		});
 }
-
+	
 void Renderer::InitNoiseTextures()
 {
 	noise2DTexture = m_ResourceManager->CreateTexture(m_VulkanDevice, "res/textures/noise3.png", ROTextureCreateInfo{
@@ -1231,15 +1231,21 @@ void Renderer::InitMeshDataForCompute()
 		auto modelVertexBuffer = model.GetVertexBuffer();
 		auto modelIndexBuffer = model.GetIndexBuffer();
 
+		//TODO: replace this with one Main Init Render command buffer with a lifetime only in init stages
+		VulkanCommandBuffer tempCommandBuffer(m_VulkanDevice, "Temp command buffer");
+		tempCommandBuffer.BeginCommandBuffer();
+
 		VulkanBuffer stagingBuffer(m_VulkanDevice, BufferUsageFlags::TransferDst, MemoryAccess::CPU, modelVertexBuffer->GetSize(), "StagingBuffer");
-		m_VulkanDevice.CopyBuffer(*modelVertexBuffer, stagingBuffer, modelVertexBuffer->GetSize());
+		m_VulkanDevice.CopyBuffer(tempCommandBuffer, *modelVertexBuffer, stagingBuffer, modelVertexBuffer->GetSize());
 
 		Vertex* vertexBufferCpu = (Vertex*)stagingBuffer.Map();
 		uint32_t vertexCount = static_cast<uint32_t>(modelVertexBuffer->GetSize() / sizeof(Vertex));
 		verticesMultipliedWithMatrix.resize(vertexCount);
 
 		VulkanBuffer stagingBuffer2(m_VulkanDevice, BufferUsageFlags::TransferDst, MemoryAccess::CPU, modelIndexBuffer->GetSize(), "StagingBuffer");
-		m_VulkanDevice.CopyBuffer(*modelIndexBuffer, stagingBuffer2, modelIndexBuffer->GetSize());
+		m_VulkanDevice.CopyBuffer(tempCommandBuffer, *modelIndexBuffer, stagingBuffer2, modelIndexBuffer->GetSize());
+
+		tempCommandBuffer.EndAndSubmitCommandBuffer();
 
 		uint32_t* indexBufferCpu = (uint32_t*)stagingBuffer2.Map();
 		uint32_t indexCount = static_cast<uint32_t>(modelIndexBuffer->GetSize() / sizeof(uint32_t));
@@ -1438,7 +1444,7 @@ void Renderer::ImGuiTextureDebugger()
 		[](const std::pair<uint32_t, VulkanTexture*>& a, const std::pair<uint32_t, VulkanTexture*>& b) 
 		{
 			if (a.second != nullptr && b.second != nullptr)
-				return a.second->GetName() <= b.second->GetName();
+				return a.second->GetName() < b.second->GetName();
 			else
 				return false;
 		}
@@ -1598,9 +1604,25 @@ void Renderer::CopyImageToBuffer(VulkanTexture* texture, VulkanBuffer* buffer)
 	m_VulkanDevice.CopyImageToBuffer(GetCurrentCommandBuffer(), texture, buffer);
 }
 
+void Renderer::CopyBufferToImage(VulkanBuffer* buffer, VulkanTexture* texture)
+{
+	m_VulkanDevice.CopyBufferToImage(GetCurrentCommandBuffer(), buffer, texture);
+}
+
 void Renderer::CopyImage(VulkanTexture* src, VulkanTexture* dst)
 {
 	m_VulkanDevice.CopyImage(GetCurrentCommandBuffer(), src, dst);
+}
+
+void Renderer::CopyBuffer(VulkanBuffer& src, VulkanBuffer& dst, uint64_t size /*= UINT64_MAX*/, uint64_t srcOffset /*= 0*/, uint64_t dstOffset /*= 0*/)
+{
+	// if size is not set, we assume that we want to copy whole src buffer
+	if (size == UINT64_MAX)
+	{
+		size = src.GetSize();
+	}
+
+	m_VulkanDevice.CopyBuffer(GetCurrentCommandBuffer(), src, dst, size, srcOffset, dstOffset);
 }
 
 void IndexedIndirectBuffer::SubmitToGPU()

@@ -229,8 +229,10 @@ public:
 	inline VulkanBuffer*		GetVertexUploadBuffer() { return m_VertexUploadBuffer; }
 
 	void ResourceBarrier(VulkanTexture* texture, ResourceState oldLayout, ResourceState newLayout, ResourceStage srcStage, ResourceStage dstStage, uint32_t mipLevel = 0);
-	void CopyImageToBuffer(VulkanTexture* texture, VulkanBuffer* buffer);
+    void CopyImageToBuffer(VulkanTexture* texture, VulkanBuffer* buffer);
+    void CopyBufferToImage( VulkanBuffer* buffer, VulkanTexture* texture);
 	void CopyImage(VulkanTexture* src, VulkanTexture* dst);
+	void CopyBuffer(VulkanBuffer& src, VulkanBuffer& dst, uint64_t size = UINT64_MAX, uint64_t srcOffset = 0, uint64_t dstOffset = 0);
 
 	inline Shader*			GetShader(const std::string& name) const { return m_ResourceManager->GetShader(name); }
 	inline VulkanTexture*	GetTextureWithID(uint32_t textureId) { return m_ResourceManager->GetTextures()[textureId]; }

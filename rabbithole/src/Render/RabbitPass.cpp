@@ -498,12 +498,12 @@ void FSR2Pass::Render(Renderer* renderer)
 {
 	SuperResolutionManager::FfxUpscaleSetup fsrSetup{};
 
-	const auto& MainCamera = renderer->GetCamera();
+	const auto& cameraState = renderer->GetCameraState();
 
-	fsrSetup.cameraSetup.cameraPos = rabbitVec4f{ MainCamera.GetPosition(), 1.0f };
-	fsrSetup.cameraSetup.cameraProj = MainCamera.ProjectionJittered();
-	fsrSetup.cameraSetup.cameraView = MainCamera.View();
-	fsrSetup.cameraSetup.cameraViewInv = glm::inverse(MainCamera.View());
+	fsrSetup.cameraSetup.cameraPos = rabbitVec4f{ cameraState.CameraPosition, 1.0f };
+	fsrSetup.cameraSetup.cameraProj = cameraState.ProjectionMatrix;
+	fsrSetup.cameraSetup.cameraView = cameraState.ViewMatrix;
+	fsrSetup.cameraSetup.cameraViewInv = cameraState.ViewInverseMatrix;
 
 	fsrSetup.depthbufferResource = renderer->depthStencil;
 	fsrSetup.motionvectorResource = renderer->velocityGBuffer;

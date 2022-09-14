@@ -63,14 +63,14 @@ public:
 
 
 	// Buffer Helper Functions
-	void					CopyBuffer(VulkanBuffer& srcBuffer, VulkanBuffer& dstBuffer, uint64_t size, uint64_t srcOffset = 0, uint64_t dstOffset = 0);
+	void					CopyBuffer(VulkanCommandBuffer& commandBuffer, VulkanBuffer& srcBuffer, VulkanBuffer& dstBuffer, uint64_t size, uint64_t srcOffset = 0, uint64_t dstOffset = 0);
 	void					CopyBufferToImage(VulkanCommandBuffer& commandBuffer, VulkanBuffer* buffer, VulkanTexture* texture, bool copyFirstMipOnly = false);
 	void					CopyBufferToImageCubeMap(VulkanCommandBuffer& commandBuffer, VulkanBuffer* buffer, VulkanTexture* texture);
-	void					InitImguiForVulkan(ImGui_ImplVulkan_InitInfo& info);
+	void					CopyImageToBuffer(VulkanCommandBuffer& commandBuffer, VulkanTexture* texture, VulkanBuffer* buffer);
+	void					CopyImage(VulkanCommandBuffer& commandBuffer, VulkanTexture* src, VulkanTexture* dst);
+	void					ResourceBarrier(VulkanCommandBuffer& commandBuffer, VulkanTexture* texture, ResourceState oldLayout, ResourceState newLayout, ResourceStage srcStage, ResourceStage dstStage, uint32_t mipLevel = 0, uint32_t mipCount = 1);
 	
-	void ResourceBarrier(VulkanCommandBuffer& commandBuffer, VulkanTexture* texture, ResourceState oldLayout, ResourceState newLayout, ResourceStage srcStage, ResourceStage dstStage, uint32_t mipLevel = 0, uint32_t mipCount = 1);
-	void CopyImageToBuffer(VulkanCommandBuffer& commandBuffer, VulkanTexture* texture, VulkanBuffer* buffer);
-	void CopyImage(VulkanCommandBuffer& commandBuffer, VulkanTexture* src, VulkanTexture* dst);
+	void					InitImguiForVulkan(ImGui_ImplVulkan_InitInfo& info);
 
 	//debug utils
 	void SetObjectName(uint64_t object, VkObjectType objectType, const char* name);

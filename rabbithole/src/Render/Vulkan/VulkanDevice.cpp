@@ -499,18 +499,13 @@ uint32_t VulkanDevice::FindMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags
 	return UINT_MAX;
 }
 
-void VulkanDevice::CopyBuffer(VulkanBuffer& srcBuffer, VulkanBuffer& dstBuffer, uint64_t size, uint64_t srcOffset, uint64_t dstOffset)
+void VulkanDevice::CopyBuffer(VulkanCommandBuffer& commandBuffer, VulkanBuffer& srcBuffer, VulkanBuffer& dstBuffer, uint64_t size, uint64_t srcOffset, uint64_t dstOffset)
 {
-	VulkanCommandBuffer tempCommandBuffer(*this, "Temp Copy Buffer Command Buffer");
-	tempCommandBuffer.BeginCommandBuffer(true);
-
 	VkBufferCopy copyRegion{};
 	copyRegion.srcOffset = srcOffset;
 	copyRegion.dstOffset = dstOffset;
 	copyRegion.size = size;
-	vkCmdCopyBuffer(GET_VK_HANDLE(tempCommandBuffer), GET_VK_HANDLE(srcBuffer), GET_VK_HANDLE(dstBuffer), 1, &copyRegion);
-
-	tempCommandBuffer.EndAndSubmitCommandBuffer();
+	vkCmdCopyBuffer(GET_VK_HANDLE(commandBuffer), GET_VK_HANDLE(srcBuffer), GET_VK_HANDLE(dstBuffer), 1, &copyRegion);
 }
 
 void VulkanDevice::CopyBufferToImage(VulkanCommandBuffer& commandBuffer, VulkanBuffer* buffer, VulkanTexture* texture, bool copyFirstMipOnly)

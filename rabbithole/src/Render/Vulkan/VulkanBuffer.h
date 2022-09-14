@@ -17,6 +17,8 @@ public:
 	VulkanBuffer(VulkanDevice& device, BufferUsageFlags flags, MemoryAccess access, uint64_t size, const char* name);
 	~VulkanBuffer();
 
+	NonCopyableAndMovable(VulkanBuffer);
+
 	friend class ResourceManager; //Resource Manager will take care of creation and deletion of buffers
 private:
 	VulkanBuffer(VulkanDevice& device, BufferCreateInfo& createInfo);

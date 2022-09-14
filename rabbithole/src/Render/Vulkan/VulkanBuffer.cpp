@@ -89,7 +89,13 @@ void VulkanBuffer::FillBuffer(void* inputData, uint64_t size, uint64_t offset)
 
 			stagingBuffer.FillBuffer(inputData);
 
-			m_Device.CopyBuffer(stagingBuffer, *this, size, 0, offset);
+			//TODO: no way! Temp Command Buffers should be used only in init phases!!!
+			VulkanCommandBuffer tempCommandBuffer(m_Device, "Temp command buffer!");
+			tempCommandBuffer.BeginCommandBuffer();
+
+			m_Device.CopyBuffer(tempCommandBuffer, stagingBuffer, *this, size, 0, offset);
+
+			tempCommandBuffer.EndAndSubmitCommandBuffer();
 		}
 	}
 }
