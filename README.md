@@ -1,5 +1,5 @@
 # rabbithole
-3D Game Engine Using Vulkan API and GLTF models
+3D Game Engine Written in C++ and Vulkan using GLTF models
 ![img1](https://user-images.githubusercontent.com/34007000/190272509-1d3cc2e8-7d7e-47fc-9fdf-8f6c001065b6.png)
 ![ezgif-3-b46c2eb673](https://user-images.githubusercontent.com/34007000/190277866-6037d555-3050-49f2-bdee-602c8e6dc0d6.gif)
 
