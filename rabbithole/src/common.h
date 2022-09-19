@@ -74,3 +74,11 @@ struct WindowExtent
 	uint32_t width;
 	uint32_t height;
 };
+
+#define EXECUTE_ONCE(code) \
+	static bool doOnceFlag = false; \
+	if (!doOnceFlag) \
+	{ \
+		code; \
+		doOnceFlag = true; \
+	}

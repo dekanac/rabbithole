@@ -53,9 +53,7 @@ void Renderer::ExecuteRabbitPass(RabbitPass& rabbitPass)
 bool Renderer::Init()
 {
 	m_MainCamera.Init();
-
 	SuperResolutionManager::instance().Init(&m_VulkanDevice);
-
 	m_ResourceManager = new ResourceManager();
 	m_StateManager = new VulkanStateManager();
 
@@ -63,8 +61,7 @@ bool Renderer::Init()
 	ImGui::CreateContext();
 #endif
 
-	InitTextures();
-
+	InitDefaultTextures();
 	LoadModels();
 	LoadAndCreateShaders();
 	RecreateSwapchain();
@@ -73,6 +70,9 @@ bool Renderer::Init()
 	CreateDescriptorPool();
 	CreateCommandBuffers();
 
+	RabbitPassManager::instance().SchedulePasses();
+	RabbitPassManager::instance().DeclareResources(this);
+
 	m_GPUTimeStamps.OnCreate(&m_VulkanDevice, m_VulkanSwapchain->GetImageCount());
 
 	for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
@@ -80,47 +80,6 @@ bool Renderer::Init()
 		CreateGeometryDescriptors(gltfModels, i);
 	}
 
-	const float shadowResolutionMultiplier = 1.f;
-
-	const uint32_t shadowResX = static_cast<uint32_t>(GetNativeWidth * shadowResolutionMultiplier);
-	const uint32_t shadowResY = static_cast<uint32_t>(GetNativeHeight * shadowResolutionMultiplier);
-
-	//GBUFFER RENDER SET
-	depthStencil = m_ResourceManager->CreateTexture(m_VulkanDevice, RWTextureCreateInfo{ 
-			.dimensions = {GetNativeWidth , GetNativeHeight, 1},
-			.flags = {TextureFlags::DepthStencil | TextureFlags::Read | TextureFlags::TransferSrc},
-			.format = {Format::D32_SFLOAT},
-			.name = {"GBuffer DepthStencil"}
-		});
-
-	albedoGBuffer = m_ResourceManager->CreateTexture(m_VulkanDevice, RWTextureCreateInfo{
-			.dimensions = {GetNativeWidth , GetNativeHeight, 1},
-			.flags = {TextureFlags::RenderTarget | TextureFlags::Read},
-			.format = {Format::B8G8R8A8_UNORM},
-			.name = {"GBuffer Albedo"}
-		});
-
-	normalGBuffer = m_ResourceManager->CreateTexture(m_VulkanDevice, RWTextureCreateInfo{
-			.dimensions = {GetNativeWidth , GetNativeHeight, 1},
-			.flags = {TextureFlags::RenderTarget | TextureFlags::Read | TextureFlags::Storage},
-			.format = {Format::R16G16B16A16_FLOAT},
-			.name = {"GBuffer Normal"}
-		});
-
-	worldPositionGBuffer = m_ResourceManager->CreateTexture(m_VulkanDevice, RWTextureCreateInfo{
-			.dimensions = {GetNativeWidth , GetNativeHeight, 1},
-			.flags = {TextureFlags::RenderTarget | TextureFlags::Read | TextureFlags::Storage},
-			.format = {Format::R16G16B16A16_FLOAT},
-			.name = {"GBuffer World Position"}
-		});
-
-	velocityGBuffer = m_ResourceManager->CreateTexture(m_VulkanDevice, RWTextureCreateInfo{
-			.dimensions = {GetNativeWidth , GetNativeHeight, 1},
-			.flags = {TextureFlags::RenderTarget | TextureFlags::Read | TextureFlags::Storage},
-			.format = {Format::R32G32_FLOAT},
-			.name = {"GBuffer Velocity"}
-		});
-	
 	//for now max 1024 commands
 	constexpr uint32_t numOfIndirectCommands = 1024;
 
@@ -134,20 +93,6 @@ bool Renderer::Init()
 
 	//TODO: do this better, brother
 	geomDataIndirectDraw->localBuffer = (IndexIndirectDrawData*)malloc(sizeof(IndexIndirectDrawData) * numOfIndirectCommands);
-
-	debugTexture = m_ResourceManager->CreateTexture(m_VulkanDevice, RWTextureCreateInfo{
-			.dimensions = {GetNativeWidth, GetNativeHeight, 1},
-			.flags = {TextureFlags::RenderTarget | TextureFlags::Read},
-			.format = {Format::R16G16B16A16_FLOAT},
-			.name = {"Debug Texture"}
-		});
-	
-	debugTextureParamsBuffer = m_ResourceManager->CreateBuffer(m_VulkanDevice, BufferCreateInfo{
-			.flags = {BufferUsageFlags::UniformBuffer},
-			.memoryAccess = {MemoryAccess::CPU2GPU},
-			.size = {sizeof(DebugTextureParams)},
-			.name = {"Debug Texture Params"}
-		});
 
 #ifdef USE_RABBITHOLE_TOOLS
 	entityHelper = m_ResourceManager->CreateTexture(m_VulkanDevice, RWTextureCreateInfo{
@@ -165,166 +110,8 @@ bool Renderer::Init()
 		});
 #endif
 
-	shadowMap = m_ResourceManager->CreateTexture(m_VulkanDevice, RWTextureCreateInfo{
-			.dimensions = {shadowResX, shadowResY, 1},
-			.flags = {TextureFlags::Read | TextureFlags::Storage},
-			.format = {Format::R8_UNORM},
-			.name = {"Shadow Map"},
-			.arraySize = {MAX_NUM_OF_LIGHTS},
-		});
-
-	lightingMain = m_ResourceManager->CreateTexture(m_VulkanDevice, RWTextureCreateInfo{
-			.dimensions = {GetNativeWidth, GetNativeHeight, 1},
-			.flags = {TextureFlags::RenderTarget | TextureFlags::Read | TextureFlags::TransferSrc},
-			.format = {Format::R16G16B16A16_FLOAT},
-			.name = {"Lighting Main"},
-		});
-
-	//init fsr
-	fsrOutputTexture = m_ResourceManager->CreateTexture(m_VulkanDevice, RWTextureCreateInfo{
-			.dimensions = {GetUpscaledWidth, GetUpscaledHeight, 1},
-			.flags = {TextureFlags::RenderTarget | TextureFlags::Read | TextureFlags::Storage},
-			.format = {Format::R16G16B16A16_FLOAT},
-			.name = {"FSR2 Output"},
-		});
-
-	//volumetricFog
-	volumetricOutput = m_ResourceManager->CreateTexture(m_VulkanDevice, RWTextureCreateInfo{
-			.dimensions = {GetNativeWidth, GetNativeHeight, 1},
-			.flags = {TextureFlags::RenderTarget | TextureFlags::Read | TextureFlags::TransferSrc},
-			.format = {Format::R16G16B16A16_FLOAT},
-			.name = {"Volumetric Fog Output"},
-		});
-	
-	mediaDensity3DLUT = m_ResourceManager->CreateTexture(m_VulkanDevice, RWTextureCreateInfo{
-			.dimensions = {160, 90, 128},
-			.flags = {TextureFlags::Read | TextureFlags::TransferSrc | TextureFlags::Storage},
-			.format = {Format::R16G16B16A16_FLOAT},
-			.name = {"Media Density"},
-		});
-
-	scatteringTexture = m_ResourceManager->CreateTexture(m_VulkanDevice, RWTextureCreateInfo{
-			.dimensions = {160, 90, 64},
-			.flags = {TextureFlags::Read | TextureFlags::TransferSrc | TextureFlags::Storage},
-			.format = {Format::R16G16B16A16_FLOAT},
-			.name = {"Scattering Calculation"},
-		});
-	
-	volumetricFogParamsBuffer = m_ResourceManager->CreateBuffer(m_VulkanDevice, BufferCreateInfo{
-			.flags = {BufferUsageFlags::UniformBuffer},
-			.memoryAccess = {MemoryAccess::CPU2GPU},
-			.size = {sizeof(VolumetricFogParams)},
-			.name = {"Volumetric Fog Params"}
-		});
-
-	//posteffects
-	postUpscalePostEffects = m_ResourceManager->CreateTexture(m_VulkanDevice, RWTextureCreateInfo{
-			.dimensions = {GetUpscaledWidth, GetUpscaledHeight, 1},
-			.flags = {TextureFlags::RenderTarget | TextureFlags::Read},
-			.format = {Format::R16G16B16A16_FLOAT},
-			.name = {"Post Upscale PostEffects" },
-		});
-
-	//shadow denoise
-
-	//prepass
-	const uint32_t tileW = GetCSDispatchCount(shadowResX, 8);
-	const uint32_t tileH = GetCSDispatchCount(shadowResY, 4);
-
-	const uint32_t tileSize = tileH * tileW;
-
-	denoiseBufferDimensions = m_ResourceManager->CreateBuffer(m_VulkanDevice, BufferCreateInfo{
-			.flags = {BufferUsageFlags::UniformBuffer},
-			.memoryAccess = {MemoryAccess::CPU2GPU},
-			.size = {sizeof(DenoiseBufferDimensions)},
-			.name = {"Denoise Dimensions buffer"}
-		});
-
-	denoiseShadowDataBuffer = m_ResourceManager->CreateBuffer(m_VulkanDevice, BufferCreateInfo{
-			.flags = {BufferUsageFlags::UniformBuffer},
-			.memoryAccess = {MemoryAccess::CPU2GPU},
-			.size = {sizeof(DenoiseShadowData)},
-			.name = {"Denoise Shadow Data Buffer"}
-		});
-	
-	denoiseLastFrameDepth = m_ResourceManager->CreateTexture(m_VulkanDevice, RWTextureCreateInfo{
-		.dimensions = {shadowResX, shadowResY, 1},
-		.flags = {TextureFlags::DepthStencil | TextureFlags::Read | TextureFlags::TransferDst },
-		.format = {Format::D32_SFLOAT},
-		.name = {"Denoise Last Frame Depth"}
-		});
-
-	for (uint32_t i = 0; i < MAX_NUM_OF_LIGHTS; i++)
-	{
-
-		denoiseShadowMaskBuffer[i] = m_ResourceManager->CreateBuffer(m_VulkanDevice, BufferCreateInfo{
-				.flags = {BufferUsageFlags::StorageBuffer},
-				.memoryAccess = {MemoryAccess::GPU},
-				.size = {tileSize * static_cast<uint32_t>(sizeof(uint32_t))},
-				.name = {std::format("Denoise Shadow Mask Buffer {} slice", i)}
-			});
-
-		denoiseTileMetadataBuffer[i] = m_ResourceManager->CreateBuffer(m_VulkanDevice, BufferCreateInfo{
-				.flags = {BufferUsageFlags::StorageBuffer},
-				.memoryAccess = {MemoryAccess::GPU},
-				.size = {tileSize * static_cast<uint32_t>(sizeof(uint32_t))},
-				.name = {std::format("Denoise Tile Metadata Buffer {} slice", i)}
-			});
-
-		//classify
-		denoiseMomentsBuffer0[i] = m_ResourceManager->CreateTexture(m_VulkanDevice, RWTextureCreateInfo{
-				.dimensions = {shadowResX, shadowResY, 1},
-				.flags = {TextureFlags::Read | TextureFlags::Storage},
-				.format = {Format::R11G11B10_FLOAT},
-				.name = {std::format("Denoise Moments Buffer0 {} slice", i)}
-			});
-
-		denoiseMomentsBuffer1[i] = m_ResourceManager->CreateTexture(m_VulkanDevice, RWTextureCreateInfo{
-				.dimensions = {shadowResX, shadowResY, 1},
-				.flags = {TextureFlags::Read | TextureFlags::Storage},
-				.format = {Format::R11G11B10_FLOAT},
-				.name = {std::format("Denoise Moments Buffer1 {} slice", i)}
-			});
-
-		denoiseReprojectionBuffer0[i] = m_ResourceManager->CreateTexture(m_VulkanDevice, RWTextureCreateInfo{
-				.dimensions = {shadowResX, shadowResY, 1},
-				.flags = {TextureFlags::Read | TextureFlags::Storage},
-				.format = {Format::R16G16_FLOAT},
-				.name = {std::format("Denoise Reprojection Buffer0 {} slice", i)}
-			});
-
-		denoiseReprojectionBuffer1[i] = m_ResourceManager->CreateTexture(m_VulkanDevice, RWTextureCreateInfo{
-				.dimensions = {shadowResX, shadowResY, 1},
-				.flags = {TextureFlags::Read | TextureFlags::Storage},
-				.format = {Format::R16G16_FLOAT},
-				.name = {std::format("Denoise Reprojection Buffer1 {} slice", i)}
-			});
-	}
-
-	denoiseShadowFilterDataBuffer = m_ResourceManager->CreateBuffer(m_VulkanDevice, BufferCreateInfo{
-			.flags = {BufferUsageFlags::UniformBuffer},
-			.memoryAccess = {MemoryAccess::CPU2GPU},
-			.size = {sizeof(DenoiseShadowFilterData)},
-			.name = {"Denoise Shadow Filter Data Buffer"}
-		});
-
-	denoisedShadowOutput = m_ResourceManager->CreateTexture(m_VulkanDevice, RWTextureCreateInfo{
-			.dimensions = {shadowResX, shadowResY, 1},
-			.flags = {TextureFlags::Read | TextureFlags::Storage},
-			.format = {Format::R16G16B16A16_UNORM},
-			.name = {"Denoised Shadow Output"},
-			.arraySize = {MAX_NUM_OF_LIGHTS},
-			.isCube = { false },
-			.multisampleType = {MultisampleType::Sample_1},
-			.samplerType = { SamplerType::Trilinear },
-			.addressMode = { AddressMode::Clamp }
-		});
-
-
-	InitNoiseTextures();
-	InitSSAO();
 	//init acceleration structure
-	InitMeshDataForCompute();
+	ConstructBVH();
 	InitLights();
 
 	return true;
@@ -549,7 +336,7 @@ void Renderer::DestroyImgui()
 	ImGui_ImplVulkan_Shutdown();
 }
 
-void Renderer::InitTextures()
+void Renderer::InitDefaultTextures()
 {
 	g_DefaultWhiteTexture = m_ResourceManager->CreateTexture(m_VulkanDevice, "res/textures/default_white.png", ROTextureCreateInfo{
 			.flags = {TextureFlags::Color | TextureFlags::Read | TextureFlags::TransferDst},
@@ -578,21 +365,12 @@ void Renderer::InitTextures()
 			.arraySize = {4}
 		});
 
-	skyboxTexture = m_ResourceManager->CreateTexture(m_VulkanDevice, "res/textures/skybox/skybox.jpg", ROTextureCreateInfo{
-			.flags = {TextureFlags::Color | TextureFlags::Read | TextureFlags::CubeMap | TextureFlags::TransferDst},
-			.format = {Format::R8G8B8A8_UNORM_SRGB},
-			.name = {"Skybox"}
-		});
-}
-	
-void Renderer::InitNoiseTextures()
-{
 	noise2DTexture = m_ResourceManager->CreateTexture(m_VulkanDevice, "res/textures/noise3.png", ROTextureCreateInfo{
-			.flags = {TextureFlags::Color | TextureFlags::Read | TextureFlags::TransferDst},
-			.format = {Format::B8G8R8A8_UNORM},
-			.name = {"Noise2D"}
+		.flags = {TextureFlags::Color | TextureFlags::Read | TextureFlags::TransferDst},
+		.format = {Format::B8G8R8A8_UNORM},
+		.name = {"Noise2D"}
 		});
-	
+
 	blueNoise2DTexture = m_ResourceManager->CreateTexture(m_VulkanDevice, "res/textures/noise.png", ROTextureCreateInfo{
 			.flags = {TextureFlags::Color | TextureFlags::Read | TextureFlags::TransferDst | TextureFlags::Storage},
 			.format = {Format::B8G8R8A8_UNORM},
@@ -609,8 +387,8 @@ void Renderer::InitNoiseTextures()
 
 void Renderer::LoadModels()
 {
-	gltfModels.emplace_back(&m_VulkanDevice, "res/meshes/separateObjects.gltf");
-	//gltfModels.emplace_back(&m_VulkanDevice, "res/meshes/cottage.gltf");
+	//gltfModels.emplace_back(&m_VulkanDevice, "res/meshes/separateObjects.gltf");
+	gltfModels.emplace_back(&m_VulkanDevice, "res/meshes/cottage.gltf");
 	//gltfModels.emplace_back(&m_VulkanDevice, "res/meshes/sponza/sponza.gltf");
 }
 
@@ -654,9 +432,20 @@ void Renderer::EndRenderPass()
 	m_StateManager->Reset();
 }
 
+void Renderer::BeginLabel(const char* name)
+{
+	m_VulkanDevice.BeginLabel(GetCurrentCommandBuffer(), name);
+}
+
+void Renderer::EndLabel()
+{
+	m_VulkanDevice.EndLabel(GetCurrentCommandBuffer());
+}
+
 void Renderer::RecordGPUTimeStamp(const char* label)
 {
-	m_GPUTimeStamps.GetTimeStamp(GetCurrentCommandBuffer(), label);
+	if (m_RecordGPUTimeStamps)
+		m_GPUTimeStamps.GetTimeStamp(GetCurrentCommandBuffer(), label);
 }
 
 void Renderer::DrawGeometryGLTF(std::vector<VulkanglTFModel>& bucket)
@@ -677,20 +466,6 @@ void Renderer::DrawGeometryGLTF(std::vector<VulkanglTFModel>& bucket)
     geomDataIndirectDraw->SubmitToGPU();
 
 	EndRenderPass();
-}
-
-void Renderer::FillTheLightParam(LightParams& lightParam, rabbitVec3f position, rabbitVec3f color, float radius, float intensity, LightType type, float size)
-{
-	lightParam.position[0] = position.x;
-	lightParam.position[1] = position.y;
-	lightParam.position[2] = position.z;
-	lightParam.color[0] = color.x;
-	lightParam.color[1] = color.y;
-	lightParam.color[2] = color.z;
-	lightParam.radius = radius;
-	lightParam.intensity = intensity;
-	lightParam.type = (uint32_t)type;
-	lightParam.size = size;
 }
 
 void Renderer::DrawFullScreenQuad()
@@ -727,22 +502,22 @@ void Renderer::BindPushConstInternal()
 
 void Renderer::UpdateEntityPickId()
 {
-	//steal input comp from camera to retrieve mouse pos
-	auto cameras = EntityManager::instance().GetAllEntitiesWithComponent<CameraComponent>();
-	auto inputComponent = cameras[0]->GetComponent<InputComponent>();
-	auto x = inputComponent->mouse_current_x;
-	auto y = inputComponent->mouse_current_y;
-
-	if (!(x >= 0 && y >= 0 && x <= GetNativeWidth && y <= GetNativeHeight))
-	{
-		x = 0; //TODO: fix this. not a great solution but ok
-		y = 0;
-	}
-
-	PushMousePos push{};
-	push.x = static_cast<uint32_t>(x);
-	push.y = static_cast<uint32_t>(y);
-	//BindPushConstant(push); //TODO: fix this
+	////steal input comp from camera to retrieve mouse pos
+	//auto cameras = EntityManager::instance().GetAllEntitiesWithComponent<CameraComponent>();
+	//auto inputComponent = cameras[0]->GetComponent<InputComponent>();
+	//auto x = inputComponent->mouse_current_x;
+	//auto y = inputComponent->mouse_current_y;
+	//
+	//if (!(x >= 0 && y >= 0 && x <= GetNativeWidth && y <= GetNativeHeight))
+	//{
+	//	x = 0; //TODO: fix this. not a great solution but ok
+	//	y = 0;
+	//}
+	//
+	//PushMousePos push{};
+	//push.x = static_cast<uint32_t>(x);
+	//push.y = static_cast<uint32_t>(y);
+	////BindPushConstant(push); //TODO: fix this
 }
 
 void Renderer::CopyToSwapChain()
@@ -860,11 +635,17 @@ void Renderer::BindUBO()
 
 void Renderer::BindDescriptorSets()
 {
-	auto descriptorSet = m_StateManager->FinalizeDescriptorSet(m_VulkanDevice, m_DescriptorPool.get());
-	auto pipeline = m_StateManager->GetPipeline();
-	auto bindPoint = pipeline->GetType() == PipelineType::Graphics ? VK_PIPELINE_BIND_POINT_GRAPHICS : VK_PIPELINE_BIND_POINT_COMPUTE;
+	VulkanDescriptorSet* descriptorSet = m_StateManager->FinalizeDescriptorSet(m_VulkanDevice, m_DescriptorPool.get());
+	VulkanPipeline* pipeline = m_StateManager->GetPipeline();
 
-	vkCmdBindDescriptorSets(GET_VK_HANDLE(GetCurrentCommandBuffer()), bindPoint, *pipeline->GetPipelineLayout(), 0, 1, GET_VK_HANDLE_PTR(descriptorSet), 0, nullptr);
+	vkCmdBindDescriptorSets(
+		GET_VK_HANDLE(GetCurrentCommandBuffer()), 
+		GetVkBindPointFrom(pipeline->GetType()),
+		*pipeline->GetPipelineLayout(),
+		0, 
+		1, GET_VK_HANDLE_PTR(descriptorSet), 
+		0, 
+		nullptr);
 }
 
 void Renderer::LoadAndCreateShaders()
@@ -959,7 +740,6 @@ void Renderer::RecordCommandBuffer()
 	GetCurrentCommandBuffer().BeginCommandBuffer();
 
 	std::vector<TimeStamp> timeStamps{};
-
 	if (m_RecordGPUTimeStamps)
 	{
 		m_GPUTimeStamps.OnBeginFrame(GetCurrentCommandBuffer(), &timeStamps);
@@ -979,9 +759,7 @@ void Renderer::RecordCommandBuffer()
 
 		ImGui::Begin("Main debug frame");
 		ImGui::Checkbox("GPU Profiler Enabled: ", &m_RecordGPUTimeStamps);
-#ifdef USE_RABBITHOLE_TOOLS
-		ImGui::Checkbox("Enable Entity picking", &m_RenderOutlinedEntity);
-#endif
+
 		ImGui::End();
 
 		ImGuiTextureDebugger();
@@ -994,63 +772,13 @@ void Renderer::RecordCommandBuffer()
 		imguiReady = true;
 	}
 
-	Create3DNoiseTexturePass noise3DLUTGeneration{};
-	GBufferPass gbuffer{};
-	SSAOPass ssao{};
-	SSAOBlurPass ssaoBlur{};
-	RTShadowsPass RTShadows{};
-	ShadowDenoisePrePass shadowDenoisePrepass{};
-	ShadowDenoiseTileClassificationPass shadowDenoiseTileClassification{};
-	ShadowDenoiseFilterPass shadowDenoiseFilter{};
-	VolumetricPass volumetric{};
-	ComputeScatteringPass computeScattering{};
-	LightingPass lighting{};
-	ApplyVolumetricFogPass applyVolumerticFog{};
-	SkyboxPass skybox{};
-	OutlineEntityPass outlineEntity{};
-	FSR2Pass fsr2{};
-	TonemappingPass tonemapping{};
-	TextureDebugPass textureDebug{};
-	CopyToSwapchainPass copyToSwapchain{};
-
 	UpdateUIStateAndFSR2PreDraw();
 	UpdateConstantBuffer();
 	BindCameraMatrices(&m_MainCamera);
 	BindUBO();
 
-	//replace with call once impl
-	if (!init3dnoise)
-	{
-		ExecuteRabbitPass(noise3DLUTGeneration);
-		init3dnoise = true;
-	}
-
-	ExecuteRabbitPass(gbuffer);
-	ExecuteRabbitPass(ssao);
-	ExecuteRabbitPass(ssaoBlur);
-	ExecuteRabbitPass(RTShadows);
-	ExecuteRabbitPass(shadowDenoisePrepass);
-	ExecuteRabbitPass(shadowDenoiseTileClassification);
-	ExecuteRabbitPass(shadowDenoiseFilter);
-	ExecuteRabbitPass(volumetric);
-	ExecuteRabbitPass(computeScattering);
-	ExecuteRabbitPass(skybox);
-	ExecuteRabbitPass(lighting);
-	ExecuteRabbitPass(applyVolumerticFog);
-    ExecuteRabbitPass(textureDebug);
-
-#ifdef USE_RABBITHOLE_TOOLS
-	if (m_RenderOutlinedEntity)
-	{
-		ExecuteRabbitPass(outlineEntity);
-	}
-#endif
-
-	ExecuteRabbitPass(fsr2);
-
-	ExecuteRabbitPass(tonemapping);
-
-	ExecuteRabbitPass(copyToSwapchain);
+	EXECUTE_ONCE(RabbitPassManager::instance().ExecuteOneTimePasses(this));
+	RabbitPassManager::instance().ExecutePasses(this);
 
 	if (m_RecordGPUTimeStamps)
 	{
@@ -1072,13 +800,6 @@ void Renderer::CreateUniformBuffers()
 				.name = {"MainConstantBuffer"}
 			});
 	}
-
-	m_LightParams = m_ResourceManager->CreateBuffer(m_VulkanDevice, BufferCreateInfo{
-			.flags = {BufferUsageFlags::UniformBuffer},
-			.memoryAccess = {MemoryAccess::CPU2GPU},
-			.size = {sizeof(LightParams) * MAX_NUM_OF_LIGHTS},
-			.name = {"Light params"}
-		});
 
 	m_VertexUploadBuffer = m_ResourceManager->CreateBuffer(m_VulkanDevice, BufferCreateInfo{
 			.flags = {BufferUsageFlags::VertexBuffer},
@@ -1124,100 +845,50 @@ void Renderer::CreateDescriptorPool()
 	m_DescriptorPool = std::make_unique<VulkanDescriptorPool>(&m_VulkanDevice, vulkanDescriptorPoolInfo);
 }
 
-//SSAO
-float lerp(float a, float b, float f)
-{
-	return a + f * (b - a);
-}
-void Renderer::InitSSAO()
-{
-	SSAOParamsBuffer = m_ResourceManager->CreateBuffer(m_VulkanDevice, BufferCreateInfo{
-			.flags = {BufferUsageFlags::UniformBuffer},
-			.memoryAccess = {MemoryAccess::CPU2GPU},
-			.size = {sizeof(SSAOParams)},
-			.name = {"SSAO Params"}
-		});
-
-	SSAOTexture = m_ResourceManager->CreateTexture(m_VulkanDevice, RWTextureCreateInfo{
-			.dimensions = {GetNativeWidth, GetNativeHeight, 1},
-			.flags = {TextureFlags::RenderTarget | TextureFlags::Read},
-			.format = {Format::R32_SFLOAT},
-			.name = {"SSAO Main"}
-		});
-
-	SSAOBluredTexture = m_ResourceManager->CreateTexture(m_VulkanDevice, RWTextureCreateInfo{
-			.dimensions = {GetNativeWidth, GetNativeHeight, 1},
-			.flags = {TextureFlags::RenderTarget | TextureFlags::Read},
-			.format = {Format::R32_SFLOAT},
-			.name = {"SSAO Blured"}
-		});
-
-	std::uniform_real_distribution<float> randomFloats(0.0, 1.0); // generates random floats between 0.0 and 1.0
-	std::default_random_engine generator;
-	std::vector<glm::vec4> ssaoKernel;
-	for (unsigned int i = 0; i < 64; ++i)
-	{
-		glm::vec4 sample(randomFloats(generator) * 2.0 - 1.0, randomFloats(generator) * 2.0 - 1.0, randomFloats(generator), 0.0f);
-		sample = glm::normalize(sample);
-		sample *= randomFloats(generator);
-		float scale = static_cast<float>(i) / 64.f;
-
-		// scale samples s.t. they're more aligned to center of kernel
-		scale = lerp(0.1f, 1.0f, scale * scale);
-		sample *= scale;
-		ssaoKernel.push_back(sample);
-	}
-
-	uint32_t bufferSize = 1024;
-	SSAOSamplesBuffer = m_ResourceManager->CreateBuffer(m_VulkanDevice, BufferCreateInfo{
-			.flags = {BufferUsageFlags::UniformBuffer},
-			.memoryAccess = {MemoryAccess::CPU2GPU},
-			.size = {bufferSize},
-			.name = {"SSAO Samples"}
-		});
-
-	SSAOSamplesBuffer->FillBuffer(ssaoKernel.data(), bufferSize);
-
-	//generate SSAO Noise texture
-	std::vector<glm::vec4> ssaoNoise;
-	for (unsigned int i = 0; i < 16; i++)
-	{
-		glm::vec4 noise(randomFloats(generator) * 2.0 - 1.0, randomFloats(generator) * 2.0 - 1.0, 0.0f, 0.0f); // rotate around z-axis (in tangent space)
-		ssaoNoise.push_back(noise);
-	}
-
-	TextureData texData{};
-
-	texData.bpp = 4;
-	texData.height = 4;
-	texData.width = 4;
-	texData.pData = (unsigned char*)ssaoNoise.data();
-
-	SSAONoiseTexture = m_ResourceManager->CreateTexture(m_VulkanDevice, &texData, ROTextureCreateInfo{
-			.flags = {TextureFlags::Color | TextureFlags::Read | TextureFlags::TransferDst},
-			.format = {Format::R32G32B32A32_FLOAT},
-			.name = {"SSAO Noise"}
-		});
-
-	//init ssao params
-	ssaoParams.radius = 0.5f;
-	ssaoParams.bias = 0.025f;
-	ssaoParams.resWidth = static_cast<float>(GetNativeWidth);
-	ssaoParams.resHeight = static_cast<float>(GetNativeHeight);
-	ssaoParams.power = 1.75f;
-	ssaoParams.kernelSize = 48;
-	ssaoParams.ssaoOn = true;
-}
-
 void Renderer::InitLights()
 {
-	FillTheLightParam(lightParams[0], { 70.0f, 300.75f, -20.75f }, { 1.f, 0.6f, 0.2f }, 25.f, 1.f, LightType_Directional, 5.f);
-	FillTheLightParam(lightParams[1], { 5.0f, 20.0f, -1.0f }, { 0.95f, 0.732f, 0.36f }, 0.f, 1.f, LightType_Point, 0.5f);
-	FillTheLightParam(lightParams[2], { -10.0f, 10.0f, -10.0f }, { 1.f, 0.6f, 0.2f }, 0.f, 1.f, LightType_Point, 0.5f);
-	FillTheLightParam(lightParams[3], { 5.f, 5.0f, 4.f }, { 1.f, 1.0f, 1.0f }, 0.f, 1.f, LightType_Point, 1.f);
+	lights.push_back(
+		LightParams{
+			.position = { 70.0f, 200.0f, -100.0f },
+			.radius = {1.f},
+			.color = {1.f, 0.6f, 0.2f},
+			.intensity = {1.f},
+			.type = {LightType::LightType_Directional},
+			.size = 5.f
+		});
+
+	lights.push_back(
+		LightParams{
+			.position = { 7.f, 2.f, -10.0f },
+			.radius = {0.f},
+			.color = {1.f, 0.6f, 0.2f},
+			.intensity = {1.f},
+			.type = {LightType::LightType_Point},
+			.size = 5.f
+		});
+
+	lights.push_back(
+		LightParams{
+			.position = {-10.0f, 10.0f, -10.0f},
+			.radius = {0.f},
+			.color = { 0.f, 0.732f, 0.36f },
+			.intensity = {0.6f},
+			.type = {LightType::LightType_Point},
+			.size = 0.2f
+		});
+
+	lights.push_back(
+		LightParams{
+			.position = {5.0f, 20.0f, -1.0f},
+			.radius = {0.f},
+			.color = {1.f, 0.6f, 0.2f},
+			.intensity = {1.f},
+			.type = {LightType::LightType_Point},
+			.size = 1.f
+		});
 }
 
-void Renderer::InitMeshDataForCompute()
+void Renderer::ConstructBVH()
 {
 	std::vector<Triangle> triangles;
 	std::vector<rabbitVec4f> verticesFinal;
@@ -1428,8 +1099,8 @@ void Renderer::ImguiProfilerWindow(std::vector<TimeStamp>& timeStamps)
 
 void Renderer::RegisterTexturesToImGui()
 {
-	debugTextureImGuiDS = ImGui_ImplVulkan_AddTexture(GET_VK_HANDLE_PTR(debugTexture->GetSampler()), GET_VK_HANDLE_PTR(debugTexture->GetView()), GetVkImageLayoutFrom(ResourceState::GenericRead));
-	finalImageImGuiDS = ImGui_ImplVulkan_AddTexture(GET_VK_HANDLE_PTR(postUpscalePostEffects->GetSampler()), GET_VK_HANDLE_PTR(postUpscalePostEffects->GetView()), GetVkImageLayoutFrom(ResourceState::GenericRead));
+	debugTextureImGuiDS = ImGui_ImplVulkan_AddTexture(GET_VK_HANDLE_PTR(TextureDebugPass::Output->GetSampler()), GET_VK_HANDLE_PTR(TextureDebugPass::Output->GetView()), GetVkImageLayoutFrom(ResourceState::GenericRead));
+	finalImageImGuiDS = ImGui_ImplVulkan_AddTexture(GET_VK_HANDLE_PTR(TonemappingPass::Output->GetSampler()), GET_VK_HANDLE_PTR(TonemappingPass::Output->GetView()), GetVkImageLayoutFrom(ResourceState::GenericRead));
 }
 
 void Renderer::ImGuiTextureDebugger()
@@ -1480,6 +1151,8 @@ void Renderer::ImGuiTextureDebugger()
 
 	if (currentSelectedTexture)
 	{
+		auto& debugTextureParams = TextureDebugPass::ParamsCPU;
+
 		auto region = currentSelectedTexture->GetRegion();
 
 		uint32_t arraySize = region.Subresource.ArraySize;

@@ -1,8 +1,61 @@
 #include "Render/Camera.h"
 #include "Render/RabbitPass.h"
-#include "Render/Renderer.h"
 #include "Render/ResourceStateTracking.h"
 #include "Render/SuperResolutionManager.h"
+
+#include <random>
+
+defineResource(GBufferPass, Albedo, VulkanTexture);
+defineResource(GBufferPass, Normals, VulkanTexture);
+defineResource(GBufferPass, Velocity, VulkanTexture);
+defineResource(GBufferPass, WorldPosition, VulkanTexture);
+defineResource(GBufferPass, Depth, VulkanTexture);
+
+defineResource(LightingPass, MainLighting, VulkanTexture);
+defineResource(LightingPass, LightParamsGPU, VulkanBuffer);
+
+defineResource(SSAOPass, Output, VulkanTexture);
+defineResource(SSAOPass, Noise, VulkanTexture);
+defineResource(SSAOPass, Samples, VulkanBuffer);
+defineResource(SSAOPass, ParamsGPU, VulkanBuffer);
+SSAOPass::SSAOParams SSAOPass::ParamsCPU = {};
+defineResource(SSAOBlurPass, BluredOutput, VulkanTexture);
+
+defineResource(RTShadowsPass, ShadowMask, VulkanTexture);
+uint32_t RTShadowsPass::ShadowResX = 0;
+uint32_t RTShadowsPass::ShadowResY = 0;
+
+defineResource(ShadowDenoisePrePass, BufferDimensions, VulkanBuffer);
+defineResourceArray(ShadowDenoisePrePass, ShadowData, VulkanBuffer, MAX_NUM_OF_LIGHTS);
+
+defineResource(ShadowDenoiseTileClassificationPass, LastFrameDepth, VulkanTexture);
+defineResourceArray(ShadowDenoiseTileClassificationPass, Moments0, VulkanTexture, MAX_NUM_OF_LIGHTS);
+defineResourceArray(ShadowDenoiseTileClassificationPass, Moments1, VulkanTexture, MAX_NUM_OF_LIGHTS);
+defineResourceArray(ShadowDenoiseTileClassificationPass, Reprojection0, VulkanTexture, MAX_NUM_OF_LIGHTS);
+defineResourceArray(ShadowDenoiseTileClassificationPass, Reprojection1, VulkanTexture, MAX_NUM_OF_LIGHTS);
+defineResourceArray(ShadowDenoiseTileClassificationPass, TileMetadata, VulkanBuffer, MAX_NUM_OF_LIGHTS);
+defineResource(ShadowDenoiseTileClassificationPass, ReprojectionInfo, VulkanBuffer);
+
+defineResource(ShadowDenoiseFilterPass, FilterData, VulkanBuffer);
+defineResource(ShadowDenoiseFilterPass, ShadowMask, VulkanTexture);
+
+defineResource(TextureDebugPass, Output, VulkanTexture);
+defineResource(TextureDebugPass, ParamsGPU, VulkanBuffer);
+TextureDebugPass::DebugTextureParams TextureDebugPass::ParamsCPU = {};
+
+defineResource(FSR2Pass, Output, VulkanTexture);
+
+defineResource(VolumetricPass, MediaDensity, VulkanTexture);
+defineResource(VolumetricPass, ParamsGPU, VulkanBuffer)
+VolumetricPass::VolumetricFogParams VolumetricPass::ParamsCPU = {};
+
+defineResource(ComputeScatteringPass, LightScattering, VulkanTexture);
+
+defineResource(ApplyVolumetricFogPass, Output, VulkanTexture);
+
+defineResource(TonemappingPass, Output, VulkanTexture);
+
+defineResource(SkyboxPass, Main, VulkanTexture);
 
 void RabbitPass::SetCombinedImageSampler(Renderer* renderer, int slot, VulkanTexture* texture)
 {
@@ -130,11 +183,42 @@ float skyboxVertices[] = {
 	 1000.0f, -1000.0f,  1000.0f,		0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f
 };
 
-uint32_t GetCurrentIDFromFrameIndex(uint32_t id) { return (Renderer::instance().GetCurrentFrameIndex() + id) % 2; }
-
 void GBufferPass::DeclareResources(Renderer* renderer)
 {
+	Albedo = renderer->GetResourceManager()->CreateTexture(renderer->GetVulkanDevice(), RWTextureCreateInfo{
+			.dimensions = {GetNativeWidth , GetNativeHeight, 1},
+			.flags = {TextureFlags::RenderTarget | TextureFlags::Read},
+			.format = {Format::B8G8R8A8_UNORM},
+			.name = {"GBuffer Albedo"}
+		});
 
+	Normals = renderer->GetResourceManager()->CreateTexture(renderer->GetVulkanDevice(), RWTextureCreateInfo{
+			.dimensions = {GetNativeWidth , GetNativeHeight, 1},
+			.flags = {TextureFlags::RenderTarget | TextureFlags::Read | TextureFlags::Storage},
+			.format = {Format::R16G16B16A16_FLOAT},
+			.name = {"GBuffer Normal"}
+		});
+
+	WorldPosition = renderer->GetResourceManager()->CreateTexture(renderer->GetVulkanDevice(), RWTextureCreateInfo{
+			.dimensions = {GetNativeWidth , GetNativeHeight, 1},
+			.flags = {TextureFlags::RenderTarget | TextureFlags::Read | TextureFlags::Storage},
+			.format = {Format::R16G16B16A16_FLOAT},
+			.name = {"GBuffer World Position"}
+		});
+
+	Velocity = renderer->GetResourceManager()->CreateTexture(renderer->GetVulkanDevice(), RWTextureCreateInfo{
+			.dimensions = {GetNativeWidth , GetNativeHeight, 1},
+			.flags = {TextureFlags::RenderTarget | TextureFlags::Read | TextureFlags::Storage},
+			.format = {Format::R32G32_FLOAT},
+			.name = {"GBuffer Velocity"}
+		});
+
+	Depth = renderer->GetResourceManager()->CreateTexture(renderer->GetVulkanDevice(), RWTextureCreateInfo{
+			.dimensions = {GetNativeWidth , GetNativeHeight, 1},
+			.flags = {TextureFlags::DepthStencil | TextureFlags::Read | TextureFlags::TransferSrc},
+			.format = {Format::D32_SFLOAT},
+			.name = {"GBuffer DepthStencil"}
+		});
 }
 
 void GBufferPass::Setup(Renderer* renderer)
@@ -161,14 +245,14 @@ void GBufferPass::Setup(Renderer* renderer)
 	pipelineInfo->SetColorWriteMask(2, ColorWriteMaskFlags::RGBA);
 	pipelineInfo->SetColorWriteMask(3, ColorWriteMaskFlags::RGBA);
 
-	SetRenderTarget(renderer, 0, renderer->albedoGBuffer);
-	SetRenderTarget(renderer, 1, renderer->normalGBuffer);
-	SetRenderTarget(renderer, 2, renderer->worldPositionGBuffer);
-	SetRenderTarget(renderer, 3, renderer->velocityGBuffer);
+	SetRenderTarget(renderer, 0, GBufferPass::Albedo);
+	SetRenderTarget(renderer, 1, GBufferPass::Normals);
+	SetRenderTarget(renderer, 2, GBufferPass::WorldPosition);
+	SetRenderTarget(renderer, 3, GBufferPass::Velocity);
 #ifdef RABBITHOLE_TOOLS
 	SetRenderTarget(renderer, 4, renderer->entityHelper);
 #endif
-	SetDepthStencil(renderer, renderer->depthStencil);
+	SetDepthStencil(renderer, GBufferPass::Depth);
 
 	auto renderPassInfo = stateManager->GetRenderPassInfo();
 
@@ -183,14 +267,26 @@ void GBufferPass::Setup(Renderer* renderer)
 
 void GBufferPass::Render(Renderer* renderer)
 {
-	renderer->CopyImage(renderer->depthStencil, renderer->denoiseLastFrameDepth);
+	renderer->CopyImage(Depth, ShadowDenoiseTileClassificationPass::LastFrameDepth);
 
 	renderer->DrawGeometryGLTF(renderer->gltfModels);
 }
 
 void LightingPass::DeclareResources(Renderer* renderer)
 {
+	MainLighting = renderer->GetResourceManager()->CreateTexture(renderer->GetVulkanDevice(), RWTextureCreateInfo{
+			.dimensions = {GetNativeWidth, GetNativeHeight, 1},
+			.flags = {TextureFlags::RenderTarget | TextureFlags::Read | TextureFlags::TransferSrc},
+			.format = {Format::R16G16B16A16_FLOAT},
+			.name = {"Lighting Main"},
+		});
 
+	LightParamsGPU = renderer->GetResourceManager()->CreateBuffer(renderer->GetVulkanDevice(), BufferCreateInfo{
+			.flags = {BufferUsageFlags::UniformBuffer},
+			.memoryAccess = {MemoryAccess::CPU2GPU},
+			.size = {sizeof(LightParams) * MAX_NUM_OF_LIGHTS},
+			.name = {"Light params"}
+		});
 }
 
 void LightingPass::Setup(Renderer* renderer)
@@ -205,7 +301,7 @@ void LightingPass::Setup(Renderer* renderer)
 	{
 		ImGui::Begin("Light params");
 
-		auto& lightParams = renderer->lightParams;
+		auto& lightParams = renderer->lights;
 
 		ImGui::Text("Sun");
 		ImGui::ColorEdit3("col0: ", lightParams[0].color);
@@ -237,20 +333,20 @@ void LightingPass::Setup(Renderer* renderer)
 		ImGui::End();
 	}
 
-	renderer->GetLightParams()->FillBuffer(renderer->lightParams, sizeof(LightParams) * numOfLights);
+	LightingPass::LightParamsGPU->FillBuffer(renderer->lights.data(), sizeof(LightParams) * numOfLights);
 
-	SetCombinedImageSampler(renderer, 0, renderer->albedoGBuffer);
-	SetCombinedImageSampler(renderer, 1, renderer->normalGBuffer);
-	SetCombinedImageSampler(renderer, 2, renderer->worldPositionGBuffer);
+	SetCombinedImageSampler(renderer, 0, GBufferPass::Albedo);
+	SetCombinedImageSampler(renderer, 1, GBufferPass::Normals);
+	SetCombinedImageSampler(renderer, 2, GBufferPass::WorldPosition);
 	SetConstantBuffer(renderer, 3, renderer->GetMainConstBuffer());
-	SetConstantBuffer(renderer, 4, renderer->GetLightParams());
-	SetCombinedImageSampler(renderer, 5, renderer->SSAOBluredTexture);
-	SetCombinedImageSampler(renderer, 6, renderer->shadowMap);
-	SetCombinedImageSampler(renderer, 7, renderer->velocityGBuffer);
-	SetCombinedImageSampler(renderer, 8, renderer->depthStencil);
-	SetCombinedImageSampler(renderer, 9, renderer->denoisedShadowOutput);
+	SetConstantBuffer(renderer, 4, LightingPass::LightParamsGPU);
+	SetCombinedImageSampler(renderer, 5, SSAOBlurPass::BluredOutput);
+	SetCombinedImageSampler(renderer, 6, RTShadowsPass::ShadowMask);
+	SetCombinedImageSampler(renderer, 7, GBufferPass::Velocity);
+	SetCombinedImageSampler(renderer, 8, GBufferPass::Depth);
+	SetCombinedImageSampler(renderer, 9, ShadowDenoiseFilterPass::ShadowMask);
 
-	SetRenderTarget(renderer, 0, renderer->lightingMain);
+	SetRenderTarget(renderer, 0, LightingPass::MainLighting);
 }
 
 void LightingPass::Render(Renderer* renderer)
@@ -279,7 +375,7 @@ void CopyToSwapchainPass::Setup(Renderer* renderer)
 	stateManager->SetVertexShader(renderer->GetShader("VS_PassThrough"));
 	stateManager->SetPixelShader(renderer->GetShader("FS_PassThrough"));
 	
-	SetCombinedImageSampler(renderer, 0, renderer->postUpscalePostEffects);
+	SetCombinedImageSampler(renderer, 0, TonemappingPass::Output);
 	
 	stateManager->SetRenderTarget0(renderer->GetSwapchainImage());
 	
@@ -323,8 +419,7 @@ void OutlineEntityPass::Setup(Renderer* renderer)
 	renderPassInfo->FinalRenderTargetState = ResourceState::RenderTarget;
 
 	SetCombinedImageSampler(renderer, 0, renderer->entityHelper);
-	SetRenderTarget(renderer, 0, renderer->lightingMain);
-
+	SetRenderTarget(renderer, 0, LightingPass::MainLighting);
 }
 
 void OutlineEntityPass::Render(Renderer* renderer)
@@ -334,7 +429,11 @@ void OutlineEntityPass::Render(Renderer* renderer)
 
 void SkyboxPass::DeclareResources(Renderer* renderer)
 {
-
+	Main = renderer->GetResourceManager()->CreateTexture(renderer->GetVulkanDevice(), "res/textures/skybox/skybox.jpg", ROTextureCreateInfo{
+			.flags = {TextureFlags::Color | TextureFlags::Read | TextureFlags::CubeMap | TextureFlags::TransferDst},
+			.format = {Format::R8G8B8A8_UNORM_SRGB},
+			.name = {"Skybox"}
+		});
 }
 void SkyboxPass::Setup(Renderer* renderer)
 {
@@ -355,10 +454,10 @@ void SkyboxPass::Setup(Renderer* renderer)
 	stateManager->SetCullMode(CullMode::Front);
 
 	SetConstantBuffer(renderer, 0, renderer->GetMainConstBuffer());
-	SetCombinedImageSampler(renderer, 1, renderer->skyboxTexture);
+	SetCombinedImageSampler(renderer, 1, SkyboxPass::Main);
 
-	SetRenderTarget(renderer, 0, renderer->albedoGBuffer);
-	SetDepthStencil(renderer, renderer->depthStencil);
+	SetRenderTarget(renderer, 0, GBufferPass::Albedo);
+	SetDepthStencil(renderer, GBufferPass::Depth);
 }
 void SkyboxPass::Render(Renderer* renderer)
 {
@@ -370,7 +469,75 @@ void SkyboxPass::Render(Renderer* renderer)
 
 void SSAOPass::DeclareResources(Renderer* renderer)
 {
+	ParamsGPU = renderer->GetResourceManager()->CreateBuffer(renderer->GetVulkanDevice(), BufferCreateInfo{
+			.flags = {BufferUsageFlags::UniformBuffer},
+			.memoryAccess = {MemoryAccess::CPU2GPU},
+			.size = {sizeof(SSAOParams)},
+			.name = {"SSAO Params"}
+		});
 
+	Output = renderer->GetResourceManager()->CreateTexture(renderer->GetVulkanDevice(), RWTextureCreateInfo{
+			.dimensions = {GetNativeWidth, GetNativeHeight, 1},
+			.flags = {TextureFlags::RenderTarget | TextureFlags::Read},
+			.format = {Format::R32_SFLOAT},
+			.name = {"SSAO Main"}
+		});
+
+	std::uniform_real_distribution<float> randomFloats(0.0, 1.0); // generates random floats between 0.0 and 1.0
+	std::default_random_engine generator;
+	std::vector<glm::vec4> ssaoKernel;
+	for (unsigned int i = 0; i < 64; ++i)
+	{
+		glm::vec4 sample(randomFloats(generator) * 2.0 - 1.0, randomFloats(generator) * 2.0 - 1.0, randomFloats(generator), 0.0f);
+		sample = glm::normalize(sample);
+		sample *= randomFloats(generator);
+		float scale = static_cast<float>(i) / 64.f;
+
+		// scale samples s.t. they're more aligned to center of kernel
+		scale = lerp(0.1f, 1.0f, scale * scale);
+		sample *= scale;
+		ssaoKernel.push_back(sample);
+	}
+
+	uint32_t bufferSize = 1024;
+	Samples = renderer->GetResourceManager()->CreateBuffer(renderer->GetVulkanDevice(), BufferCreateInfo{
+			.flags = {BufferUsageFlags::UniformBuffer},
+			.memoryAccess = {MemoryAccess::CPU2GPU},
+			.size = {bufferSize},
+			.name = {"SSAO Samples"}
+		});
+
+	Samples->FillBuffer(ssaoKernel.data(), bufferSize);
+
+	//generate SSAO Noise texture
+	std::vector<glm::vec4> ssaoNoise;
+	for (unsigned int i = 0; i < 16; i++)
+	{
+		glm::vec4 noise(randomFloats(generator) * 2.0 - 1.0, randomFloats(generator) * 2.0 - 1.0, 0.0f, 0.0f); // rotate around z-axis (in tangent space)
+		ssaoNoise.push_back(noise);
+	}
+
+	TextureData texData{};
+
+	texData.bpp = 4;
+	texData.height = 4;
+	texData.width = 4;
+	texData.pData = (unsigned char*)ssaoNoise.data();
+
+	Noise = renderer->GetResourceManager()->CreateTexture(renderer->GetVulkanDevice(), &texData, ROTextureCreateInfo{
+			.flags = {TextureFlags::Color | TextureFlags::Read | TextureFlags::TransferDst},
+			.format = {Format::R32G32B32A32_FLOAT},
+			.name = {"SSAO Noise"}
+		});
+
+	//init ssao params
+	ParamsCPU.radius = 0.5f;
+	ParamsCPU.bias = 0.025f;
+	ParamsCPU.resWidth = static_cast<float>(GetNativeWidth);
+	ParamsCPU.resHeight = static_cast<float>(GetNativeHeight);
+	ParamsCPU.power = 1.75f;
+	ParamsCPU.kernelSize = 48;
+	ParamsCPU.ssaoOn = true;
 }
 void SSAOPass::Setup(Renderer* renderer)
 {
@@ -396,24 +563,24 @@ void SSAOPass::Setup(Renderer* renderer)
 	{
 		ImGui::Begin("SSAOParams");
 
-		ImGui::SliderFloat("Radius: ", &renderer->ssaoParams.radius, 0.1f, 1.f);
-		ImGui::SliderFloat("Bias:", &renderer->ssaoParams.bias, 0.0f, 0.0625f);
-		ImGui::SliderFloat("Power:", &renderer->ssaoParams.power, 1.0f, 3.f);
-		ImGui::SliderInt("Kernel Size: ", &renderer->ssaoParams.kernelSize, 1, 64);
-		ImGui::Checkbox("SSSAO On: ", &renderer->ssaoParams.ssaoOn);
+		ImGui::SliderFloat("Radius: ", &ParamsCPU.radius, 0.1f, 1.f);
+		ImGui::SliderFloat("Bias:", &ParamsCPU.bias, 0.0f, 0.0625f);
+		ImGui::SliderFloat("Power:", &ParamsCPU.power, 1.0f, 3.f);
+		ImGui::SliderInt("Kernel Size: ", &ParamsCPU.kernelSize, 1, 64);
+		ImGui::Checkbox("SSSAO On: ", &ParamsCPU.ssaoOn);
 		ImGui::End();
 	}
 
-	renderer->SSAOParamsBuffer->FillBuffer(&renderer->ssaoParams, sizeof(SSAOParams));
+	ParamsGPU->FillBuffer(&ParamsCPU, sizeof(SSAOParams));
 
 	SetConstantBuffer(renderer, 0, renderer->GetMainConstBuffer());
-	SetCombinedImageSampler(renderer, 1, renderer->worldPositionGBuffer);
-	SetCombinedImageSampler(renderer, 2, renderer->normalGBuffer);
-	SetCombinedImageSampler(renderer, 3, renderer->SSAONoiseTexture);
-    SetConstantBuffer(renderer, 4, renderer->SSAOSamplesBuffer);
-    SetConstantBuffer(renderer, 5, renderer->SSAOParamsBuffer);
+	SetCombinedImageSampler(renderer, 1, GBufferPass::WorldPosition);
+	SetCombinedImageSampler(renderer, 2, GBufferPass::Normals);
+	SetCombinedImageSampler(renderer, 3, SSAOPass::Noise);
+    SetConstantBuffer(renderer, 4, SSAOPass::Samples);
+    SetConstantBuffer(renderer, 5, SSAOPass::ParamsGPU);
 
-	SetRenderTarget(renderer, 0, renderer->SSAOTexture);
+	SetRenderTarget(renderer, 0, SSAOPass::Output);
 }
 void SSAOPass::Render(Renderer* renderer) 
 {
@@ -421,7 +588,12 @@ void SSAOPass::Render(Renderer* renderer)
 }
 void SSAOBlurPass::DeclareResources(Renderer* renderer)
 {
-
+	BluredOutput = renderer->GetResourceManager()->CreateTexture(renderer->GetVulkanDevice(), RWTextureCreateInfo{
+			.dimensions = {GetNativeWidth, GetNativeHeight, 1},
+			.flags = {TextureFlags::RenderTarget | TextureFlags::Read},
+			.format = {Format::R32_SFLOAT},
+			.name = {"SSAO Blured"}
+		});
 }
 void SSAOBlurPass::Setup(Renderer* renderer)
 {
@@ -438,8 +610,8 @@ void SSAOBlurPass::Setup(Renderer* renderer)
 
 	auto& device = renderer->GetVulkanDevice();
 
-	SetCombinedImageSampler(renderer, 0, renderer->SSAOTexture);
-	SetRenderTarget(renderer, 0, renderer->SSAOBluredTexture);
+	SetCombinedImageSampler(renderer, 0, SSAOPass::Output);
+	SetRenderTarget(renderer, 0, SSAOBlurPass::BluredOutput);
 
 }
 void SSAOBlurPass::Render(Renderer* renderer)
@@ -449,7 +621,18 @@ void SSAOBlurPass::Render(Renderer* renderer)
 
 void RTShadowsPass::DeclareResources(Renderer* renderer) 
 {
+	const float shadowResolutionMultiplier = 1.f;
 
+	ShadowResX = static_cast<uint32_t>(GetNativeWidth * shadowResolutionMultiplier);
+	ShadowResY = static_cast<uint32_t>(GetNativeHeight * shadowResolutionMultiplier);
+
+	ShadowMask = renderer->GetResourceManager()->CreateTexture(renderer->GetVulkanDevice(), RWTextureCreateInfo{
+			.dimensions = {ShadowResX, ShadowResY, 1},
+			.flags = {TextureFlags::Read | TextureFlags::Storage},
+			.format = {Format::R8_UNORM},
+			.name = {"Shadow Mask"},
+			.arraySize = {MAX_NUM_OF_LIGHTS},
+		});
 }
 
 void RTShadowsPass::Setup(Renderer* renderer)
@@ -458,14 +641,14 @@ void RTShadowsPass::Setup(Renderer* renderer)
 
 	stateManager->SetComputeShader(renderer->GetShader("CS_RayTracingShadows"));
 
-	SetStorageImage(renderer, 0, renderer->worldPositionGBuffer);
-	SetStorageImage(renderer, 1, renderer->normalGBuffer);
-	SetStorageImage(renderer, 2, renderer->shadowMap);
+	SetStorageImage(renderer, 0, GBufferPass::WorldPosition);
+	SetStorageImage(renderer, 1, GBufferPass::Normals);
+	SetStorageImage(renderer, 2, RTShadowsPass::ShadowMask);
 	SetStorageBuffer(renderer, 3, renderer->vertexBuffer);
 	SetStorageBuffer(renderer, 4, renderer->trianglesBuffer);
 	SetStorageBuffer(renderer, 5, renderer->triangleIndxsBuffer);
 	SetStorageBuffer(renderer, 6, renderer->cfbvhNodesBuffer);
-	SetConstantBuffer(renderer, 7, renderer->GetLightParams());
+	SetConstantBuffer(renderer, 7, LightingPass::LightParamsGPU);
 	SetStorageImage(renderer, 8, renderer->blueNoise2DTexture);
 	SetConstantBuffer(renderer, 9, renderer->GetMainConstBuffer());
 }
@@ -474,8 +657,8 @@ void RTShadowsPass::Render(Renderer* renderer)
 {
 	static const int threadGroupWorkRegionDim = 8;
 
-	int texWidth = renderer->shadowMap->GetWidth();
-	int texHeight = renderer->shadowMap->GetHeight();
+	int texWidth = RTShadowsPass::ShadowMask->GetWidth();
+	int texHeight = RTShadowsPass::ShadowMask->GetHeight();
 
 	int dispatchX = GetCSDispatchCount(texWidth, threadGroupWorkRegionDim);
 	int dispatchY = GetCSDispatchCount(texHeight, threadGroupWorkRegionDim);
@@ -485,13 +668,18 @@ void RTShadowsPass::Render(Renderer* renderer)
 
 void FSR2Pass::DeclareResources(Renderer* renderer)
 {
-
+	Output = renderer->GetResourceManager()->CreateTexture(renderer->GetVulkanDevice(), RWTextureCreateInfo{
+			.dimensions = {GetUpscaledWidth, GetUpscaledHeight, 1},
+			.flags = {TextureFlags::RenderTarget | TextureFlags::Read | TextureFlags::Storage},
+			.format = {Format::R16G16B16A16_FLOAT},
+			.name = {"FSR2 Output"},
+		});
 }
 
 void FSR2Pass::Setup(Renderer* renderer)
 {
-	renderer->ResourceBarrier(renderer->fsrOutputTexture, ResourceState::GenericRead, ResourceState::GeneralCompute, ResourceStage::Graphics, ResourceStage::Compute);
-	renderer->ResourceBarrier(renderer->volumetricOutput, ResourceState::RenderTarget, ResourceState::GenericRead, ResourceStage::Graphics, ResourceStage::Compute);
+	renderer->ResourceBarrier(FSR2Pass::Output, ResourceState::GenericRead, ResourceState::GeneralCompute, ResourceStage::Graphics, ResourceStage::Compute);
+	renderer->ResourceBarrier(ApplyVolumetricFogPass::Output, ResourceState::RenderTarget, ResourceState::GenericRead, ResourceStage::Graphics, ResourceStage::Compute);
 }
 
 void FSR2Pass::Render(Renderer* renderer)
@@ -505,18 +693,32 @@ void FSR2Pass::Render(Renderer* renderer)
 	fsrSetup.cameraSetup.cameraView = cameraState.ViewMatrix;
 	fsrSetup.cameraSetup.cameraViewInv = cameraState.ViewInverseMatrix;
 
-	fsrSetup.depthbufferResource = renderer->depthStencil;
-	fsrSetup.motionvectorResource = renderer->velocityGBuffer;
-	fsrSetup.unresolvedColorResource = renderer->volumetricOutput;
-	fsrSetup.resolvedColorResource = renderer->fsrOutputTexture;
+	fsrSetup.depthbufferResource = GBufferPass::Depth;
+	fsrSetup.motionvectorResource = GBufferPass::Velocity;
+	fsrSetup.unresolvedColorResource = ApplyVolumetricFogPass::Output;
+	fsrSetup.resolvedColorResource = FSR2Pass::Output;
 
 	SuperResolutionManager::instance().Draw(renderer->GetCurrentCommandBuffer(), fsrSetup, &renderer->GetUIState());
 
-	renderer->ResourceBarrier(renderer->fsrOutputTexture, ResourceState::GeneralCompute, ResourceState::GenericRead, ResourceStage::Compute, ResourceStage::Graphics);
+	renderer->ResourceBarrier(FSR2Pass::Output, ResourceState::GeneralCompute, ResourceState::GenericRead, ResourceStage::Compute, ResourceStage::Graphics);
 }
 
 void VolumetricPass::DeclareResources(Renderer* renderer)
-{}
+{
+	MediaDensity = renderer->GetResourceManager()->CreateTexture(renderer->GetVulkanDevice(), RWTextureCreateInfo{
+			.dimensions = {160, 90, 128},
+			.flags = {TextureFlags::Read | TextureFlags::TransferSrc | TextureFlags::Storage},
+			.format = {Format::R16G16B16A16_FLOAT},
+			.name = {"Media Density"},
+		});
+
+	ParamsGPU = renderer->GetResourceManager()->CreateBuffer(renderer->GetVulkanDevice(), BufferCreateInfo{
+			.flags = {BufferUsageFlags::UniformBuffer},
+			.memoryAccess = {MemoryAccess::CPU2GPU},
+			.size = {sizeof(VolumetricFogParams)},
+			.name = {"Volumetric Fog Params"}
+		});
+}
 
 void VolumetricPass::Setup(Renderer* renderer)
 {
@@ -524,11 +726,11 @@ void VolumetricPass::Setup(Renderer* renderer)
 
 	stateManager->SetComputeShader(renderer->GetShader("CS_Volumetric"));
 
-	SetStorageImage(renderer, 0, renderer->mediaDensity3DLUT);
+	SetStorageImage(renderer, 0, VolumetricPass::MediaDensity);
 	SetCombinedImageSampler(renderer, 1, renderer->noise3DLUT);
-	SetConstantBuffer(renderer, 2, renderer->GetLightParams());
+	SetConstantBuffer(renderer, 2, LightingPass::LightParamsGPU);
 	SetConstantBuffer(renderer, 3, renderer->GetMainConstBuffer());
-	SetConstantBuffer(renderer, 4, renderer->volumetricFogParamsBuffer);
+	SetConstantBuffer(renderer, 4, VolumetricPass::ParamsGPU);
 
 	SetStorageBuffer(renderer, 5, renderer->vertexBuffer);
 	SetStorageBuffer(renderer, 6, renderer->trianglesBuffer);
@@ -539,7 +741,7 @@ void VolumetricPass::Setup(Renderer* renderer)
 	{
 		ImGui::Begin("Volumetric Fog:");
 
-		auto& fogParams = renderer->volumetricFogParams;
+		auto& fogParams = VolumetricPass::ParamsCPU;
 		
 		static bool fogEnabled;
 		ImGui::Checkbox("Enable Fog: ", &fogEnabled);
@@ -553,14 +755,14 @@ void VolumetricPass::Setup(Renderer* renderer)
 		ImGui::End();
 	}
 
-	renderer->volumetricFogParamsBuffer->FillBuffer(&renderer->volumetricFogParams);
+	VolumetricPass::ParamsGPU->FillBuffer(&VolumetricPass::ParamsCPU);
 }
 
 void VolumetricPass::Render(Renderer* renderer)
 {
-	int texWidth = renderer->mediaDensity3DLUT->GetWidth();
-	int texHeight = renderer->mediaDensity3DLUT->GetHeight();
-	int texDepth = renderer->mediaDensity3DLUT->GetDepth();
+	int texWidth = VolumetricPass::MediaDensity->GetWidth();
+	int texHeight = VolumetricPass::MediaDensity->GetHeight();
+	int texDepth = VolumetricPass::MediaDensity->GetDepth();
 
 	int dispatchX = (texWidth + (8 - 1)) / 8;
 	int dispatchY = (texHeight + (4 - 1)) / 4;
@@ -591,6 +793,12 @@ void Create3DNoiseTexturePass::Render(Renderer* renderer)
 
 void ComputeScatteringPass::DeclareResources(Renderer* renderer)
 {
+	LightScattering = renderer->GetResourceManager()->CreateTexture(renderer->GetVulkanDevice(), RWTextureCreateInfo{
+			.dimensions = {160, 90, 64},
+			.flags = {TextureFlags::Read | TextureFlags::TransferSrc | TextureFlags::Storage},
+			.format = {Format::R16G16B16A16_FLOAT},
+			.name = {"Scattering Calculation"},
+		});
 }
 
 
@@ -600,16 +808,16 @@ void ComputeScatteringPass::Setup(Renderer* renderer)
 
 	stateManager->SetComputeShader(renderer->GetShader("CS_ComputeScattering"));
 
-	SetStorageImage(renderer, 0, renderer->mediaDensity3DLUT);
-	SetStorageImage(renderer, 1, renderer->scatteringTexture);
-	SetConstantBuffer(renderer, 2, renderer->volumetricFogParamsBuffer);
+	SetStorageImage(renderer, 0, VolumetricPass::MediaDensity);
+	SetStorageImage(renderer, 1, ComputeScatteringPass::LightScattering);
+	SetConstantBuffer(renderer, 2, VolumetricPass::ParamsGPU);
 }
 
 
 void ComputeScatteringPass::Render(Renderer* renderer)
 {
-	int texWidth = renderer->scatteringTexture->GetWidth();
-	int texHeight = renderer->scatteringTexture->GetHeight();
+	int texWidth = ComputeScatteringPass::LightScattering->GetWidth();
+	int texHeight = ComputeScatteringPass::LightScattering->GetHeight();
 
 	static const int threadGroupWorkRegionDim = 8;
 	int dispatchX = (texWidth + (threadGroupWorkRegionDim - 1)) / threadGroupWorkRegionDim;
@@ -620,7 +828,12 @@ void ComputeScatteringPass::Render(Renderer* renderer)
 
 void ApplyVolumetricFogPass::DeclareResources(Renderer* renderer)
 {
-
+	Output = renderer->GetResourceManager()->CreateTexture(renderer->GetVulkanDevice(), RWTextureCreateInfo{
+			.dimensions = {GetNativeWidth, GetNativeHeight, 1},
+			.flags = {TextureFlags::RenderTarget | TextureFlags::Read | TextureFlags::TransferSrc},
+			.format = {Format::R16G16B16A16_FLOAT},
+			.name = {"Volumetric Fog Output"},
+		});
 }
 
 void ApplyVolumetricFogPass::Setup(Renderer* renderer)
@@ -630,13 +843,13 @@ void ApplyVolumetricFogPass::Setup(Renderer* renderer)
 	stateManager->SetVertexShader(renderer->GetShader("VS_PassThrough"));
 	stateManager->SetPixelShader(renderer->GetShader("FS_ApplyVolumetricFog"));
 
-	SetCombinedImageSampler(renderer, 0, renderer->lightingMain);
-	SetCombinedImageSampler(renderer, 1, renderer->depthStencil);
-	SetCombinedImageSampler(renderer, 2, renderer->scatteringTexture);
+	SetCombinedImageSampler(renderer, 0, LightingPass::MainLighting);
+	SetCombinedImageSampler(renderer, 1, GBufferPass::Depth);
+	SetCombinedImageSampler(renderer, 2, ComputeScatteringPass::LightScattering);
 	SetConstantBuffer(renderer, 3, renderer->GetMainConstBuffer());
-	SetConstantBuffer(renderer, 4, renderer->volumetricFogParamsBuffer);
+	SetConstantBuffer(renderer, 4, VolumetricPass::ParamsGPU);
 
-	SetRenderTarget(renderer, 0, renderer->volumetricOutput);
+	SetRenderTarget(renderer, 0, ApplyVolumetricFogPass::Output);
 }
 
 void ApplyVolumetricFogPass::Render(Renderer* renderer)
@@ -646,7 +859,12 @@ void ApplyVolumetricFogPass::Render(Renderer* renderer)
 
 void TonemappingPass::DeclareResources(Renderer* renderer)
 {
-
+	Output = renderer->GetResourceManager()->CreateTexture(renderer->GetVulkanDevice(), RWTextureCreateInfo{
+			.dimensions = {GetUpscaledWidth, GetUpscaledHeight, 1},
+			.flags = {TextureFlags::RenderTarget | TextureFlags::Read},
+			.format = {Format::R16G16B16A16_FLOAT},
+			.name = {"Post Upscale PostEffects" },
+		});
 }
 
 void TonemappingPass::Setup(Renderer* renderer)
@@ -659,9 +877,9 @@ void TonemappingPass::Setup(Renderer* renderer)
 	stateManager->SetVertexShader(renderer->GetShader("VS_PassThrough"));
 	stateManager->SetPixelShader(renderer->GetShader("FS_Tonemap"));
 
-	SetCombinedImageSampler(renderer, 0, renderer->fsrOutputTexture);
+	SetCombinedImageSampler(renderer, 0, FSR2Pass::Output);
 
-	SetRenderTarget(renderer, 0, renderer->postUpscalePostEffects);
+	SetRenderTarget(renderer, 0, TonemappingPass::Output);
 }
 
 void TonemappingPass::Render(Renderer* renderer)
@@ -671,7 +889,19 @@ void TonemappingPass::Render(Renderer* renderer)
 
 void TextureDebugPass::DeclareResources(Renderer* renderer)
 {
+	Output = renderer->GetResourceManager()->CreateTexture(renderer->GetVulkanDevice(), RWTextureCreateInfo{
+		.dimensions = {GetNativeWidth, GetNativeHeight, 1},
+		.flags = {TextureFlags::RenderTarget | TextureFlags::Read},
+		.format = {Format::R16G16B16A16_FLOAT},
+		.name = {"Debug Texture"}
+		});
 
+	ParamsGPU = renderer->GetResourceManager()->CreateBuffer(renderer->GetVulkanDevice(), BufferCreateInfo{
+			.flags = {BufferUsageFlags::UniformBuffer},
+			.memoryAccess = {MemoryAccess::CPU2GPU},
+			.size = {sizeof(DebugTextureParams)},
+			.name = {"Debug Texture Params"}
+		});
 }
 
 void TextureDebugPass::Setup(Renderer* renderer)
@@ -683,7 +913,7 @@ void TextureDebugPass::Setup(Renderer* renderer)
 
 	//see what texture is selected
 
-    SetConstantBuffer(renderer, 0, renderer->debugTextureParamsBuffer);
+    SetConstantBuffer(renderer, 0, TextureDebugPass::ParamsGPU);
 
 	auto textureToBind = renderer->g_DefaultWhiteTexture;
 	auto texture3DToBind = renderer->g_Default3DTexture;
@@ -693,7 +923,7 @@ void TextureDebugPass::Setup(Renderer* renderer)
 
 	if (selectedTexture)
 	{
-		auto& debugParams = renderer->debugTextureParams;
+		auto& debugParams = TextureDebugPass::ParamsCPU;
 		if (debugParams.isArray)
 		{
 			textureArrayToBind = selectedTexture;
@@ -712,9 +942,9 @@ void TextureDebugPass::Setup(Renderer* renderer)
 	SetCombinedImageSampler(renderer, 2, textureArrayToBind);
 	SetCombinedImageSampler(renderer, 3, texture3DToBind);
 
-    renderer->debugTextureParamsBuffer->FillBuffer(&renderer->debugTextureParams);
+    TextureDebugPass::ParamsGPU->FillBuffer(&TextureDebugPass::ParamsCPU);
 
-    SetRenderTarget(renderer, 0, renderer->debugTexture);
+    SetRenderTarget(renderer, 0, TextureDebugPass::Output);
 
 }
 
@@ -722,11 +952,33 @@ void TextureDebugPass::Render(Renderer* renderer)
 {
 	renderer->DrawFullScreenQuad();
 	
-	renderer->ResourceBarrier(renderer->debugTexture, ResourceState::RenderTarget, ResourceState::GenericRead, ResourceStage::Graphics, ResourceStage::Graphics);
+	renderer->ResourceBarrier(TextureDebugPass::Output, ResourceState::RenderTarget, ResourceState::GenericRead, ResourceStage::Graphics, ResourceStage::Graphics);
 }
 
 void ShadowDenoisePrePass::DeclareResources(Renderer* renderer)
-{}
+{
+	const uint32_t tileW = GetCSDispatchCount(RTShadowsPass::ShadowResX, 8);
+	const uint32_t tileH = GetCSDispatchCount(RTShadowsPass::ShadowResY, 4);
+
+	const uint32_t tileSize = tileH * tileW;
+
+	BufferDimensions = renderer->GetResourceManager()->CreateBuffer(renderer->GetVulkanDevice(), BufferCreateInfo{
+			.flags = {BufferUsageFlags::UniformBuffer},
+			.memoryAccess = {MemoryAccess::CPU2GPU},
+			.size = {sizeof(DenoiseBufferDimensions)},
+			.name = {"Denoise Dimensions buffer"}
+		});
+
+	for (uint32_t i = 0; i < MAX_NUM_OF_LIGHTS; i++)
+	{
+		ShadowData[i] = renderer->GetResourceManager()->CreateBuffer(renderer->GetVulkanDevice(), BufferCreateInfo{
+				.flags = {BufferUsageFlags::StorageBuffer},
+				.memoryAccess = {MemoryAccess::GPU},
+				.size = {tileSize * static_cast<uint32_t>(sizeof(uint32_t))},
+				.name = {std::format("Denoise Shadow Mask Buffer {} slice", i)}
+			});
+	}
+}
 
 void ShadowDenoisePrePass::Setup(Renderer* renderer)
 {
@@ -735,10 +987,10 @@ void ShadowDenoisePrePass::Setup(Renderer* renderer)
 	stateManager->SetComputeShader(renderer->GetShader("CS_PrepareShadowMask"));
 
 	DenoiseBufferDimensions bufferDim{};
-	bufferDim.dimensions[0] = (uint32_t)renderer->denoisedShadowOutput->GetWidth();
-	bufferDim.dimensions[1] = (uint32_t)renderer->denoisedShadowOutput->GetHeight();
+	bufferDim.dimensions[0] = RTShadowsPass::ShadowResX;
+	bufferDim.dimensions[1] = RTShadowsPass::ShadowResY;
 
-	renderer->denoiseBufferDimensions->FillBuffer(&bufferDim);
+	ShadowDenoisePrePass::BufferDimensions->FillBuffer(&bufferDim);
 }
 
 void ShadowDenoisePrePass::Render(Renderer* renderer)
@@ -751,24 +1003,80 @@ void ShadowDenoisePrePass::PrepareDenoisePass(Renderer* renderer, uint32_t shado
 {
 	renderer->BindPushConstant(shadowSlice);
 
-	SetConstantBuffer(renderer, 0, renderer->denoiseBufferDimensions);
-	SetSampledImage(renderer, 1, renderer->shadowMap);
-	SetStorageBuffer(renderer, 2, renderer->denoiseShadowMaskBuffer[shadowSlice]);
+	SetConstantBuffer(renderer, 0, ShadowDenoisePrePass::BufferDimensions);
+	SetSampledImage(renderer, 1, RTShadowsPass::ShadowMask);
+	SetStorageBuffer(renderer, 2, ShadowDenoisePrePass::ShadowData[shadowSlice]);
 
 	constexpr uint32_t threadGroupWorkRegionDimX = 8;
 	constexpr uint32_t threadGroupWorkRegionDimY = 4;
 
-	int texWidth = renderer->denoisedShadowOutput->GetWidth();
-	int texHeight = renderer->denoisedShadowOutput->GetHeight();
-
-	int dispatchX = GetCSDispatchCount(texWidth, threadGroupWorkRegionDimX * 4);
-	int dispatchY = GetCSDispatchCount(texHeight, threadGroupWorkRegionDimY * 4);
+	int dispatchX = GetCSDispatchCount(RTShadowsPass::ShadowResX, threadGroupWorkRegionDimX * 4);
+	int dispatchY = GetCSDispatchCount(RTShadowsPass::ShadowResY, threadGroupWorkRegionDimY * 4);
 
 	renderer->Dispatch(dispatchX, dispatchY, 1);
 }
 
 void ShadowDenoiseTileClassificationPass::DeclareResources(Renderer* renderer)
-{}
+{
+	const uint32_t tileW = GetCSDispatchCount(RTShadowsPass::ShadowResX, 8);
+	const uint32_t tileH = GetCSDispatchCount(RTShadowsPass::ShadowResY, 4);
+
+	const uint32_t tileSize = tileH * tileW;
+
+	LastFrameDepth = renderer->GetResourceManager()->CreateTexture(renderer->GetVulkanDevice(), RWTextureCreateInfo{
+			.dimensions = {RTShadowsPass::ShadowResX, RTShadowsPass::ShadowResY, 1},
+			.flags = {TextureFlags::DepthStencil | TextureFlags::Read | TextureFlags::TransferDst },
+			.format = {Format::D32_SFLOAT},
+			.name = {"Denoise Last Frame Depth"}
+		});
+
+	ReprojectionInfo = renderer->GetResourceManager()->CreateBuffer(renderer->GetVulkanDevice(), BufferCreateInfo{
+			.flags = {BufferUsageFlags::UniformBuffer},
+			.memoryAccess = {MemoryAccess::CPU2GPU},
+			.size = {sizeof(DenoiseShadowData)},
+			.name = {"Denoise Shadow Data Buffer"}
+		});
+
+	for (uint32_t i = 0; i < MAX_NUM_OF_LIGHTS; i++)
+	{
+
+		TileMetadata[i] = renderer->GetResourceManager()->CreateBuffer(renderer->GetVulkanDevice(), BufferCreateInfo{
+				.flags = {BufferUsageFlags::StorageBuffer},
+				.memoryAccess = {MemoryAccess::GPU},
+				.size = {tileSize * static_cast<uint32_t>(sizeof(uint32_t))},
+				.name = {std::format("Denoise Tile Metadata Buffer {} slice", i)}
+			});
+
+		//classify
+		Moments0[i] = renderer->GetResourceManager()->CreateTexture(renderer->GetVulkanDevice(), RWTextureCreateInfo{
+				.dimensions = {RTShadowsPass::ShadowResX, RTShadowsPass::ShadowResY, 1},
+				.flags = {TextureFlags::Read | TextureFlags::Storage},
+				.format = {Format::R11G11B10_FLOAT},
+				.name = {std::format("Denoise Moments Buffer0 {} slice", i)}
+			});
+
+		Moments1[i] = renderer->GetResourceManager()->CreateTexture(renderer->GetVulkanDevice(), RWTextureCreateInfo{
+				.dimensions = {RTShadowsPass::ShadowResX, RTShadowsPass::ShadowResY, 1},
+				.flags = {TextureFlags::Read | TextureFlags::Storage},
+				.format = {Format::R11G11B10_FLOAT},
+				.name = {std::format("Denoise Moments Buffer1 {} slice", i)}
+			});
+
+		Reprojection0[i] = renderer->GetResourceManager()->CreateTexture(renderer->GetVulkanDevice(), RWTextureCreateInfo{
+				.dimensions = {RTShadowsPass::ShadowResX, RTShadowsPass::ShadowResY, 1},
+				.flags = {TextureFlags::Read | TextureFlags::Storage},
+				.format = {Format::R16G16_FLOAT},
+				.name = {std::format("Denoise Reprojection Buffer0 {} slice", i)}
+			});
+
+		Reprojection1[i] = renderer->GetResourceManager()->CreateTexture(renderer->GetVulkanDevice(), RWTextureCreateInfo{
+				.dimensions = {RTShadowsPass::ShadowResX, RTShadowsPass::ShadowResY, 1},
+				.flags = {TextureFlags::Read | TextureFlags::Storage},
+				.format = {Format::R16G16_FLOAT},
+				.name = {std::format("Denoise Reprojection Buffer1 {} slice", i)}
+			});
+	}
+}
 
 void ShadowDenoiseTileClassificationPass::Setup(Renderer* renderer)
 {
@@ -778,20 +1086,17 @@ void ShadowDenoiseTileClassificationPass::Setup(Renderer* renderer)
 
 	CameraState& cameraState = renderer->GetCameraState();
 
-	int texWidth = renderer->denoisedShadowOutput->GetWidth();
-	int texHeight = renderer->denoisedShadowOutput->GetHeight();
-
 	DenoiseShadowData shadowData{};
 	shadowData.Eye = cameraState.CameraPosition;
 	shadowData.FirstFrame = (int)(renderer->GetCurrentFrameIndex() == 0);
-	shadowData.BufferDimensions[0] = static_cast<int>(texWidth);
-	shadowData.BufferDimensions[1] = static_cast<int>(texHeight);
-	shadowData.InvBufferDimensions[0] = 1.f / float(texWidth);
-	shadowData.InvBufferDimensions[1] = 1.f / float(texHeight);
+	shadowData.BufferDimensions[0] = RTShadowsPass::ShadowResX;
+	shadowData.BufferDimensions[1] = RTShadowsPass::ShadowResY;
+	shadowData.InvBufferDimensions[0] = 1.f / float(RTShadowsPass::ShadowResX);
+	shadowData.InvBufferDimensions[1] = 1.f / float(RTShadowsPass::ShadowResY);
 	shadowData.ProjectionInverse = cameraState.ProjectionInverseMatrix;
 	shadowData.ViewProjectionInverse = cameraState.ViewProjInverseMatrix;
 	shadowData.ReprojectionMatrix = cameraState.ProjectionMatrix * (cameraState.PrevViewMatrix * cameraState.ViewProjInverseMatrix);
-	renderer->denoiseShadowDataBuffer->FillBuffer(&shadowData);
+	ReprojectionInfo->FillBuffer(&shadowData);
 }
 
 void ShadowDenoiseTileClassificationPass::Render(Renderer* renderer)
@@ -802,32 +1107,48 @@ void ShadowDenoiseTileClassificationPass::Render(Renderer* renderer)
 
 void ShadowDenoiseTileClassificationPass::ClassifyTiles(Renderer* renderer, uint32_t shadowSlice)
 {
-	uint32_t texWidth = renderer->denoisedShadowOutput->GetWidth();
-	uint32_t texHeight = renderer->denoisedShadowOutput->GetHeight();
-
-	SetConstantBuffer(renderer, 0, renderer->denoiseShadowDataBuffer);
-	SetSampledImage(renderer, 1, renderer->depthStencil);
-	SetSampledImage(renderer, 2, renderer->velocityGBuffer);
-	SetSampledImage(renderer, 3, renderer->normalGBuffer);
-	SetSampledImage(renderer, 4, renderer->denoiseReprojectionBuffer1[shadowSlice]);
-	SetSampledImage(renderer, 5, renderer->denoiseLastFrameDepth);
-	SetStorageBuffer(renderer, 6, renderer->denoiseShadowMaskBuffer[shadowSlice]);
-	SetStorageBuffer(renderer, 7, renderer->denoiseTileMetadataBuffer[shadowSlice]);
-	SetStorageImage(renderer, 8, renderer->denoiseReprojectionBuffer0[shadowSlice]);
-	SetSampledImage(renderer, 9, GetCurrentIDFromFrameIndex(0) ? renderer->denoiseMomentsBuffer0[shadowSlice] : renderer->denoiseMomentsBuffer1[shadowSlice]);
-	SetStorageImage(renderer, 10, GetCurrentIDFromFrameIndex(1) ? renderer->denoiseMomentsBuffer0[shadowSlice] : renderer->denoiseMomentsBuffer1[shadowSlice]);
-	SetSampler(renderer, 11, renderer->denoisedShadowOutput);
+	SetConstantBuffer(renderer, 0, ShadowDenoiseTileClassificationPass::ReprojectionInfo);
+	SetSampledImage(renderer, 1, GBufferPass::Depth);
+	SetSampledImage(renderer, 2, GBufferPass::Velocity);
+	SetSampledImage(renderer, 3, GBufferPass::Normals);
+	SetSampledImage(renderer, 4, ShadowDenoiseTileClassificationPass::Reprojection1[shadowSlice]);
+	SetSampledImage(renderer, 5, ShadowDenoiseTileClassificationPass::LastFrameDepth);
+	SetStorageBuffer(renderer, 6, ShadowDenoisePrePass::ShadowData[shadowSlice]);
+	SetStorageBuffer(renderer, 7, ShadowDenoiseTileClassificationPass::TileMetadata[shadowSlice]);
+	SetStorageImage(renderer, 8, ShadowDenoiseTileClassificationPass::Reprojection0[shadowSlice]);
+	SetSampledImage(renderer, 9, GetCurrentIDFromFrameIndex(0) ? ShadowDenoiseTileClassificationPass::Moments0[shadowSlice] : ShadowDenoiseTileClassificationPass::Moments1[shadowSlice]);
+	SetStorageImage(renderer, 10, GetCurrentIDFromFrameIndex(1) ? ShadowDenoiseTileClassificationPass::Moments0[shadowSlice] : ShadowDenoiseTileClassificationPass::Moments1[shadowSlice]);
+	SetSampler(renderer, 11, ShadowDenoiseFilterPass::ShadowMask);
 
 	constexpr uint32_t threadGroupWorkRegionDim = 8;
 
-	int dispatchX = GetCSDispatchCount(texWidth, threadGroupWorkRegionDim);
-	int dispatchY = GetCSDispatchCount(texHeight, threadGroupWorkRegionDim);
+	int dispatchX = GetCSDispatchCount(RTShadowsPass::ShadowResX, threadGroupWorkRegionDim);
+	int dispatchY = GetCSDispatchCount(RTShadowsPass::ShadowResY, threadGroupWorkRegionDim);
 
 	renderer->Dispatch(dispatchX, dispatchY, 1);
 }
 
 void ShadowDenoiseFilterPass::DeclareResources(Renderer* renderer)
-{}
+{
+	FilterData = renderer->GetResourceManager()->CreateBuffer(renderer->GetVulkanDevice(), BufferCreateInfo{
+			.flags = {BufferUsageFlags::UniformBuffer},
+			.memoryAccess = {MemoryAccess::CPU2GPU},
+			.size = {sizeof(DenoiseShadowFilterData)},
+			.name = {"Denoise Shadow Filter Data Buffer"}
+		});
+
+	ShadowMask = renderer->GetResourceManager()->CreateTexture(renderer->GetVulkanDevice(), RWTextureCreateInfo{
+			.dimensions = {RTShadowsPass::ShadowResX, RTShadowsPass::ShadowResY, 1},
+			.flags = {TextureFlags::Read | TextureFlags::Storage},
+			.format = {Format::R16G16B16A16_UNORM},
+			.name = {"Shadow Mask Denoised"},
+			.arraySize = {MAX_NUM_OF_LIGHTS},
+			.isCube = { false },
+			.multisampleType = {MultisampleType::Sample_1},
+			.samplerType = { SamplerType::Trilinear },
+			.addressMode = { AddressMode::Clamp }
+		});
+}
 
 void ShadowDenoiseFilterPass::Setup(Renderer* renderer)
 {
@@ -842,7 +1163,7 @@ void ShadowDenoiseFilterPass::Setup(Renderer* renderer)
 	shadowFilterData.InvBufferDimensions[0] = 1.f / float(GetNativeWidth);
 	shadowFilterData.InvBufferDimensions[1] = 1.f / float(GetNativeHeight);
 
-	renderer->denoiseShadowFilterDataBuffer->FillBuffer(&shadowFilterData);
+	ShadowDenoiseFilterPass::FilterData->FillBuffer(&shadowFilterData);
 }
 
 void ShadowDenoiseFilterPass::Render(Renderer* renderer)
@@ -861,20 +1182,17 @@ void ShadowDenoiseFilterPass::RenderFilterPass0(Renderer* renderer, uint32_t sha
 
 	stateManager->SetComputeShader(renderer->GetShader("CS_FilterSoftShadowsPass0"), "Pass0");
 
-	SetConstantBuffer(renderer, 0, renderer->denoiseShadowFilterDataBuffer);
-	SetSampledImage(renderer, 1, renderer->depthStencil);
-	SetSampledImage(renderer, 2, renderer->normalGBuffer);
-	SetStorageBuffer(renderer, 3, renderer->denoiseTileMetadataBuffer[shadowSlice]);
-	SetSampledImage(renderer, 4, renderer->denoiseReprojectionBuffer0[shadowSlice]);
-	SetStorageImage(renderer, 5, renderer->denoiseReprojectionBuffer1[shadowSlice]);
+	SetConstantBuffer(renderer, 0, ShadowDenoiseFilterPass::FilterData);
+	SetSampledImage(renderer, 1, GBufferPass::Depth);
+	SetSampledImage(renderer, 2, GBufferPass::Normals);
+	SetStorageBuffer(renderer, 3, ShadowDenoiseTileClassificationPass::TileMetadata[shadowSlice]);
+	SetSampledImage(renderer, 4, ShadowDenoiseTileClassificationPass::Reprojection0[shadowSlice]);
+	SetStorageImage(renderer, 5, ShadowDenoiseTileClassificationPass::Reprojection1[shadowSlice]);
 
 	constexpr uint32_t threadGroupWorkRegionDim = 8;
 
-	uint32_t texWidth = renderer->denoisedShadowOutput->GetWidth();
-	uint32_t texHeight = renderer->denoisedShadowOutput->GetHeight();
-
-	uint32_t dispatchX = GetCSDispatchCount(texWidth, threadGroupWorkRegionDim);
-	uint32_t dispatchY = GetCSDispatchCount(texHeight, threadGroupWorkRegionDim);
+	uint32_t dispatchX = GetCSDispatchCount(RTShadowsPass::ShadowResX, threadGroupWorkRegionDim);
+	uint32_t dispatchY = GetCSDispatchCount(RTShadowsPass::ShadowResY, threadGroupWorkRegionDim);
 
 	renderer->Dispatch(dispatchX, dispatchY, 1);
 }
@@ -885,20 +1203,17 @@ void ShadowDenoiseFilterPass::RenderFilterPass1(Renderer* renderer, uint32_t sha
 
 	stateManager->SetComputeShader(renderer->GetShader("CS_FilterSoftShadowsPass1"), "Pass1");
 
-	SetConstantBuffer(renderer, 0, renderer->denoiseShadowFilterDataBuffer);
-	SetSampledImage(renderer, 1, renderer->depthStencil);
-	SetSampledImage(renderer, 2, renderer->normalGBuffer);
-	SetStorageBuffer(renderer, 3, renderer->denoiseTileMetadataBuffer[shadowSlice]);
-	SetSampledImage(renderer, 4, renderer->denoiseReprojectionBuffer1[shadowSlice]);
-	SetStorageImage(renderer, 5, renderer->denoiseReprojectionBuffer0[shadowSlice]);
+	SetConstantBuffer(renderer, 0, ShadowDenoiseFilterPass::FilterData);
+	SetSampledImage(renderer, 1, GBufferPass::Depth);
+	SetSampledImage(renderer, 2, GBufferPass::Normals);
+	SetStorageBuffer(renderer, 3, ShadowDenoiseTileClassificationPass::TileMetadata[shadowSlice]);
+	SetSampledImage(renderer, 4, ShadowDenoiseTileClassificationPass::Reprojection1[shadowSlice]);
+	SetStorageImage(renderer, 5, ShadowDenoiseTileClassificationPass::Reprojection0[shadowSlice]);
 
 	constexpr uint32_t threadGroupWorkRegionDim = 8;
 
-	uint32_t texWidth = renderer->denoisedShadowOutput->GetWidth();
-	uint32_t texHeight = renderer->denoisedShadowOutput->GetHeight();
-
-	uint32_t dispatchX = GetCSDispatchCount(texWidth, threadGroupWorkRegionDim);
-	uint32_t dispatchY = GetCSDispatchCount(texHeight, threadGroupWorkRegionDim);
+	uint32_t dispatchX = GetCSDispatchCount(RTShadowsPass::ShadowResX, threadGroupWorkRegionDim);
+	uint32_t dispatchY = GetCSDispatchCount(RTShadowsPass::ShadowResY, threadGroupWorkRegionDim);
 
 	renderer->Dispatch(dispatchX, dispatchY, 1);
 }
@@ -911,20 +1226,83 @@ void ShadowDenoiseFilterPass::RenderFilterPass2(Renderer* renderer, uint32_t sha
 
 	renderer->BindPushConstant(shadowSlice);
 
-	SetConstantBuffer(renderer, 0, renderer->denoiseShadowFilterDataBuffer);
-	SetSampledImage(renderer, 1, renderer->depthStencil);
-	SetSampledImage(renderer, 2, renderer->normalGBuffer);
-	SetStorageBuffer(renderer, 3, renderer->denoiseTileMetadataBuffer[shadowSlice]);
-	SetSampledImage(renderer, 4, renderer->denoiseReprojectionBuffer0[shadowSlice]);
-	SetStorageImage(renderer, 6, renderer->denoisedShadowOutput);
+	SetConstantBuffer(renderer, 0, ShadowDenoiseFilterPass::FilterData);
+	SetSampledImage(renderer, 1, GBufferPass::Depth);
+	SetSampledImage(renderer, 2, GBufferPass::Normals);
+	SetStorageBuffer(renderer, 3, ShadowDenoiseTileClassificationPass::TileMetadata[shadowSlice]);
+	SetSampledImage(renderer, 4, ShadowDenoiseTileClassificationPass::Reprojection0[shadowSlice]);
+	SetStorageImage(renderer, 6, ShadowDenoiseFilterPass::ShadowMask);
 
 	constexpr uint32_t threadGroupWorkRegionDim = 8;
 
-	uint32_t texWidth = renderer->denoisedShadowOutput->GetWidth();
-	uint32_t texHeight = renderer->denoisedShadowOutput->GetHeight();
-
-	uint32_t dispatchX = GetCSDispatchCount(texWidth, threadGroupWorkRegionDim);
-	uint32_t dispatchY = GetCSDispatchCount(texHeight, threadGroupWorkRegionDim);
+	uint32_t dispatchX = GetCSDispatchCount(RTShadowsPass::ShadowResX, threadGroupWorkRegionDim);
+	uint32_t dispatchY = GetCSDispatchCount(RTShadowsPass::ShadowResY, threadGroupWorkRegionDim);
 
 	renderer->Dispatch(dispatchX, dispatchY, 1);
+}
+
+void RabbitPassManager::SchedulePasses()
+{
+	AddPass(new Create3DNoiseTexturePass, true);
+	AddPass(new GBufferPass);
+	AddPass(new SSAOPass);
+	AddPass(new SSAOBlurPass);
+	AddPass(new RTShadowsPass);
+	AddPass(new ShadowDenoisePrePass);
+	AddPass(new ShadowDenoiseTileClassificationPass);
+	AddPass(new ShadowDenoiseFilterPass);
+	AddPass(new VolumetricPass);
+	AddPass(new ComputeScatteringPass);
+	AddPass(new SkyboxPass);
+	AddPass(new LightingPass);
+	AddPass(new ApplyVolumetricFogPass);
+	AddPass(new TextureDebugPass);
+	AddPass(new FSR2Pass);
+	AddPass(new TonemappingPass);
+	AddPass(new CopyToSwapchainPass);
+}
+
+void RabbitPassManager::DeclareResources(Renderer* renderer)
+{
+	for (auto pass : m_RabbitPassesToExecute)
+	{
+		pass->DeclareResources(renderer);
+	}
+}
+
+void RabbitPassManager::ExecutePasses(Renderer* renderer)
+{
+	for (auto pass : m_RabbitPassesToExecute)
+	{
+		renderer->BeginLabel(pass->GetName());
+
+		pass->Setup(renderer);
+
+		pass->Render(renderer);
+
+		renderer->RecordGPUTimeStamp(pass->GetName());
+
+		renderer->EndLabel();		
+	}
+}
+
+void RabbitPassManager::ExecuteOneTimePasses(Renderer* renderer)
+{
+	for (auto pass : m_RabbitPassesOneTimeExecute)
+	{
+		renderer->BeginLabel(pass->GetName());
+
+		pass->Setup(renderer);
+
+		pass->Render(renderer);
+
+		renderer->RecordGPUTimeStamp(pass->GetName());
+
+		renderer->EndLabel();
+	}
+}
+
+void RabbitPassManager::Destroy()
+{
+
 }

@@ -641,6 +641,20 @@ VkAccessFlags GetVkAccessFlagsFromResourceState(const ResourceState state)
 	}
 }
 
+enum VkPipelineBindPoint GetVkBindPointFrom(const PipelineType pipelineType)
+{
+	switch (pipelineType)
+	{
+	case PipelineType::Graphics:
+		return VK_PIPELINE_BIND_POINT_GRAPHICS;
+	case PipelineType::Compute:
+		return VK_PIPELINE_BIND_POINT_COMPUTE;
+	default:
+		ASSERT(false, "Unknown pipeline type.");
+		return VK_PIPELINE_BIND_POINT_MAX_ENUM;
+	}
+}
+
 VkBlendFactor GetVkBlendFactorFrom(const BlendValue blendValue)
 {
 	switch (blendValue)
