@@ -102,6 +102,20 @@ float GetRangeAttenuation(float range, float distance)
     //return max(min(1.0 - pow(distance / range, 4.0), 1.0), 0.0) / pow(distance, 2.0);
 }
 
+float GetSpotAttenuation(vec3 pointToLight, vec3 spotDirection, float outerConeCos, float innerConeCos)
+{
+    float actualCos = dot(normalize(spotDirection), normalize(-pointToLight));
+    if (actualCos > outerConeCos)
+    {
+        if (actualCos > innerConeCos)
+        {
+            return smoothstep(outerConeCos, innerConeCos, actualCos);
+        }
+        return 1.0;
+    }
+    return 0.0;
+}
+
 vec3 ApplyPointLight(Light light, MaterialInfo materialInfo, vec3 normal, vec3 worldPos, vec3 view)
 {
     vec3 pointToLight = light.position.xyz - worldPos;
@@ -113,9 +127,19 @@ vec3 ApplyPointLight(Light light, MaterialInfo materialInfo, vec3 normal, vec3 w
 
 vec3 ApplyDirectionalLight(Light light, MaterialInfo materialInfo, vec3 normal, vec3 view)
 {
-    vec3 pointToLight = light.position; //TODO: for now we assume that direction light looks from sky to 0,0,0 coord
+    vec3 pointToLight = light.position;
     vec3 shade = GetPointShade(pointToLight, materialInfo, normal, view);
     return light.intensity * light.color * shade;
+}
+
+vec3 ApplySpotLight(Light light, MaterialInfo materialInfo, vec3 normal, vec3 worldPos, vec3 view)
+{
+    vec3 pointToLight = light.position - worldPos;
+    float distance = length(pointToLight);
+    float rangeAttenuation = GetRangeAttenuation(light.radius, distance);
+    float spotAttenuation = GetSpotAttenuation(pointToLight, -light.position, light.outerConeCos, light.innerConeCos);
+    vec3 shade = GetPointShade(pointToLight, materialInfo, normal, view);
+    return rangeAttenuation * spotAttenuation * light.intensity * light.color * shade;
 }
 
 vec3 DoPBRLighting(SceneInfo sceneInfo, in vec3 diffuseColor, in vec3 specularColor, in float perceptualRoughness)
@@ -161,10 +185,10 @@ vec3 DoPBRLighting(SceneInfo sceneInfo, in vec3 diffuseColor, in vec3 specularCo
         {
             color += ApplyDirectionalLight(light, materialInfo, normal, view) * shadowFactor;
         }
-        //else if (light.type == LightType_Spot)
-        //{
-        //    color += applySpotLight(light, materialInfo, normal, worldPos, view) * shadowFactor;
-        //}
+        else if (light.type == LightType_Spot)
+        {
+            color += ApplySpotLight(light, materialInfo, normal, worldPos, view) * shadowFactor;
+        }
     }
 
     // Calculate lighting contribution from image based lighting source (IBL)
@@ -217,5 +241,4 @@ void main()
     vec3 color = ambient + LightingPBR;
  
 	outColor = vec4(color, 1.0);
-
 }

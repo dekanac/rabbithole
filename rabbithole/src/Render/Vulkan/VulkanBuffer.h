@@ -10,7 +10,7 @@ struct VulkanBufferInfo
 	uint64_t		 size;
 };
 
-class VulkanBuffer : public AllocatedResource
+class VulkanBuffer : public AllocatedResource, public ManagableResource
 {
 public:
 	//TODO: take care of this, for now using this for staging buffers only

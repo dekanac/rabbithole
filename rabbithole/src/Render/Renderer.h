@@ -55,7 +55,8 @@ struct LightParams
 	float		intensity;
 	uint32_t	type;
 	float		size;
-	uint32_t	padding[2];
+	float		outerConeCos;
+	float		innerConeCos;
 };
 
 enum LightType : uint32_t
@@ -144,7 +145,8 @@ public:
 	inline VulkanImageView*		GetSwapchainImage() { return m_VulkanSwapchain->GetImageView(m_CurrentImageIndex); }
 	inline VulkanBuffer*		GetVertexUploadBuffer() { return m_VertexUploadBuffer; }
 
-	void ResourceBarrier(VulkanTexture* texture, ResourceState oldLayout, ResourceState newLayout, ResourceStage srcStage, ResourceStage dstStage, uint32_t mipLevel = 0);
+	void ResourceBarrier(VulkanTexture* texture, ResourceState oldLayout, ResourceState newLayout, ResourceStage srcStage, ResourceStage dstStage, uint32_t mipLevel = 0, uint32_t mipCount = UINT32_MAX);
+	void ResourceBarrier(VulkanBuffer* buffer, ResourceState oldLayout, ResourceState newLayout, ResourceStage srcStage, ResourceStage dstStage);
     void CopyImageToBuffer(VulkanTexture* texture, VulkanBuffer* buffer);
     void CopyBufferToImage( VulkanBuffer* buffer, VulkanTexture* texture);
 	void CopyImage(VulkanTexture* src, VulkanTexture* dst);
@@ -196,7 +198,6 @@ public:
 	void BindDescriptorSets();
 	void BindUBO();
 
-	void ExecuteRabbitPass(RabbitPass& rabbitPass);
 public:
 	std::vector<VulkanglTFModel> gltfModels;
 	std::vector<LightParams> lights;

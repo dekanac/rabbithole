@@ -34,7 +34,7 @@ void main()
 {
     float roughness = texture(samplerMetalicRoughness, fs_in.FragUV).g;
     float metalness = texture(samplerMetalicRoughness, fs_in.FragUV).b;
-	vec3 N = normalize(fs_in.FragTBN * (normalize(texture(samplerNormal, fs_in.FragUV).xyz * 2.0 - vec3(1.0))));
+	vec3 N = normalize(fs_in.FragTBN * (texture(samplerNormal, fs_in.FragUV).xyz * 2.0 - vec3(1.0)));
 
     outAlbedo = vec4(texture(samplerAlbedo, fs_in.FragUV).rgb, 1.0);
     outNormalRoughness = push.useNormalMap ? vec4(N, roughness) :  vec4(fs_in.FragNormal, roughness);

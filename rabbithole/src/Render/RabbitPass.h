@@ -23,7 +23,9 @@ protected:
 	void SetStorageImage(Renderer* renderer, int slot, VulkanTexture* texture);
 
     void SetConstantBuffer(Renderer* renderer, int slot, VulkanBuffer* buffer);
-    void SetStorageBuffer(Renderer* renderer, int slot, VulkanBuffer* buffer);
+	void SetStorageBufferRead(Renderer* renderer, int slot, VulkanBuffer* buffer);
+	void SetStorageBufferWrite(Renderer* renderer, int slot, VulkanBuffer* buffer);
+	void SetStorageBufferReadWrite(Renderer* renderer, int slot, VulkanBuffer* buffer);
 	void SetSampler(Renderer* renderer, int slot, VulkanTexture* texture);
 
 	void SetRenderTarget(Renderer* renderer, int slot, VulkanTexture* texture);

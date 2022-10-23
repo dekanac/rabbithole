@@ -92,9 +92,34 @@ void RabbitPass::SetConstantBuffer(Renderer* renderer, int slot, VulkanBuffer* b
 	renderer->GetStateManager()->SetConstantBuffer(slot, buffer);
 }
 
-void RabbitPass::SetStorageBuffer(Renderer* renderer, int slot, VulkanBuffer* buffer)
+void RabbitPass::SetStorageBufferRead(Renderer* renderer, int slot, VulkanBuffer* buffer)
 {
+	auto stateManager = renderer->GetStateManager();
+	stateManager->UpdateResourceStage(buffer);
+
+	buffer->SetShouldBeResourceState(ResourceState::BufferRead);
+	RSTManager.AddResourceForTransition(buffer);
     renderer->GetStateManager()->SetStorageBuffer(slot, buffer);
+}
+
+void RabbitPass::SetStorageBufferWrite(Renderer* renderer, int slot, VulkanBuffer* buffer)
+{
+	auto stateManager = renderer->GetStateManager();
+	stateManager->UpdateResourceStage(buffer);
+
+	buffer->SetShouldBeResourceState(ResourceState::BufferWrite);
+	RSTManager.AddResourceForTransition(buffer);
+	renderer->GetStateManager()->SetStorageBuffer(slot, buffer);
+}
+
+void RabbitPass::SetStorageBufferReadWrite(Renderer* renderer, int slot, VulkanBuffer* buffer)
+{
+	auto stateManager = renderer->GetStateManager();
+	stateManager->UpdateResourceStage(buffer);
+
+	buffer->SetShouldBeResourceState(ResourceState::BufferReadWrite);
+	RSTManager.AddResourceForTransition(buffer);
+	renderer->GetStateManager()->SetStorageBuffer(slot, buffer);
 }
 
 void RabbitPass::SetSampler(Renderer* renderer, int slot, VulkanTexture* texture)
@@ -305,28 +330,28 @@ void LightingPass::Setup(Renderer* renderer)
 
 		ImGui::Text("Sun");
 		ImGui::ColorEdit3("col0: ", lightParams[0].color);
-        ImGui::SliderFloat("intensity0: ", &(lightParams[0]).intensity, 0.f, 2.f);
+        ImGui::SliderFloat("intensity0: ", &(lightParams[0]).intensity, 0.f, 50.f);
         ImGui::SliderFloat3("position0: ", lightParams[0].position, -200.f, 200.f);
 		ImGui::SliderFloat("size0: ", &lightParams[0].size, 0.1f, 10.f);
 		
 		ImGui::Text("Light 1");
 		ImGui::ColorEdit3("col", lightParams[1].color);
 		ImGui::SliderFloat("radius1: ", &(lightParams[1]).radius, 0.f, 50.f);
-        ImGui::SliderFloat("intensity1: ", &(lightParams[1]).intensity, 0.f, 2.f);
+        ImGui::SliderFloat("intensity1: ", &(lightParams[1]).intensity, 0.f, 50.f);
 		ImGui::SliderFloat3("position1: ", lightParams[1].position, -20.f, 20.f);
 		ImGui::SliderFloat("size1: ", &lightParams[1].size, 0.1f, 10.f);
 
 		ImGui::Text("Light 2");
 		ImGui::ColorEdit3("col2", lightParams[2].color);
 		ImGui::SliderFloat("radius2: ", &(lightParams[2]).radius, 0.f, 50.f);
-        ImGui::SliderFloat("intensity2: ", &(lightParams[2]).intensity, 0.f, 2.f);
+        ImGui::SliderFloat("intensity2: ", &(lightParams[2]).intensity, 0.f, 50.f);
 		ImGui::SliderFloat3("position2: ", lightParams[2].position, -20.f, 20.f);
 		ImGui::SliderFloat("size:2 ", &lightParams[2].size, 0.1f, 10.f);
 
 		ImGui::Text("Light 3");
 		ImGui::ColorEdit3("col3", lightParams[3].color);
         ImGui::SliderFloat("radius3: ", &(lightParams[3]).radius, 0.f, 50.f);
-        ImGui::SliderFloat("intensity3: ", &(lightParams[3]).intensity, 0.f, 2.f);
+        ImGui::SliderFloat("intensity3: ", &(lightParams[3]).intensity, 0.f, 50.f);
 		ImGui::SliderFloat3("position3: ", lightParams[3].position, -20.f, 20.f);
 		ImGui::SliderFloat("size3: ", &lightParams[3].size, 0.1f, 10.f);
 
@@ -644,10 +669,10 @@ void RTShadowsPass::Setup(Renderer* renderer)
 	SetStorageImage(renderer, 0, GBufferPass::WorldPosition);
 	SetStorageImage(renderer, 1, GBufferPass::Normals);
 	SetStorageImage(renderer, 2, RTShadowsPass::ShadowMask);
-	SetStorageBuffer(renderer, 3, renderer->vertexBuffer);
-	SetStorageBuffer(renderer, 4, renderer->trianglesBuffer);
-	SetStorageBuffer(renderer, 5, renderer->triangleIndxsBuffer);
-	SetStorageBuffer(renderer, 6, renderer->cfbvhNodesBuffer);
+	SetStorageBufferRead(renderer, 3, renderer->vertexBuffer);
+	SetStorageBufferRead(renderer, 4, renderer->trianglesBuffer);
+	SetStorageBufferRead(renderer, 5, renderer->triangleIndxsBuffer);
+	SetStorageBufferRead(renderer, 6, renderer->cfbvhNodesBuffer);
 	SetConstantBuffer(renderer, 7, LightingPass::LightParamsGPU);
 	SetStorageImage(renderer, 8, renderer->blueNoise2DTexture);
 	SetConstantBuffer(renderer, 9, renderer->GetMainConstBuffer());
@@ -663,7 +688,7 @@ void RTShadowsPass::Render(Renderer* renderer)
 	int dispatchX = GetCSDispatchCount(texWidth, threadGroupWorkRegionDim);
 	int dispatchY = GetCSDispatchCount(texHeight, threadGroupWorkRegionDim);
 
-	renderer->Dispatch(dispatchX, dispatchY, 1);
+	renderer->Dispatch(dispatchX, dispatchY, numOfLights);
 }
 
 void FSR2Pass::DeclareResources(Renderer* renderer)
@@ -732,10 +757,10 @@ void VolumetricPass::Setup(Renderer* renderer)
 	SetConstantBuffer(renderer, 3, renderer->GetMainConstBuffer());
 	SetConstantBuffer(renderer, 4, VolumetricPass::ParamsGPU);
 
-	SetStorageBuffer(renderer, 5, renderer->vertexBuffer);
-	SetStorageBuffer(renderer, 6, renderer->trianglesBuffer);
-	SetStorageBuffer(renderer, 7, renderer->triangleIndxsBuffer);
-	SetStorageBuffer(renderer, 8, renderer->cfbvhNodesBuffer);
+	SetStorageBufferRead(renderer, 5, renderer->vertexBuffer);
+	SetStorageBufferRead(renderer, 6, renderer->trianglesBuffer);
+	SetStorageBufferRead(renderer, 7, renderer->triangleIndxsBuffer);
+	SetStorageBufferRead(renderer, 8, renderer->cfbvhNodesBuffer);
 
 	if (renderer->imguiReady)
 	{
@@ -1005,7 +1030,7 @@ void ShadowDenoisePrePass::PrepareDenoisePass(Renderer* renderer, uint32_t shado
 
 	SetConstantBuffer(renderer, 0, ShadowDenoisePrePass::BufferDimensions);
 	SetSampledImage(renderer, 1, RTShadowsPass::ShadowMask);
-	SetStorageBuffer(renderer, 2, ShadowDenoisePrePass::ShadowData[shadowSlice]);
+	SetStorageBufferWrite(renderer, 2, ShadowDenoisePrePass::ShadowData[shadowSlice]);
 
 	constexpr uint32_t threadGroupWorkRegionDimX = 8;
 	constexpr uint32_t threadGroupWorkRegionDimY = 4;
@@ -1113,8 +1138,8 @@ void ShadowDenoiseTileClassificationPass::ClassifyTiles(Renderer* renderer, uint
 	SetSampledImage(renderer, 3, GBufferPass::Normals);
 	SetSampledImage(renderer, 4, ShadowDenoiseTileClassificationPass::Reprojection1[shadowSlice]);
 	SetSampledImage(renderer, 5, ShadowDenoiseTileClassificationPass::LastFrameDepth);
-	SetStorageBuffer(renderer, 6, ShadowDenoisePrePass::ShadowData[shadowSlice]);
-	SetStorageBuffer(renderer, 7, ShadowDenoiseTileClassificationPass::TileMetadata[shadowSlice]);
+	SetStorageBufferRead(renderer, 6, ShadowDenoisePrePass::ShadowData[shadowSlice]);
+	SetStorageBufferWrite(renderer, 7, ShadowDenoiseTileClassificationPass::TileMetadata[shadowSlice]);
 	SetStorageImage(renderer, 8, ShadowDenoiseTileClassificationPass::Reprojection0[shadowSlice]);
 	SetSampledImage(renderer, 9, GetCurrentIDFromFrameIndex(0) ? ShadowDenoiseTileClassificationPass::Moments0[shadowSlice] : ShadowDenoiseTileClassificationPass::Moments1[shadowSlice]);
 	SetStorageImage(renderer, 10, GetCurrentIDFromFrameIndex(1) ? ShadowDenoiseTileClassificationPass::Moments0[shadowSlice] : ShadowDenoiseTileClassificationPass::Moments1[shadowSlice]);
@@ -1185,7 +1210,7 @@ void ShadowDenoiseFilterPass::RenderFilterPass0(Renderer* renderer, uint32_t sha
 	SetConstantBuffer(renderer, 0, ShadowDenoiseFilterPass::FilterData);
 	SetSampledImage(renderer, 1, GBufferPass::Depth);
 	SetSampledImage(renderer, 2, GBufferPass::Normals);
-	SetStorageBuffer(renderer, 3, ShadowDenoiseTileClassificationPass::TileMetadata[shadowSlice]);
+	SetStorageBufferRead(renderer, 3, ShadowDenoiseTileClassificationPass::TileMetadata[shadowSlice]);
 	SetSampledImage(renderer, 4, ShadowDenoiseTileClassificationPass::Reprojection0[shadowSlice]);
 	SetStorageImage(renderer, 5, ShadowDenoiseTileClassificationPass::Reprojection1[shadowSlice]);
 
@@ -1206,7 +1231,7 @@ void ShadowDenoiseFilterPass::RenderFilterPass1(Renderer* renderer, uint32_t sha
 	SetConstantBuffer(renderer, 0, ShadowDenoiseFilterPass::FilterData);
 	SetSampledImage(renderer, 1, GBufferPass::Depth);
 	SetSampledImage(renderer, 2, GBufferPass::Normals);
-	SetStorageBuffer(renderer, 3, ShadowDenoiseTileClassificationPass::TileMetadata[shadowSlice]);
+	SetStorageBufferRead(renderer, 3, ShadowDenoiseTileClassificationPass::TileMetadata[shadowSlice]);
 	SetSampledImage(renderer, 4, ShadowDenoiseTileClassificationPass::Reprojection1[shadowSlice]);
 	SetStorageImage(renderer, 5, ShadowDenoiseTileClassificationPass::Reprojection0[shadowSlice]);
 
@@ -1229,7 +1254,7 @@ void ShadowDenoiseFilterPass::RenderFilterPass2(Renderer* renderer, uint32_t sha
 	SetConstantBuffer(renderer, 0, ShadowDenoiseFilterPass::FilterData);
 	SetSampledImage(renderer, 1, GBufferPass::Depth);
 	SetSampledImage(renderer, 2, GBufferPass::Normals);
-	SetStorageBuffer(renderer, 3, ShadowDenoiseTileClassificationPass::TileMetadata[shadowSlice]);
+	SetStorageBufferRead(renderer, 3, ShadowDenoiseTileClassificationPass::TileMetadata[shadowSlice]);
 	SetSampledImage(renderer, 4, ShadowDenoiseTileClassificationPass::Reprojection0[shadowSlice]);
 	SetStorageImage(renderer, 6, ShadowDenoiseFilterPass::ShadowMask);
 

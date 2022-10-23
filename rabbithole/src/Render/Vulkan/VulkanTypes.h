@@ -107,6 +107,9 @@ enum class ResourceState : uint8_t
 	RenderTarget,
 	Present,
 	GeneralCompute,
+	BufferRead,
+	BufferWrite,
+	BufferReadWrite,
 
 	Count
 };

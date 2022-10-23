@@ -84,7 +84,7 @@ float FFX_DNSR_Shadows_ReadPreviousDepth(int2 p)
 
 float3 FFX_DNSR_Shadows_ReadNormals(int2 p)
 {
-    return normalize(t2d_normal.Load(int3(p, 0)).xyz * 2 - 1.f);
+    return normalize(t2d_normal.Load(int3(p, 0)).xyz);
 }
 
 float2 FFX_DNSR_Shadows_ReadVelocity(int2 p)

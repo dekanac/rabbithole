@@ -346,6 +346,18 @@ VkAccessFlags GetVkAccessFlagsFrom(const ResourceState resourceState)
 	{
 		return VkAccessFlagBits(0);
 	}
+	else if (resourceState == ResourceState::BufferRead)
+	{
+		return VK_ACCESS_SHADER_READ_BIT;
+	}
+	else if (resourceState == ResourceState::BufferWrite)
+	{
+		return VK_ACCESS_SHADER_WRITE_BIT;
+	}
+	else if (resourceState == ResourceState::BufferReadWrite)
+	{
+		return VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT;
+	}
 	else if (resourceState == ResourceState::TransferSrc)
 	{
 		return VK_ACCESS_TRANSFER_READ_BIT;
@@ -601,7 +613,7 @@ VkPipelineStageFlags GetVkPipelineStageFromResourceStageAndState(const ResourceS
 	switch (stage)
 	{
 	case ResourceStage::None:
-		return VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT; //TODO: double check this
+		return VK_PIPELINE_STAGE_NONE; //TODO: double check this
 	case ResourceStage::Compute:
 		return VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT;
 	case ResourceStage::Graphics:
@@ -611,6 +623,7 @@ VkPipelineStageFlags GetVkPipelineStageFromResourceStageAndState(const ResourceS
 	case ResourceStage::Undefined:
 		return VK_PIPELINE_STAGE_ALL_COMMANDS_BIT;
 	default:
+		ASSERT(false, "Not supported resource stage");
 		return VK_PIPELINE_STAGE_ALL_COMMANDS_BIT;
 	}
 }

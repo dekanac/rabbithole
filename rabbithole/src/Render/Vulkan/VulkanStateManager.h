@@ -120,7 +120,7 @@ public:
 	PipelineType GetCurrentPipelineType() { return m_CurrentPipelinetype; }
 
 	void Reset();
-	void UpdateResourceStage(VulkanTexture* texture);
+	void UpdateResourceStage(ManagableResource* texture);
 
 private:
 	PipelineConfigInfo*     m_PipelineConfig;

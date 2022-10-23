@@ -4,7 +4,8 @@
 #include "Render/Converters.h"
 
 VulkanBuffer::VulkanBuffer(VulkanDevice& device, BufferUsageFlags flags, MemoryAccess access, uint64_t size, const char* name)
-	: m_Name(name)
+	: ManagableResource(ResourceType::Buffer)
+	, m_Name(name)
 	, m_Device(device)
 	, m_Size(size)
 {
@@ -21,11 +22,14 @@ VulkanBuffer::VulkanBuffer(VulkanDevice& device, BufferUsageFlags flags, MemoryA
 	CreateBufferResource();
 
 	device.SetObjectName((uint64_t)m_Buffer, VK_OBJECT_TYPE_BUFFER, name);
+
+	m_CurrentResourceState = ResourceState::None;
 }
 
 
 VulkanBuffer::VulkanBuffer(VulkanDevice& device, BufferCreateInfo& createInfo)
-	: m_Name(createInfo.name)
+	: ManagableResource(ResourceType::Buffer)
+	, m_Name(createInfo.name)
 	, m_Device(device)
 	, m_Size(createInfo.size)
 {
@@ -42,6 +46,8 @@ VulkanBuffer::VulkanBuffer(VulkanDevice& device, BufferCreateInfo& createInfo)
 	CreateBufferResource();
 
 	device.SetObjectName((uint64_t)m_Buffer, VK_OBJECT_TYPE_BUFFER, createInfo.name.c_str());
+
+	m_CurrentResourceState = ResourceState::None;
 }
 
 VulkanBuffer::~VulkanBuffer()

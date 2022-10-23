@@ -672,7 +672,7 @@ void VulkanDevice::ResourceBarrier(VulkanCommandBuffer& commandBuffer, VulkanTex
 	barrier.image = GET_VK_HANDLE_PTR(texture->GetResource());
 	barrier.subresourceRange.aspectMask = GetVkImageAspectFlagsFrom(GetVkFormatFrom(texture->GetFormat()));
 	barrier.subresourceRange.baseMipLevel = mipLevel;
-	barrier.subresourceRange.levelCount = mipCount;
+	barrier.subresourceRange.levelCount = (mipCount == UINT32_MAX) ? texture->GetMipCount() : mipCount;
 	barrier.subresourceRange.baseArrayLayer = 0;
 	barrier.subresourceRange.layerCount = arraySize;
 
@@ -693,6 +693,36 @@ void VulkanDevice::ResourceBarrier(VulkanCommandBuffer& commandBuffer, VulkanTex
 
 	texture->SetResourceState(newLayout);
 	texture->SetCurrentResourceStage(dstStage);
+}
+
+void VulkanDevice::ResourceBarrier(VulkanCommandBuffer& commandBuffer, VulkanBuffer* buffer, ResourceState oldLayout, ResourceState newLayout, ResourceStage srcStage, ResourceStage dstStage)
+{
+	ASSERT(oldLayout != ResourceState::Count && newLayout != ResourceState::Count, "Invalid layouts!");
+
+	if (oldLayout != ResourceState::None)
+	{
+		VkBufferMemoryBarrier bufferBarrier{};
+		bufferBarrier.sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER;
+		bufferBarrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+		bufferBarrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+		bufferBarrier.srcAccessMask = GetVkAccessFlagsFrom(oldLayout);
+		bufferBarrier.dstAccessMask = GetVkAccessFlagsFrom(newLayout);
+		bufferBarrier.size = buffer->GetSize();
+		bufferBarrier.buffer = GET_VK_HANDLE_PTR(buffer);
+
+		vkCmdPipelineBarrier(
+			GET_VK_HANDLE(commandBuffer),
+			GetVkPipelineStageFromResourceStageAndState(srcStage, oldLayout),
+			GetVkPipelineStageFromResourceStageAndState(dstStage, newLayout),
+			0,
+			0, nullptr,
+			1, &bufferBarrier,
+			0, nullptr
+		);
+	}
+
+	buffer->SetResourceState(newLayout);
+	buffer->SetCurrentResourceStage(dstStage);
 }
 
 void VulkanDevice::CopyImageToBuffer(VulkanCommandBuffer& commandBuffer, VulkanTexture* texture, VulkanBuffer* buffer)

@@ -16,30 +16,51 @@ class AllocatedResource
 {
 public:
 	AllocatedResource();
+
 	virtual uint32_t GetID() { return m_Id; }
 
 	static uint32_t ms_CurrentId;
 
 protected:
-	uint32_t m_Id;
 	void UpdateID();
+
+	uint32_t m_Id;
+};
+
+enum class ResourceType
+{
+	Buffer,
+	Texture
 };
 
 class ManagableResource
 {
 public:
+	ManagableResource(ResourceType type)
+		: m_Type(type) {}
 
-	virtual ResourceState			GetResourceState() const = 0;
-	virtual void					SetResourceState(ResourceState state) = 0;
+	ResourceType			GetType() const { return m_Type; }
 
-	virtual ResourceState			GetShouldBeResourceState() const = 0;
-	virtual void					SetShouldBeResourceState(ResourceState state) = 0;
+	virtual ResourceState	GetResourceState() const { return m_CurrentResourceState; };
+	virtual void			SetResourceState(ResourceState state) { m_CurrentResourceState = state; }
 
-	virtual ResourceStage			GetCurrentResourceStage() = 0;
-	virtual void					SetCurrentResourceStage(ResourceStage stage) = 0;
+	virtual ResourceState	GetShouldBeResourceState() const { return m_ShouldBeResourceState; }
+	virtual void			SetShouldBeResourceState(ResourceState state) { m_ShouldBeResourceState = state; }
 
-	virtual ResourceStage			GetPreviousResourceStage() = 0;
-	virtual void					SetPreviousResourceStage(ResourceStage stage) = 0;
+	virtual ResourceStage	GetCurrentResourceStage() { return m_CurrentResourceStage; }
+	virtual void			SetCurrentResourceStage(ResourceStage stage) { m_CurrentResourceStage = stage; }
+
+	virtual ResourceStage	GetPreviousResourceStage() { return m_PreviousResourceStage; }
+	virtual void			SetPreviousResourceStage(ResourceStage stage) { m_PreviousResourceStage = stage; }
+
+protected:
+	ResourceState			m_CurrentResourceState = ResourceState::Count;
+	ResourceState			m_ShouldBeResourceState = ResourceState::Count;
+
+	ResourceStage			m_CurrentResourceStage = ResourceStage::Count;
+	ResourceStage			m_PreviousResourceStage = ResourceStage::Count;
+
+	ResourceType m_Type;
 };
 
 struct ROTextureCreateInfo
@@ -49,7 +70,7 @@ struct ROTextureCreateInfo
 	std::string		name = "ROTexture";
 	bool			isCube = false;
 	bool			generateMips = false;
-	SamplerType     samplerType = SamplerType::Anisotropic;
+	SamplerType     samplerType = SamplerType::Trilinear;
 	AddressMode		addressMode = AddressMode::Repeat;
 };
 
@@ -64,6 +85,7 @@ struct RWTextureCreateInfo
 	MultisampleType multisampleType = MultisampleType::Sample_1;
 	SamplerType     samplerType = SamplerType::Anisotropic;
 	AddressMode		addressMode = AddressMode::Repeat;
+	uint32_t		mipCount = 1;
 };
 
 struct BufferCreateInfo

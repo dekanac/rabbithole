@@ -12,8 +12,8 @@ public:
 	~ResourceManager();
 
 public:
-	VulkanTexture* CreateTexture(VulkanDevice& device, const TextureData* data, ROTextureCreateInfo createInfo);
-	VulkanTexture* CreateTexture(VulkanDevice& device, std::string path, ROTextureCreateInfo createInfo);
+	VulkanTexture*	CreateTexture(VulkanDevice& device, const TextureData* data, ROTextureCreateInfo createInfo);
+	VulkanTexture*	CreateTexture(VulkanDevice& device, std::string path, ROTextureCreateInfo createInfo);
 	VulkanTexture*	CreateTexture(VulkanDevice& device, RWTextureCreateInfo createInfo);
 	VulkanBuffer*	CreateBuffer(VulkanDevice& device, BufferCreateInfo createInfo);
 	void			CreateShader(VulkanDevice& device, ShaderInfo& createInfo, const std::vector<char>& code, const char* name);

@@ -34,22 +34,6 @@
 #include <thread>
 #include <vector>
 
-void Renderer::ExecuteRabbitPass(RabbitPass& rabbitPass)
-{
-	m_VulkanDevice.BeginLabel(GetCurrentCommandBuffer(), rabbitPass.GetName());
-
-	rabbitPass.Setup(this);
-
-	rabbitPass.Render(this);
-	
-	if (m_RecordGPUTimeStamps)
-	{
-		RecordGPUTimeStamp(rabbitPass.GetName());
-	}
-
-	m_VulkanDevice.EndLabel(GetCurrentCommandBuffer());
-}
-
 bool Renderer::Init()
 {
 	m_MainCamera.Init();
@@ -366,9 +350,9 @@ void Renderer::InitDefaultTextures()
 		});
 
 	noise2DTexture = m_ResourceManager->CreateTexture(m_VulkanDevice, "res/textures/noise3.png", ROTextureCreateInfo{
-		.flags = {TextureFlags::Color | TextureFlags::Read | TextureFlags::TransferDst},
-		.format = {Format::B8G8R8A8_UNORM},
-		.name = {"Noise2D"}
+			.flags = {TextureFlags::Color | TextureFlags::Read | TextureFlags::TransferDst},
+			.format = {Format::B8G8R8A8_UNORM},
+			.name = {"Noise2D"}
 		});
 
 	blueNoise2DTexture = m_ResourceManager->CreateTexture(m_VulkanDevice, "res/textures/noise.png", ROTextureCreateInfo{
@@ -453,8 +437,6 @@ void Renderer::DrawGeometryGLTF(std::vector<VulkanglTFModel>& bucket)
 	BindPipeline<GraphicsPipeline>();
 
 	BeginRenderPass({ GetNativeWidth, GetNativeHeight });
-
-	int currentModel = 0;
 
 	for (auto& model : bucket)
 	{
@@ -730,9 +712,14 @@ void Renderer::RecreateSwapchain()
 	m_VulkanSwapchain = std::make_unique<VulkanSwapchain>(m_VulkanDevice, Extent2D{ static_cast<uint32_t>(currentWidth), static_cast<uint32_t>(currentHeight) });
 }
 
-void Renderer::ResourceBarrier(VulkanTexture* texture, ResourceState oldLayout, ResourceState newLayout, ResourceStage srcStage, ResourceStage dstStage, uint32_t mipLevel)
+void Renderer::ResourceBarrier(VulkanTexture* texture, ResourceState oldLayout, ResourceState newLayout, ResourceStage srcStage, ResourceStage dstStage, uint32_t mipLevel, uint32_t mipCount)
 {
-	m_VulkanDevice.ResourceBarrier(GetCurrentCommandBuffer(), texture, oldLayout, newLayout, srcStage, dstStage, mipLevel);
+	m_VulkanDevice.ResourceBarrier(GetCurrentCommandBuffer(), texture, oldLayout, newLayout, srcStage, dstStage, mipLevel, mipCount);
+}
+
+void Renderer::ResourceBarrier(VulkanBuffer* buffer, ResourceState oldLayout, ResourceState newLayout, ResourceStage srcStage, ResourceStage dstStage)
+{
+	m_VulkanDevice.ResourceBarrier(GetCurrentCommandBuffer(), buffer, oldLayout, newLayout, srcStage, dstStage);
 }
 
 void Renderer::RecordCommandBuffer()
@@ -852,9 +839,9 @@ void Renderer::InitLights()
 			.position = { 70.0f, 200.0f, -100.0f },
 			.radius = {1.f},
 			.color = {1.f, 0.6f, 0.2f},
-			.intensity = {1.f},
+			.intensity = {25.f},
 			.type = {LightType::LightType_Directional},
-			.size = 5.f
+			.size = {5.f}
 		});
 
 	lights.push_back(
@@ -864,7 +851,7 @@ void Renderer::InitLights()
 			.color = {1.f, 0.6f, 0.2f},
 			.intensity = {1.f},
 			.type = {LightType::LightType_Point},
-			.size = 5.f
+			.size = {5.f}
 		});
 
 	lights.push_back(
@@ -874,7 +861,7 @@ void Renderer::InitLights()
 			.color = { 0.f, 0.732f, 0.36f },
 			.intensity = {0.6f},
 			.type = {LightType::LightType_Point},
-			.size = 0.2f
+			.size = {0.2f}
 		});
 
 	lights.push_back(
@@ -884,7 +871,7 @@ void Renderer::InitLights()
 			.color = {1.f, 0.6f, 0.2f},
 			.intensity = {1.f},
 			.type = {LightType::LightType_Point},
-			.size = 1.f
+			.size = {1.f},
 		});
 }
 

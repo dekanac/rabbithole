@@ -29,29 +29,17 @@ public:
 	TextureFlags			GeFlags() const { return m_Flags; }
 	ImageRegion				GetRegion() const { return m_Region; }
 	std::string 			GetName() const { return m_Name; }
-
-	virtual ResourceState			GetResourceState() const { return m_CurrentResourceState; };
-	virtual void					SetResourceState(ResourceState state) { m_CurrentResourceState = state; }
-
-	virtual ResourceState			GetShouldBeResourceState() const { return m_ShouldBeResourceState; }
-	virtual void					SetShouldBeResourceState(ResourceState state) { m_ShouldBeResourceState = state; }
-
-	virtual ResourceStage			GetCurrentResourceStage() { return m_CurrentResourceStage; }
-	virtual void					SetCurrentResourceStage(ResourceStage stage) { m_CurrentResourceStage = stage; }
-
-	virtual ResourceStage			GetPreviousResourceStage() { return m_PreviousResourceStage; }
-	virtual void					SetPreviousResourceStage(ResourceStage stage) { m_PreviousResourceStage = stage; }
-
 	uint32_t				GetWidth() const { return m_Region.Extent.Width; }
 	uint32_t				GetHeight() const { return m_Region.Extent.Height; }
 	uint32_t				GetDepth() const { return m_Region.Extent.Depth; }
+	uint32_t				GetMipCount() const { return m_Region.Subresource.MipSize; }
 
 private:
 	void CreateResource(VulkanDevice* device, const TextureData* texData, bool generateMips = false);
-	void CreateResource(VulkanDevice* device, const uint32_t width, const uint32_t height, const uint32_t depth, uint32_t arraySize = 1, MultisampleType mstype = MultisampleType::Sample_1);
+	void CreateResource(VulkanDevice* device, RWTextureCreateInfo& createInfo);
 	void CreateView(VulkanDevice* device);
 	void CreateSampler(VulkanDevice* device, SamplerType type, AddressMode addressMode);
-	void InitializeRegion(const uint32_t width, const uint32_t height, const uint32_t depth, uint32_t arraySize = 1, uint32_t mipCount = 1);
+	void InitializeRegion(Extent3D dimensions, uint32_t arraySize = 1, uint32_t mipCount = 1);
 	void GenerateMips(VulkanCommandBuffer& commandBuffer, VulkanDevice* device, const uint32_t width, const uint32_t height, uint32_t mipCount);
 
 private:
@@ -63,10 +51,4 @@ private:
 	Format					m_Format;
 	TextureFlags			m_Flags;
 	std::string				m_Name = "DefaultTextureName";
-
-	ResourceState			m_CurrentResourceState = ResourceState::Count;
-	ResourceState			m_ShouldBeResourceState = ResourceState::Count;
-
-	ResourceStage			m_CurrentResourceStage = ResourceStage::Count;
-	ResourceStage			m_PreviousResourceStage = ResourceStage::Count;
 };

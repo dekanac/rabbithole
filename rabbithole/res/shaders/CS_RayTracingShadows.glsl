@@ -7,7 +7,7 @@
 #define MAXLEN 1000.0
 #define IN_SHADOW 0.0000001
 #define MOLLER_TRUMBORE
-#define MAX_STACK_HEIGHT 100
+#define MAX_STACK_HEIGHT 50
 
 layout(rgba16, binding = 0) readonly uniform image2D positionGbuffer;
 layout(rgba16, binding = 1) readonly uniform image2D normalGbuffer;
@@ -183,8 +183,7 @@ vec2 GetNoiseFromTexture(uvec2 aPixel, uint aSeed)
     t.y = t.x * (1u << 16u) + (t.x >> 16u);
     t.x += t.y * t.x;
     uvec2 uv = ((aPixel + t) & 0x3f);
-    vec2 noise = imageLoad(noiseTexture, ivec2(uv)).xy;
-    return noise;
+    return imageLoad(noiseTexture, ivec2(uv)).xy;
 }
 
 float CalculateShadowForLight(vec3 positionOfOrigin, vec3 normalOfOrigin, Light light, uvec2 uv)
@@ -205,7 +204,7 @@ float CalculateShadowForLight(vec3 positionOfOrigin, vec3 normalOfOrigin, Light 
 #else
     lightVec = normalize(light.position - positionOfOrigin);
 #endif
-    float pointToLightDistance = length(light.position.xyz - positionOfOrigin);
+    float pointToLightDistance = distance(light.position.xyz, positionOfOrigin);
     
     //if position is not facing light
     if (dot(normalOfOrigin, lightVec) < 0)
@@ -219,7 +218,6 @@ float CalculateShadowForLight(vec3 positionOfOrigin, vec3 normalOfOrigin, Light 
     }
 
     Ray ray;
-    //hack to avoid self intersections and to get smoother shadow termination
     ray.origin = positionOfOrigin + normalOfOrigin * 0.01;
     ray.direction = lightVec;
     ray.t = pointToLightDistance;
@@ -235,14 +233,8 @@ void main()
 {
 	vec3 worldposition = imageLoad(positionGbuffer, ivec2(gl_GlobalInvocationID.xy)).rgb;
 	vec3 normalGbuffer = imageLoad(normalGbuffer, ivec2(gl_GlobalInvocationID.xy)).rgb;
-    
-    float shadow = 1.f;
 
-    for (uint i = 0; i < lightCount; i++)
-    {
-        shadow = CalculateShadowForLight(worldposition, normalGbuffer, Lights.light[i], gl_GlobalInvocationID.xy);
-	    vec4 res = vec4(shadow, 0, 0, 1);
-	    imageStore(outTexture, ivec3(gl_GlobalInvocationID.xy, i), res);
-    }
+	vec4 res = vec4(CalculateShadowForLight(worldposition, normalGbuffer, Lights.light[gl_GlobalInvocationID.z], gl_GlobalInvocationID.xy), 0, 0, 1);
+	imageStore(outTexture, ivec3(gl_GlobalInvocationID.xyz), res);
 }
 

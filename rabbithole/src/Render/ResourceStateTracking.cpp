@@ -15,8 +15,14 @@ void ResourceStateTrackingManager::CommitBarriers()
 
 		if (!(resourceState == resourceShouldBe))
 		{
-			//for now only textures support states
-			Renderer::instance().ResourceBarrier((VulkanTexture*)resource, resourceState, resourceShouldBe, resourcePreviousStage, resourceCurrentStage);
+			if (resource->GetType() == ResourceType::Texture)
+			{
+				Renderer::instance().ResourceBarrier((VulkanTexture*)resource, resourceState, resourceShouldBe, resourcePreviousStage, resourceCurrentStage);
+			}
+			else if (resource->GetType() == ResourceType::Buffer)
+			{
+				Renderer::instance().ResourceBarrier((VulkanBuffer*)resource, resourceState, resourceShouldBe, resourcePreviousStage, resourceCurrentStage);
+			}
 		}
 	}
 

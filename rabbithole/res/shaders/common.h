@@ -20,7 +20,8 @@ struct Light
 	float intensity;
 	uint type;
     float size;
-    uvec2 padding;
+    float outerConeCos;
+    float innerConeCos;
 };
 
 struct CFBVHNode
@@ -211,4 +212,10 @@ float cnoise(vec3 P)
     vec2 n_yz = mix(n_z.xy, n_z.zw, fade_xyz.y);
     float n_xyz = mix(n_yz.x, n_yz.y, fade_xyz.x);
     return 2.2 * n_xyz;
+}
+
+float DistanceSquared(vec3 a, vec3 b)
+{
+	vec3 v = b - a;
+	return dot(v, v);
 }

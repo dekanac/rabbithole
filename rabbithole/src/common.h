@@ -44,6 +44,7 @@ public: \
 #define GET_VK_HANDLE(object) (object.GetVkHandle())
 #define GET_VK_HANDLE_PTR(object) (object->GetVkHandle())
 
+#define GET_MIP_LEVELS_FROM_RES(width, height) (static_cast<uint32_t>(std::floor(std::log2(std::max(width, height)))) + 1)
 //move this to separate math lib
 typedef glm::vec4 rabbitVec4f;
 typedef glm::vec3 rabbitVec3f;

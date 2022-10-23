@@ -353,7 +353,7 @@ uint8_t VulkanStateManager::GetRenderTargetCount()
     return m_RenderTarget0 ? (m_RenderTarget1 ? (m_RenderTarget2 ? (m_RenderTarget3 ? ( m_RenderTarget4 ? 5 : 4) : 3) : 2) : 1) : 0;
 }
 
-void VulkanStateManager::UpdateResourceStage(VulkanTexture* texture)
+void VulkanStateManager::UpdateResourceStage(ManagableResource* texture)
 {
 	texture->SetPreviousResourceStage(texture->GetCurrentResourceStage());
 

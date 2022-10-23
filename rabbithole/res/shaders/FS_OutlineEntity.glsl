@@ -12,13 +12,13 @@ layout (binding = 0) uniform usampler2D samplerEntityIdSampler;
 layout (location = 0) out vec4 outColor;
 
 void main()
-{
-    
+{ 
     vec2 size = 1.0f / textureSize(samplerEntityIdSampler, 0);
     vec2 offset = vec2(push.xMousePos, push.yMousePos) * size;
 
     uint selectedId = texture(samplerEntityIdSampler, offset).r;
-        //check if we are targeting chosen entity
+    
+    //check if we are targeting chosen entity
 	if (texture(samplerEntityIdSampler, inUv).r == selectedId && selectedId != 0) //hardcoded: hope we wont have that much entities
     {
         for (int i = -1; i <= +1; i++)
