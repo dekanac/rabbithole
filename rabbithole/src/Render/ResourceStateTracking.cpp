@@ -4,7 +4,7 @@
 #include "Renderer.h"
 #include "Resource.h"
 
-void ResourceStateTrackingManager::CommitBarriers()
+void ResourceStateTrackingManager::CommitBarriers(Renderer& renderer)
 {
 	for (auto resource : m_ResourcesForTransition)
 	{
@@ -17,11 +17,11 @@ void ResourceStateTrackingManager::CommitBarriers()
 		{
 			if (resource->GetType() == ResourceType::Texture)
 			{
-				Renderer::instance().ResourceBarrier((VulkanTexture*)resource, resourceState, resourceShouldBe, resourcePreviousStage, resourceCurrentStage);
+				renderer.ResourceBarrier((VulkanTexture*)resource, resourceState, resourceShouldBe, resourcePreviousStage, resourceCurrentStage);
 			}
 			else if (resource->GetType() == ResourceType::Buffer)
 			{
-				Renderer::instance().ResourceBarrier((VulkanBuffer*)resource, resourceState, resourceShouldBe, resourcePreviousStage, resourceCurrentStage);
+				renderer.ResourceBarrier((VulkanBuffer*)resource, resourceState, resourceShouldBe, resourcePreviousStage, resourceCurrentStage);
 			}
 		}
 	}

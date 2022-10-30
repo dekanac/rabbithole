@@ -104,10 +104,9 @@ public:
 
 	void SetCombinedImageSampler(uint32_t slot, VulkanTexture* texture);
 	void SetConstantBuffer(uint32_t slot, VulkanBuffer* buffer);
-	void SetStorageImage(uint32_t slot, VulkanTexture* texture);
+	void SetStorageImage(uint32_t slot, VulkanImageView* texture);
 	void SetStorageBuffer(uint32_t slot, VulkanBuffer* buffer);
 	void SetSampledImage(uint32_t slot, VulkanTexture* texture);
-	void SetSampler(uint32_t slot, VulkanTexture* texture);
 	void SetSampler(uint32_t slot, VulkanImageSampler* sampler);
 
 	VulkanDescriptorSet* FinalizeDescriptorSet(VulkanDevice& device, const VulkanDescriptorPool* pool);

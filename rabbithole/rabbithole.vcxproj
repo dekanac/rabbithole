@@ -140,6 +140,14 @@
     <ClCompile Include="src\Render\Model\TextureLoading.cpp" />
     <ClCompile Include="src\Render\PipelineManager.cpp" />
     <ClCompile Include="src\Render\RabbitPass.cpp" />
+    <ClCompile Include="src\Render\RabbitPasses\AmbientOcclusion.cpp" />
+    <ClCompile Include="src\Render\RabbitPasses\GBuffer.cpp" />
+    <ClCompile Include="src\Render\RabbitPasses\Lighting.cpp" />
+    <ClCompile Include="src\Render\RabbitPasses\Postprocessing.cpp" />
+    <ClCompile Include="src\Render\RabbitPasses\Shadows.cpp" />
+    <ClCompile Include="src\Render\RabbitPasses\Tools.cpp" />
+    <ClCompile Include="src\Render\RabbitPasses\Upscaling.cpp" />
+    <ClCompile Include="src\Render\RabbitPasses\Volumetric.cpp" />
     <ClCompile Include="src\Render\ResourceManager.cpp" />
     <ClCompile Include="src\Render\ResourceStateTracking.cpp" />
     <ClCompile Include="src\Render\SuperResolutionManager.cpp" />
@@ -191,6 +199,14 @@
     <ClInclude Include="src\Render\Model\TextureLoading.h" />
     <ClInclude Include="src\Render\PipelineManager.h" />
     <ClInclude Include="src\Render\RabbitPass.h" />
+    <ClInclude Include="src\Render\RabbitPasses\AmbientOcclusion.h" />
+    <ClInclude Include="src\Render\RabbitPasses\GBuffer.h" />
+    <ClInclude Include="src\Render\RabbitPasses\Lighting.h" />
+    <ClInclude Include="src\Render\RabbitPasses\Postprocessing.h" />
+    <ClInclude Include="src\Render\RabbitPasses\Shadows.h" />
+    <ClInclude Include="src\Render\RabbitPasses\Tools.h" />
+    <ClInclude Include="src\Render\RabbitPasses\Upscaling.h" />
+    <ClInclude Include="src\Render\RabbitPasses\Volumetric.h" />
     <ClInclude Include="src\Render\ResourceManager.h" />
     <ClInclude Include="src\Render\ResourceStateTracking.h" />
     <ClInclude Include="src\Render\SuperResolutionManager.h" />
@@ -519,8 +535,10 @@
   <ItemGroup>
     <None Include="res\shaders\CS_3DNoiseLUT.glsl" />
     <None Include="res\shaders\CS_ComputeScattering.glsl" />
+    <None Include="res\shaders\CS_Downsample.glsl" />
     <None Include="res\shaders\CS_FSR.glsl" />
     <None Include="res\shaders\CS_RayTracingShadows.glsl" />
+    <None Include="res\shaders\CS_Upsample.glsl" />
     <None Include="res\shaders\CS_Volumetric.glsl" />
     <None Include="res\shaders\FS_GBuffer.glsl" />
     <None Include="res\shaders\FS_OutlineEntity.glsl" />

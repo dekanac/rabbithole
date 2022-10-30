@@ -52,7 +52,7 @@ struct VulkanImageViewInfo
 	VulkanImage*	Resource;
 	ImageViewFlags	Flags;
 	Format			Format;
-	ClearValue ClearValue;
+	ClearValue		ClearValue;
 	ImageSubresourceRange Subresource;
 };
 

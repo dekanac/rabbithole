@@ -105,8 +105,9 @@ class Renderer
 
 private:
 	VulkanDevice										m_VulkanDevice{};
-	VulkanStateManager*									m_StateManager;
-	ResourceManager*									m_ResourceManager;
+	VulkanStateManager									m_StateManager{};
+	ResourceStateTrackingManager						m_ResourceStateTrackingManager{};
+	ResourceManager										m_ResourceManager{};
 	std::unique_ptr<VulkanSwapchain>					m_VulkanSwapchain;
 	std::unique_ptr<VulkanDescriptorPool>				m_DescriptorPool;
 	std::vector<std::unique_ptr<VulkanCommandBuffer>>	m_MainRenderCommandBuffers;
@@ -138,12 +139,13 @@ private:
 
 	ImVec2 GetScaledSizeWithAspectRatioKept(ImVec2 currentSize);
 public:
-	inline VulkanDevice&		GetVulkanDevice() { return m_VulkanDevice; }
-	inline VulkanStateManager*	GetStateManager() const { return m_StateManager; }
-	inline VulkanSwapchain*		GetSwapchain() const { return m_VulkanSwapchain.get(); }
-	inline ResourceManager*		GetResourceManager() const { return m_ResourceManager; }
-	inline VulkanImageView*		GetSwapchainImage() { return m_VulkanSwapchain->GetImageView(m_CurrentImageIndex); }
-	inline VulkanBuffer*		GetVertexUploadBuffer() { return m_VertexUploadBuffer; }
+	inline VulkanDevice&					GetVulkanDevice() { return m_VulkanDevice; }
+	inline VulkanStateManager&				GetStateManager() { return m_StateManager; }
+	inline ResourceStateTrackingManager&	GetResourceStateTrackingManager() { return m_ResourceStateTrackingManager; }
+	inline VulkanSwapchain*					GetSwapchain() const { return m_VulkanSwapchain.get(); }
+	inline ResourceManager&					GetResourceManager() { return m_ResourceManager; }
+	inline VulkanImageView*					GetSwapchainImage() { return m_VulkanSwapchain->GetImageView(m_CurrentImageIndex); }
+	inline VulkanBuffer*					GetVertexUploadBuffer() { return m_VertexUploadBuffer; }
 
 	void ResourceBarrier(VulkanTexture* texture, ResourceState oldLayout, ResourceState newLayout, ResourceStage srcStage, ResourceStage dstStage, uint32_t mipLevel = 0, uint32_t mipCount = UINT32_MAX);
 	void ResourceBarrier(VulkanBuffer* buffer, ResourceState oldLayout, ResourceState newLayout, ResourceStage srcStage, ResourceStage dstStage);
@@ -152,8 +154,8 @@ public:
 	void CopyImage(VulkanTexture* src, VulkanTexture* dst);
 	void CopyBuffer(VulkanBuffer& src, VulkanBuffer& dst, uint64_t size = UINT64_MAX, uint64_t srcOffset = 0, uint64_t dstOffset = 0);
 
-	inline Shader*			GetShader(const std::string& name) const { return m_ResourceManager->GetShader(name); }
-	inline VulkanTexture*	GetTextureWithID(uint32_t textureId) { return m_ResourceManager->GetTextures()[textureId]; }
+	inline Shader*			GetShader(const std::string& name) { return m_ResourceManager.GetShader(name); }
+	inline VulkanTexture*	GetTextureWithID(uint32_t textureId) { return m_ResourceManager.GetTextures()[textureId]; }
 	inline Camera&			GetCamera() { return m_MainCamera; }
 	inline UIState&			GetUIState() { return m_CurrentUIState; }
 	inline CameraState&		GetCameraState() { return m_CurrentCameraState; }
@@ -188,7 +190,7 @@ public:
 	void BindPushConstant(T&& push)
 	{
 		PushConstant pushConst(reinterpret_cast<void*>(push), static_cast<uint32_t>(sizeof(T)));
-		m_StateManager->SetPushConst(pushConst);
+		m_StateManager.SetPushConst(pushConst);
 	}
 	void BindPushConstInternal();
 	template<class T = Pipeline> void BindPipeline();
@@ -207,8 +209,6 @@ public:
 	VulkanTexture* g_DefaultBlackTexture;
 	VulkanTexture* g_Default3DTexture;
 	VulkanTexture* g_DefaultArrayTexture;
-	
-	//TODO: do something with these
 
 	//geometry
 	IndexedIndirectBuffer* geomDataIndirectDraw;
@@ -233,7 +233,6 @@ public:
 	VulkanTexture* noise3DLUT;
 	VulkanTexture* noise2DTexture;
 	VulkanTexture* blueNoise2DTexture;
-	bool init3dnoise = false;
 
 	bool m_RenderOutlinedEntity = false;
     bool m_FramebufferResized = false;

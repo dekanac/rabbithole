@@ -7,11 +7,13 @@
 #include "Render/Camera.h"
 #include "Render/Converters.h"
 #include "Render/PipelineManager.h"
-#include "Render/RabbitPass.h"
+#include "Render/RabbitPasses/Tools.h"
+#include "Render/RabbitPasses/Postprocessing.h"
 #include "Render/ResourceStateTracking.h"
 #include "Render/Shader.h"
 #include "Render/SuperResolutionManager.h"
 #include "Render/Window.h"
+
 #include "Utils/utils.h"
 #include "Vulkan/Include/VulkanWrapper.h"
 
@@ -38,8 +40,6 @@ bool Renderer::Init()
 {
 	m_MainCamera.Init();
 	SuperResolutionManager::instance().Init(&m_VulkanDevice);
-	m_ResourceManager = new ResourceManager();
-	m_StateManager = new VulkanStateManager();
 
 #ifdef RABBITHOLE_USING_IMGUI
 	ImGui::CreateContext();
@@ -54,8 +54,8 @@ bool Renderer::Init()
 	CreateDescriptorPool();
 	CreateCommandBuffers();
 
-	RabbitPassManager::instance().SchedulePasses();
-	RabbitPassManager::instance().DeclareResources(this);
+	RabbitPassManager::instance().SchedulePasses(*this);
+	RabbitPassManager::instance().DeclareResources();
 
 	m_GPUTimeStamps.OnCreate(&m_VulkanDevice, m_VulkanSwapchain->GetImageCount());
 
@@ -65,10 +65,10 @@ bool Renderer::Init()
 	}
 
 	//for now max 1024 commands
-	constexpr uint32_t numOfIndirectCommands = 1024;
+	constexpr uint32_t numOfIndirectCommands = 10240;
 
 	geomDataIndirectDraw = new IndexedIndirectBuffer();
-	geomDataIndirectDraw->gpuBuffer = m_ResourceManager->CreateBuffer(m_VulkanDevice, BufferCreateInfo{
+	geomDataIndirectDraw->gpuBuffer = m_ResourceManager.CreateBuffer(m_VulkanDevice, BufferCreateInfo{
 			.flags = {BufferUsageFlags::IndirectBuffer | BufferUsageFlags::TransferSrc},
 			.memoryAccess = {MemoryAccess::CPU2GPU},
 			.size = {sizeof(IndexIndirectDrawData) * numOfIndirectCommands},
@@ -77,22 +77,6 @@ bool Renderer::Init()
 
 	//TODO: do this better, brother
 	geomDataIndirectDraw->localBuffer = (IndexIndirectDrawData*)malloc(sizeof(IndexIndirectDrawData) * numOfIndirectCommands);
-
-#ifdef USE_RABBITHOLE_TOOLS
-	entityHelper = m_ResourceManager->CreateTexture(m_VulkanDevice, RWTextureCreateInfo{
-			.dimensions = {GetNativeWidth, GetNativeHeight, 1},
-			.flags = {TextureFlags::RenderTarget | TextureFlags::TransferSrc},
-			.format = {Format::R32_UINT},
-			.name = {"Entity Helper"}
-		});
-
-	entityHelperBuffer = m_ResourceManager->CreateBuffer(m_VulkanDevice, BufferCreateInfo{
-			.flags = {BufferUsageFlags::StorageBuffer},
-			.memoryAccess = {MemoryAccess::CPU2GPU},
-			.size = {GetNativeWidth * GetNativeHeight * 4},
-			.name = {"Entity Helper"}
-		});
-#endif
 
 	//init acceleration structure
 	ConstructBVH();
@@ -107,11 +91,9 @@ bool Renderer::Shutdown()
 
 	gltfModels.clear();
 	m_GPUTimeStamps.OnDestroy();
-	delete m_ResourceManager;
 	SuperResolutionManager::instance().Destroy();
 	PipelineManager::instance().Destroy();
 	DestroyImgui();
-	delete m_StateManager;
 
     return true;
 }
@@ -250,7 +232,7 @@ void Renderer::InitImgui()
 	init_info.MinImageCount = m_VulkanSwapchain->GetImageCount();
 	init_info.ImageCount = m_VulkanSwapchain->GetImageCount();
 
-	ImGui_ImplVulkan_Init(&init_info, GET_VK_HANDLE_PTR(m_StateManager->GetRenderPass()));
+	ImGui_ImplVulkan_Init(&init_info, GET_VK_HANDLE_PTR(m_StateManager.GetRenderPass()));
 
 	VulkanCommandBuffer tempCommandBuffer(m_VulkanDevice, "Temp Imgui Command Buffer");
 	tempCommandBuffer.BeginCommandBuffer(true);
@@ -322,26 +304,26 @@ void Renderer::DestroyImgui()
 
 void Renderer::InitDefaultTextures()
 {
-	g_DefaultWhiteTexture = m_ResourceManager->CreateTexture(m_VulkanDevice, "res/textures/default_white.png", ROTextureCreateInfo{
+	g_DefaultWhiteTexture = m_ResourceManager.CreateTexture(m_VulkanDevice, "res/textures/default_white.png", ROTextureCreateInfo{
 			.flags = {TextureFlags::Color | TextureFlags::Read | TextureFlags::TransferDst},
 			.format = {Format::R8G8B8A8_UNORM_SRGB},
 			.name = {"Default White"}
 		});
 	
-	g_DefaultBlackTexture = m_ResourceManager->CreateTexture(m_VulkanDevice, "res/textures/default_black.png", ROTextureCreateInfo{
+	g_DefaultBlackTexture = m_ResourceManager.CreateTexture(m_VulkanDevice, "res/textures/default_black.png", ROTextureCreateInfo{
 			.flags = {TextureFlags::Color | TextureFlags::Read | TextureFlags::TransferDst},
 			.format = {Format::R8G8B8A8_UNORM_SRGB},
 			.name = {"Default Black"}
 		});
 	
-	g_Default3DTexture = m_ResourceManager->CreateTexture(m_VulkanDevice, RWTextureCreateInfo{
+	g_Default3DTexture = m_ResourceManager.CreateTexture(m_VulkanDevice, RWTextureCreateInfo{
 			.dimensions = {4, 4, 4},
 			.flags = {TextureFlags::Color | TextureFlags::Read},
 			.format = {Format::B8G8R8A8_UNORM},
 			.name = {"Default 3D"}
 		});
 	
-	g_DefaultArrayTexture = m_ResourceManager->CreateTexture(m_VulkanDevice, RWTextureCreateInfo{
+	g_DefaultArrayTexture = m_ResourceManager.CreateTexture(m_VulkanDevice, RWTextureCreateInfo{
 			.dimensions = {4, 4, 1},
 			.flags = {TextureFlags::Color | TextureFlags::Read},
 			.format = {Format::B8G8R8A8_UNORM},
@@ -349,19 +331,19 @@ void Renderer::InitDefaultTextures()
 			.arraySize = {4}
 		});
 
-	noise2DTexture = m_ResourceManager->CreateTexture(m_VulkanDevice, "res/textures/noise3.png", ROTextureCreateInfo{
+	noise2DTexture = m_ResourceManager.CreateTexture(m_VulkanDevice, "res/textures/noise3.png", ROTextureCreateInfo{
 			.flags = {TextureFlags::Color | TextureFlags::Read | TextureFlags::TransferDst},
 			.format = {Format::B8G8R8A8_UNORM},
 			.name = {"Noise2D"}
 		});
 
-	blueNoise2DTexture = m_ResourceManager->CreateTexture(m_VulkanDevice, "res/textures/noise.png", ROTextureCreateInfo{
+	blueNoise2DTexture = m_ResourceManager.CreateTexture(m_VulkanDevice, "res/textures/noise.png", ROTextureCreateInfo{
 			.flags = {TextureFlags::Color | TextureFlags::Read | TextureFlags::TransferDst | TextureFlags::Storage},
 			.format = {Format::B8G8R8A8_UNORM},
 			.name = {"BlueNoise2D"}
 		});
 
-	noise3DLUT = m_ResourceManager->CreateTexture(m_VulkanDevice, RWTextureCreateInfo{
+	noise3DLUT = m_ResourceManager.CreateTexture(m_VulkanDevice, RWTextureCreateInfo{
 			.dimensions = {256, 256, 256},
 			.flags = {TextureFlags::Color | TextureFlags::Read | TextureFlags::Storage},
 			.format = {Format::R32_SFLOAT},
@@ -371,22 +353,23 @@ void Renderer::InitDefaultTextures()
 
 void Renderer::LoadModels()
 {
-	//gltfModels.emplace_back(&m_VulkanDevice, "res/meshes/separateObjects.gltf");
-	gltfModels.emplace_back(&m_VulkanDevice, "res/meshes/cottage.gltf");
+	gltfModels.emplace_back(&m_VulkanDevice, "res/meshes/separateObjects.gltf");
+	//gltfModels.emplace_back(&m_VulkanDevice, "res/meshes/cottage.gltf");
 	//gltfModels.emplace_back(&m_VulkanDevice, "res/meshes/sponza/sponza.gltf");
+	//gltfModels.emplace_back(&m_VulkanDevice, "res/meshes/sponzaNovaOpti.gltf");
 }
 
 void Renderer::BeginRenderPass(VkExtent2D extent)
 {
 	VkRenderPassBeginInfo renderPassInfo{};
 	renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-	renderPassInfo.renderPass = GET_VK_HANDLE_PTR(m_StateManager->GetRenderPass());
-	renderPassInfo.framebuffer = GET_VK_HANDLE_PTR(m_StateManager->GetFramebuffer());
+	renderPassInfo.renderPass = GET_VK_HANDLE_PTR(m_StateManager.GetRenderPass());
+	renderPassInfo.framebuffer = GET_VK_HANDLE_PTR(m_StateManager.GetFramebuffer());
 	renderPassInfo.renderArea.offset = { 0, 0 };
 	renderPassInfo.renderArea.extent = extent;
 
-	auto renderTargetCount = m_StateManager->GetRenderTargetCount();
-	auto& renderTargets = m_StateManager->GetRenderTargets();
+	auto renderTargetCount = m_StateManager.GetRenderTargetCount();
+	auto& renderTargets = m_StateManager.GetRenderTargets();
 
 	std::vector<VkClearValue> clearValues(renderTargetCount);
 
@@ -396,7 +379,7 @@ void Renderer::BeginRenderPass(VkExtent2D extent)
 		clearValues[i] = GetVkClearColorValueFor(format);
 	}
 
-	if (m_StateManager->HasDepthStencil())
+	if (m_StateManager.HasDepthStencil())
 	{
 		renderTargetCount++;
 		VkClearValue depthClearValue{};
@@ -413,7 +396,7 @@ void Renderer::BeginRenderPass(VkExtent2D extent)
 void Renderer::EndRenderPass()
 {
 	vkCmdEndRenderPass(GET_VK_HANDLE(GetCurrentCommandBuffer()));
-	m_StateManager->Reset();
+	m_StateManager.Reset();
 }
 
 void Renderer::BeginLabel(const char* name)
@@ -442,7 +425,7 @@ void Renderer::DrawGeometryGLTF(std::vector<VulkanglTFModel>& bucket)
 	{
 		model.BindBuffers(GetCurrentCommandBuffer());
 
-		model.Draw(GetCurrentCommandBuffer(), m_StateManager->GetPipeline()->GetPipelineLayout(), m_CurrentImageIndex, geomDataIndirectDraw);
+		model.Draw(GetCurrentCommandBuffer(), m_StateManager.GetPipeline()->GetPipelineLayout(), m_CurrentImageIndex, geomDataIndirectDraw);
 	}
 
     geomDataIndirectDraw->SubmitToGPU();
@@ -455,8 +438,8 @@ void Renderer::DrawFullScreenQuad()
 	BindPipeline<GraphicsPipeline>();
 
 	Extent2D renderExtent{};
-	renderExtent.width = m_StateManager->GetFramebufferExtent().width;
-	renderExtent.height = m_StateManager->GetFramebufferExtent().height;
+	renderExtent.width = m_StateManager.GetFramebufferExtent().width;
+	renderExtent.height = m_StateManager.GetFramebufferExtent().height;
 
 	BeginRenderPass(renderExtent);
 
@@ -467,18 +450,18 @@ void Renderer::DrawFullScreenQuad()
 
 void Renderer::BindPushConstInternal()
 {
-	if (m_StateManager->ShouldBindPushConst())
+	if (m_StateManager.ShouldBindPushConst())
 	{
-		VkShaderStageFlagBits shaderStage = (m_StateManager->GetPipeline()->GetType() == PipelineType::Graphics) ? VkShaderStageFlagBits(VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_VERTEX_BIT) : (VK_SHADER_STAGE_COMPUTE_BIT);
+		VkShaderStageFlagBits shaderStage = (m_StateManager.GetPipeline()->GetType() == PipelineType::Graphics) ? VkShaderStageFlagBits(VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_VERTEX_BIT) : (VK_SHADER_STAGE_COMPUTE_BIT);
 		//TODO: what the hell is going on here
 		vkCmdPushConstants(GET_VK_HANDLE(GetCurrentCommandBuffer()),
-			*(m_StateManager->GetPipeline()->GetPipelineLayout()),
+			*(m_StateManager.GetPipeline()->GetPipelineLayout()),
 			shaderStage,
 			0,
-			m_StateManager->GetPushConst().size,
-			&m_StateManager->GetPushConst().data);
+			m_StateManager.GetPushConst().size,
+			&m_StateManager.GetPushConst().data);
 
-		m_StateManager->SetShouldBindPushConst(false);
+		m_StateManager.SetShouldBindPushConst(false);
 	}
 }
 
@@ -553,13 +536,13 @@ void Renderer::BindCameraMatrices(Camera* camera)
 	auto projection = camera->Projection();
 	auto view = camera->View();
 
-	m_StateManager->UpdateUBOElement(UBOElement::PrevViewProjMatrix, 4, &m_CurrentCameraState.PrevViewProjMatrix);
+	m_StateManager.UpdateUBOElement(UBOElement::PrevViewProjMatrix, 4, &m_CurrentCameraState.PrevViewProjMatrix);
 
 	m_CurrentCameraState.ViewMatrix = view;
-	m_StateManager->UpdateUBOElement(UBOElement::ViewMatrix, 4, &m_CurrentCameraState.ViewMatrix);
+	m_StateManager.UpdateUBOElement(UBOElement::ViewMatrix, 4, &m_CurrentCameraState.ViewMatrix);
 
 	m_CurrentCameraState.ProjectionMatrix = projection;
-	m_StateManager->UpdateUBOElement(UBOElement::ProjectionMatrix, 4, &m_CurrentCameraState.ProjectionMatrix);
+	m_StateManager.UpdateUBOElement(UBOElement::ProjectionMatrix, 4, &m_CurrentCameraState.ProjectionMatrix);
 
 	//todo: double check this, for now I use jittered matrix in VS_Gbuffer FS_SSAO and VS_Skybox
 	//disable jitter when camera is moving
@@ -568,22 +551,22 @@ void Renderer::BindCameraMatrices(Camera* camera)
 	else
 		m_CurrentCameraState.ProjMatrixJittered = camera->ProjectionJittered();
 
-	m_StateManager->UpdateUBOElement(UBOElement::ProjectionMatrixJittered, 4, &m_CurrentCameraState.ProjMatrixJittered);
+	m_StateManager.UpdateUBOElement(UBOElement::ProjectionMatrixJittered, 4, &m_CurrentCameraState.ProjMatrixJittered);
 
 	m_CurrentCameraState.ViewProjMatrix = projection * view;
-	m_StateManager->UpdateUBOElement(UBOElement::ViewProjMatrix, 4, &m_CurrentCameraState.ViewProjMatrix);
+	m_StateManager.UpdateUBOElement(UBOElement::ViewProjMatrix, 4, &m_CurrentCameraState.ViewProjMatrix);
 
 	m_CurrentCameraState.CameraPosition = camera->GetPosition();
-	m_StateManager->UpdateUBOElement(UBOElement::CameraPosition, 1, &m_CurrentCameraState.CameraPosition);
+	m_StateManager.UpdateUBOElement(UBOElement::CameraPosition, 1, &m_CurrentCameraState.CameraPosition);
 	
 	m_CurrentCameraState.ViewInverseMatrix = glm::inverse(view);
-	m_StateManager->UpdateUBOElement(UBOElement::ViewInverse, 4, &m_CurrentCameraState.ViewInverseMatrix);
+	m_StateManager.UpdateUBOElement(UBOElement::ViewInverse, 4, &m_CurrentCameraState.ViewInverseMatrix);
 
 	m_CurrentCameraState.ProjectionInverseMatrix = glm::inverse(projection);
-	m_StateManager->UpdateUBOElement(UBOElement::ProjInverse, 4, &m_CurrentCameraState.ProjectionInverseMatrix);
+	m_StateManager.UpdateUBOElement(UBOElement::ProjInverse, 4, &m_CurrentCameraState.ProjectionInverseMatrix);
 
 	m_CurrentCameraState.ViewProjInverseMatrix = m_CurrentCameraState.ViewInverseMatrix * m_CurrentCameraState.ProjectionInverseMatrix;
-	m_StateManager->UpdateUBOElement(UBOElement::ViewProjInverse, 4, &m_CurrentCameraState.ViewProjInverseMatrix);
+	m_StateManager.UpdateUBOElement(UBOElement::ViewProjInverse, 4, &m_CurrentCameraState.ViewProjInverseMatrix);
 
 	float width = projection[0][0];
 	float height = projection[1][1];
@@ -592,9 +575,9 @@ void Renderer::BindCameraMatrices(Camera* camera)
 	m_CurrentCameraState.EyeYAxis = m_CurrentCameraState.ViewInverseMatrix * rabbitVec4f(0, -1.0 / height, 0, 0);
 	m_CurrentCameraState.EyeZAxis = m_CurrentCameraState.ViewInverseMatrix * rabbitVec4f(0, 0, 1.f, 0);
 
-	m_StateManager->UpdateUBOElement(UBOElement::EyeXAxis, 1, &m_CurrentCameraState.EyeXAxis);
-	m_StateManager->UpdateUBOElement(UBOElement::EyeYAxis, 1, &m_CurrentCameraState.EyeYAxis);
-	m_StateManager->UpdateUBOElement(UBOElement::EyeZAxis, 1, &m_CurrentCameraState.EyeZAxis);
+	m_StateManager.UpdateUBOElement(UBOElement::EyeXAxis, 1, &m_CurrentCameraState.EyeXAxis);
+	m_StateManager.UpdateUBOElement(UBOElement::EyeYAxis, 1, &m_CurrentCameraState.EyeYAxis);
+	m_StateManager.UpdateUBOElement(UBOElement::EyeZAxis, 1, &m_CurrentCameraState.EyeZAxis);
 
 	if (m_CurrentCameraState.ViewProjMatrix == m_CurrentCameraState.PrevViewProjMatrix)
 		m_CurrentCameraState.HasViewProjMatrixChanged = false;
@@ -607,18 +590,18 @@ void Renderer::BindCameraMatrices(Camera* camera)
 
 void Renderer::BindUBO()
 {	
-	if (m_StateManager->GetUBODirty())
+	if (m_StateManager.GetUBODirty())
 	{ 
-		m_MainConstBuffer[m_CurrentImageIndex]->FillBuffer(m_StateManager->GetUBO(), sizeof(UniformBufferObject));
+		m_MainConstBuffer[m_CurrentImageIndex]->FillBuffer(m_StateManager.GetUBO(), sizeof(UniformBufferObject));
 		
-		m_StateManager->SetUBODirty(false);
+		m_StateManager.SetUBODirty(false);
 	}
 }
 
 void Renderer::BindDescriptorSets()
 {
-	VulkanDescriptorSet* descriptorSet = m_StateManager->FinalizeDescriptorSet(m_VulkanDevice, m_DescriptorPool.get());
-	VulkanPipeline* pipeline = m_StateManager->GetPipeline();
+	VulkanDescriptorSet* descriptorSet = m_StateManager.FinalizeDescriptorSet(m_VulkanDevice, m_DescriptorPool.get());
+	VulkanPipeline* pipeline = m_StateManager.GetPipeline();
 
 	vkCmdBindDescriptorSets(
 		GET_VK_HANDLE(GetCurrentCommandBuffer()), 
@@ -676,7 +659,7 @@ void Renderer::LoadAndCreateShaders()
 						break;
 					}
 
-					m_ResourceManager->CreateShader(m_VulkanDevice, createInfo, shaderCode, fileNameFinal.c_str());
+					m_ResourceManager.CreateShader(m_VulkanDevice, createInfo, shaderCode, fileNameFinal.c_str());
 				}
 			}
 		}
@@ -764,8 +747,8 @@ void Renderer::RecordCommandBuffer()
 	BindCameraMatrices(&m_MainCamera);
 	BindUBO();
 
-	EXECUTE_ONCE(RabbitPassManager::instance().ExecuteOneTimePasses(this));
-	RabbitPassManager::instance().ExecutePasses(this);
+	EXECUTE_ONCE(RabbitPassManager::instance().ExecuteOneTimePasses(*this));
+	RabbitPassManager::instance().ExecutePasses(*this);
 
 	if (m_RecordGPUTimeStamps)
 	{
@@ -780,7 +763,7 @@ void Renderer::CreateUniformBuffers()
 {
 	for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
 	{
-		m_MainConstBuffer[i] = m_ResourceManager->CreateBuffer(m_VulkanDevice, BufferCreateInfo{
+		m_MainConstBuffer[i] = m_ResourceManager.CreateBuffer(m_VulkanDevice, BufferCreateInfo{
 				.flags = {BufferUsageFlags::UniformBuffer},
 				.memoryAccess = {MemoryAccess::CPU2GPU},
 				.size = {sizeof(UniformBufferObject)},
@@ -788,7 +771,7 @@ void Renderer::CreateUniformBuffers()
 			});
 	}
 
-	m_VertexUploadBuffer = m_ResourceManager->CreateBuffer(m_VulkanDevice, BufferCreateInfo{
+	m_VertexUploadBuffer = m_ResourceManager.CreateBuffer(m_VulkanDevice, BufferCreateInfo{
 			.flags = {BufferUsageFlags::VertexBuffer},
 			.memoryAccess = {MemoryAccess::CPU2GPU},
 			.size = {MB_16},
@@ -839,7 +822,7 @@ void Renderer::InitLights()
 			.position = { 70.0f, 200.0f, -100.0f },
 			.radius = {1.f},
 			.color = {1.f, 0.6f, 0.2f},
-			.intensity = {25.f},
+			.intensity = {2.f},
 			.type = {LightType::LightType_Directional},
 			.size = {5.f}
 		});
@@ -964,28 +947,28 @@ void Renderer::ConstructBVH()
 
 	CreateCFBVH(triangles.data(), node, &triIndices, &indicesNum, &root, &nodeNum);
 	
-	vertexBuffer = m_ResourceManager->CreateBuffer(m_VulkanDevice, BufferCreateInfo{
+	vertexBuffer = m_ResourceManager.CreateBuffer(m_VulkanDevice, BufferCreateInfo{
 			.flags = {BufferUsageFlags::StorageBuffer},
 			.memoryAccess = {MemoryAccess::GPU},
 			.size = {static_cast<uint32_t>(verticesFinal.size() * sizeof(rabbitVec4f))},
 			.name = {"VertexBuffer"}
 		});
 
-	trianglesBuffer = m_ResourceManager->CreateBuffer(m_VulkanDevice, BufferCreateInfo{
+	trianglesBuffer = m_ResourceManager.CreateBuffer(m_VulkanDevice, BufferCreateInfo{
 			.flags = {BufferUsageFlags::StorageBuffer},
 			.memoryAccess = {MemoryAccess::GPU},
 			.size = {static_cast<uint32_t>(triangles.size() * sizeof(Triangle))},
 			.name = {"TrianglesBuffer"}
 		});
 
-	triangleIndxsBuffer = m_ResourceManager->CreateBuffer(m_VulkanDevice, BufferCreateInfo{
+	triangleIndxsBuffer = m_ResourceManager.CreateBuffer(m_VulkanDevice, BufferCreateInfo{
 			.flags = {BufferUsageFlags::StorageBuffer},
 			.memoryAccess = {MemoryAccess::GPU},
 			.size = {static_cast<uint32_t>(indicesNum * sizeof(uint32_t))},
 			.name = {"TrianglesIndexBuffer"}
 		});
 
-	cfbvhNodesBuffer = m_ResourceManager->CreateBuffer(m_VulkanDevice, BufferCreateInfo{
+	cfbvhNodesBuffer = m_ResourceManager.CreateBuffer(m_VulkanDevice, BufferCreateInfo{
 			.flags = {BufferUsageFlags::StorageBuffer},
 			.memoryAccess = {MemoryAccess::GPU},
 			.size = {static_cast<uint32_t>(nodeNum * sizeof(CacheFriendlyBVHNode))},
@@ -1006,12 +989,12 @@ void Renderer::UpdateConstantBuffer()
     frustrumInfo.z = m_MainCamera.GetNearPlane();
     frustrumInfo.w = m_MainCamera.GetFarPlane();
 
-    m_StateManager->UpdateUBOElement(UBOElement::FrustrumInfo, 1, &frustrumInfo);
+    m_StateManager.UpdateUBOElement(UBOElement::FrustrumInfo, 1, &frustrumInfo);
 
 	rabbitVec4f frameInfo{};
 	frameInfo.x = static_cast<float>(m_CurrentFrameIndex);
 
-	m_StateManager->UpdateUBOElement(UBOElement::CurrentFrameInfo, 1, &frameInfo);
+	m_StateManager.UpdateUBOElement(UBOElement::CurrentFrameInfo, 1, &frameInfo);
 }
 
 void Renderer::UpdateUIStateAndFSR2PreDraw()
@@ -1094,7 +1077,7 @@ void Renderer::ImGuiTextureDebugger()
 {
 	ImGui::Begin("Texture Debugger");
 
-	auto& texturesMap = m_ResourceManager->GetTextures();
+	auto& texturesMap = m_ResourceManager.GetTextures();
 	std::vector<std::pair<uint32_t, VulkanTexture*>> textures(texturesMap.begin(), texturesMap.end());
 	std::sort(
 		textures.begin(), 
@@ -1307,42 +1290,42 @@ void IndexedIndirectBuffer::Reset()
 template<>
 void Renderer::BindPipeline<GraphicsPipeline>()
 {
-	RSTManager.CommitBarriers();
+	m_ResourceStateTrackingManager.CommitBarriers(*this);
 
 	//renderpass
-	auto& attachments = m_StateManager->GetRenderTargets();
-	auto depthStencil = m_StateManager->GetDepthStencil();
-	auto renderPassInfo = m_StateManager->GetRenderPassInfo();
+	auto& attachments = m_StateManager.GetRenderTargets();
+	auto depthStencil = m_StateManager.GetDepthStencil();
+	auto renderPassInfo = m_StateManager.GetRenderPassInfo();
 
 	VulkanRenderPass* renderpass =
-		m_StateManager->GetRenderPassDirty()
+		m_StateManager.GetRenderPassDirty()
 		? PipelineManager::instance().FindOrCreateRenderPass(m_VulkanDevice, attachments, depthStencil, *renderPassInfo)
-		: m_StateManager->GetRenderPass();
+		: m_StateManager.GetRenderPass();
 
-	m_StateManager->SetRenderPass(renderpass);
+	m_StateManager.SetRenderPass(renderpass);
 
-	//framebufferC
+	//framebuffer
 	VulkanFramebufferInfo framebufferInfo{};
-	framebufferInfo.width = m_StateManager->GetFramebufferExtent().width;
-	framebufferInfo.height = m_StateManager->GetFramebufferExtent().height;
+	framebufferInfo.width = m_StateManager.GetFramebufferExtent().width;
+	framebufferInfo.height = m_StateManager.GetFramebufferExtent().height;
 
 	VulkanFramebuffer* framebuffer =
-		m_StateManager->GetFramebufferDirty()
+		m_StateManager.GetFramebufferDirty()
 		? PipelineManager::instance().FindOrCreateFramebuffer(m_VulkanDevice, attachments, depthStencil, renderpass, framebufferInfo)
-		: m_StateManager->GetFramebuffer();
+		: m_StateManager.GetFramebuffer();
 
-	m_StateManager->SetFramebuffer(framebuffer);
+	m_StateManager.SetFramebuffer(framebuffer);
 
 	//pipeline
-	auto pipelineInfo = m_StateManager->GetPipelineInfo();
+	auto pipelineInfo = m_StateManager.GetPipelineInfo();
 
-	pipelineInfo->renderPass = m_StateManager->GetRenderPass();
+	pipelineInfo->renderPass = m_StateManager.GetRenderPass();
 	auto pipeline =
-		m_StateManager->GetPipelineDirty()
+		m_StateManager.GetPipelineDirty()
 		? PipelineManager::instance().FindOrCreateGraphicsPipeline(m_VulkanDevice, *pipelineInfo)
-		: m_StateManager->GetPipeline();
+		: m_StateManager.GetPipeline();
 
-	m_StateManager->SetPipeline(pipeline);
+	m_StateManager.SetPipeline(pipeline);
 
 	pipeline->Bind(GetCurrentCommandBuffer());
 
@@ -1354,15 +1337,15 @@ void Renderer::BindPipeline<GraphicsPipeline>()
 template<>
 void Renderer::BindPipeline<ComputePipeline>()
 {
-	RSTManager.CommitBarriers();
+	m_ResourceStateTrackingManager.CommitBarriers(*this);
 
-	auto pipelineInfo = m_StateManager->GetPipelineInfo();
+	auto pipelineInfo = m_StateManager.GetPipelineInfo();
 
-	VulkanPipeline* computePipeline = m_StateManager->GetPipelineDirty()
+	VulkanPipeline* computePipeline = m_StateManager.GetPipelineDirty()
 		? PipelineManager::instance().FindOrCreateComputePipeline(m_VulkanDevice, *pipelineInfo)
-		: m_StateManager->GetPipeline();
+		: m_StateManager.GetPipeline();
 
-	m_StateManager->SetPipeline(computePipeline);
+	m_StateManager.SetPipeline(computePipeline);
 
 	computePipeline->Bind(GetCurrentCommandBuffer());
 

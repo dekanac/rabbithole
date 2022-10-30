@@ -23,10 +23,10 @@ private:
 
 public:
 	VulkanImage*			GetResource() const { return m_Resource; }
-	VulkanImageView*		GetView() const { return m_View; }
+	VulkanImageView*		GetView(uint32_t mipSlice = 0) const { return m_ViewMips[mipSlice]; }
 	VulkanImageSampler*		GetSampler() const { return m_Sampler; }
 	Format					GetFormat() const{ return m_Format; }
-	TextureFlags			GeFlags() const { return m_Flags; }
+	TextureFlags			GetFlags() const { return m_Flags; }
 	ImageRegion				GetRegion() const { return m_Region; }
 	std::string 			GetName() const { return m_Name; }
 	uint32_t				GetWidth() const { return m_Region.Extent.Width; }
@@ -40,12 +40,14 @@ private:
 	void CreateView(VulkanDevice* device);
 	void CreateSampler(VulkanDevice* device, SamplerType type, AddressMode addressMode);
 	void InitializeRegion(Extent3D dimensions, uint32_t arraySize = 1, uint32_t mipCount = 1);
-	void GenerateMips(VulkanCommandBuffer& commandBuffer, VulkanDevice* device, const uint32_t width, const uint32_t height, uint32_t mipCount);
+	void GenerateMips(VulkanCommandBuffer& commandBuffer, VulkanDevice* device, uint32_t mipCount);
+	void CreateViewsForMips(VulkanDevice* device);
 
 private:
-	VulkanImage*			m_Resource;
-	VulkanImageView*		m_View;
-	VulkanImageSampler*		m_Sampler;
+	VulkanImage*				  m_Resource;
+	std::vector<VulkanImageView*> m_ViewMips;
+	VulkanImageSampler*		      m_Sampler;
+
 
 	ImageRegion				m_Region;
 	Format					m_Format;

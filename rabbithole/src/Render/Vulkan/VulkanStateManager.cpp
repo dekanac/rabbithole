@@ -23,7 +23,7 @@ VulkanStateManager::VulkanStateManager()
 	m_DirtyRenderPass = true;
 	m_DirtyUBO = false;
 
-	SetFramebufferExtent(Extent2D{ GetNativeWidth, GetNativeHeight });
+	SetFramebufferExtent(Extent2D{ Window::instance().GetExtent().width, Window::instance().GetExtent().height });
 
     //m_DescriptorSetManager = new DescriptorSetManager();
     m_RenderTargets.resize(MaxRenderTargetCount);
@@ -217,11 +217,11 @@ void VulkanStateManager::SetConstantBuffer(uint32_t slot, VulkanBuffer* buffer)
     }
 }
 
-void VulkanStateManager::SetStorageImage(uint32_t slot, VulkanTexture* texture)
+void VulkanStateManager::SetStorageImage(uint32_t slot, VulkanImageView* view)
 {
 	DescriptorKey k(3);
 	k[0] = slot;
-	k[1] = texture->GetView()->GetID();
+	k[1] = view->GetID();
 	k[2] = (uint32_t)DescriptorType::StorageImage;
 
 	auto& descriptorsMap = PipelineManager::instance().m_Descriptors;
@@ -236,7 +236,7 @@ void VulkanStateManager::SetStorageImage(uint32_t slot, VulkanTexture* texture)
 		VulkanDescriptorInfo info{};
 		info.Binding = slot;
 
-		info.imageView = texture->GetView();
+		info.imageView = view;
 		info.Type = DescriptorType::StorageImage;
 
 		VulkanDescriptor* descriptor = new VulkanDescriptor(info);
@@ -304,11 +304,6 @@ void VulkanStateManager::SetSampledImage(uint32_t slot, VulkanTexture* texture)
 
 		m_Descriptors.push_back(descriptor);
 	}
-}
-
-void VulkanStateManager::SetSampler(uint32_t slot, VulkanTexture* texture)
-{
-	SetSampler(slot, texture->GetSampler());
 }
 
 void VulkanStateManager::SetSampler(uint32_t slot, VulkanImageSampler* sampler)

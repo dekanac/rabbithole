@@ -13,9 +13,10 @@ VulkanTexture::VulkanTexture(VulkanDevice& device, RWTextureCreateInfo& createIn
 	CreateResource(&device, createInfo);
 	CreateView(&device);
 	CreateSampler(&device, createInfo.samplerType, createInfo.addressMode);
+	CreateViewsForMips(&device);
 
 	device.SetObjectName((uint64_t)GET_VK_HANDLE_PTR(m_Resource), VK_OBJECT_TYPE_IMAGE, createInfo.name.c_str());
-	device.SetObjectName((uint64_t)GET_VK_HANDLE_PTR(m_View), VK_OBJECT_TYPE_IMAGE_VIEW, createInfo.name.c_str());
+	device.SetObjectName((uint64_t)GET_VK_HANDLE_PTR(m_ViewMips[0]), VK_OBJECT_TYPE_IMAGE_VIEW, createInfo.name.c_str());
 	device.SetObjectName((uint64_t)GET_VK_HANDLE_PTR(m_Sampler), VK_OBJECT_TYPE_SAMPLER, createInfo.name.c_str());
 }
 
@@ -28,16 +29,17 @@ VulkanTexture::VulkanTexture(VulkanDevice& device, const TextureData* data, ROTe
 	CreateResource(&device, data, createInfo.generateMips);
 	CreateView(&device);
 	CreateSampler(&device, createInfo.samplerType, createInfo.addressMode);
+	CreateViewsForMips(&device);
 
 	device.SetObjectName((uint64_t)GET_VK_HANDLE_PTR(m_Resource), VK_OBJECT_TYPE_IMAGE, createInfo.name.c_str());
-	device.SetObjectName((uint64_t)GET_VK_HANDLE_PTR(m_View), VK_OBJECT_TYPE_IMAGE_VIEW, createInfo.name.c_str());
+	device.SetObjectName((uint64_t)GET_VK_HANDLE_PTR(m_ViewMips[0]), VK_OBJECT_TYPE_IMAGE_VIEW, createInfo.name.c_str());
 	device.SetObjectName((uint64_t)GET_VK_HANDLE_PTR(m_Sampler), VK_OBJECT_TYPE_SAMPLER, createInfo.name.c_str());
 }
 
 VulkanTexture::~VulkanTexture()
 {
 	if (m_Sampler) delete(m_Sampler);
-	if (m_View) delete(m_View);
+	for (auto view : m_ViewMips) delete view;
 	if (m_Resource) delete(m_Resource);
 }
 
@@ -114,7 +116,7 @@ void VulkanTexture::CreateResource(VulkanDevice* device, const TextureData* texD
 
 	if (generateMips)
 	{
-		GenerateMips(tempCommandBuffer, device, texData->width, texData->height, mipCount);
+		GenerateMips(tempCommandBuffer, device, mipCount);
 	}
 	else
 	{
@@ -189,7 +191,7 @@ void VulkanTexture::CreateView(VulkanDevice* device)
 	imageViewInfo.Subresource.ArraySize = m_Region.Subresource.ArraySize;
 	imageViewInfo.ClearValue = GetClearColorValueFor(m_Format);
 
-	m_View = new VulkanImageView(device, imageViewInfo, m_Name.c_str());
+	m_ViewMips.push_back(new VulkanImageView(device, imageViewInfo, m_Name.c_str()));
 }
 
 void VulkanTexture::CreateSampler(VulkanDevice* device, SamplerType type, AddressMode addressMode)
@@ -226,7 +228,7 @@ void VulkanTexture::InitializeRegion(Extent3D dimensions, uint32_t arraySize, ui
 	m_Region.Subresource.ArraySize = arraySize;
 }
 
-void VulkanTexture::GenerateMips(VulkanCommandBuffer& commandBuffer, VulkanDevice* device, const uint32_t width, const uint32_t height, uint32_t mipCount)
+void VulkanTexture::GenerateMips(VulkanCommandBuffer& commandBuffer, VulkanDevice* device, uint32_t mipCount)
 {
 	// Check if image format supports linear blitting
  	VkFormatProperties formatProperties;
@@ -234,8 +236,8 @@ void VulkanTexture::GenerateMips(VulkanCommandBuffer& commandBuffer, VulkanDevic
 
 	ASSERT(formatProperties.optimalTilingFeatures & VK_FORMAT_FEATURE_SAMPLED_IMAGE_FILTER_LINEAR_BIT, "Format doesn't support linear filtering and you're trying to generate mips");
 
-	int32_t mipWidth = width;
-	int32_t mipHeight = height;
+	int32_t mipWidth = m_Region.Extent.Width;
+	int32_t mipHeight = m_Region.Extent.Height;
 
 	for (uint32_t i = 1; i < mipCount; i++) 
 	{
@@ -268,4 +270,27 @@ void VulkanTexture::GenerateMips(VulkanCommandBuffer& commandBuffer, VulkanDevic
 	}
 
 	device->ResourceBarrier(commandBuffer, this, ResourceState::TransferDst, m_ShouldBeResourceState, ResourceStage::Transfer, ResourceStage::Undefined, mipCount - 1, 1);
+}
+
+void VulkanTexture::CreateViewsForMips(VulkanDevice* device)
+{
+	if (m_Region.Subresource.MipSize > 1)
+	{
+		VulkanImageViewInfo imageViewInfo;
+		imageViewInfo.Resource = m_Resource;
+		imageViewInfo.Format = m_Format;
+		imageViewInfo.Flags = ImageViewFlags::Color;
+		imageViewInfo.Subresource.ArraySlice = 0;
+		imageViewInfo.Subresource.ArraySize = m_Region.Subresource.ArraySize;
+		imageViewInfo.ClearValue = GetClearColorValueFor(m_Format);
+
+		for (uint32_t i = 1; i < m_Region.Subresource.MipSize; i++)
+		{
+			imageViewInfo.Subresource.MipSlice = i;
+			imageViewInfo.Subresource.MipSize = 1;
+			VulkanImageView* mipView = new VulkanImageView(device, imageViewInfo, m_Name.c_str());
+
+			m_ViewMips.push_back(mipView);
+		}
+	}
 }

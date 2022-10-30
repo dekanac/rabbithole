@@ -278,7 +278,7 @@ enum class VertexInputRate : uint8_t
 
 enum class DescriptorType : uint8_t
 {
-	CombinedSampler,
+	CombinedSampler = 0,
 	UniformBuffer,
 	StorageImage,
 	StorageBuffer,
