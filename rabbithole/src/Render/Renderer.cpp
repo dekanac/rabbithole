@@ -54,8 +54,8 @@ bool Renderer::Init()
 	CreateDescriptorPool();
 	CreateCommandBuffers();
 
-	RabbitPassManager::instance().SchedulePasses(*this);
-	RabbitPassManager::instance().DeclareResources();
+	m_RabbitPassManager.SchedulePasses(*this);
+	m_RabbitPassManager.DeclareResources();
 
 	m_GPUTimeStamps.OnCreate(&m_VulkanDevice, m_VulkanSwapchain->GetImageCount());
 
@@ -92,7 +92,7 @@ bool Renderer::Shutdown()
 	gltfModels.clear();
 	m_GPUTimeStamps.OnDestroy();
 	SuperResolutionManager::instance().Destroy();
-	PipelineManager::instance().Destroy();
+	m_PipelineManager.Destroy();
 	DestroyImgui();
 
     return true;
@@ -206,7 +206,7 @@ void Renderer::CreateGeometryDescriptors(std::vector<VulkanglTFModel>& models, u
 
 			VulkanDescriptor* cis3Descr = new VulkanDescriptor(descriptorinfo4);
 
-			VulkanDescriptorSet* descriptorSet = PipelineManager::instance().FindOrCreateDescriptorSet(m_VulkanDevice, m_DescriptorPool.get(), &descrSetLayout, { bufferDescr, cisDescr, cis2Descr, cis3Descr });
+			VulkanDescriptorSet* descriptorSet = m_PipelineManager.FindOrCreateDescriptorSet(m_VulkanDevice, m_DescriptorPool.get(), &descrSetLayout, { bufferDescr, cisDescr, cis2Descr, cis3Descr });
 
 			modelMaterial.materialDescriptorSet[imageIndex] = descriptorSet;
 		}
@@ -353,13 +353,13 @@ void Renderer::InitDefaultTextures()
 
 void Renderer::LoadModels()
 {
-	gltfModels.emplace_back(&m_VulkanDevice, "res/meshes/separateObjects.gltf");
-	//gltfModels.emplace_back(&m_VulkanDevice, "res/meshes/cottage.gltf");
-	//gltfModels.emplace_back(&m_VulkanDevice, "res/meshes/sponza/sponza.gltf");
-	//gltfModels.emplace_back(&m_VulkanDevice, "res/meshes/sponzaNovaOpti.gltf");
+	gltfModels.emplace_back(this, "res/meshes/separateObjects.gltf");
+	//gltfModels.emplace_back(this, "res/meshes/cottage.gltf");
+	//gltfModels.emplace_back(this, "res/meshes/sponza/sponza.gltf");
+	//gltfModels.emplace_back(this, "res/meshes/sponzaNovaOpti.gltf");
 }
 
-void Renderer::BeginRenderPass(VkExtent2D extent)
+void Renderer::BeginRenderPass(Extent2D extent)
 {
 	VkRenderPassBeginInfo renderPassInfo{};
 	renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
@@ -482,7 +482,17 @@ void Renderer::UpdateEntityPickId()
 	//PushMousePos push{};
 	//push.x = static_cast<uint32_t>(x);
 	//push.y = static_cast<uint32_t>(y);
-	////BindPushConstant(push); //TODO: fix this
+	////BindPushConst(push); //TODO: fix this
+}
+
+void Renderer::BindPushConst(uint32_t data)
+{
+	//this only works for 1 uint32_t, TODO: implement this fully
+	PushConstant push{};
+	push.data[0] = data;
+	push.size = sizeof(uint32_t);
+
+	m_StateManager.SetPushConst(push);
 }
 
 void Renderer::CopyToSwapChain()
@@ -504,8 +514,6 @@ void Renderer::CopyToSwapChain()
 	if (!isInEditorMode)
 		vkCmdDraw(GET_VK_HANDLE(GetCurrentCommandBuffer()), 3, 1, 0, 0);
 
-#ifdef RABBITHOLE_USING_IMGUI
-	//DRAW UI(imgui)
 	if (m_ImguiInitialized && imguiReady)
 	{
 		if (isInEditorMode)
@@ -526,7 +534,6 @@ void Renderer::CopyToSwapChain()
 		}
 	
 	}
-#endif
 
 	EndRenderPass();
 }
@@ -747,8 +754,8 @@ void Renderer::RecordCommandBuffer()
 	BindCameraMatrices(&m_MainCamera);
 	BindUBO();
 
-	EXECUTE_ONCE(RabbitPassManager::instance().ExecuteOneTimePasses(*this));
-	RabbitPassManager::instance().ExecutePasses(*this);
+	EXECUTE_ONCE(m_RabbitPassManager.ExecuteOneTimePasses(*this));
+	m_RabbitPassManager.ExecutePasses(*this);
 
 	if (m_RecordGPUTimeStamps)
 	{
@@ -1299,7 +1306,7 @@ void Renderer::BindPipeline<GraphicsPipeline>()
 
 	VulkanRenderPass* renderpass =
 		m_StateManager.GetRenderPassDirty()
-		? PipelineManager::instance().FindOrCreateRenderPass(m_VulkanDevice, attachments, depthStencil, *renderPassInfo)
+		? m_PipelineManager.FindOrCreateRenderPass(m_VulkanDevice, attachments, depthStencil, *renderPassInfo)
 		: m_StateManager.GetRenderPass();
 
 	m_StateManager.SetRenderPass(renderpass);
@@ -1311,7 +1318,7 @@ void Renderer::BindPipeline<GraphicsPipeline>()
 
 	VulkanFramebuffer* framebuffer =
 		m_StateManager.GetFramebufferDirty()
-		? PipelineManager::instance().FindOrCreateFramebuffer(m_VulkanDevice, attachments, depthStencil, renderpass, framebufferInfo)
+		? m_PipelineManager.FindOrCreateFramebuffer(m_VulkanDevice, attachments, depthStencil, renderpass, framebufferInfo)
 		: m_StateManager.GetFramebuffer();
 
 	m_StateManager.SetFramebuffer(framebuffer);
@@ -1322,7 +1329,7 @@ void Renderer::BindPipeline<GraphicsPipeline>()
 	pipelineInfo->renderPass = m_StateManager.GetRenderPass();
 	auto pipeline =
 		m_StateManager.GetPipelineDirty()
-		? PipelineManager::instance().FindOrCreateGraphicsPipeline(m_VulkanDevice, *pipelineInfo)
+		? m_PipelineManager.FindOrCreateGraphicsPipeline(m_VulkanDevice, *pipelineInfo)
 		: m_StateManager.GetPipeline();
 
 	m_StateManager.SetPipeline(pipeline);
@@ -1342,7 +1349,7 @@ void Renderer::BindPipeline<ComputePipeline>()
 	auto pipelineInfo = m_StateManager.GetPipelineInfo();
 
 	VulkanPipeline* computePipeline = m_StateManager.GetPipelineDirty()
-		? PipelineManager::instance().FindOrCreateComputePipeline(m_VulkanDevice, *pipelineInfo)
+		? m_PipelineManager.FindOrCreateComputePipeline(m_VulkanDevice, *pipelineInfo)
 		: m_StateManager.GetPipeline();
 
 	m_StateManager.SetPipeline(computePipeline);

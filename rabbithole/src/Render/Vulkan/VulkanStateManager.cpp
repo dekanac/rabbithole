@@ -7,7 +7,6 @@
 #define DEFAULT_UBO_ELEMENT_SIZE (uint32_t)16
 
 VulkanStateManager::VulkanStateManager()
-	: m_PushConst(nullptr, 0)
 {
 	m_Pipeline = nullptr;
 	m_RenderPass = nullptr;
@@ -25,7 +24,6 @@ VulkanStateManager::VulkanStateManager()
 
 	SetFramebufferExtent(Extent2D{ Window::instance().GetExtent().width, Window::instance().GetExtent().height });
 
-    //m_DescriptorSetManager = new DescriptorSetManager();
     m_RenderTargets.resize(MaxRenderTargetCount);
 
 	m_UBO = new UniformBufferObject();
@@ -156,14 +154,15 @@ void VulkanStateManager::ShouldCleanDepth(bool clean)
 
 // for now descriptor key is vector of uint32_t with following layout:
 // (slot, bufferId/imageviewId, type)
-void VulkanStateManager::SetCombinedImageSampler(uint32_t slot, VulkanTexture* texture)
+void VulkanStateManager::SetCombinedImageSampler(uint32_t slot, VulkanTexture* texture, uint32_t mipSlice)
 {
 	DescriptorKey k(3);
 	k[0] = slot;
-	k[1] = texture->GetView()->GetID();
+	k[1] = texture->GetView(mipSlice)->GetID();
 	k[2] = (uint32_t)DescriptorType::CombinedSampler;
 
-    auto& descriptorsMap = PipelineManager::instance().m_Descriptors;
+	//TODO: remove this ugly Singleton call
+	auto& descriptorsMap = Renderer::instance().GetPipelineManager().GetDescriptors();
     auto descriptor = descriptorsMap.find(k);
 
     if (descriptor != descriptorsMap.end())
@@ -176,7 +175,7 @@ void VulkanStateManager::SetCombinedImageSampler(uint32_t slot, VulkanTexture* t
 		info.Binding = slot;
 
 		info.imageSampler = texture->GetSampler();
-		info.imageView = texture->GetView();
+		info.imageView = texture->GetView(mipSlice);
 		info.Type = DescriptorType::CombinedSampler;
 
 		VulkanDescriptor* descriptor = new VulkanDescriptor(info);
@@ -194,8 +193,8 @@ void VulkanStateManager::SetConstantBuffer(uint32_t slot, VulkanBuffer* buffer)
 	k[1] = buffer->GetID();
 	k[2] = (uint32_t)DescriptorType::UniformBuffer;
 
-
-	auto& descriptorsMap = PipelineManager::instance().m_Descriptors;
+	//TODO: remove this ugly Singleton call
+	auto& descriptorsMap = Renderer::instance().GetPipelineManager().GetDescriptors();
 	auto descriptor = descriptorsMap.find(k);
 
 	if (descriptor != descriptorsMap.end())
@@ -224,7 +223,8 @@ void VulkanStateManager::SetStorageImage(uint32_t slot, VulkanImageView* view)
 	k[1] = view->GetID();
 	k[2] = (uint32_t)DescriptorType::StorageImage;
 
-	auto& descriptorsMap = PipelineManager::instance().m_Descriptors;
+	//TODO: remove this ugly Singleton call
+	auto& descriptorsMap = Renderer::instance().GetPipelineManager().GetDescriptors();
 	auto descriptor = descriptorsMap.find(k);
 
 	if (descriptor != descriptorsMap.end())
@@ -254,7 +254,8 @@ void VulkanStateManager::SetStorageBuffer(uint32_t slot, VulkanBuffer* buffer)
 	k[1] = buffer->GetID();
 	k[2] = (uint32_t)DescriptorType::StorageBuffer;
 
-	auto& descriptorsMap = PipelineManager::instance().m_Descriptors;
+	//TODO: remove this ugly Singleton call
+	auto& descriptorsMap = Renderer::instance().GetPipelineManager().GetDescriptors();
 	auto descriptor = descriptorsMap.find(k);
 
 	if (descriptor != descriptorsMap.end())
@@ -276,14 +277,15 @@ void VulkanStateManager::SetStorageBuffer(uint32_t slot, VulkanBuffer* buffer)
 	}
 }
 
-void VulkanStateManager::SetSampledImage(uint32_t slot, VulkanTexture* texture)
+void VulkanStateManager::SetSampledImage(uint32_t slot, VulkanImageView* view)
 {
 	DescriptorKey k(3);
 	k[0] = slot;
-	k[1] = texture->GetView()->GetID();
+	k[1] = view->GetID();
 	k[2] = (uint32_t)DescriptorType::SampledImage;
 
-	auto& descriptorsMap = PipelineManager::instance().m_Descriptors;
+	//TODO: remove this ugly Singleton call
+	auto& descriptorsMap = Renderer::instance().GetPipelineManager().GetDescriptors();
 	auto descriptor = descriptorsMap.find(k);
 
 	if (descriptor != descriptorsMap.end())
@@ -295,7 +297,7 @@ void VulkanStateManager::SetSampledImage(uint32_t slot, VulkanTexture* texture)
 		VulkanDescriptorInfo info{};
 		info.Binding = slot;
 
-		info.imageView= texture->GetView();
+		info.imageView= view;
 		info.Type = DescriptorType::SampledImage;
 
 		VulkanDescriptor* descriptor = new VulkanDescriptor(info);
@@ -313,7 +315,8 @@ void VulkanStateManager::SetSampler(uint32_t slot, VulkanImageSampler* sampler)
 	k[1] = sampler->GetID();
 	k[2] = (uint32_t)DescriptorType::Sampler;
 
-	auto& descriptorsMap = PipelineManager::instance().m_Descriptors;
+	//TODO: remove this ugly Singleton call
+	auto& descriptorsMap = Renderer::instance().GetPipelineManager().GetDescriptors();
 	auto descriptor = descriptorsMap.find(k);
 
 	if (descriptor != descriptorsMap.end())
@@ -338,7 +341,9 @@ void VulkanStateManager::SetSampler(uint32_t slot, VulkanImageSampler* sampler)
 
 VulkanDescriptorSet* VulkanStateManager::FinalizeDescriptorSet(VulkanDevice& device, const VulkanDescriptorPool* pool)
 {
-    VulkanDescriptorSet* descriptorset = PipelineManager::instance().FindOrCreateDescriptorSet(device, pool, m_Pipeline->GetDescriptorSetLayout(), m_Descriptors);
+	//TODO: remove this ugly Singleton call
+	auto& pipelineManager = Renderer::instance().GetPipelineManager();
+    VulkanDescriptorSet* descriptorset = pipelineManager.FindOrCreateDescriptorSet(device, pool, m_Pipeline->GetDescriptorSetLayout(), m_Descriptors);
     m_Descriptors.clear();
     return descriptorset;
 }

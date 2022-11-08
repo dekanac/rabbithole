@@ -19,6 +19,7 @@ class VulkanImageView;
 class VulkanImageSampler;
 class VulkanDescriptorSet;
 struct IndexedIndirectBuffer;
+class Renderer;
 
 struct IndexIndirectDrawData
 {
@@ -108,10 +109,9 @@ struct BBoxTmp
 	const Triangle* pTri;
 
 	BBoxTmp()
-		:
-		bottom(FLT_MAX, FLT_MAX, FLT_MAX),
-		top(-FLT_MAX, -FLT_MAX, -FLT_MAX),
-		pTri(NULL)
+		: bottom(FLT_MAX, FLT_MAX, FLT_MAX)
+		, top(-FLT_MAX, -FLT_MAX, -FLT_MAX)
+		, pTri(NULL)
 	{}
 };
 typedef std::vector<BBoxTmp> BBoxEntries;  // vector of triangle bounding boxes needed during BVH construction
@@ -119,24 +119,27 @@ typedef std::vector<BBoxTmp> BBoxEntries;  // vector of triangle bounding boxes 
 BVHNode* Recurse(BBoxEntries& work, int depth = 0);
 BVHNode* CreateBVH(std::vector<rabbitVec4f>& vertices, std::vector<Triangle>& triangles);
 
-struct CacheFriendlyBVHNode {
+struct CacheFriendlyBVHNode 
+{
 	// bounding box
 	rabbitVec3f bottom;
 	rabbitVec3f top;
-	
 
 	// parameters for leafnodes and innernodes occupy same space (union) to save memory
 	// top bit discriminates between leafnode and innernode
 	// no pointers, but indices (int): faster
 
-	union {
+	union 
+	{
 		// inner node - stores indexes to array of CacheFriendlyBVHNode
-		struct {
+		struct 
+		{
 			uint32_t idxLeft;
 			uint32_t idxRight;
 		} inner;
 		// leaf node: stores triangle count and starting index in triangle list
-		struct {
+		struct 
+		{
 			uint32_t count; // Top-most bit set, leafnode if set, innernode otherwise
 			uint32_t startIndexInTriIndexList;
 		} leaf;
@@ -150,18 +153,16 @@ unsigned CountTriangles(BVHNode* root);
 void CountDepth(BVHNode* root, int depth, int& maxDepth);
 void PopulateCacheFriendlyBVH(const Triangle* pFirstTriangle, BVHNode* root, unsigned& idxBoxes, unsigned& idxTriList, uint32_t* triIndexList, CacheFriendlyBVHNode* nodeList);
 
-
-
 class VulkanglTFModel
 {
 public:
-	VulkanglTFModel(VulkanDevice* device, std::string filename);
+	VulkanglTFModel(Renderer* renderer, std::string filename);
 	~VulkanglTFModel();
 	
 	VulkanglTFModel(const VulkanglTFModel& other) = delete;
 	VulkanglTFModel(VulkanglTFModel&& other) = default;
 private:
-	VulkanDevice*	m_Device;
+	Renderer*		m_Renderer;
 
 	VulkanBuffer*	m_VertexBuffer;
 	VulkanBuffer*	m_IndexBuffer;
@@ -224,7 +225,7 @@ private:
 	void LoadTextures(tinygltf::Model& input);
 	void LoadMaterials(tinygltf::Model& input);
 	void LoadNode(const tinygltf::Node& inputNode, const tinygltf::Model& input, VulkanglTFModel::Node* parent, std::vector<uint32_t>& indexBuffer, std::vector<Vertex>& vertexBuffer);
-	void LoadModelFromFile(VulkanDevice* device, std::string filename);
+	void LoadModelFromFile(std::string filename);
 
 public:
 	void DrawNode(VulkanCommandBuffer& commandBuffer, const VkPipelineLayout* pipelineLayout, VulkanglTFModel::Node node, uint8_t backBufferIndex, IndexedIndirectBuffer* indirectBuffer);

@@ -21,7 +21,8 @@ BEGIN_DECLARE_RABBITPASS(ShadowDenoisePrePass);
 
 	declareResource(BufferDimensions, VulkanBuffer);
 	declareResourceArray(ShadowData, VulkanBuffer, MAX_NUM_OF_LIGHTS);
-	END_DECLARE_RABBITPASS
+
+END_DECLARE_RABBITPASS
 
 BEGIN_DECLARE_RABBITPASS(ShadowDenoiseTileClassificationPass);
 
@@ -36,7 +37,7 @@ BEGIN_DECLARE_RABBITPASS(ShadowDenoiseTileClassificationPass);
 		rabbitMat4f		ViewProjectionInverse;
 	};
 	
-	uint32_t GetCurrentIDFromFrameIndex(uint32_t id) { return (Renderer::instance().GetCurrentFrameIndex() + id) % 2; }
+	uint32_t GetCurrentIDFromFrameIndex(uint32_t id) { return (m_Renderer.GetCurrentFrameIndex() + id) % 2; }
 	void ClassifyTiles(uint32_t shadowSlice);
 	
 	declareResource(LastFrameDepth, VulkanTexture);

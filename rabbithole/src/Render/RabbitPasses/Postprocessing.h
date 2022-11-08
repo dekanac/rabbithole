@@ -2,6 +2,8 @@
 
 #include "Render/RabbitPass.h"
 
+#define DOWNSAMPLE_COUNT (5)
+
 BEGIN_DECLARE_RABBITPASS(BloomCompute)
 
 	struct BloomParams
@@ -14,7 +16,7 @@ BEGIN_DECLARE_RABBITPASS(BloomCompute)
 	declareResource(Downsampled, VulkanTexture);
 	declareResource(BloomParamsGPU, VulkanBuffer);
 	
-	static BloomParams BloomParamsCPU;
+	static BloomParams BloomParamsCPU[DOWNSAMPLE_COUNT];
 	
 	void Downsample(VulkanTexture* input, VulkanTexture* output, Extent2D resolution, uint32_t mipLevel);
 

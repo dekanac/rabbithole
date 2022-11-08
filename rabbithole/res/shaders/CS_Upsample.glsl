@@ -8,30 +8,35 @@ struct BloomParams
     uint  mipLevel;
 };
 
-layout(rgba16, binding = 0) uniform image2D inputImage;
+#define DOWNSAMPLE_COUNT 5
+
+layout(binding = 0) uniform sampler2D inputImage;
 layout(rgba16, binding = 1) uniform image2D outputImage;
 
 layout(binding = 2) uniform bloomParamsBuffer
 {
-	BloomParams bloomParams;
+	BloomParams bloomParams[DOWNSAMPLE_COUNT];
 };
 
-vec4 UpsampleTent(ivec2 uv)
+layout(push_constant) uniform Push 
 {
-    vec4 d = vec4(1, 1, -1, 0);
+    uint downsampleTick;
+} push;
+
+vec4 UpsampleTent(sampler2D tex, vec2 uv, vec2 texelSize, vec4 sampleScale, uint mipLevel)
+{
+    vec4 d = texelSize.xyxy * vec4(1.0, 1.0, -1.0, 0.0) * sampleScale;
 
     vec4 s;
-    s =  imageLoad(inputImage, ivec2(uv - d.xy));
-    s += imageLoad(inputImage, ivec2(uv - d.wy)) * 2.0;
-    s += imageLoad(inputImage, ivec2(uv - d.zy));
-
-    s += imageLoad(inputImage, ivec2(uv + d.zw)) * 2.0;
-    s += imageLoad(inputImage, ivec2(uv       )) * 4.0;
-    s += imageLoad(inputImage, ivec2(uv + d.xw)) * 2.0;
-
-    s += imageLoad(inputImage, ivec2(uv + d.zy));
-    s += imageLoad(inputImage, ivec2(uv + d.wy)) * 2.0;
-    s += imageLoad(inputImage, ivec2(uv + d.xy));
+    s =  textureLod(tex, (uv - d.xy), mipLevel);
+    s += textureLod(tex, (uv - d.wy), mipLevel) * 2.0;
+    s += textureLod(tex, (uv - d.zy), mipLevel);
+    s += textureLod(tex, (uv + d.zw), mipLevel) * 2.0;
+    s += textureLod(tex, (uv       ), mipLevel) * 4.0;
+    s += textureLod(tex, (uv + d.xw), mipLevel) * 2.0;
+    s += textureLod(tex, (uv + d.zy), mipLevel);
+    s += textureLod(tex, (uv + d.wy), mipLevel) * 2.0;
+    s += textureLod(tex, (uv + d.xy), mipLevel);
 
     return s * (1.0 / 16.0);
 }
@@ -39,7 +44,14 @@ vec4 UpsampleTent(ivec2 uv)
 layout( local_size_x = 8, local_size_y = 8, local_size_z = 1 ) in;
 void main()
 {
-    vec4 final = UpsampleTent(ivec2(gl_GlobalInvocationID.xy));
+    vec2 texelSize = 1 / vec2(bloomParams[push.downsampleTick].texelSizeW, bloomParams[push.downsampleTick].texelSizeH);
+    vec2 uv = gl_GlobalInvocationID.xy * texelSize;
+
+    vec4 sampleScale = vec4(1.f);
+
+    vec4 bloom = UpsampleTent(inputImage, uv, texelSize, sampleScale, bloomParams[push.downsampleTick].mipLevel);
+
+    vec4 currentMip = imageLoad(outputImage, ivec2(gl_GlobalInvocationID.xy));
     
-    imageStore(outputImage, ivec2(gl_GlobalInvocationID.xy), final);
+    imageStore(outputImage, ivec2(gl_GlobalInvocationID.xy), bloom + currentMip);
 }

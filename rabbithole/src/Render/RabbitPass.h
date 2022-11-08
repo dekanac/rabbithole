@@ -20,8 +20,8 @@ public:
 protected:
 	RabbitPass(Renderer& renderer) : m_Renderer(renderer) {}
 
-	void SetCombinedImageSampler(uint32_t slot, VulkanTexture* texture);
-	void SetSampledImage(uint32_t slot, VulkanTexture* texture);
+	void SetCombinedImageSampler(uint32_t slot, VulkanTexture* texture, uint32_t mipSlice = 0);
+	void SetSampledImage(uint32_t slot, VulkanTexture* texture, uint32_t mipSlice = 0);
 	void SetStorageImage(uint32_t slot, VulkanTexture* texture, uint32_t mipSlice = 0);
 	void SetConstantBuffer(uint32_t slot, VulkanBuffer* buffer);
 	void SetStorageBufferRead(uint32_t slot, VulkanBuffer* buffer);
@@ -32,29 +32,6 @@ protected:
 	void SetDepthStencil(VulkanTexture* texture);
 
 	Renderer& m_Renderer;
-};
-
-class RabbitPassManager
-{
-	SingletonClass(RabbitPassManager);
-
-public:
-	void SchedulePasses(Renderer& renderer);
-	void DeclareResources();
-	void ExecutePasses(Renderer& renderer);
-	void ExecuteOneTimePasses(Renderer& renderer);
-	void Destroy();
-
-public:
-	void AddPass(RabbitPass* pass, bool executeOnce = false) { 
-		m_RabbitPasses[pass->GetName()] = pass; 
-		executeOnce ? m_RabbitPassesOneTimeExecute.push_back(pass) : m_RabbitPassesToExecute.push_back(pass);
-	}
-
-private:
-	std::unordered_map<const char*, RabbitPass*> m_RabbitPasses;
-	std::list<RabbitPass*> m_RabbitPassesToExecute;
-	std::list<RabbitPass*> m_RabbitPassesOneTimeExecute;
 };
 
 #define BEGIN_DECLARE_RABBITPASS(name) \

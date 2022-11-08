@@ -429,9 +429,8 @@ void PopulateCacheFriendlyBVH(
 	}
 }
 
-void VulkanglTFModel::LoadModelFromFile(VulkanDevice* device, std::string filename)
+void VulkanglTFModel::LoadModelFromFile(std::string filename)
 {
-	this->m_Device = device;
 	tinygltf::Model glTFInput;
 	tinygltf::TinyGLTF gltfContext;
 	std::string error, warning;
@@ -467,9 +466,10 @@ void VulkanglTFModel::LoadModelFromFile(VulkanDevice* device, std::string filena
 	size_t indexBufferSize = indexBuffer.size() * sizeof(uint32_t);
 	this->m_IndexCount = static_cast<uint32_t>(indexBuffer.size());
 
-	ResourceManager& resourceManager = Renderer::instance().GetResourceManager();
+	ResourceManager& resourceManager = m_Renderer->GetResourceManager();
+	VulkanDevice& device = m_Renderer->GetVulkanDevice();
 
-	m_VertexBuffer = resourceManager.CreateBuffer(*device, BufferCreateInfo{
+	m_VertexBuffer = resourceManager.CreateBuffer(device, BufferCreateInfo{
 			.flags = {BufferUsageFlags::VertexBuffer | BufferUsageFlags::TransferSrc},
 			.memoryAccess = {MemoryAccess::GPU},
 			.size = {static_cast<uint32_t>(vertexBufferSize)},
@@ -477,7 +477,7 @@ void VulkanglTFModel::LoadModelFromFile(VulkanDevice* device, std::string filena
 		});
 	m_VertexBuffer->FillBuffer(vertexBuffer.data(), vertexBufferSize);
 
-	m_IndexBuffer = resourceManager.CreateBuffer(*device, BufferCreateInfo{
+	m_IndexBuffer = resourceManager.CreateBuffer(device, BufferCreateInfo{
 			.flags = {BufferUsageFlags::IndexBuffer | BufferUsageFlags::TransferSrc},
 			.memoryAccess = {MemoryAccess::GPU},
 			.size = {static_cast<uint32_t>(indexBufferSize)},
@@ -486,9 +486,10 @@ void VulkanglTFModel::LoadModelFromFile(VulkanDevice* device, std::string filena
 	m_IndexBuffer->FillBuffer(indexBuffer.data(), indexBufferSize);
 }
 
-VulkanglTFModel::VulkanglTFModel(VulkanDevice* device, std::string filename)
+VulkanglTFModel::VulkanglTFModel(Renderer* renderer, std::string filename)
+	: m_Renderer(renderer)
 {
-	LoadModelFromFile(device, filename);
+	LoadModelFromFile(filename);
 }
 
 VulkanglTFModel::~VulkanglTFModel()
@@ -540,7 +541,10 @@ void VulkanglTFModel::LoadImages(tinygltf::Model& input)
 		textureData.width = input.images[i].width;
 		textureData.pData = buffer;
 
-		m_Textures[i] = Renderer::instance().GetResourceManager().CreateTexture(*m_Device, &textureData, ROTextureCreateInfo{
+		ResourceManager& resourceManager = m_Renderer->GetResourceManager();
+		VulkanDevice& device = m_Renderer->GetVulkanDevice();
+		
+		m_Textures[i] = Renderer::instance().GetResourceManager().CreateTexture(device, &textureData, ROTextureCreateInfo{
 				.flags = {TextureFlags::Color | TextureFlags::Read | TextureFlags::TransferDst | TextureFlags::TransferSrc},
 				.format = {Format::R8G8B8A8_UNORM},
 				.name = {std::format("InputTexture_{}", glTFImage.name)},

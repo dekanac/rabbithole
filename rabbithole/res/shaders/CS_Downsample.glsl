@@ -8,33 +8,49 @@ struct BloomParams
     uint  mipLevel;
 };
 
+#define DOWNSAMPLE_COUNT 5
+
 layout(rgba16, binding = 0) uniform image2D inputImage;
-layout(rgba16, binding = 1) uniform image2D bloomOutput;
+layout(rgba16, binding = 1) uniform image2D outputImage;
 
 layout(binding = 2) uniform bloomParamsBuffer
 {
-	BloomParams bloomParams;
+	BloomParams bloomParams[DOWNSAMPLE_COUNT];
 };
 
-vec4 DownsampleBox13Tap(ivec2 uv)
+layout(push_constant) uniform Push 
 {
-    vec4 A = imageLoad(inputImage, ivec2(uv + vec2(-1, -1)));
-    vec4 B = imageLoad(inputImage, ivec2(uv + vec2( 0, -1)));
-    vec4 C = imageLoad(inputImage, ivec2(uv + vec2( 1, -1)));
-    //vec4 D = imageLoad(inputImage, ivec2(uv + vec2(-1, -1)));
-    //vec4 E = imageLoad(inputImage, ivec2(uv + vec2( 1, -1)));
-    vec4 F = imageLoad(inputImage, ivec2(uv + vec2(-1,  0)));
-    vec4 G = imageLoad(inputImage, ivec2(uv)               );
-    vec4 H = imageLoad(inputImage, ivec2(uv + vec2( 1,  0)));
-    //vec4 I = imageLoad(inputImage, ivec2(uv + vec2(-1,  1)));
-    //vec4 J = imageLoad(inputImage, ivec2(uv + vec2( 1,  1)));
-    vec4 K = imageLoad(inputImage, ivec2(uv + vec2(-1,  1)));
-    vec4 L = imageLoad(inputImage, ivec2(uv + vec2( 0,  1)));
-    vec4 M = imageLoad(inputImage, ivec2(uv + vec2( 1,  1)));
+    uint downsampleTick;
+} push;
+
+// Better, temporally stable box filtering
+// [Jimenez14] http://goo.gl/eomGso
+// . . . . . . .
+// . A . B . C .
+// . . D . E . .
+// . F . G . H .
+// . . I . J . .
+// . K . L . M .
+// . . . . . . .
+vec4 DownsampleBox13Tap(image2D tex, vec2 uv, vec2 texelSize)
+{
+    vec4 A = texture(tex, (uv + texelSize * vec2(-1.0, -1.0)));
+    vec4 B = texture(tex, (uv + texelSize * vec2( 0.0, -1.0)));
+    vec4 C = texture(tex, (uv + texelSize * vec2( 1.0, -1.0)));
+    vec4 D = texture(tex, (uv + texelSize * vec2(-0.5, -0.5)));
+    vec4 E = texture(tex, (uv + texelSize * vec2( 0.5, -0.5)));
+    vec4 F = texture(tex, (uv + texelSize * vec2(-1.0,  0.0)));
+    vec4 G = texture(tex,  uv                                );
+    vec4 H = texture(tex, (uv + texelSize * vec2( 1.0,  0.0)));
+    vec4 I = texture(tex, (uv + texelSize * vec2(-0.5,  0.5)));
+    vec4 J = texture(tex, (uv + texelSize * vec2( 0.5,  0.5)));
+    vec4 K = texture(tex, (uv + texelSize * vec2(-1.0,  1.0)));
+    vec4 L = texture(tex, (uv + texelSize * vec2( 0.0,  1.0)));
+    vec4 M = texture(tex, (uv + texelSize * vec2( 1.0,  1.0)));
 
     vec2 div = (1.0 / 4.0) * vec2(0.5, 0.125);
 
-    vec4 o = vec4(0.f); //(D + E + I + J) * div.x;
+    vec4 o = (D + E + I + J) * div.x;
     o += (A + B + G + F) * div.y;
     o += (B + C + H + G) * div.y;
     o += (F + G + L + K) * div.y;
@@ -46,7 +62,10 @@ vec4 DownsampleBox13Tap(ivec2 uv)
 layout( local_size_x = 8, local_size_y = 8, local_size_z = 1 ) in;
 void main()
 {
-    vec4 final = DownsampleBox13Tap(ivec2(gl_GlobalInvocationID.xy*2));
+    vec2 texelSize = 1 / vec2(bloomParams[push.downsampleTick].texelSizeW, bloomParams[push.downsampleTick].texelSizeH);
+    vec2 uv = gl_GlobalInvocationID.xy * texelSize;
     
-    imageStore(bloomOutput, ivec2(gl_GlobalInvocationID.xy), final);
+    vec4 final = DownsampleBox13Tap(inputImage, uv, texelSize);
+    
+    imageStore(outputImage, ivec2(gl_GlobalInvocationID.xy), final);
 }

@@ -4,6 +4,8 @@
 #include "VulkanPipeline.h"
 #include "VulkanCommandBuffer.h"
 
+#include "Logger/Logger.h"
+
 #include <string>
 #include <vector>
 
@@ -77,7 +79,7 @@ public:
 
 	NonCopyableAndMovable(VulkanPipeline);
 
-	virtual void					 Bind(VulkanCommandBuffer& commandBuffer) {}
+	virtual void					 Bind(VulkanCommandBuffer& commandBuffer) { ASSERT(false, "Should not be called!"); }
 
 	static void						 DefaultPipelineConfigInfo(PipelineConfigInfo*& configInfo, uint32_t width, uint32_t height);
 	const VulkanDescriptorSetLayout* GetDescriptorSetLayout() { return m_DescriptorSetLayout; }
@@ -90,13 +92,13 @@ private:
 	void							 CreateGraphicsPipeline();
 	void							 CreateComputePipeline();
 
-	VulkanDevice&							m_VulkanDevice;
-	PipelineConfigInfo&						m_PipelineInfo;
-	VkPipelineLayout						m_PipelineLayout;
-	VulkanDescriptorSetLayout*				m_DescriptorSetLayout;
-	VulkanRenderPass*						m_RenderPass;
-	PipelineType							m_Type;
-
-protected:
-	VkPipeline								m_Pipeline;
+	VulkanDevice&					 m_VulkanDevice;
+	PipelineConfigInfo&				 m_PipelineInfo;
+	VkPipelineLayout				 m_PipelineLayout;
+	VulkanDescriptorSetLayout*		 m_DescriptorSetLayout;
+	VulkanRenderPass*				 m_RenderPass;
+	PipelineType					 m_Type;
+									 
+protected:							 
+	VkPipeline						 m_Pipeline;
 };

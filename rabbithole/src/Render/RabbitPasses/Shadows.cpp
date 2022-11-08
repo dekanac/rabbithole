@@ -43,13 +43,13 @@ void RTShadowsPass::Setup()
 
 	stateManager.SetComputeShader(m_Renderer.GetShader("CS_RayTracingShadows"));
 
-	SetStorageImage(0, GBufferPass::WorldPosition);
-	SetStorageImage(1, GBufferPass::Normals);
-	SetStorageImage(2, RTShadowsPass::ShadowMask);
-	SetStorageBufferRead(3, m_Renderer.vertexBuffer);
-	SetStorageBufferRead(4, m_Renderer.trianglesBuffer);
-	SetStorageBufferRead(5, m_Renderer.triangleIndxsBuffer);
-	SetStorageBufferRead(6, m_Renderer.cfbvhNodesBuffer);
+	SetStorageBufferRead(0, m_Renderer.vertexBuffer);
+	SetStorageBufferRead(1, m_Renderer.trianglesBuffer);
+	SetStorageBufferRead(2, m_Renderer.triangleIndxsBuffer);
+	SetStorageBufferRead(3, m_Renderer.cfbvhNodesBuffer);
+	SetStorageImage(4, GBufferPass::WorldPosition);
+	SetStorageImage(5, GBufferPass::Normals);
+	SetStorageImage(6, RTShadowsPass::ShadowMask);
 	SetConstantBuffer(7, LightingPass::LightParamsGPU);
 	SetStorageImage(8, m_Renderer.blueNoise2DTexture);
 	SetConstantBuffer(9, m_Renderer.GetMainConstBuffer());
@@ -114,7 +114,7 @@ void ShadowDenoisePrePass::Render()
 
 void ShadowDenoisePrePass::PrepareDenoisePass(uint32_t shadowSlice)
 {
-	m_Renderer.BindPushConstant(shadowSlice);
+	m_Renderer.BindPushConst(shadowSlice);
 
 	SetConstantBuffer(0, ShadowDenoisePrePass::BufferDimensions);
 	SetSampledImage(1, RTShadowsPass::ShadowMask);
@@ -339,7 +339,7 @@ void ShadowDenoiseFilterPass::RenderFilterPass2(uint32_t shadowSlice)
 
 	stateManager.SetComputeShader(m_Renderer.GetShader("CS_FilterSoftShadowsPass2"), "Pass2");
 
-	m_Renderer.BindPushConstant(shadowSlice);
+	m_Renderer.BindPushConst(shadowSlice);
 
 	SetConstantBuffer(0, ShadowDenoiseFilterPass::FilterData);
 	SetSampledImage(1, GBufferPass::Depth);

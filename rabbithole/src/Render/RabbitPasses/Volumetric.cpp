@@ -34,16 +34,15 @@ void VolumetricPass::Setup()
 
 	stateManager.SetComputeShader(m_Renderer.GetShader("CS_Volumetric"));
 
-	SetStorageImage(0, VolumetricPass::MediaDensity);
-	SetCombinedImageSampler(1, m_Renderer.noise3DLUT);
-	SetConstantBuffer(2, LightingPass::LightParamsGPU);
-	SetConstantBuffer(3, m_Renderer.GetMainConstBuffer());
+	SetStorageBufferRead(0, m_Renderer.vertexBuffer);
+	SetStorageBufferRead(1, m_Renderer.trianglesBuffer);
+	SetStorageBufferRead(2, m_Renderer.triangleIndxsBuffer);
+	SetStorageBufferRead(3, m_Renderer.cfbvhNodesBuffer);
 	SetConstantBuffer(4, VolumetricPass::ParamsGPU);
-
-	SetStorageBufferRead(5, m_Renderer.vertexBuffer);
-	SetStorageBufferRead(6, m_Renderer.trianglesBuffer);
-	SetStorageBufferRead(7, m_Renderer.triangleIndxsBuffer);
-	SetStorageBufferRead(8, m_Renderer.cfbvhNodesBuffer);
+	SetStorageImage(5, VolumetricPass::MediaDensity);
+	SetCombinedImageSampler(6, m_Renderer.noise3DLUT);
+	SetConstantBuffer(7, LightingPass::LightParamsGPU);
+	SetConstantBuffer(8, m_Renderer.GetMainConstBuffer());
 
 	if (m_Renderer.imguiReady)
 	{
@@ -72,9 +71,9 @@ void VolumetricPass::Render()
 	int texHeight = VolumetricPass::MediaDensity->GetHeight();
 	int texDepth = VolumetricPass::MediaDensity->GetDepth();
 
-	int dispatchX = (texWidth + (8 - 1)) / 8;
-	int dispatchY = (texHeight + (4 - 1)) / 4;
-	int dispatchZ = (texDepth + (8 - 1)) / 8;
+	int dispatchX = GetCSDispatchCount(texWidth, 8);
+	int dispatchY = GetCSDispatchCount(texHeight, 4);
+	int dispatchZ = GetCSDispatchCount(texDepth, 8);
 
 	m_Renderer.Dispatch(dispatchX, dispatchY, dispatchZ);
 }

@@ -161,10 +161,8 @@ VulkanFramebuffer* PipelineManager::FindOrCreateFramebuffer(VulkanDevice& device
 	else
 	{
 		LOG_WARNING("If you're seeing this every frame, you're doing something wrong! Check FrameBufferKey!");
-
 		auto newFramebuffer = new VulkanFramebuffer(&device, framebufferInfo, renderpass, renderTargets, depthStencil);
 		m_Framebuffers[key] = newFramebuffer;
-
 		return newFramebuffer;
 	}
 }

@@ -8,6 +8,7 @@
 #include "Render/PipelineManager.h"
 #include "Render/ResourceManager.h"
 #include "Render/ResourceStateTracking.h"
+#include "Render/RabbitPassManager.h"
 #include "Render/SuperResolutionManager.h"
 #include "Render/Vulkan/Include/VulkanWrapper.h"
 #include "Render/Window.h"
@@ -108,14 +109,17 @@ private:
 	VulkanStateManager									m_StateManager{};
 	ResourceStateTrackingManager						m_ResourceStateTrackingManager{};
 	ResourceManager										m_ResourceManager{};
+	RabbitPassManager									m_RabbitPassManager{};
+	PipelineManager										m_PipelineManager{};
+
 	std::unique_ptr<VulkanSwapchain>					m_VulkanSwapchain;
 	std::unique_ptr<VulkanDescriptorPool>				m_DescriptorPool;
 	std::vector<std::unique_ptr<VulkanCommandBuffer>>	m_MainRenderCommandBuffers;
 	uint32_t											m_CurrentImageIndex = 0;
 	uint64_t											m_CurrentFrameIndex = 0;
 
-	VulkanBuffer* m_MainConstBuffer[MAX_FRAMES_IN_FLIGHT];
-	VulkanBuffer* m_VertexUploadBuffer;
+	VulkanBuffer*	m_MainConstBuffer[MAX_FRAMES_IN_FLIGHT];
+	VulkanBuffer*	m_VertexUploadBuffer;
 	
 	Camera			m_MainCamera{};
 	CameraState		m_CurrentCameraState{};
@@ -136,16 +140,32 @@ private:
 	void ImguiProfilerWindow(std::vector<TimeStamp>& timestamps);
 	void RegisterTexturesToImGui();
 	void ImGuiTextureDebugger();
-
 	ImVec2 GetScaledSizeWithAspectRatioKept(ImVec2 currentSize);
+
+	void RecordCommandBuffer();
+	void BeginRenderPass(Extent2D extent);
+	void EndRenderPass();
+
+	void BindPushConstInternal();
+	template<class T = Pipeline> void BindPipeline();
+	template<> void BindPipeline<GraphicsPipeline>();
+	template<> void BindPipeline<ComputePipeline>();
+	void BindCameraMatrices(Camera* camera);
+	void BindDescriptorSets();
+	void BindUBO();
+
 public:
 	inline VulkanDevice&					GetVulkanDevice() { return m_VulkanDevice; }
 	inline VulkanStateManager&				GetStateManager() { return m_StateManager; }
 	inline ResourceStateTrackingManager&	GetResourceStateTrackingManager() { return m_ResourceStateTrackingManager; }
-	inline VulkanSwapchain*					GetSwapchain() const { return m_VulkanSwapchain.get(); }
 	inline ResourceManager&					GetResourceManager() { return m_ResourceManager; }
+	inline RabbitPassManager&				GetRabbitPassManager() { return m_RabbitPassManager; }
+	inline PipelineManager&					GetPipelineManager() { return m_PipelineManager; }
+
+	inline VulkanSwapchain*					GetSwapchain() const { return m_VulkanSwapchain.get(); }
 	inline VulkanImageView*					GetSwapchainImage() { return m_VulkanSwapchain->GetImageView(m_CurrentImageIndex); }
 	inline VulkanBuffer*					GetVertexUploadBuffer() { return m_VertexUploadBuffer; }
+	inline VulkanBuffer*					GetMainConstBuffer() { return m_MainConstBuffer[m_CurrentImageIndex]; }
 
 	void ResourceBarrier(VulkanTexture* texture, ResourceState oldLayout, ResourceState newLayout, ResourceStage srcStage, ResourceStage dstStage, uint32_t mipLevel = 0, uint32_t mipCount = UINT32_MAX);
 	void ResourceBarrier(VulkanBuffer* buffer, ResourceState oldLayout, ResourceState newLayout, ResourceStage srcStage, ResourceStage dstStage);
@@ -160,10 +180,9 @@ public:
 	inline UIState&			GetUIState() { return m_CurrentUIState; }
 	inline CameraState&		GetCameraState() { return m_CurrentCameraState; }
 
-	inline VulkanBuffer* GetMainConstBuffer() { return m_MainConstBuffer[m_CurrentImageIndex]; }
-
 	void UpdateEntityPickId();
 
+	void BindPushConst(uint32_t data);
 	void BindViewport(float x, float y, float width, float height);
 	void BindVertexData(size_t offset);
 	void DrawVertices(uint32_t count);
@@ -172,33 +191,15 @@ public:
 	void DrawGeometryGLTF(std::vector<VulkanglTFModel>& bucket);
 	void DrawFullScreenQuad();
 
-	void		SetCurrentImageIndex(int imageIndex) { m_CurrentImageIndex = imageIndex; }
 	uint32_t	GetCurrentImageIndex() { return m_CurrentImageIndex; }
 	uint64_t	GetCurrentFrameIndex() { return m_CurrentFrameIndex; }
 	
 	VulkanCommandBuffer& GetCurrentCommandBuffer() { return *m_MainRenderCommandBuffers[m_CurrentImageIndex]; }
-	
-	void RecordCommandBuffer();
-	void BeginRenderPass(VkExtent2D extent);
-	void EndRenderPass();
 
+	//debugging
 	void RecordGPUTimeStamp(const char* label);
 	void BeginLabel(const char* name);
 	void EndLabel();
-	
-	template <typename T>
-	void BindPushConstant(T&& push)
-	{
-		PushConstant pushConst(reinterpret_cast<void*>(push), static_cast<uint32_t>(sizeof(T)));
-		m_StateManager.SetPushConst(pushConst);
-	}
-	void BindPushConstInternal();
-	template<class T = Pipeline> void BindPipeline();
-	template<> void BindPipeline<GraphicsPipeline>();
-	template<> void BindPipeline<ComputePipeline>();
-	void BindCameraMatrices(Camera* camera);
-	void BindDescriptorSets();
-	void BindUBO();
 
 public:
 	std::vector<VulkanglTFModel> gltfModels;

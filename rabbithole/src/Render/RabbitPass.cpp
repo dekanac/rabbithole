@@ -4,16 +4,7 @@
 #include "Render/SuperResolutionManager.h"
 #include "Utils/utils.h"
 
-#include "Render/RabbitPasses/AmbientOcclusion.h"
-#include "Render/RabbitPasses/GBuffer.h"
-#include "Render/RabbitPasses/Lighting.h"
-#include "Render/RabbitPasses/Postprocessing.h"
-#include "Render/RabbitPasses/Shadows.h"
-#include "Render/RabbitPasses/Tools.h"
-#include "Render/RabbitPasses/Upscaling.h"
-#include "Render/RabbitPasses/Volumetric.h"
-
-void RabbitPass::SetCombinedImageSampler(uint32_t slot, VulkanTexture* texture)
+void RabbitPass::SetCombinedImageSampler(uint32_t slot, VulkanTexture* texture, uint32_t mipSlice)
 {
 	VulkanStateManager& stateManager = m_Renderer.GetStateManager();
 	ResourceStateTrackingManager& rstManager = m_Renderer.GetResourceStateTrackingManager();
@@ -21,10 +12,10 @@ void RabbitPass::SetCombinedImageSampler(uint32_t slot, VulkanTexture* texture)
 
 	texture->SetShouldBeResourceState(ResourceState::GenericRead);
 	rstManager.AddResourceForTransition(texture);
-	stateManager.SetCombinedImageSampler(slot, texture);
+	stateManager.SetCombinedImageSampler(slot, texture, mipSlice);
 }
 
-void RabbitPass::SetSampledImage(uint32_t slot, VulkanTexture* texture)
+void RabbitPass::SetSampledImage(uint32_t slot, VulkanTexture* texture, uint32_t mipSlice)
 {
 	VulkanStateManager& stateManager = m_Renderer.GetStateManager();
 	ResourceStateTrackingManager& rstManager = m_Renderer.GetResourceStateTrackingManager();
@@ -32,7 +23,7 @@ void RabbitPass::SetSampledImage(uint32_t slot, VulkanTexture* texture)
 
 	texture->SetShouldBeResourceState(ResourceState::GenericRead);
 	rstManager.AddResourceForTransition(texture);
-	stateManager.SetSampledImage(slot, texture);
+	stateManager.SetSampledImage(slot, texture->GetView(mipSlice));
 }
 
 void RabbitPass::SetStorageImage(uint32_t slot, VulkanTexture* texture, uint32_t mipSlice)
@@ -130,72 +121,4 @@ void RabbitPass::SetDepthStencil(VulkanTexture* texture)
 	texture->SetShouldBeResourceState(ResourceState::DepthStencilWrite);
 	rstManager.AddResourceForTransition(texture);
 	stateManager.SetDepthStencil(texture->GetView());
-}
-
-//pass scheduler
-void RabbitPassManager::SchedulePasses(Renderer& renderer)
-{
-	AddPass(new Create3DNoiseTexturePass(renderer), true);
-	AddPass(new GBufferPass(renderer));
-	AddPass(new SSAOPass(renderer));
-	AddPass(new SSAOBlurPass(renderer));
-	AddPass(new RTShadowsPass(renderer));
-	AddPass(new ShadowDenoisePrePass(renderer));
-	AddPass(new ShadowDenoiseTileClassificationPass(renderer));
-	AddPass(new ShadowDenoiseFilterPass(renderer));
-	AddPass(new VolumetricPass(renderer));
-	AddPass(new ComputeScatteringPass(renderer));
-	AddPass(new SkyboxPass(renderer));
-	AddPass(new LightingPass(renderer));
-	AddPass(new ApplyVolumetricFogPass(renderer));
-	AddPass(new TextureDebugPass(renderer));
-	AddPass(new FSR2Pass(renderer));
-	AddPass(new BloomCompute(renderer));
-	AddPass(new TonemappingPass(renderer));
-	AddPass(new CopyToSwapchainPass(renderer));
-}
-
-void RabbitPassManager::DeclareResources()
-{
-	for (auto pass : m_RabbitPassesToExecute)
-	{
-		pass->DeclareResources();
-	}
-}
-
-void RabbitPassManager::ExecutePasses(Renderer& renderer)
-{
-	for (auto pass : m_RabbitPassesToExecute)
-	{
-		renderer.BeginLabel(pass->GetName());
-
-		pass->Setup();
-
-		pass->Render();
-
-		renderer.RecordGPUTimeStamp(pass->GetName());
-
-		renderer.EndLabel();		
-	}
-}
-
-void RabbitPassManager::ExecuteOneTimePasses(Renderer& renderer)
-{
-	for (auto pass : m_RabbitPassesOneTimeExecute)
-	{
-		renderer.BeginLabel(pass->GetName());
-
-		pass->Setup();
-
-		pass->Render();
-
-		renderer.RecordGPUTimeStamp(pass->GetName());
-
-		renderer.EndLabel();
-	}
-}
-
-void RabbitPassManager::Destroy()
-{
-
 }

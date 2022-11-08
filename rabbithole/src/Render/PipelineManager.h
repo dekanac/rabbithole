@@ -133,12 +133,10 @@ public:
 
 class PipelineManager
 {
-	SingletonClass(PipelineManager);
-
 public:
 	void Destroy();
 
-public:
+private:
 	std::unordered_map<GraphicsPipelineKey, GraphicsPipeline*>					m_GraphicPipelines;
 	std::unordered_map<ComputePipelineKey, ComputePipeline*>					m_ComputePipelines;
 	std::unordered_map<RenderPassKey, VulkanRenderPass*>						m_RenderPasses;
@@ -146,9 +144,12 @@ public:
 	std::unordered_map<DescriptorSetKey, VulkanDescriptorSet*, VectorHasher>	m_DescriptorSets;
 	std::unordered_map<DescriptorKey, VulkanDescriptor*, VectorHasher>			m_Descriptors;
 
+public:
 	VulkanPipeline*			FindOrCreateGraphicsPipeline(VulkanDevice& device, PipelineConfigInfo& pipelineInfo);
 	VulkanPipeline*			FindOrCreateComputePipeline(VulkanDevice& device, PipelineConfigInfo& pipelineInfo);
 	VulkanRenderPass*		FindOrCreateRenderPass(VulkanDevice& device, const std::vector<VulkanImageView*>& renderTargets, const VulkanImageView* depthStencil, RenderPassConfigInfo& renderPassInfo);
 	VulkanFramebuffer*		FindOrCreateFramebuffer(VulkanDevice& device, const std::vector<VulkanImageView*>& renderTargets, const VulkanImageView* depthStencil, const VulkanRenderPass* renderpass, const VulkanFramebufferInfo& framebufferInfo);
 	VulkanDescriptorSet*	FindOrCreateDescriptorSet(VulkanDevice& device, const VulkanDescriptorPool* desciptorPool, const VulkanDescriptorSetLayout* descriptorSetLayout, const std::vector<VulkanDescriptor*>& descriptors);
+	
+	std::unordered_map<DescriptorKey, VulkanDescriptor*, VectorHasher>& GetDescriptors() { return m_Descriptors; }
 };

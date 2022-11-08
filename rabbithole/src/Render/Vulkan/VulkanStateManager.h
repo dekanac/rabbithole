@@ -9,12 +9,8 @@ typedef VkExtent2D Extent2D;
 
 struct PushConstant
 {
-	PushConstant(void* data_, uint32_t size_)
-		: data(data_), size(size_)
-	{}
-
-	void*		data;
-	uint32_t	size;
+	uint32_t data[32];
+	uint32_t size;
 };
 
 //keep in sync with UniformBufferObject in Renderer.h
@@ -76,8 +72,6 @@ public:
 	bool GetDescriptorSetDirty() { return m_DirtyDescriptorSet; }
 	void SetDescriptorSetDirty(bool dirty) { m_DirtyDescriptorSet = dirty; }
 
-	DescriptorSetManager* GetDescriptorSetManager() { return m_DescriptorSetManager; }
-
 	//uniform buffer
 	UniformBufferObject* GetUBO() const { return m_UBO; }
 	void UpdateUBOElement(UBOElement element, uint32_t count, void* data);
@@ -102,11 +96,11 @@ public:
 	void ShouldCleanColor(bool clean);
 	void ShouldCleanDepth(bool clean);
 
-	void SetCombinedImageSampler(uint32_t slot, VulkanTexture* texture);
+	void SetCombinedImageSampler(uint32_t slot, VulkanTexture* texture, uint32_t mipSlice = 0);
 	void SetConstantBuffer(uint32_t slot, VulkanBuffer* buffer);
-	void SetStorageImage(uint32_t slot, VulkanImageView* texture);
+	void SetStorageImage(uint32_t slot, VulkanImageView* view);
 	void SetStorageBuffer(uint32_t slot, VulkanBuffer* buffer);
-	void SetSampledImage(uint32_t slot, VulkanTexture* texture);
+	void SetSampledImage(uint32_t slot, VulkanImageView* view);
 	void SetSampler(uint32_t slot, VulkanImageSampler* sampler);
 
 	VulkanDescriptorSet* FinalizeDescriptorSet(VulkanDevice& device, const VulkanDescriptorPool* pool);
@@ -131,7 +125,6 @@ private:
 
 	std::vector<VulkanDescriptor*>	m_Descriptors;
 	VulkanDescriptorSet*			m_DescriptorSet;
-	DescriptorSetManager*			m_DescriptorSetManager;
 
 	bool m_DirtyPipeline = true;
 	bool m_DirtyRenderPass = true;

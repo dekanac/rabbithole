@@ -11,7 +11,7 @@ void LightingPass::DeclareResources()
 {
 	MainLighting = m_Renderer.GetResourceManager().CreateTexture(m_Renderer.GetVulkanDevice(), RWTextureCreateInfo{
 			.dimensions = {GetNativeWidth, GetNativeHeight, 1},
-			.flags = {TextureFlags::RenderTarget | TextureFlags::Read | TextureFlags::TransferSrc},
+			.flags = {TextureFlags::RenderTarget | TextureFlags::Read | TextureFlags::TransferSrc | TextureFlags::Storage},
 			.format = {Format::R16G16B16A16_FLOAT},
 			.name = {"Lighting Main"},
 		});

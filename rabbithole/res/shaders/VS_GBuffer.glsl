@@ -33,7 +33,7 @@ layout(push_constant) uniform Push
 
 void main() 
 {
-    vec3 worldPosition =  vec3(push.model * vec4(position, 1.0));
+    vec3 worldPosition = vec3(push.model * vec4(position, 1.0));
     vs_out.FragPos = worldPosition;
     vs_out.FragUV = uv;
     
@@ -56,7 +56,7 @@ void main()
     vec4 previousPos = UBO.prevViewProjMatrix * vec4(worldPosition, 1); 
 
     vec2 motionVector = (currentPos.xy / currentPos.w) - (previousPos.xy / previousPos.w);
-    vs_out.FragVelocity = motionVector * vec2(0.5f, 0.5f);
+    vs_out.FragVelocity = motionVector * 0.5f;
 
     gl_Position = UBO.projJittered * UBO.view * vec4(worldPosition, 1);
 }

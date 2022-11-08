@@ -45,7 +45,7 @@ void main()
 	}
 
 	float depth = texture(samplerDepth, inUV).r;
-	float linearDepth = linearize_depth(depth) * fogParams.depthScale_debug;
+	float linearDepth = linearize_depth(depth) * 2.f;
 
 	float depthFinal = clamp(((linearDepth - fogParams.fogStartDistance) / fogParams.fogDistance), 0.f, 1.f);
 
