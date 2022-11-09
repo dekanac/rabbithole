@@ -541,6 +541,7 @@
     <None Include="res\shaders\CS_Downsample.glsl" />
     <None Include="res\shaders\CS_FSR.glsl" />
     <None Include="res\shaders\CS_RayTracingShadows.glsl" />
+    <None Include="res\shaders\CS_SSAO.glsl" />
     <None Include="res\shaders\CS_Upsample.glsl" />
     <None Include="res\shaders\CS_Volumetric.glsl" />
     <None Include="res\shaders\FS_GBuffer.glsl" />

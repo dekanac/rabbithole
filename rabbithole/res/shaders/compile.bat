@@ -7,6 +7,7 @@ glslc.exe -g -fshader-stage=fragment FS_GBuffer.glsl -o FS_GBuffer.spv
 glslc.exe -g -fshader-stage=fragment FS_OutlineEntity.glsl -o FS_OutlineEntity.spv
 glslc.exe -g -fshader-stage=fragment FS_Skybox.glsl -o FS_Skybox.spv
 glslc.exe -g -fshader-stage=fragment FS_SSAO.glsl -o FS_SSAO.spv
+glslc.exe -g -fshader-stage=compute CS_SSAO.glsl -o CS_SSAO.spv
 glslc.exe -g -fshader-stage=fragment FS_SSAOBlur.glsl -o FS_SSAOBlur.spv
 glslc.exe -g -fshader-stage=compute CS_RayTracingShadows.glsl -o CS_RayTracingShadows.spv
 glslc.exe -g -fshader-stage=vertex VS_SimpleGeometry.glsl -o VS_SimpleGeometry.spv

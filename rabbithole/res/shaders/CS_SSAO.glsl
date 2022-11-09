@@ -1,19 +1,17 @@
-
 #version 450
 
 #include "common.h"
-
-layout (location = 0) out float fragColour;
-layout (location = 0) in vec2 inUV;
 
 layout(binding = 0) uniform UniformBufferObject_ 
 {
     UniformBufferObject UBO;
 };
 
-layout (binding = 1) uniform sampler2D samplerDepth;
-layout (binding = 2) uniform sampler2D samplerNormal;
-layout (binding = 3) uniform sampler2D samplerSSAONoise;
+layout (r32f, binding = 1) readonly uniform image2D imageDepth;
+layout (rgba16f, binding = 2) readonly uniform image2D imageNormal;
+layout (rg16f, binding = 3) readonly uniform image2D imageSSAONoise;
+
+layout (r8, binding = 6) writeonly uniform image2D SSAOOoutput;
 
 layout(binding = 4) uniform Samples_ 
 {
@@ -37,9 +35,9 @@ float LinearDepth(float depth)
 	return (2.0f * UBO.frustrumInfo.z * UBO.frustrumInfo.w) / (UBO.frustrumInfo.w + UBO.frustrumInfo.z - z * (UBO.frustrumInfo.w - UBO.frustrumInfo.z));	
 }
 
-vec3 WorldPosFromDepth(float depth) 
+vec3 WorldPosFromDepth(float depth, vec2 uv)
 {
-    vec4 clipSpacePosition = vec4(inUV * 2.f - 1.f, depth, 1.0);
+    vec4 clipSpacePosition = vec4(uv * 2.f - 1.f, depth, 1.0);
     vec4 viewSpacePosition = UBO.projInverse * clipSpacePosition;
 
     // Perspective division
@@ -53,22 +51,25 @@ vec3 WorldPosFromDepth(float depth)
 // tile noise texture over screen based on screen dimensions divided by noise size
 vec2 noiseScale = vec2(SSAOParams.resWidth/4.0, SSAOParams.resHeight/4.0);
 
+layout( local_size_x = 8, local_size_y = 8, local_size_z = 1 ) in;
 void main()
 {
 	if (!SSAOParams.ssaoOn)
 	{
-		fragColour = 1.0f;
+		imageStore(SSAOOoutput, ivec2(gl_GlobalInvocationID.xy), vec4(1.f));
 		return;
 	}
 
+	vec2 uv = gl_GlobalInvocationID.xy / UBO.frustrumInfo.xy;
+
 	// Get G-Buffer values
-	vec3 fragPos = vec3(UBO.view * vec4(WorldPosFromDepth(texture(samplerDepth, inUV).r), 1.f));
+	vec3 fragPos = vec3(UBO.view * vec4(WorldPosFromDepth(imageLoad(imageDepth, ivec2(gl_GlobalInvocationID.xy)).r, uv), 1.f));
 	//vec3 normal = normalize(texture(samplerNormal, inUV).rgb * 2.0 - 1.0);
 
-	vec3 normal = normalize(((mat3(UBO.view) * texture(samplerNormal, inUV).rgb)  * 0.5 + 0.5) * 2.0 - 1.0);
+	vec3 normal = normalize(((mat3(UBO.view) * imageLoad(imageNormal, ivec2(gl_GlobalInvocationID.xy)).rgb)  * 0.5 + 0.5) * 2.0 - 1.0);
 
 	// Get a random vector using a noise lookup
-	vec3 randomVec = normalize(texture(samplerSSAONoise, inUV * noiseScale).xyz);
+	vec3 randomVec = normalize(imageLoad(imageSSAONoise, ivec2(gl_GlobalInvocationID.xy % 4)).xyz);
 	
 	// Create TBN matrix
 	vec3 tangent = normalize(randomVec - normal * dot(randomVec, normal));
@@ -78,7 +79,6 @@ void main()
 	// Calculate occlusion value
 	float occlusion = 0.0f;
 	// remove banding
-#pragma unroll_loop_start
 	for(int i = 0; i < SSAOParams.kernelSize; ++i)
     {
         // get sample position
@@ -91,16 +91,16 @@ void main()
         offset.xyz /= offset.w; // perspective divide
         offset.xyz = offset.xyz * 0.5 + 0.5; // transform to range 0.0 - 1.0
         
+		ivec2 offsetUV = ivec2(offset.xy * UBO.frustrumInfo.xy);
         // get sample depth
-        float sampleDepth = vec3(UBO.view * vec4(WorldPosFromDepth(texture(samplerDepth, offset.xy).r), 1.0)).z; // get depth value of kernel sample
+        float sampleDepth = vec3(UBO.view * vec4(WorldPosFromDepth(imageLoad(imageDepth, ivec2(offsetUV)).r, offset.xy), 1.0)).z; // get depth value of kernel sample
         
         // range check & accumulate
         float rangeCheck = smoothstep(0.0, 1.0, SSAOParams.radius / abs(fragPos.z - sampleDepth));
         occlusion += (sampleDepth >= samplePos.z + SSAOParams.bias ? 1.0 : 0.0) * rangeCheck;           
     }
-#pragma unroll_loop_end
 	occlusion = 1.0 - (occlusion / float(SSAOParams.kernelSize));
 	
-	fragColour = pow(occlusion, SSAOParams.power);
+	imageStore(SSAOOoutput, ivec2(gl_GlobalInvocationID.xy), vec4(occlusion, 0, 0, 1));
 }
 

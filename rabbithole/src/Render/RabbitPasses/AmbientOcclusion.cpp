@@ -23,8 +23,8 @@ void SSAOPass::DeclareResources()
 
 	Output = m_Renderer.GetResourceManager().CreateTexture(m_Renderer.GetVulkanDevice(), RWTextureCreateInfo{
 			.dimensions = {GetNativeWidth, GetNativeHeight, 1},
-			.flags = {TextureFlags::RenderTarget | TextureFlags::Read},
-			.format = {Format::R32_SFLOAT},
+			.flags = {TextureFlags::RenderTarget | TextureFlags::Read | TextureFlags::Storage},
+			.format = {Format::R8_UNORM},
 			.name = {"SSAO Main"}
 		});
 
@@ -70,7 +70,7 @@ void SSAOPass::DeclareResources()
 	texData.pData = (unsigned char*)ssaoNoise.data();
 
 	Noise = m_Renderer.GetResourceManager().CreateTexture(m_Renderer.GetVulkanDevice(), &texData, ROTextureCreateInfo{
-			.flags = {TextureFlags::Color | TextureFlags::Read | TextureFlags::TransferDst},
+			.flags = {TextureFlags::Color | TextureFlags::Read | TextureFlags::TransferDst | TextureFlags::Storage},
 			.format = {Format::R32G32B32A32_FLOAT},
 			.name = {"SSAO Noise"}
 		});
@@ -88,26 +88,12 @@ void SSAOPass::Setup()
 {
 	VulkanStateManager& stateManager = m_Renderer.GetStateManager();
 
-	stateManager.SetVertexShader(m_Renderer.GetShader("VS_PassThrough"));
-	stateManager.SetPixelShader(m_Renderer.GetShader("FS_SSAO"));
-
-	auto renderPassInfo = stateManager.GetRenderPassInfo();
-	renderPassInfo->InitialRenderTargetState = ResourceState::None;
-	renderPassInfo->FinalRenderTargetState = ResourceState::RenderTarget;
-	renderPassInfo->InitialDepthStencilState = ResourceState::None;
-	renderPassInfo->FinalDepthStencilState = ResourceState::None;
-
-	auto pipelineInfo = stateManager.GetPipelineInfo();
-	pipelineInfo->SetAttachmentCount(1);
-	pipelineInfo->SetColorWriteMask(0, ColorWriteMaskFlags::R);
-
-	auto& device = m_Renderer.GetVulkanDevice();
-
 	//fill params buffer
 	if (m_Renderer.imguiReady)
 	{
 		ImGui::Begin("SSAOParams");
 
+		ImGui::Checkbox("Compute SSAO: ", &ComputeSSAO);
 		ImGui::SliderFloat("Radius: ", &ParamsCPU.radius, 0.1f, 1.f);
 		ImGui::SliderFloat("Bias:", &ParamsCPU.bias, 0.0f, 0.0625f);
 		ImGui::SliderFloat("Power:", &ParamsCPU.power, 1.0f, 3.f);
@@ -116,27 +102,66 @@ void SSAOPass::Setup()
 		ImGui::End();
 	}
 
-	ParamsGPU->FillBuffer(&ParamsCPU, sizeof(SSAOParams));
+    ParamsGPU->FillBuffer(&ParamsCPU, sizeof(SSAOParams));
+    
+    if (!ComputeSSAO)
+    {
+        stateManager.SetVertexShader(m_Renderer.GetShader("VS_PassThrough"));
+        stateManager.SetPixelShader(m_Renderer.GetShader("FS_SSAO"));
 
-	SetConstantBuffer(0, m_Renderer.GetMainConstBuffer());
-	SetCombinedImageSampler(1, GBufferPass::WorldPosition);
-	SetCombinedImageSampler(2, GBufferPass::Normals);
-	SetCombinedImageSampler(3, SSAOPass::Noise);
-	SetConstantBuffer(4, SSAOPass::Samples);
-	SetConstantBuffer(5, SSAOPass::ParamsGPU);
+        auto renderPassInfo = stateManager.GetRenderPassInfo();
+        renderPassInfo->InitialRenderTargetState = ResourceState::None;
+        renderPassInfo->FinalRenderTargetState = ResourceState::RenderTarget;
+        renderPassInfo->InitialDepthStencilState = ResourceState::None;
+        renderPassInfo->FinalDepthStencilState = ResourceState::None;
 
-	SetRenderTarget(0, SSAOPass::Output);
+        auto pipelineInfo = stateManager.GetPipelineInfo();
+        pipelineInfo->SetAttachmentCount(1);
+        pipelineInfo->SetColorWriteMask(0, ColorWriteMaskFlags::R);
+		
+        SetConstantBuffer(0, m_Renderer.GetMainConstBuffer());
+        SetCombinedImageSampler(1, GBufferPass::Depth);
+        SetCombinedImageSampler(2, GBufferPass::Normals);
+        SetCombinedImageSampler(3, SSAOPass::Noise);
+        SetConstantBuffer(4, SSAOPass::Samples);
+        SetConstantBuffer(5, SSAOPass::ParamsGPU);
+
+        SetRenderTarget(0, SSAOPass::Output);
+	}
+	else
+	{
+        stateManager.SetComputeShader(m_Renderer.GetShader("CS_SSAO"));
+
+        SetConstantBuffer(0, m_Renderer.GetMainConstBuffer());
+        SetStorageImage(1, GBufferPass::Depth);
+        SetStorageImage(2, GBufferPass::Normals);
+        SetStorageImage(3, SSAOPass::Noise);
+        SetConstantBuffer(4, SSAOPass::Samples);
+        SetConstantBuffer(5, SSAOPass::ParamsGPU);
+        SetStorageImage(6, SSAOPass::Output);
+	}
 }
 void SSAOPass::Render()
 {
-	m_Renderer.DrawFullScreenQuad();
+	if (!ComputeSSAO)
+	{
+		m_Renderer.DrawFullScreenQuad();
+	}
+	else
+	{
+        constexpr uint32_t dispatchThreadSize = 8;
+        const uint32_t dispatchX = GetCSDispatchCount(GetNativeWidth, dispatchThreadSize);
+        const uint32_t dispatchY = GetCSDispatchCount(GetNativeHeight, dispatchThreadSize);
+
+        m_Renderer.Dispatch(dispatchX, dispatchY, 1);
+	}
 }
 void SSAOBlurPass::DeclareResources()
 {
 	BluredOutput = m_Renderer.GetResourceManager().CreateTexture(m_Renderer.GetVulkanDevice(), RWTextureCreateInfo{
 			.dimensions = {GetNativeWidth, GetNativeHeight, 1},
 			.flags = {TextureFlags::RenderTarget | TextureFlags::Read},
-			.format = {Format::R32_SFLOAT},
+			.format = {Format::R8_UNORM},
 			.name = {"SSAO Blured"}
 		});
 }
@@ -146,20 +171,23 @@ void SSAOBlurPass::Setup()
 
 	stateManager.SetVertexShader(m_Renderer.GetShader("VS_PassThrough"));
 	stateManager.SetPixelShader(m_Renderer.GetShader("FS_SSAOBlur"));
-
-	auto renderPassInfo = stateManager.GetRenderPassInfo();
-	renderPassInfo->InitialRenderTargetState = ResourceState::None;
-	renderPassInfo->FinalRenderTargetState = ResourceState::RenderTarget;
-	renderPassInfo->InitialDepthStencilState = ResourceState::None;
-	renderPassInfo->FinalDepthStencilState = ResourceState::None;
-
-	auto& device = m_Renderer.GetVulkanDevice();
-
-	SetCombinedImageSampler(0, SSAOPass::Output);
-	SetRenderTarget(0, SSAOBlurPass::BluredOutput);
-
 }
+
+
+void SSAOBlurPass::Blur(BlurDirection direction)
+{
+    SetCombinedImageSampler(0, SSAOPass::Output);
+    SetConstantBuffer(1, SSAOPass::ParamsGPU);
+
+    SetRenderTarget(0, SSAOBlurPass::BluredOutput);
+
+    m_Renderer.BindPushConst(static_cast<uint32_t>(direction));
+
+    m_Renderer.DrawFullScreenQuad();
+}
+
 void SSAOBlurPass::Render()
 {
-	m_Renderer.DrawFullScreenQuad();
+	Blur(BlurHorizontal);
+	Blur(BlurVertical);
 }

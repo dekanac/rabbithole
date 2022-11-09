@@ -1637,5 +1637,6 @@
     <None Include="res\shaders\FS_TextureDebug.glsl" />
     <None Include="res\shaders\CS_Downsample.glsl" />
     <None Include="res\shaders\CS_Upsample.glsl" />
+    <None Include="res\shaders\CS_SSAO.glsl" />
   </ItemGroup>
 </Project>
