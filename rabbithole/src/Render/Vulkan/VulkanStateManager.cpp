@@ -22,7 +22,7 @@ VulkanStateManager::VulkanStateManager()
 	m_DirtyRenderPass = true;
 	m_DirtyUBO = false;
 
-	SetFramebufferExtent(Extent2D{ Window::instance().GetExtent().width, Window::instance().GetExtent().height });
+	SetFramebufferExtent(Extent2D{ 0, 0 });
 
     m_RenderTargets.resize(MaxRenderTargetCount);
 

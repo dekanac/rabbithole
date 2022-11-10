@@ -62,6 +62,8 @@ void GBufferPass::Setup()
 	stateManager.SetPixelShader(m_Renderer.GetShader("FS_GBuffer"));
 
 	m_Renderer.BindViewport(0, 0, static_cast<float>(GetNativeWidth), static_cast<float>(GetNativeHeight));
+
+	stateManager.SetFramebufferExtent(Extent2D{ GetNativeWidth , GetNativeHeight });
 	stateManager.ShouldCleanColor(true);
 	stateManager.ShouldCleanDepth(true);
 
