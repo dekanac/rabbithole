@@ -37,13 +37,6 @@ bool isLeaf(CFBVHNode node)
 	return (node.idxLeft & 0x80000000) > 0;
 }
 
-struct Ray
-{
-	vec3 origin;
-	vec3 direction;
-	float t;
-};
-
 struct UniformBufferObject
 {
 	mat4 view;
@@ -63,10 +56,15 @@ struct UniformBufferObject
     vec4 currentFrameInfo; //x = current frame index
 };
 
-struct RayHit
+struct SSAOParams
 {
-	bool hit;
-	float t;
+	float radius;
+	float bias;
+	float resWidth;
+	float resHeight;
+	float power;
+	uint kernelSize;
+	bool ssaoOn;
 };
 
 struct VolumetricFogParams

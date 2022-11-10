@@ -22,20 +22,8 @@ layout(binding = 4) uniform Samples_
 
 layout(std140, binding = 5) uniform SSAOParamsBuffer
 {
-	float radius;
-	float bias;
-	float resWidth;
-	float resHeight;
-	float power;
-	uint kernelSize;
-	bool ssaoOn;
-} SSAOParams;
-
-float LinearDepth(float depth)
-{
-	float z = depth * 2.0f - 1.0f; 
-	return (2.0f * UBO.frustrumInfo.z * UBO.frustrumInfo.w) / (UBO.frustrumInfo.w + UBO.frustrumInfo.z - z * (UBO.frustrumInfo.w - UBO.frustrumInfo.z));	
-}
+	SSAOParams ssaoParams;
+};
 
 vec3 WorldPosFromDepth(float depth) 
 {
@@ -50,19 +38,31 @@ vec3 WorldPosFromDepth(float depth)
     return worldSpacePosition.xyz;
 }
 
+float linearize_depth(float depth)
+{
+	float z = depth * 2.0f - 1.0f; 
+	return 2.f * (2.0f * UBO.frustrumInfo.z * UBO.frustrumInfo.w) / (UBO.frustrumInfo.w + UBO.frustrumInfo.z - z * (UBO.frustrumInfo.w - UBO.frustrumInfo.z));	
+}
+
 // tile noise texture over screen based on screen dimensions divided by noise size
-vec2 noiseScale = vec2(SSAOParams.resWidth/4.0, SSAOParams.resHeight/4.0);
+vec2 noiseScale = vec2(ssaoParams.resWidth/4.0, ssaoParams.resHeight/4.0);
 
 void main()
 {
-	if (!SSAOParams.ssaoOn)
+	if (!ssaoParams.ssaoOn)
 	{
 		fragColour = 1.0f;
 		return;
 	}
 
+	float depth = texture(samplerDepth, inUV).r;
+	if (depth >= 1.f)
+	{
+		fragColour = 1.0f;
+		return;
+	}
 	// Get G-Buffer values
-	vec3 fragPos = vec3(UBO.view * vec4(WorldPosFromDepth(texture(samplerDepth, inUV).r), 1.f));
+	vec3 fragPos = vec3(UBO.view * vec4(WorldPosFromDepth(depth), 1.f));
 	//vec3 normal = normalize(texture(samplerNormal, inUV).rgb * 2.0 - 1.0);
 
 	vec3 normal = normalize(((mat3(UBO.view) * texture(samplerNormal, inUV).rgb)  * 0.5 + 0.5) * 2.0 - 1.0);
@@ -79,28 +79,28 @@ void main()
 	float occlusion = 0.0f;
 	// remove banding
 #pragma unroll_loop_start
-	for(int i = 0; i < SSAOParams.kernelSize; ++i)
+	for(int i = 0; i < ssaoParams.kernelSize; ++i)
     {
         // get sample position
         vec3 samplePos = TBN * Samples.samples[i].rgb; // from tangent to view-space
-        samplePos = fragPos + samplePos * SSAOParams.radius; 
+        samplePos = fragPos + samplePos * ssaoParams.radius; 
         
         // project sample position (to sample texture) (to get position on screen/texture)
         vec4 offset = vec4(samplePos, 1.0);
-        offset = UBO.projJittered * offset; // from view to clip-space
+        offset = UBO.proj * offset; // from view to clip-space
         offset.xyz /= offset.w; // perspective divide
         offset.xyz = offset.xyz * 0.5 + 0.5; // transform to range 0.0 - 1.0
         
         // get sample depth
-        float sampleDepth = vec3(UBO.view * vec4(WorldPosFromDepth(texture(samplerDepth, offset.xy).r), 1.0)).z; // get depth value of kernel sample
+        float sampleDepth = -linearize_depth(texture(samplerDepth, offset.xy).r);
         
         // range check & accumulate
-        float rangeCheck = smoothstep(0.0, 1.0, SSAOParams.radius / abs(fragPos.z - sampleDepth));
-        occlusion += (sampleDepth >= samplePos.z + SSAOParams.bias ? 1.0 : 0.0) * rangeCheck;           
+        float rangeCheck = smoothstep(0.0, 1.0, ssaoParams.radius / abs(fragPos.z - sampleDepth));
+        occlusion += (sampleDepth >= samplePos.z + ssaoParams.bias ? 1.0 : 0.0) * rangeCheck;           
     }
 #pragma unroll_loop_end
-	occlusion = 1.0 - (occlusion / float(SSAOParams.kernelSize));
+	occlusion = 1.0 - (occlusion / float(ssaoParams.kernelSize));
 	
-	fragColour = pow(occlusion, SSAOParams.power);
+	fragColour = pow(occlusion, ssaoParams.power);
 }
 

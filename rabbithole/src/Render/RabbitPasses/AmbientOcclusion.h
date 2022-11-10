@@ -4,7 +4,7 @@
 
 BEGIN_DECLARE_RABBITPASS(SSAOPass);
 
-	bool ComputeSSAO = false;
+	bool ComputeSSAO = true;
 
 	float lerp(float a, float b, float f)
 	{
@@ -36,14 +36,6 @@ BEGIN_DECLARE_RABBITPASS(SSAOPass);
 END_DECLARE_RABBITPASS
 
 BEGIN_DECLARE_RABBITPASS(SSAOBlurPass);
-	
-	enum BlurDirection : uint32_t
-	{
-		BlurHorizontal = 0,
-		BlurVertical = 1
-	};
-
-	void Blur(BlurDirection direction);
 
 	declareResource(BluredOutput, VulkanTexture);
 

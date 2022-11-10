@@ -34,29 +34,30 @@ layout(push_constant) uniform Push
 // . . . . . . .
 vec4 DownsampleBox13Tap(image2D tex, vec2 uv, vec2 texelSize)
 {
-    vec4 A = texture(tex, (uv + texelSize * vec2(-1.0, -1.0)));
-    vec4 B = texture(tex, (uv + texelSize * vec2( 0.0, -1.0)));
-    vec4 C = texture(tex, (uv + texelSize * vec2( 1.0, -1.0)));
-    vec4 D = texture(tex, (uv + texelSize * vec2(-0.5, -0.5)));
-    vec4 E = texture(tex, (uv + texelSize * vec2( 0.5, -0.5)));
-    vec4 F = texture(tex, (uv + texelSize * vec2(-1.0,  0.0)));
-    vec4 G = texture(tex,  uv                                );
-    vec4 H = texture(tex, (uv + texelSize * vec2( 1.0,  0.0)));
-    vec4 I = texture(tex, (uv + texelSize * vec2(-0.5,  0.5)));
-    vec4 J = texture(tex, (uv + texelSize * vec2( 0.5,  0.5)));
-    vec4 K = texture(tex, (uv + texelSize * vec2(-1.0,  1.0)));
-    vec4 L = texture(tex, (uv + texelSize * vec2( 0.0,  1.0)));
-    vec4 M = texture(tex, (uv + texelSize * vec2( 1.0,  1.0)));
-
-    vec2 div = (1.0 / 4.0) * vec2(0.5, 0.125);
-
-    vec4 o = (D + E + I + J) * div.x;
-    o += (A + B + G + F) * div.y;
-    o += (B + C + H + G) * div.y;
-    o += (F + G + L + K) * div.y;
-    o += (G + H + M + L) * div.y;
-
-    return o;
+   // vec4 A = texture(tex, (uv + texelSize * vec2(-1.0, -1.0)));
+   // vec4 B = texture(tex, (uv + texelSize * vec2( 0.0, -1.0)));
+   // vec4 C = texture(tex, (uv + texelSize * vec2( 1.0, -1.0)));
+   // vec4 D = texture(tex, (uv + texelSize * vec2(-0.5, -0.5)));
+   // vec4 E = texture(tex, (uv + texelSize * vec2( 0.5, -0.5)));
+   // vec4 F = texture(tex, (uv + texelSize * vec2(-1.0,  0.0)));
+   // vec4 G = texture(tex,  uv                                );
+   // vec4 H = texture(tex, (uv + texelSize * vec2( 1.0,  0.0)));
+   // vec4 I = texture(tex, (uv + texelSize * vec2(-0.5,  0.5)));
+   // vec4 J = texture(tex, (uv + texelSize * vec2( 0.5,  0.5)));
+   // vec4 K = texture(tex, (uv + texelSize * vec2(-1.0,  1.0)));
+   // vec4 L = texture(tex, (uv + texelSize * vec2( 0.0,  1.0)));
+   // vec4 M = texture(tex, (uv + texelSize * vec2( 1.0,  1.0)));
+   //
+   // vec2 div = (1.0 / 4.0) * vec2(0.5, 0.125);
+   //
+   // vec4 o = (D + E + I + J) * div.x;
+   // o += (A + B + G + F) * div.y;
+   // o += (B + C + H + G) * div.y;
+   // o += (F + G + L + K) * div.y;
+   // o += (G + H + M + L) * div.y;
+   //
+   // return o;
+   return vec4(1.f);
 }
 
 layout( local_size_x = 8, local_size_y = 8, local_size_z = 1 ) in;

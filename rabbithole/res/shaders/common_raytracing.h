@@ -30,6 +30,19 @@ layout(std430, binding = 3) readonly buffer CFBVHNodesBuffer
 #define MOLLER_TRUMBORE
 #define MAX_STACK_HEIGHT 50
 
+struct Ray
+{
+	vec3 origin;
+	vec3 direction;
+	float t;
+};
+
+struct RayHit
+{
+	bool hit;
+	float t;
+};
+
 bool IntersectAABB(Ray ray, vec3 boxMin, vec3 boxMax)
 {
 	vec3 tMin = (boxMin - ray.origin) / ray.direction;

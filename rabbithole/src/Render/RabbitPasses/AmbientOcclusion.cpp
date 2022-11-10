@@ -171,23 +171,14 @@ void SSAOBlurPass::Setup()
 
 	stateManager.SetVertexShader(m_Renderer.GetShader("VS_PassThrough"));
 	stateManager.SetPixelShader(m_Renderer.GetShader("FS_SSAOBlur"));
-}
 
+	SetCombinedImageSampler(0, SSAOPass::Output);
+	SetConstantBuffer(1, SSAOPass::ParamsGPU);
 
-void SSAOBlurPass::Blur(BlurDirection direction)
-{
-    SetCombinedImageSampler(0, SSAOPass::Output);
-    SetConstantBuffer(1, SSAOPass::ParamsGPU);
-
-    SetRenderTarget(0, SSAOBlurPass::BluredOutput);
-
-    m_Renderer.BindPushConst(static_cast<uint32_t>(direction));
-
-    m_Renderer.DrawFullScreenQuad();
+	SetRenderTarget(0, SSAOBlurPass::BluredOutput);
 }
 
 void SSAOBlurPass::Render()
 {
-	Blur(BlurHorizontal);
-	Blur(BlurVertical);
+	m_Renderer.DrawFullScreenQuad();
 }
