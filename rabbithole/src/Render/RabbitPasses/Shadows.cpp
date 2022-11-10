@@ -221,7 +221,7 @@ void ShadowDenoiseTileClassificationPass::Render()
 void ShadowDenoiseTileClassificationPass::ClassifyTiles(uint32_t shadowSlice)
 {
 	SetConstantBuffer(0, ShadowDenoiseTileClassificationPass::ReprojectionInfo);
-	SetSampledImage(1, GBufferPass::Depth);
+	SetSampledImage(1, GBufferPass::DepthR32);
 	SetSampledImage(2, GBufferPass::Velocity);
 	SetSampledImage(3, GBufferPass::Normals);
 	SetSampledImage(4, ShadowDenoiseTileClassificationPass::Reprojection1[shadowSlice]);
@@ -298,7 +298,7 @@ void ShadowDenoiseFilterPass::RenderFilterPass0(uint32_t shadowSlice)
 	stateManager.SetComputeShader(m_Renderer.GetShader("CS_FilterSoftShadowsPass0"), "Pass0");
 
 	SetConstantBuffer(0, ShadowDenoiseFilterPass::FilterData);
-	SetSampledImage(1, GBufferPass::Depth);
+	SetSampledImage(1, GBufferPass::DepthR32);
 	SetSampledImage(2, GBufferPass::Normals);
 	SetStorageBufferRead(3, ShadowDenoiseTileClassificationPass::TileMetadata[shadowSlice]);
 	SetSampledImage(4, ShadowDenoiseTileClassificationPass::Reprojection0[shadowSlice]);
@@ -319,7 +319,7 @@ void ShadowDenoiseFilterPass::RenderFilterPass1(uint32_t shadowSlice)
 	stateManager.SetComputeShader(m_Renderer.GetShader("CS_FilterSoftShadowsPass1"), "Pass1");
 
 	SetConstantBuffer(0, ShadowDenoiseFilterPass::FilterData);
-	SetSampledImage(1, GBufferPass::Depth);
+	SetSampledImage(1, GBufferPass::DepthR32);
 	SetSampledImage(2, GBufferPass::Normals);
 	SetStorageBufferRead(3, ShadowDenoiseTileClassificationPass::TileMetadata[shadowSlice]);
 	SetSampledImage(4, ShadowDenoiseTileClassificationPass::Reprojection1[shadowSlice]);
@@ -342,7 +342,7 @@ void ShadowDenoiseFilterPass::RenderFilterPass2(uint32_t shadowSlice)
 	m_Renderer.BindPushConst(shadowSlice);
 
 	SetConstantBuffer(0, ShadowDenoiseFilterPass::FilterData);
-	SetSampledImage(1, GBufferPass::Depth);
+	SetSampledImage(1, GBufferPass::DepthR32);
 	SetSampledImage(2, GBufferPass::Normals);
 	SetStorageBufferRead(3, ShadowDenoiseTileClassificationPass::TileMetadata[shadowSlice]);
 	SetSampledImage(4, ShadowDenoiseTileClassificationPass::Reprojection0[shadowSlice]);

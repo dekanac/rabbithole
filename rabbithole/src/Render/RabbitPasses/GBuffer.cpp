@@ -5,6 +5,7 @@ defineResource(GBufferPass, Normals, VulkanTexture);
 defineResource(GBufferPass, Velocity, VulkanTexture);
 defineResource(GBufferPass, WorldPosition, VulkanTexture);
 defineResource(GBufferPass, Depth, VulkanTexture);
+defineResource(GBufferPass, DepthR32, VulkanTexture);
 
 defineResource(SkyboxPass, Main, VulkanTexture);
 
@@ -42,8 +43,15 @@ void GBufferPass::DeclareResources()
 			.dimensions = {GetNativeWidth , GetNativeHeight, 1},
 			.flags = {TextureFlags::DepthStencil | TextureFlags::Read | TextureFlags::TransferSrc},
 			.format = {Format::D32_SFLOAT},
-			.name = {"GBuffer DepthStencil"}
+			.name = {"GBuffer Depth"}
 		});
+
+    DepthR32 = m_Renderer.GetResourceManager().CreateTexture(m_Renderer.GetVulkanDevice(), RWTextureCreateInfo{
+			.dimensions = {GetNativeWidth , GetNativeHeight, 1},
+			.flags = {TextureFlags::Read | TextureFlags::Storage | TextureFlags::RenderTarget},
+			.format = {Format::R32_SFLOAT},
+			.name = {"GBuffer DepthR32"}
+        });
 }
 
 void GBufferPass::Setup()
@@ -93,6 +101,20 @@ void GBufferPass::Setup()
 void GBufferPass::Render()
 {
 	m_Renderer.DrawGeometryGLTF(m_Renderer.gltfModels);
+}
+
+void SkyboxPass::CopyDepth()
+{
+    VulkanStateManager& stateManager = m_Renderer.GetStateManager();
+
+    stateManager.SetVertexShader(m_Renderer.GetShader("VS_PassThrough"));
+    stateManager.SetPixelShader(m_Renderer.GetShader("FS_CopyDepth"));
+    
+	SetCombinedImageSampler(0, GBufferPass::Depth);
+
+	SetRenderTarget(0, GBufferPass::DepthR32);
+
+	m_Renderer.DrawFullScreenQuad();
 }
 
 float skyboxVertices[] = {
@@ -175,4 +197,6 @@ void SkyboxPass::Render()
 	m_Renderer.GetVertexUploadBuffer()->FillBuffer(skyboxVertices, 396 * sizeof(float));
 	m_Renderer.BindVertexData(0);
 	m_Renderer.DrawVertices(36);
+
+    CopyDepth();
 }

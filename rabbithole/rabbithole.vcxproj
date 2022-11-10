@@ -544,6 +544,7 @@
     <None Include="res\shaders\CS_SSAO.glsl" />
     <None Include="res\shaders\CS_Upsample.glsl" />
     <None Include="res\shaders\CS_Volumetric.glsl" />
+    <None Include="res\shaders\FS_CopyDepth.glsl" />
     <None Include="res\shaders\FS_GBuffer.glsl" />
     <None Include="res\shaders\FS_OutlineEntity.glsl" />
     <None Include="res\shaders\FS_PassThrough.glsl" />

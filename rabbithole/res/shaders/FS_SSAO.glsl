@@ -13,14 +13,13 @@ layout(binding = 0) uniform UniformBufferObject_
 
 layout (binding = 1) uniform sampler2D samplerDepth;
 layout (binding = 2) uniform sampler2D samplerNormal;
-layout (binding = 3) uniform sampler2D samplerSSAONoise;
 
-layout(binding = 4) uniform Samples_ 
+layout(binding = 3) uniform Samples_ 
 {
     vec4 samples[64];
 } Samples;
 
-layout(std140, binding = 5) uniform SSAOParamsBuffer
+layout(std140, binding = 4) uniform SSAOParamsBuffer
 {
 	SSAOParams ssaoParams;
 };
@@ -44,8 +43,16 @@ float linearize_depth(float depth)
 	return 2.f * (2.0f * UBO.frustrumInfo.z * UBO.frustrumInfo.w) / (UBO.frustrumInfo.w + UBO.frustrumInfo.z - z * (UBO.frustrumInfo.w - UBO.frustrumInfo.z));	
 }
 
+//instead of binding texture we can have a matrix
+const vec2 NoiseMAT[4][4] = vec2[][](
+	vec2[](vec2(-0.9098, -0.48026), vec2(0.32024, 0.60014), vec2(0.49988, -0.13717), vec2(-0.73401, 0.8213)),
+	vec2[](vec2(0.96472, -0.63631), vec2(-0.80929, -0.47239), vec2(-0.43465, -0.70892), vec2(0.60422, -0.72786)),
+	vec2[](vec2(-0.84489, 0.73858), vec2(0.25477, 0.15941), vec2(-0.98381, 0.09972), vec2(0.36057,	-0.71009)),
+	vec2[](vec2(0.06787,	0.70606), vec2(-0.12267,	0.24411), vec2(-0.6009,	-0.2981), vec2(-0.724,	0.0265))
+	);
+
 // tile noise texture over screen based on screen dimensions divided by noise size
-vec2 noiseScale = vec2(ssaoParams.resWidth/4.0, ssaoParams.resHeight/4.0);
+vec2 ssaoTextureSize = vec2(ssaoParams.resWidth, ssaoParams.resHeight);
 
 void main()
 {
@@ -68,7 +75,7 @@ void main()
 	vec3 normal = normalize(((mat3(UBO.view) * texture(samplerNormal, inUV).rgb)  * 0.5 + 0.5) * 2.0 - 1.0);
 
 	// Get a random vector using a noise lookup
-	vec3 randomVec = normalize(texture(samplerSSAONoise, inUV * noiseScale).xyz);
+	vec3 randomVec = normalize(vec3(NoiseMAT[uint(inUV.x * ssaoTextureSize.x) % 4][uint(inUV.y * ssaoTextureSize.y) % 4], 0.f));
 	
 	// Create TBN matrix
 	vec3 tangent = normalize(randomVec - normal * dot(randomVec, normal));

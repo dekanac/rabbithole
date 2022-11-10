@@ -3,6 +3,7 @@ glslc.exe -g -fshader-stage=vertex VS_GBuffer.glsl -o VS_GBuffer.spv
 glslc.exe -g -fshader-stage=vertex VS_Skybox.glsl -o VS_Skybox.spv
 glslc.exe -g -fshader-stage=fragment FS_PBR.glsl -o FS_PBR.spv
 glslc.exe -g -fshader-stage=fragment FS_PassThrough.glsl -o FS_PassThrough.spv
+glslc.exe -g -fshader-stage=fragment FS_CopyDepth.glsl -o FS_CopyDepth.spv
 glslc.exe -g -fshader-stage=fragment FS_GBuffer.glsl -o FS_GBuffer.spv
 glslc.exe -g -fshader-stage=fragment FS_OutlineEntity.glsl -o FS_OutlineEntity.spv
 glslc.exe -g -fshader-stage=fragment FS_Skybox.glsl -o FS_Skybox.spv

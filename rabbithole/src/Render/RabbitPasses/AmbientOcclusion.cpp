@@ -54,27 +54,6 @@ void SSAOPass::DeclareResources()
 
 	Samples->FillBuffer(ssaoKernel.data(), bufferSize);
 
-	//generate SSAO Noise texture
-	std::vector<glm::vec4> ssaoNoise;
-	for (unsigned int i = 0; i < 16; i++)
-	{
-		glm::vec4 noise(randomFloats(generator) * 2.0 - 1.0, randomFloats(generator) * 2.0 - 1.0, 0.0f, 0.0f); // rotate around z-axis (in tangent space)
-		ssaoNoise.push_back(noise);
-	}
-
-	TextureData texData{};
-
-	texData.bpp = 4;
-	texData.height = 4;
-	texData.width = 4;
-	texData.pData = (unsigned char*)ssaoNoise.data();
-
-	Noise = m_Renderer.GetResourceManager().CreateTexture(m_Renderer.GetVulkanDevice(), &texData, ROTextureCreateInfo{
-			.flags = {TextureFlags::Color | TextureFlags::Read | TextureFlags::TransferDst | TextureFlags::Storage},
-			.format = {Format::R32G32B32A32_FLOAT},
-			.name = {"SSAO Noise"}
-		});
-
 	//init ssao params
 	ParamsCPU.radius = 0.5f;
 	ParamsCPU.bias = 0.025f;
@@ -93,12 +72,13 @@ void SSAOPass::Setup()
 	{
 		ImGui::Begin("SSAOParams");
 
+		ImGui::Checkbox("SSSAO On: ", &ParamsCPU.ssaoOn);
+		ImGui::SameLine();
 		ImGui::Checkbox("Compute SSAO: ", &ComputeSSAO);
 		ImGui::SliderFloat("Radius: ", &ParamsCPU.radius, 0.1f, 1.f);
 		ImGui::SliderFloat("Bias:", &ParamsCPU.bias, 0.0f, 0.0625f);
 		ImGui::SliderFloat("Power:", &ParamsCPU.power, 1.0f, 3.f);
 		ImGui::SliderInt("Kernel Size: ", &ParamsCPU.kernelSize, 1, 64);
-		ImGui::Checkbox("SSSAO On: ", &ParamsCPU.ssaoOn);
 		ImGui::End();
 	}
 
@@ -120,11 +100,10 @@ void SSAOPass::Setup()
         pipelineInfo->SetColorWriteMask(0, ColorWriteMaskFlags::R);
 		
         SetConstantBuffer(0, m_Renderer.GetMainConstBuffer());
-        SetCombinedImageSampler(1, GBufferPass::Depth);
+        SetCombinedImageSampler(1, GBufferPass::DepthR32);
         SetCombinedImageSampler(2, GBufferPass::Normals);
-        SetCombinedImageSampler(3, SSAOPass::Noise);
-        SetConstantBuffer(4, SSAOPass::Samples);
-        SetConstantBuffer(5, SSAOPass::ParamsGPU);
+        SetConstantBuffer(3, SSAOPass::Samples);
+        SetConstantBuffer(4, SSAOPass::ParamsGPU);
 
         SetRenderTarget(0, SSAOPass::Output);
 	}
@@ -133,12 +112,11 @@ void SSAOPass::Setup()
         stateManager.SetComputeShader(m_Renderer.GetShader("CS_SSAO"));
 
         SetConstantBuffer(0, m_Renderer.GetMainConstBuffer());
-        SetStorageImage(1, GBufferPass::Depth);
+        SetStorageImage(1, GBufferPass::DepthR32);
         SetStorageImage(2, GBufferPass::Normals);
-        SetStorageImage(3, SSAOPass::Noise);
-        SetConstantBuffer(4, SSAOPass::Samples);
-        SetConstantBuffer(5, SSAOPass::ParamsGPU);
-        SetStorageImage(6, SSAOPass::Output);
+        SetConstantBuffer(3, SSAOPass::Samples);
+        SetConstantBuffer(4, SSAOPass::ParamsGPU);
+        SetStorageImage(5, SSAOPass::Output);
 	}
 }
 void SSAOPass::Render()

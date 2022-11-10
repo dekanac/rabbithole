@@ -32,7 +32,7 @@ void FSR2Pass::Render()
 	fsrSetup.cameraSetup.cameraView = cameraState.ViewMatrix;
 	fsrSetup.cameraSetup.cameraViewInv = cameraState.ViewInverseMatrix;
 
-	fsrSetup.depthbufferResource = GBufferPass::Depth;
+	fsrSetup.depthbufferResource = GBufferPass::DepthR32;
 	fsrSetup.motionvectorResource = GBufferPass::Velocity;
 	fsrSetup.unresolvedColorResource = ApplyVolumetricFogPass::Output;
 	fsrSetup.resolvedColorResource = FSR2Pass::Output;

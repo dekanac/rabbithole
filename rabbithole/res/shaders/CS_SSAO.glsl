@@ -10,19 +10,18 @@ layout(binding = 0) uniform UniformBufferObject_
 
 layout (r32f, binding = 1) readonly uniform image2D imageDepth;
 layout (rgba16f, binding = 2) readonly uniform image2D imageNormal;
-layout (rg16f, binding = 3) readonly uniform image2D imageSSAONoise;
 
-layout (r8, binding = 6) writeonly uniform image2D SSAOOutput;
-
-layout(binding = 4) uniform Samples_ 
+layout(binding = 3) uniform Samples_ 
 {
     vec4 samples[64];
 } Samples;
 
-layout(std140, binding = 5) uniform SSAOParamsBuffer
+layout(std140, binding = 4) uniform SSAOParamsBuffer
 {
 	SSAOParams ssaoParams;
 };
+
+layout (r8, binding = 5) writeonly uniform image2D SSAOOutput;
 
 vec3 WorldPosFromDepth(float depth, vec2 uv)
 {
@@ -42,6 +41,14 @@ float linearize_depth(float depth)
 	float z = depth * 2.0f - 1.0f; 
 	return 2.f * (2.0f * UBO.frustrumInfo.z * UBO.frustrumInfo.w) / (UBO.frustrumInfo.w + UBO.frustrumInfo.z - z * (UBO.frustrumInfo.w - UBO.frustrumInfo.z));	
 }
+
+//instead of binding texture we can have a matrix
+const vec2 NoiseMAT[4][4] = vec2[][](
+	vec2[](vec2(-0.9098, -0.48026), vec2(0.32024, 0.60014), vec2(0.49988, -0.13717), vec2(-0.73401, 0.8213)),
+	vec2[](vec2(0.96472, -0.63631), vec2(-0.80929, -0.47239), vec2(-0.43465, -0.70892), vec2(0.60422, -0.72786)),
+	vec2[](vec2(-0.84489, 0.73858), vec2(0.25477, 0.15941), vec2(-0.98381, 0.09972), vec2(0.36057,	-0.71009)),
+	vec2[](vec2(0.06787,	0.70606), vec2(-0.12267,	0.24411), vec2(-0.6009,	-0.2981), vec2(-0.724,	0.0265))
+	);
 
 layout( local_size_x = 8, local_size_y = 8, local_size_z = 1 ) in;
 void main()
@@ -69,7 +76,7 @@ void main()
 	vec3 normal = normalize(((mat3(UBO.view) * imageLoad(imageNormal, ivec2(gl_GlobalInvocationID.xy)).rgb)  * 0.5 + 0.5) * 2.0 - 1.0);
 
 	// Get a random vector using a noise lookup
-	vec3 randomVec = normalize(imageLoad(imageSSAONoise, ivec2(gl_GlobalInvocationID.xy % 4)).xyz);
+	vec3 randomVec = normalize(vec3(NoiseMAT[gl_GlobalInvocationID.x % 4][gl_GlobalInvocationID.y % 4], 0.f));
 	
 	// Create TBN matrix
 	vec3 tangent = normalize(randomVec - normal * dot(randomVec, normal));
@@ -103,4 +110,3 @@ void main()
 	
 	imageStore(SSAOOutput, ivec2(gl_GlobalInvocationID.xy), vec4(pow(occlusion, ssaoParams.power), 0, 0, 1));
 }
-

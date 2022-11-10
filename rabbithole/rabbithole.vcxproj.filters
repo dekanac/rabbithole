@@ -1638,5 +1638,6 @@
     <None Include="res\shaders\CS_Downsample.glsl" />
     <None Include="res\shaders\CS_Upsample.glsl" />
     <None Include="res\shaders\CS_SSAO.glsl" />
+    <None Include="res\shaders\FS_CopyDepth.glsl" />
   </ItemGroup>
 </Project>

@@ -78,7 +78,7 @@ void LightingPass::Setup()
 	SetCombinedImageSampler(5, SSAOBlurPass::BluredOutput);
 	SetCombinedImageSampler(6, RTShadowsPass::ShadowMask);
 	SetCombinedImageSampler(7, GBufferPass::Velocity);
-	SetCombinedImageSampler(8, GBufferPass::Depth);
+	SetCombinedImageSampler(8, GBufferPass::DepthR32);
 	SetCombinedImageSampler(9, ShadowDenoiseFilterPass::ShadowMask);
 
 	SetRenderTarget(0, LightingPass::MainLighting);
