@@ -27,7 +27,9 @@ layout(push_constant) uniform Push
 {
     mat4 model;
     uint id;
-    bool useNormalMap;
+	bool useAlbedoMap;
+	bool useNormalMap;
+	bool useMetallicRoughnessMap;
 } push;
 
 void main() 
@@ -37,8 +39,11 @@ void main()
 	vec3 N = normalize(fs_in.FragTBN * (texture(samplerNormal, fs_in.FragUV).xyz * 2.0 - vec3(1.0)));
 
     outAlbedo = vec4(texture(samplerAlbedo, fs_in.FragUV).rgb, 1.0);
-    outNormalRoughness = push.useNormalMap ? vec4(N, roughness) :  vec4(fs_in.FragNormal, roughness);
-    outWorldPosMetalness = vec4(fs_in.FragPos, metalness);
+    outNormalRoughness.xyz = push.useNormalMap ? N :  fs_in.FragNormal;
+    outNormalRoughness.w = push.useMetallicRoughnessMap ? roughness : 1.f;
+    outWorldPosMetalness.xyz = fs_in.FragPos;
+    outWorldPosMetalness.w = push.useMetallicRoughnessMap ? metalness : 1.f;
+
     outVelocity = fs_in.FragVelocity;
 
 #ifdef USE_TOOLS

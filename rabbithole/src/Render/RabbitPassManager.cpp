@@ -16,12 +16,13 @@ void RabbitPassManager::SchedulePasses(Renderer& renderer)
 	AddPass(new Create3DNoiseTexturePass(renderer), true);
 	AddPass(new GBufferPass(renderer));
 	AddPass(new SkyboxPass(renderer));
-	AddPass(new SSAOPass(renderer));
-	AddPass(new SSAOBlurPass(renderer));
+	AddPass(new CopyDepthPass(renderer));
 	AddPass(new RTShadowsPass(renderer));
 	AddPass(new ShadowDenoisePrePass(renderer));
 	AddPass(new ShadowDenoiseTileClassificationPass(renderer));
 	AddPass(new ShadowDenoiseFilterPass(renderer));
+	AddPass(new SSAOPass(renderer));
+	AddPass(new SSAOBlurPass(renderer));
 	AddPass(new VolumetricPass(renderer));
 	AddPass(new ComputeScatteringPass(renderer));
 	AddPass(new LightingPass(renderer));

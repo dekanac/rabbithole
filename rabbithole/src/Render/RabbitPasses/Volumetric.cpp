@@ -151,7 +151,7 @@ void ApplyVolumetricFogPass::Setup()
 	stateManager.SetPixelShader(m_Renderer.GetShader("FS_ApplyVolumetricFog"));
 
 	SetCombinedImageSampler(0, LightingPass::MainLighting);
-	SetCombinedImageSampler(1, GBufferPass::DepthR32);
+	SetCombinedImageSampler(1, CopyDepthPass::DepthR32);
 	SetCombinedImageSampler(2, ComputeScatteringPass::LightScattering);
 	SetConstantBuffer(3, m_Renderer.GetMainConstBuffer());
 	SetConstantBuffer(4, VolumetricPass::ParamsGPU);

@@ -5,9 +5,10 @@ defineResource(GBufferPass, Normals, VulkanTexture);
 defineResource(GBufferPass, Velocity, VulkanTexture);
 defineResource(GBufferPass, WorldPosition, VulkanTexture);
 defineResource(GBufferPass, Depth, VulkanTexture);
-defineResource(GBufferPass, DepthR32, VulkanTexture);
 
 defineResource(SkyboxPass, Main, VulkanTexture);
+
+defineResource(CopyDepthPass, DepthR32, VulkanTexture);
 
 void GBufferPass::DeclareResources()
 {
@@ -45,13 +46,6 @@ void GBufferPass::DeclareResources()
 			.format = {Format::D32_SFLOAT},
 			.name = {"GBuffer Depth"}
 		});
-
-    DepthR32 = m_Renderer.GetResourceManager().CreateTexture(m_Renderer.GetVulkanDevice(), RWTextureCreateInfo{
-			.dimensions = {GetNativeWidth , GetNativeHeight, 1},
-			.flags = {TextureFlags::Read | TextureFlags::Storage | TextureFlags::RenderTarget},
-			.format = {Format::R32_SFLOAT},
-			.name = {"GBuffer DepthR32"}
-        });
 }
 
 void GBufferPass::Setup()
@@ -68,6 +62,8 @@ void GBufferPass::Setup()
 	stateManager.ShouldCleanDepth(true);
 
 	auto pipelineInfo = stateManager.GetPipelineInfo();
+
+	SetConstantBuffer(0, m_Renderer.GetMainConstBuffer());
 
 #ifdef USE_RABBITHOLE_TOOLS
 	pipelineInfo->SetAttachmentCount(5);
@@ -105,17 +101,30 @@ void GBufferPass::Render()
 	m_Renderer.DrawGeometryGLTF(m_Renderer.gltfModels);
 }
 
-void SkyboxPass::CopyDepth()
+void CopyDepthPass::DeclareResources()
 {
-    VulkanStateManager& stateManager = m_Renderer.GetStateManager();
+	DepthR32 = m_Renderer.GetResourceManager().CreateTexture(m_Renderer.GetVulkanDevice(), RWTextureCreateInfo{
+			.dimensions = {GetNativeWidth , GetNativeHeight, 1},
+			.flags = {TextureFlags::Read | TextureFlags::Storage | TextureFlags::RenderTarget},
+			.format = {Format::R32_SFLOAT},
+			.name = {"GBuffer DepthR32"}
+		});
+}
 
-    stateManager.SetVertexShader(m_Renderer.GetShader("VS_PassThrough"));
-    stateManager.SetPixelShader(m_Renderer.GetShader("FS_CopyDepth"));
-    
+void CopyDepthPass::Setup()
+{
+	VulkanStateManager& stateManager = m_Renderer.GetStateManager();
+
+	stateManager.SetVertexShader(m_Renderer.GetShader("VS_PassThrough"));
+	stateManager.SetPixelShader(m_Renderer.GetShader("FS_CopyDepth"));
+
 	SetCombinedImageSampler(0, GBufferPass::Depth);
 
-	SetRenderTarget(0, GBufferPass::DepthR32);
+	SetRenderTarget(0, CopyDepthPass::DepthR32);
+}
 
+void CopyDepthPass::Render()
+{
 	m_Renderer.DrawFullScreenQuad();
 }
 
@@ -199,6 +208,4 @@ void SkyboxPass::Render()
 	m_Renderer.GetVertexUploadBuffer()->FillBuffer(skyboxVertices, 396 * sizeof(float));
 	m_Renderer.BindVertexData(0);
 	m_Renderer.DrawVertices(36);
-
-    CopyDepth();
 }

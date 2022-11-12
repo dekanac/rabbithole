@@ -34,7 +34,9 @@ struct SimplePushConstantData
 {
 	rabbitMat4f modelMatrix;
 	uint32_t	id;
-	bool		useNormalMap;
+	uint32_t	useAlbedoMap;
+	uint32_t	useNormalMap;
+	uint32_t	useMetallicRoughnessMap;
 };
 
 struct Vertex
@@ -200,9 +202,9 @@ public:
 	struct Material 
 	{
 		glm::vec4	baseColorFactor = glm::vec4(1.0f);
-		uint32_t	baseColorTextureIndex;
-		uint32_t	normalTextureIndex;
-		uint32_t	metallicRoughnessTextureIndex;
+		uint32_t	baseColorTextureIndex = UINT32_MAX;
+		uint32_t	normalTextureIndex = UINT32_MAX;
+		uint32_t	metallicRoughnessTextureIndex = UINT32_MAX;
 
 		//TODO: split descriptors into 3 levels PER_OBJECT, PER_PASS and PER_FRAME, then you should get rid of this
 		VulkanDescriptorSet* materialDescriptorSet[MAX_FRAMES_IN_FLIGHT];

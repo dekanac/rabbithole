@@ -89,8 +89,11 @@ struct UniformBufferObject
 
 struct IndexedIndirectBuffer
 {
-    VulkanBuffer* gpuBuffer = nullptr;
-    IndexIndirectDrawData* localBuffer = nullptr;
+	IndexedIndirectBuffer(VulkanDevice& device, uint32_t numCommands);
+	~IndexedIndirectBuffer();
+
+	VulkanBuffer gpuBuffer;
+	IndexIndirectDrawData* localBuffer;
 
 	uint64_t currentSize = 0;
 	uint64_t currentOffset = 0;
@@ -212,7 +215,7 @@ public:
 	VulkanTexture* g_DefaultArrayTexture;
 
 	//geometry
-	IndexedIndirectBuffer* geomDataIndirectDraw;
+	IndexedIndirectBuffer* m_GeometryIndirectDrawBuffer;
 
 	//entity helper
 	VulkanTexture* entityHelper;

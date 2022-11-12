@@ -64,19 +64,8 @@ bool Renderer::Init()
 		CreateGeometryDescriptors(gltfModels, i);
 	}
 
-	//for now max 1024 commands
-	constexpr uint32_t numOfIndirectCommands = 10240;
-
-	geomDataIndirectDraw = new IndexedIndirectBuffer();
-	geomDataIndirectDraw->gpuBuffer = m_ResourceManager.CreateBuffer(m_VulkanDevice, BufferCreateInfo{
-			.flags = {BufferUsageFlags::IndirectBuffer | BufferUsageFlags::TransferSrc},
-			.memoryAccess = {MemoryAccess::CPU2GPU},
-			.size = {sizeof(IndexIndirectDrawData) * numOfIndirectCommands},
-			.name = {"GeomDataIndirectDraw"}
-		});
-
-	//TODO: do this better, brother
-	geomDataIndirectDraw->localBuffer = (IndexIndirectDrawData*)malloc(sizeof(IndexIndirectDrawData) * numOfIndirectCommands);
+	//for now max 10240 commands
+	m_GeometryIndirectDrawBuffer = new IndexedIndirectBuffer(m_VulkanDevice, 10240);
 
 	//init acceleration structure
 	ConstructBVH();
@@ -89,6 +78,7 @@ bool Renderer::Shutdown()
 {
 	VULKAN_API_CALL(vkDeviceWaitIdle(m_VulkanDevice.GetGraphicDevice()));
 
+	delete(m_GeometryIndirectDrawBuffer);
 	gltfModels.clear();
 	m_GPUTimeStamps.OnDestroy();
 	SuperResolutionManager::instance().Destroy();
@@ -100,7 +90,7 @@ bool Renderer::Shutdown()
 
 void Renderer::Clear() const
 {
-	geomDataIndirectDraw->Reset();
+	m_GeometryIndirectDrawBuffer->Reset();
 }
 
 void Renderer::Draw(float dt)
@@ -425,10 +415,10 @@ void Renderer::DrawGeometryGLTF(std::vector<VulkanglTFModel>& bucket)
 	{
 		model.BindBuffers(GetCurrentCommandBuffer());
 
-		model.Draw(GetCurrentCommandBuffer(), m_StateManager.GetPipeline()->GetPipelineLayout(), m_CurrentImageIndex, geomDataIndirectDraw);
+		model.Draw(GetCurrentCommandBuffer(), m_StateManager.GetPipeline()->GetPipelineLayout(), m_CurrentImageIndex, m_GeometryIndirectDrawBuffer);
 	}
 
-    geomDataIndirectDraw->SubmitToGPU();
+	m_GeometryIndirectDrawBuffer->SubmitToGPU();
 
 	EndRenderPass();
 }
@@ -1275,15 +1265,26 @@ void Renderer::CopyBuffer(VulkanBuffer& src, VulkanBuffer& dst, uint64_t size /*
 	m_VulkanDevice.CopyBuffer(GetCurrentCommandBuffer(), src, dst, size, srcOffset, dstOffset);
 }
 
+IndexedIndirectBuffer::IndexedIndirectBuffer(VulkanDevice& device, uint32_t numCommands)
+	: gpuBuffer(device, BufferUsageFlags::IndirectBuffer | BufferUsageFlags::TransferSrc, MemoryAccess::CPU2GPU, sizeof(IndexIndirectDrawData)* numCommands, "GeomDataIndirectDraw")
+{
+	localBuffer = (IndexIndirectDrawData*)malloc(sizeof(IndexIndirectDrawData) * numCommands);
+}
+
+IndexedIndirectBuffer::~IndexedIndirectBuffer()
+{
+	free(localBuffer);
+}
+
 void IndexedIndirectBuffer::SubmitToGPU()
 {
-	gpuBuffer->FillBuffer(localBuffer, currentOffset * sizeof(IndexIndirectDrawData));
+	gpuBuffer.FillBuffer(localBuffer, currentOffset * sizeof(IndexIndirectDrawData));
 }
 
 
 void IndexedIndirectBuffer::AddIndirectDrawCommand(VulkanCommandBuffer& commandBuffer, IndexIndirectDrawData& drawData)
 {
-    vkCmdDrawIndexedIndirect(GET_VK_HANDLE(commandBuffer), GET_VK_HANDLE_PTR(gpuBuffer), currentOffset * sizeof(IndexIndirectDrawData), 1, sizeof(IndexIndirectDrawData));
+    vkCmdDrawIndexedIndirect(GET_VK_HANDLE(commandBuffer), GET_VK_HANDLE(gpuBuffer), currentOffset * sizeof(IndexIndirectDrawData), 1, sizeof(IndexIndirectDrawData));
 	
 	localBuffer[currentOffset] = drawData;
 	currentOffset++;

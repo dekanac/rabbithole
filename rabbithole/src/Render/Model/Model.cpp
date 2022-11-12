@@ -590,7 +590,7 @@ void VulkanglTFModel::LoadMaterials(tinygltf::Model& input)
 			m_Materials[i].metallicRoughnessTextureIndex = glTFMaterial.values["metallicRoughnessTexture"].TextureIndex();
 		}
 		// Get normal texture index
-		m_Materials[i].normalTextureIndex = glTFMaterial.normalTexture.index;
+		m_Materials[i].normalTextureIndex = glTFMaterial.normalTexture.index != -1 ? glTFMaterial.normalTexture.index : UINT32_MAX;
 	}
 }
 
@@ -784,7 +784,9 @@ void VulkanglTFModel::DrawNode(VulkanCommandBuffer& commandBuffer, const VkPipel
 			//TODO: add primitive id
 			pushData.id = 1;
 			pushData.modelMatrix = nodeMatrix;
-			pushData.useNormalMap = m_Materials[primitive.materialIndex].normalTextureIndex != 0xFFFF;
+			pushData.useAlbedoMap = (uint32_t)(m_Materials[primitive.materialIndex].baseColorTextureIndex != UINT32_MAX);
+			pushData.useNormalMap = (uint32_t)(m_Materials[primitive.materialIndex].normalTextureIndex != UINT32_MAX);
+			pushData.useMetallicRoughnessMap = (uint32_t)(m_Materials[primitive.materialIndex].metallicRoughnessTextureIndex != UINT32_MAX);
 
 			vkCmdPushConstants(GET_VK_HANDLE(commandBuffer), *pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(SimplePushConstantData), &pushData);
 

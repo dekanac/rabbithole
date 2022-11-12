@@ -83,55 +83,44 @@ void SSAOPass::Setup()
 	}
 
     ParamsGPU->FillBuffer(&ParamsCPU, sizeof(SSAOParams));
-    
-    if (!ComputeSSAO)
+	SetConstantBuffer(3, SSAOPass::Samples);
+	SetConstantBuffer(4, SSAOPass::ParamsGPU);
+
+    if (ComputeSSAO)
     {
-        stateManager.SetVertexShader(m_Renderer.GetShader("VS_PassThrough"));
-        stateManager.SetPixelShader(m_Renderer.GetShader("FS_SSAO"));
+		stateManager.SetComputeShader(m_Renderer.GetShader("CS_SSAO"));
 
-        auto renderPassInfo = stateManager.GetRenderPassInfo();
-        renderPassInfo->InitialRenderTargetState = ResourceState::None;
-        renderPassInfo->FinalRenderTargetState = ResourceState::RenderTarget;
-        renderPassInfo->InitialDepthStencilState = ResourceState::None;
-        renderPassInfo->FinalDepthStencilState = ResourceState::None;
+		SetConstantBuffer(0, m_Renderer.GetMainConstBuffer());
+		SetStorageImage(1, CopyDepthPass::DepthR32);
+		SetStorageImage(2, GBufferPass::Normals);
 
-        auto pipelineInfo = stateManager.GetPipelineInfo();
-        pipelineInfo->SetAttachmentCount(1);
-        pipelineInfo->SetColorWriteMask(0, ColorWriteMaskFlags::R);
-		
-        SetConstantBuffer(0, m_Renderer.GetMainConstBuffer());
-        SetCombinedImageSampler(1, GBufferPass::DepthR32);
-        SetCombinedImageSampler(2, GBufferPass::Normals);
-        SetConstantBuffer(3, SSAOPass::Samples);
-        SetConstantBuffer(4, SSAOPass::ParamsGPU);
-
-        SetRenderTarget(0, SSAOPass::Output);
+		SetStorageImage(5, SSAOPass::Output);
 	}
 	else
 	{
-        stateManager.SetComputeShader(m_Renderer.GetShader("CS_SSAO"));
+		stateManager.SetVertexShader(m_Renderer.GetShader("VS_PassThrough"));
+		stateManager.SetPixelShader(m_Renderer.GetShader("FS_SSAO"));
 
-        SetConstantBuffer(0, m_Renderer.GetMainConstBuffer());
-        SetStorageImage(1, GBufferPass::DepthR32);
-        SetStorageImage(2, GBufferPass::Normals);
-        SetConstantBuffer(3, SSAOPass::Samples);
-        SetConstantBuffer(4, SSAOPass::ParamsGPU);
-        SetStorageImage(5, SSAOPass::Output);
+		SetConstantBuffer(0, m_Renderer.GetMainConstBuffer());
+		SetCombinedImageSampler(1, CopyDepthPass::DepthR32);
+		SetCombinedImageSampler(2, GBufferPass::Normals);
+
+		SetRenderTarget(0, SSAOPass::Output);
 	}
 }
 void SSAOPass::Render()
 {
-	if (!ComputeSSAO)
+	if (ComputeSSAO)
 	{
-		m_Renderer.DrawFullScreenQuad();
+		constexpr uint32_t dispatchThreadSize = 8;
+		const uint32_t dispatchX = GetCSDispatchCount(GetNativeWidth, dispatchThreadSize);
+		const uint32_t dispatchY = GetCSDispatchCount(GetNativeHeight, dispatchThreadSize);
+
+		m_Renderer.Dispatch(dispatchX, dispatchY, 1);
 	}
 	else
 	{
-        constexpr uint32_t dispatchThreadSize = 8;
-        const uint32_t dispatchX = GetCSDispatchCount(GetNativeWidth, dispatchThreadSize);
-        const uint32_t dispatchY = GetCSDispatchCount(GetNativeHeight, dispatchThreadSize);
-
-        m_Renderer.Dispatch(dispatchX, dispatchY, 1);
+		m_Renderer.DrawFullScreenQuad();
 	}
 }
 void SSAOBlurPass::DeclareResources()
