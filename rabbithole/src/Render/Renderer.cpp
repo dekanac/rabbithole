@@ -346,8 +346,8 @@ void Renderer::BindPushConstInternal()
 			GET_VK_HANDLE_PTR(m_StateManager.GetPipeline()->GetPipelineLayout()),
 			shaderStage,
 			0,
-			m_StateManager.GetPushConst().size,
-			&m_StateManager.GetPushConst().data);
+			m_StateManager.GetPushConst()->size,
+			m_StateManager.GetPushConst()->data);
 
 		m_StateManager.SetShouldBindPushConst(false);
 	}
@@ -371,16 +371,6 @@ void Renderer::UpdateEntityPickId()
 	//push.x = static_cast<uint32_t>(x);
 	//push.y = static_cast<uint32_t>(y);
 	////BindPushConst(push); //TODO: fix this
-}
-
-void Renderer::BindPushConst(uint32_t data)
-{
-	//this only works for 1 uint32_t, TODO: implement this fully
-	PushConstant push{};
-	push.data[0] = data;
-	push.size = sizeof(uint32_t);
-
-	m_StateManager.SetPushConst(push);
 }
 
 void Renderer::CopyToSwapChain()

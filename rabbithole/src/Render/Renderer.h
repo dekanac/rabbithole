@@ -189,7 +189,16 @@ public:
 
 	void UpdateEntityPickId();
 
-	void BindPushConst(uint32_t data);
+	template<typename T>
+	void BindPushConst(T& data)
+	{
+		auto size = sizeof(T);
+		ASSERT(size < 128, "Max size of push const is 128!");
+		PushConstant* pushConst = m_StateManager.GetPushConst();
+		memcpy(pushConst->data, &data, size);
+        pushConst->size = static_cast<uint32_t>(size);
+		m_StateManager.SetShouldBindPushConst(true);
+	}
 	void BindViewport(float x, float y, float width, float height);
 	void BindVertexData(size_t offset);
 	void DrawVertices(uint32_t count);

@@ -82,7 +82,8 @@ void BloomCompute::Setup()
 	SetStorageImage(1, BloomCompute::Downsampled, 0);
 	SetConstantBuffer(2, BloomCompute::BloomParamsGPU);
 
-	m_Renderer.BindPushConst(0);
+	uint32_t mipIndex = 0;
+	m_Renderer.BindPushConst(mipIndex);
 
 	constexpr uint32_t threadGroupWorkRegionDim = 8;
 

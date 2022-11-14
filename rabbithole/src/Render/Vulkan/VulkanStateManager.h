@@ -9,7 +9,9 @@ typedef VkExtent2D Extent2D;
 
 struct PushConstant
 {
-	uint32_t data[32];
+	PushConstant() { data = malloc(128); }
+	~PushConstant() { free(data); }
+	void* data;
 	uint32_t size;
 };
 
@@ -81,8 +83,7 @@ public:
 	std::vector<VulkanImageView*>&  GetRenderTargets() { return m_RenderTargets; }
     VulkanImageView*                GetDepthStencil() const { return m_DepthStencil; }
 
-	void SetPushConst(PushConstant& pc) { m_PushConst = pc; m_ShouldBindPushConst = true; }
-	PushConstant& GetPushConst() { return m_PushConst; }
+	PushConstant* GetPushConst() { return &m_PushConst; }
 	bool ShouldBindPushConst() const { return m_ShouldBindPushConst; }
 	void SetShouldBindPushConst(bool should) { m_ShouldBindPushConst = should; }
 
