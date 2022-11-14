@@ -73,13 +73,11 @@ public:
 	~VulkanDescriptorSetLayout();
 
 	inline const VkDescriptorSetLayout* GetLayout() const { return &m_Layout; }
-	inline const VkPipelineLayout*		GetPipelineLayout() const { return &m_PipelineLayout; }
 	
 private:
 	const VulkanDevice*		m_Device;
-	VkDescriptorSetLayout	m_Layout;
-	VkPipelineLayout		m_PipelineLayout;
 
+	VkDescriptorSetLayout	m_Layout;
 };
 
 class VulkanDescriptorSet

@@ -20,9 +20,6 @@
 #include <GLFW/glfw3.h>
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
-#include <imgui/imgui.h>
-#include <imgui/backends/imgui_impl_glfw.h>
-#include <imgui/backends/imgui_impl_vulkan.h>
 
 #include <cmath>
 #include <filesystem>
@@ -40,10 +37,6 @@ bool Renderer::Init()
 {
 	m_MainCamera.Init();
 	SuperResolutionManager::instance().Init(&m_VulkanDevice);
-
-#ifdef RABBITHOLE_USING_IMGUI
-	ImGui::CreateContext();
-#endif
 
 	InitDefaultTextures();
 	LoadModels();
@@ -83,7 +76,6 @@ bool Renderer::Shutdown()
 	m_GPUTimeStamps.OnDestroy();
 	SuperResolutionManager::instance().Destroy();
 	m_PipelineManager.Destroy();
-	DestroyImgui();
 
     return true;
 }
@@ -203,95 +195,6 @@ void Renderer::CreateGeometryDescriptors(std::vector<VulkanglTFModel>& models, u
 	}
 }
 
-void Renderer::InitImgui()
-{
-	ImGuiIO& io = ImGui::GetIO(); (void)io;
-	io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;       // Enable Keyboard Controls
-	//io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;      // Enable Gamepad Controls
-	io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;           // Enable Docking
-	//io.ConfigFlags |= ImGuiConfigFlags_ViewportsEnable;         // Enable Multi-Viewport / Platform Windows
-	//io.ConfigViewportsNoAutoMerge = true;
-	io.ConfigWindowsMoveFromTitleBarOnly = true;
-
-	//this initializes imgui for GLFW
-	ImGui_ImplGlfw_InitForVulkan(Window::instance().GetNativeWindowHandle(), true);
-
-	ImGui_ImplVulkan_InitInfo init_info = {};
-	m_VulkanDevice.InitImguiForVulkan(init_info);
-	init_info.DescriptorPool = GET_VK_HANDLE_PTR(m_DescriptorPool);
-	init_info.MinImageCount = m_VulkanSwapchain->GetImageCount();
-	init_info.ImageCount = m_VulkanSwapchain->GetImageCount();
-
-	ImGui_ImplVulkan_Init(&init_info, GET_VK_HANDLE_PTR(m_StateManager.GetRenderPass()));
-
-	VulkanCommandBuffer tempCommandBuffer(m_VulkanDevice, "Temp Imgui Command Buffer");
-	tempCommandBuffer.BeginCommandBuffer(true);
-	io.Fonts->AddFontFromFileTTF("res/fonts/Cousine-Regular.ttf", 14.f);
-	ImGui_ImplVulkan_CreateFontsTexture(GET_VK_HANDLE(tempCommandBuffer));
-	tempCommandBuffer.EndAndSubmitCommandBuffer();
-
-	//clear font textures from cpu data
-	ImGui_ImplVulkan_DestroyFontUploadObjects();
-
-	ImGuiStyle& style = ImGui::GetStyle();
-	style.Colors[ImGuiCol_Text] = ImVec4(1.00f, 1.00f, 1.00f, 1.00f);
-	style.Colors[ImGuiCol_TextDisabled] = ImVec4(0.50f, 0.50f, 0.50f, 1.00f);
-	style.Colors[ImGuiCol_WindowBg] = ImVec4(0.13f, 0.14f, 0.15f, 1.00f);
-	style.Colors[ImGuiCol_ChildBg] = ImVec4(0.13f, 0.14f, 0.15f, 1.00f);
-	style.Colors[ImGuiCol_PopupBg] = ImVec4(0.13f, 0.14f, 0.15f, 1.00f);
-	style.Colors[ImGuiCol_Border] = ImVec4(0.43f, 0.43f, 0.50f, 0.50f);
-	style.Colors[ImGuiCol_BorderShadow] = ImVec4(0.00f, 0.00f, 0.00f, 0.00f);
-	style.Colors[ImGuiCol_FrameBg] = ImVec4(0.25f, 0.25f, 0.25f, 1.00f);
-	style.Colors[ImGuiCol_FrameBgHovered] = ImVec4(0.38f, 0.38f, 0.38f, 1.00f);
-	style.Colors[ImGuiCol_FrameBgActive] = ImVec4(0.67f, 0.67f, 0.67f, 0.39f);
-	style.Colors[ImGuiCol_TitleBg] = ImVec4(0.08f, 0.08f, 0.09f, 1.00f);
-	style.Colors[ImGuiCol_TitleBgActive] = ImVec4(0.08f, 0.08f, 0.09f, 1.00f);
-	style.Colors[ImGuiCol_TitleBgCollapsed] = ImVec4(0.00f, 0.00f, 0.00f, 0.51f);
-	style.Colors[ImGuiCol_MenuBarBg] = ImVec4(0.14f, 0.14f, 0.14f, 1.00f);
-	style.Colors[ImGuiCol_ScrollbarBg] = ImVec4(0.02f, 0.02f, 0.02f, 0.53f);
-	style.Colors[ImGuiCol_ScrollbarGrab] = ImVec4(0.31f, 0.31f, 0.31f, 1.00f);
-	style.Colors[ImGuiCol_ScrollbarGrabHovered] = ImVec4(0.41f, 0.41f, 0.41f, 1.00f);
-	style.Colors[ImGuiCol_ScrollbarGrabActive] = ImVec4(0.51f, 0.51f, 0.51f, 1.00f);
-	style.Colors[ImGuiCol_CheckMark] = ImVec4(0.11f, 0.64f, 0.92f, 1.00f);
-	style.Colors[ImGuiCol_SliderGrab] = ImVec4(0.11f, 0.64f, 0.92f, 1.00f);
-	style.Colors[ImGuiCol_SliderGrabActive] = ImVec4(0.08f, 0.50f, 0.72f, 1.00f);
-	style.Colors[ImGuiCol_Button] = ImVec4(0.25f, 0.25f, 0.25f, 1.00f);
-	style.Colors[ImGuiCol_ButtonHovered] = ImVec4(0.38f, 0.38f, 0.38f, 1.00f);
-	style.Colors[ImGuiCol_ButtonActive] = ImVec4(0.67f, 0.67f, 0.67f, 0.39f);
-	style.Colors[ImGuiCol_Header] = ImVec4(0.22f, 0.22f, 0.22f, 1.00f);
-	style.Colors[ImGuiCol_HeaderHovered] = ImVec4(0.25f, 0.25f, 0.25f, 1.00f);
-	style.Colors[ImGuiCol_HeaderActive] = ImVec4(0.67f, 0.67f, 0.67f, 0.39f);
-	style.Colors[ImGuiCol_Separator] = style.Colors[ImGuiCol_Border];
-	style.Colors[ImGuiCol_SeparatorHovered] = ImVec4(0.41f, 0.42f, 0.44f, 1.00f);
-	style.Colors[ImGuiCol_SeparatorActive] = ImVec4(0.26f, 0.59f, 0.98f, 0.95f);
-	style.Colors[ImGuiCol_ResizeGrip] = ImVec4(0.00f, 0.00f, 0.00f, 0.00f);
-	style.Colors[ImGuiCol_ResizeGripHovered] = ImVec4(0.29f, 0.30f, 0.31f, 0.67f);
-	style.Colors[ImGuiCol_ResizeGripActive] = ImVec4(0.26f, 0.59f, 0.98f, 0.95f);
-	style.Colors[ImGuiCol_Tab] = ImVec4(0.08f, 0.08f, 0.09f, 0.83f);
-	style.Colors[ImGuiCol_TabHovered] = ImVec4(0.33f, 0.34f, 0.36f, 0.83f);
-	style.Colors[ImGuiCol_TabActive] = ImVec4(0.23f, 0.23f, 0.24f, 1.00f);
-	style.Colors[ImGuiCol_TabUnfocused] = ImVec4(0.08f, 0.08f, 0.09f, 1.00f);
-	style.Colors[ImGuiCol_TabUnfocusedActive] = ImVec4(0.13f, 0.14f, 0.15f, 1.00f);
-	style.Colors[ImGuiCol_DockingPreview] = ImVec4(0.26f, 0.59f, 0.98f, 0.70f);
-	style.Colors[ImGuiCol_DockingEmptyBg] = ImVec4(0.20f, 0.20f, 0.20f, 1.00f);
-	style.Colors[ImGuiCol_PlotLines] = ImVec4(0.61f, 0.61f, 0.61f, 1.00f);
-	style.Colors[ImGuiCol_PlotLinesHovered] = ImVec4(1.00f, 0.43f, 0.35f, 1.00f);
-	style.Colors[ImGuiCol_PlotHistogram] = ImVec4(0.90f, 0.70f, 0.00f, 1.00f);
-	style.Colors[ImGuiCol_PlotHistogramHovered] = ImVec4(1.00f, 0.60f, 0.00f, 1.00f);
-	style.Colors[ImGuiCol_TextSelectedBg] = ImVec4(0.26f, 0.59f, 0.98f, 0.35f);
-	style.Colors[ImGuiCol_DragDropTarget] = ImVec4(0.11f, 0.64f, 0.92f, 1.00f);
-	style.Colors[ImGuiCol_NavHighlight] = ImVec4(0.26f, 0.59f, 0.98f, 1.00f);
-	style.Colors[ImGuiCol_NavWindowingHighlight] = ImVec4(1.00f, 1.00f, 1.00f, 0.70f);
-	style.Colors[ImGuiCol_NavWindowingDimBg] = ImVec4(0.80f, 0.80f, 0.80f, 0.20f);
-	style.Colors[ImGuiCol_ModalWindowDimBg] = ImVec4(0.80f, 0.80f, 0.80f, 0.35f);
-	style.GrabRounding = style.FrameRounding = 2.3f;
-}
-
-void Renderer::DestroyImgui()
-{
-	ImGui_ImplVulkan_Shutdown();
-}
-
 void Renderer::InitDefaultTextures()
 {
 	g_DefaultWhiteTexture = m_ResourceManager.CreateTexture(m_VulkanDevice, "res/textures/default_white.png", ROTextureCreateInfo{
@@ -343,27 +246,27 @@ void Renderer::InitDefaultTextures()
 
 void Renderer::LoadModels()
 {
-	gltfModels.emplace_back(this, "res/meshes/separateObjects.gltf");
+	//gltfModels.emplace_back(this, "res/meshes/separateObjects.gltf");
 	//gltfModels.emplace_back(this, "res/meshes/cottage.gltf");
-	//gltfModels.emplace_back(this, "res/meshes/sponza/sponza.gltf");
+	gltfModels.emplace_back(this, "res/meshes/sponza/sponza.gltf");
 	//gltfModels.emplace_back(this, "res/meshes/sponzaNovaOpti.gltf");
 }
 
-void Renderer::BeginRenderPass(Extent2D extent)
+void Renderer::BeginRenderPass()
 {
 	VkRenderPassBeginInfo renderPassInfo{};
 	renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
 	renderPassInfo.renderPass = GET_VK_HANDLE_PTR(m_StateManager.GetRenderPass());
 	renderPassInfo.framebuffer = GET_VK_HANDLE_PTR(m_StateManager.GetFramebuffer());
 	renderPassInfo.renderArea.offset = { 0, 0 };
-	renderPassInfo.renderArea.extent = extent;
+	renderPassInfo.renderArea.extent = m_StateManager.GetFramebufferExtent();
 
-	auto renderTargetCount = m_StateManager.GetRenderTargetCount();
+	uint8_t attachmentCount = m_StateManager.GetRenderTargetCount();
+
 	auto& renderTargets = m_StateManager.GetRenderTargets();
+	std::vector<VkClearValue> clearValues(attachmentCount);
 
-	std::vector<VkClearValue> clearValues(renderTargetCount);
-
-	for (size_t i = 0; i < renderTargetCount; i++)
+	for (uint8_t i = 0; i < attachmentCount; i++)
 	{
 		auto format = renderTargets[i]->GetFormat();
 		clearValues[i] = GetVkClearColorValueFor(format);
@@ -371,13 +274,12 @@ void Renderer::BeginRenderPass(Extent2D extent)
 
 	if (m_StateManager.HasDepthStencil())
 	{
-		renderTargetCount++;
-		VkClearValue depthClearValue{};
-		depthClearValue.depthStencil = { 1.0f, 0 }; //for now this is it, add function to support other DS formats like in GetVkClearColorValueForFormat
-		clearValues.push_back(depthClearValue);
+		attachmentCount++;
+		auto format = m_StateManager.GetDepthStencil()->GetFormat();
+		clearValues.push_back(GetVkClearColorValueFor(format));
 	}
 
-	renderPassInfo.clearValueCount = static_cast<uint32_t>(renderTargetCount);
+	renderPassInfo.clearValueCount = static_cast<uint32_t>(attachmentCount);
 	renderPassInfo.pClearValues = clearValues.data();
 
 	vkCmdBeginRenderPass(GET_VK_HANDLE(GetCurrentCommandBuffer()), &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
@@ -409,7 +311,7 @@ void Renderer::DrawGeometryGLTF(std::vector<VulkanglTFModel>& bucket)
 {
 	BindPipeline<GraphicsPipeline>();
 
-	BeginRenderPass({ GetNativeWidth, GetNativeHeight });
+	BeginRenderPass();
 
 	for (auto& model : bucket)
 	{
@@ -427,11 +329,7 @@ void Renderer::DrawFullScreenQuad()
 {
 	BindPipeline<GraphicsPipeline>();
 
-	Extent2D renderExtent{};
-	renderExtent.width = m_StateManager.GetFramebufferExtent().width;
-	renderExtent.height = m_StateManager.GetFramebufferExtent().height;
-
-	BeginRenderPass(renderExtent);
+	BeginRenderPass();
 
 	vkCmdDraw(GET_VK_HANDLE(GetCurrentCommandBuffer()), 3, 1, 0, 0);
 
@@ -445,7 +343,7 @@ void Renderer::BindPushConstInternal()
 		VkShaderStageFlagBits shaderStage = (m_StateManager.GetPipeline()->GetType() == PipelineType::Graphics) ? VkShaderStageFlagBits(VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_VERTEX_BIT) : (VK_SHADER_STAGE_COMPUTE_BIT);
 		//TODO: what the hell is going on here
 		vkCmdPushConstants(GET_VK_HANDLE(GetCurrentCommandBuffer()),
-			*(m_StateManager.GetPipeline()->GetPipelineLayout()),
+			GET_VK_HANDLE_PTR(m_StateManager.GetPipeline()->GetPipelineLayout()),
 			shaderStage,
 			0,
 			m_StateManager.GetPushConst().size,
@@ -489,40 +387,29 @@ void Renderer::CopyToSwapChain()
 {
 	BindPipeline<GraphicsPipeline>();
 
-#ifdef RABBITHOLE_USING_IMGUI
-	if (!m_ImguiInitialized)
+	if (!m_ImGuiManager.IsInitialized())
 	{
-		InitImgui();
-		RegisterTexturesToImGui();
-		m_ImguiInitialized = true;
+		m_ImGuiManager.Init(*this);
+		m_ImGuiManager.RegisterTextureForImGui(TonemappingPass::Output);
+		m_ImGuiManager.RegisterTextureForImGui(TextureDebugPass::Output);
 	}
-#endif
 
-	BeginRenderPass({ Window::instance().GetExtent().width, Window::instance().GetExtent().height });
+	BeginRenderPass();
 
 	//if editor is activated render into ImGui image, else render full screen into swapchain
 	if (!isInEditorMode)
 		vkCmdDraw(GET_VK_HANDLE(GetCurrentCommandBuffer()), 3, 1, 0, 0);
 
-	if (m_ImguiInitialized && imguiReady)
+	if (IsImguiReady())
 	{
 		if (isInEditorMode)
 		{
 			ImGui::Begin("Viewport");
-			ImGui::Image(finalImageImGuiDS, GetScaledSizeWithAspectRatioKept(ImVec2(static_cast<float>(GetUpscaledWidth), static_cast<float>(GetUpscaledHeight))));
+			ImGui::Image(m_ImGuiManager.GetImGuiTextureFrom(TonemappingPass::Output), GetScaledSizeWithAspectRatioKept(ImVec2(static_cast<float>(GetUpscaledWidth), static_cast<float>(GetUpscaledHeight))));
 			ImGui::End();
 		}
 
-		ImGui::Render();
-		ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), GET_VK_HANDLE(GetCurrentCommandBuffer()));
-		
-		ImGuiIO& io = ImGui::GetIO();
-		if (io.ConfigFlags & ImGuiConfigFlags_ViewportsEnable)
-		{
-			ImGui::UpdatePlatformWindows();
-			ImGui::RenderPlatformWindowsDefault();
-		}
-	
+		m_ImGuiManager.Render(*this);
 	}
 
 	EndRenderPass();
@@ -603,7 +490,7 @@ void Renderer::BindDescriptorSets()
 	vkCmdBindDescriptorSets(
 		GET_VK_HANDLE(GetCurrentCommandBuffer()), 
 		GetVkBindPointFrom(pipeline->GetType()),
-		*pipeline->GetPipelineLayout(),
+		GET_VK_HANDLE_PTR(pipeline->GetPipelineLayout()),
 		0, 
 		1, GET_VK_HANDLE_PTR(descriptorSet), 
 		0, 
@@ -713,20 +600,13 @@ void Renderer::RecordCommandBuffer()
 		m_GPUTimeStamps.GetTimeStamp(GetCurrentCommandBuffer(), "Begin of the frame");
 	}
 
-	if (m_ImguiInitialized)
+	if (m_ImGuiManager.IsInitialized())
 	{
-		ImGui_ImplVulkan_NewFrame();
-		ImGui_ImplGlfw_NewFrame();
-		
 		//make imgui window pos and size same as the main window
-		ImGui::SetNextWindowPos(ImVec2(0.f, 0.f));
-		ImGui::SetNextWindowSize(ImVec2(static_cast<float>(Window::instance().GetExtent().width), static_cast<float>(Window::instance().GetExtent().height)));
+		m_ImGuiManager.NewFrame(0.f, 0.f, static_cast<float>(Window::instance().GetExtent().width), static_cast<float>(Window::instance().GetExtent().height));
 		
-		ImGui::NewFrame();
-
 		ImGui::Begin("Main debug frame");
 		ImGui::Checkbox("GPU Profiler Enabled: ", &m_RecordGPUTimeStamps);
-
 		ImGui::End();
 
 		ImGuiTextureDebugger();
@@ -736,7 +616,7 @@ void Renderer::RecordCommandBuffer()
 			ImguiProfilerWindow(timeStamps);
 		}
 
-		imguiReady = true;
+		m_ImGuiManager.MakeReady();
 	}
 
 	UpdateUIStateAndFSR2PreDraw();
@@ -1064,12 +944,6 @@ void Renderer::ImguiProfilerWindow(std::vector<TimeStamp>& timeStamps)
 	ImGui::End(); // PROFILER
 }
 
-void Renderer::RegisterTexturesToImGui()
-{
-	debugTextureImGuiDS = ImGui_ImplVulkan_AddTexture(GET_VK_HANDLE_PTR(TextureDebugPass::Output->GetSampler()), GET_VK_HANDLE_PTR(TextureDebugPass::Output->GetView()), GetVkImageLayoutFrom(ResourceState::GenericRead));
-	finalImageImGuiDS = ImGui_ImplVulkan_AddTexture(GET_VK_HANDLE_PTR(TonemappingPass::Output->GetSampler()), GET_VK_HANDLE_PTR(TonemappingPass::Output->GetView()), GetVkImageLayoutFrom(ResourceState::GenericRead));
-}
-
 void Renderer::ImGuiTextureDebugger()
 {
 	ImGui::Begin("Texture Debugger");
@@ -1160,7 +1034,7 @@ void Renderer::ImGuiTextureDebugger()
 		float textureWidth = static_cast<float>(currentSelectedTexture->GetWidth());
 		float textureHeight = static_cast<float>(currentSelectedTexture->GetHeight());
 
-		ImGui::Image((void*)debugTextureImGuiDS, GetScaledSizeWithAspectRatioKept(ImVec2(textureWidth, textureHeight)));
+		ImGui::Image(m_ImGuiManager.GetImGuiTextureFrom(TextureDebugPass::Output), GetScaledSizeWithAspectRatioKept(ImVec2(textureWidth, textureHeight)));
 	}
 
 	ImGui::End();
@@ -1225,7 +1099,7 @@ void Renderer::DrawVertices(uint32_t count)
 {
 	BindPipeline<GraphicsPipeline>();
 
-	BeginRenderPass({ GetNativeWidth, GetNativeHeight });
+	BeginRenderPass();
 
 	vkCmdDraw(GET_VK_HANDLE(GetCurrentCommandBuffer()), count, 1, 0, 0);
 

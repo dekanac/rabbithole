@@ -44,7 +44,7 @@ void VolumetricPass::Setup()
 	SetConstantBuffer(7, LightingPass::LightParamsGPU);
 	SetConstantBuffer(8, m_Renderer.GetMainConstBuffer());
 
-	if (m_Renderer.imguiReady)
+	if (m_Renderer.IsImguiReady())
 	{
 		ImGui::Begin("Volumetric Fog:");
 

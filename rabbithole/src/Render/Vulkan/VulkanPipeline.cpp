@@ -30,7 +30,7 @@ VulkanPipeline::VulkanPipeline(VulkanDevice& device, PipelineConfigInfo& configI
 VulkanPipeline::~VulkanPipeline() 
 {
 	vkDestroyPipeline(m_VulkanDevice.GetGraphicDevice(), m_Pipeline, nullptr);
-	vkDestroyPipelineLayout(m_VulkanDevice.GetGraphicDevice(), m_PipelineLayout, nullptr);
+	delete m_PipelineLayout;
 	delete m_DescriptorSetLayout;
 }
 
@@ -109,12 +109,16 @@ void VulkanPipeline::CreateComputePipeline()
 	computeShaderStage.pNext = nullptr;
 
 	m_DescriptorSetLayout = new VulkanDescriptorSetLayout(&m_VulkanDevice, { m_PipelineInfo.computeShader }, "Main");
-	m_PipelineLayout = *(m_DescriptorSetLayout->GetPipelineLayout());
+
+	std::vector<VulkanDescriptorSetLayout*> descSetLayouts;
+	descSetLayouts.push_back(m_DescriptorSetLayout);
+
+	m_PipelineLayout = new VulkanPipelineLayout(m_VulkanDevice, descSetLayouts, m_PipelineInfo.computeShader->GetPushConstants());
 	
 	VkComputePipelineCreateInfo computePipelineInfo{};
 	computePipelineInfo.sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO;
 	computePipelineInfo.stage = computeShaderStage;
-	computePipelineInfo.layout = m_PipelineLayout;
+	computePipelineInfo.layout = GET_VK_HANDLE_PTR(m_PipelineLayout);
 	computePipelineInfo.flags = 0;
 
 	VULKAN_API_CALL(vkCreateComputePipelines(m_VulkanDevice.GetGraphicDevice(), VK_NULL_HANDLE, 1, &computePipelineInfo, nullptr, &m_Pipeline));
@@ -148,7 +152,15 @@ void VulkanPipeline::CreateGraphicsPipeline()
 	shaderStages.push_back(pixelShaderStage);
 
 	m_DescriptorSetLayout = new VulkanDescriptorSetLayout(&m_VulkanDevice, { m_PipelineInfo.pixelShader, m_PipelineInfo.vertexShader }, "Main");
-	m_PipelineLayout = *(m_DescriptorSetLayout->GetPipelineLayout());
+	
+	std::vector<VulkanDescriptorSetLayout*> descSetLayouts;
+	descSetLayouts.push_back(m_DescriptorSetLayout);
+
+	std::vector<VkPushConstantRange> pushConsts{};
+	pushConsts.insert(pushConsts.end(), m_PipelineInfo.vertexShader->GetPushConstants().begin(), m_PipelineInfo.vertexShader->GetPushConstants().end());
+	pushConsts.insert(pushConsts.end(), m_PipelineInfo.pixelShader->GetPushConstants().begin(), m_PipelineInfo.pixelShader->GetPushConstants().end());
+
+	m_PipelineLayout = new VulkanPipelineLayout(m_VulkanDevice, descSetLayouts, pushConsts);
 
 	auto bindingDescriptions = Vertex::GetBindingDescriptions();		//TODO: abstract this
 	auto attributeDescriptions = Vertex::GetAttributeDescriptions();	//TODO: abstract this
@@ -184,7 +196,7 @@ void VulkanPipeline::CreateGraphicsPipeline()
 
 	pipelineInfo.pDynamicState = &dynamicStateInfo;
 
-	pipelineInfo.layout = *(m_DescriptorSetLayout->GetPipelineLayout());
+	pipelineInfo.layout = GET_VK_HANDLE_PTR(m_PipelineLayout);
 	pipelineInfo.renderPass = GET_VK_HANDLE_PTR(m_RenderPass);
 	pipelineInfo.subpass = m_PipelineInfo.subpass;
 
@@ -423,3 +435,26 @@ void PipelineConfigInfo::SetAlphaBlendOperation(const uint32_t mrtIndex, const B
 }
 
 
+VulkanPipelineLayout::VulkanPipelineLayout(VulkanDevice& device, std::vector<VulkanDescriptorSetLayout*>& descriptorSetLayouts, const std::vector<VkPushConstantRange>& pushConsts)
+	: m_Device(device)
+{
+	std::vector<VkDescriptorSetLayout> vkDescriptorSetsLayouts;
+	for (auto& descSetLayout : descriptorSetLayouts)
+	{
+		vkDescriptorSetsLayouts.push_back(*descSetLayout->GetLayout());
+	}
+
+	VkPipelineLayoutCreateInfo pipelineLayoutCreateInfo = { VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO };
+	pipelineLayoutCreateInfo.setLayoutCount = static_cast<uint32_t>(vkDescriptorSetsLayouts.size());
+	pipelineLayoutCreateInfo.pSetLayouts = vkDescriptorSetsLayouts.data();
+
+	pipelineLayoutCreateInfo.pushConstantRangeCount = static_cast<uint32_t>(pushConsts.size());
+	pipelineLayoutCreateInfo.pPushConstantRanges = pushConsts.data();
+
+	VULKAN_API_CALL(vkCreatePipelineLayout(m_Device.GetGraphicDevice(), &pipelineLayoutCreateInfo, nullptr, &m_PipelineLayout));
+}
+
+VulkanPipelineLayout::~VulkanPipelineLayout()
+{
+	vkDestroyPipelineLayout(m_Device.GetGraphicDevice(), m_PipelineLayout, nullptr);
+}

@@ -78,7 +78,7 @@ public:
 	void SetUBODirty(bool dirty) { m_DirtyUBO = dirty; }
 	bool GetUBODirty() { return m_DirtyUBO; }
 
-    std::vector<VulkanImageView*>&  GetRenderTargets();
+	std::vector<VulkanImageView*>&  GetRenderTargets() { return m_RenderTargets; }
     VulkanImageView*                GetDepthStencil() const { return m_DepthStencil; }
 
 	void SetPushConst(PushConstant& pc) { m_PushConst = pc; m_ShouldBindPushConst = true; }
@@ -86,11 +86,7 @@ public:
 	bool ShouldBindPushConst() const { return m_ShouldBindPushConst; }
 	void SetShouldBindPushConst(bool should) { m_ShouldBindPushConst = should; }
 
-    void SetRenderTarget0(VulkanImageView* rt);
-    void SetRenderTarget1(VulkanImageView* rt);
-    void SetRenderTarget2(VulkanImageView* rt);
-    void SetRenderTarget3(VulkanImageView* rt);
-	void SetRenderTarget4(VulkanImageView* rt);
+	void SetRenderTarget(uint32_t slot, VulkanImageView* rt);
 	void SetDepthStencil(VulkanImageView* ds);
 
 	void ShouldCleanColor(bool clean);
@@ -131,12 +127,6 @@ private:
 	bool m_DirtyFramebuffer = true;
 	bool m_DirtyDescriptorSet = true;
 	bool m_DirtyUBO = true;
-
-    VulkanImageView* m_RenderTarget0 = nullptr;
-    VulkanImageView* m_RenderTarget1 = nullptr;
-    VulkanImageView* m_RenderTarget2 = nullptr;
-	VulkanImageView* m_RenderTarget3 = nullptr;
-	VulkanImageView* m_RenderTarget4 = nullptr;
 
 	std::vector<VulkanImageView*>	m_RenderTargets;
     VulkanImageView*				m_DepthStencil = nullptr;

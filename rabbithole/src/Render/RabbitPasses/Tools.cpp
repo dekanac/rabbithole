@@ -22,18 +22,15 @@ void CopyToSwapchainPass::Setup()
 	uint32_t renderWindowWidth = Window::instance().GetExtent().width;
 	uint32_t renderWindowHeight = Window::instance().GetExtent().height;
 
-	float renderViewportWidth = static_cast<float>(renderWindowHeight) * 1.77777f;
-	float renderViewportHeight = static_cast<float>(renderWindowHeight);
-
 	stateManager.SetFramebufferExtent(Extent2D{ renderWindowWidth, renderWindowHeight });
-	m_Renderer.BindViewport(0, 0, renderViewportWidth, renderViewportHeight);
+	m_Renderer.BindViewport(0, 0, static_cast<float>(renderWindowWidth), static_cast<float>(renderWindowHeight));
 
 	stateManager.SetVertexShader(m_Renderer.GetShader("VS_PassThrough"));
 	stateManager.SetPixelShader(m_Renderer.GetShader("FS_PassThrough"));
 
 	SetCombinedImageSampler(0, TonemappingPass::Output);
 
-	stateManager.SetRenderTarget0(m_Renderer.GetSwapchainImage());
+	stateManager.SetRenderTarget(0, m_Renderer.GetSwapchainImage());
 
 	auto pipelineInfo = stateManager.GetPipelineInfo();
 	pipelineInfo->SetDepthTestEnabled(false);
@@ -118,8 +115,6 @@ void TextureDebugPass::Setup()
 
 	stateManager.SetVertexShader(m_Renderer.GetShader("VS_PassThrough"));
 	stateManager.SetPixelShader(m_Renderer.GetShader("FS_TextureDebug"));
-
-	//see what texture is selected
 
 	SetConstantBuffer(0, TextureDebugPass::ParamsGPU);
 

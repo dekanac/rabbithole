@@ -24,7 +24,7 @@ VulkanStateManager::VulkanStateManager()
 
 	SetFramebufferExtent(Extent2D{ 0, 0 });
 
-    m_RenderTargets.resize(MaxRenderTargetCount);
+    m_RenderTargets.reserve(MaxRenderTargetCount);
 
 	m_UBO = new UniformBufferObject();
 	memset(m_UBO, 0, sizeof(UniformBufferObject));
@@ -58,77 +58,6 @@ void VulkanStateManager::UpdateUBOElement(UBOElement element, uint32_t count, vo
 	void* ubo = (char*)m_UBO + DEFAULT_UBO_ELEMENT_SIZE * (uint32_t)element;
 	memcpy(ubo, data, sizeOfElement);
 	m_DirtyUBO = true;
-}
-
-std::vector<VulkanImageView*>& VulkanStateManager::GetRenderTargets()
-{
-    m_RenderTargets.resize(GetRenderTargetCount());
-
-    if (m_RenderTarget0 != nullptr)
-    {
-        m_RenderTargets[0] = m_RenderTarget0;
-
-        if (m_RenderTarget1 != nullptr)
-        {
-            m_RenderTargets[1] = m_RenderTarget1;
-        
-            if (m_RenderTarget2 != nullptr)
-            {
-                m_RenderTargets[2] = m_RenderTarget2;
-
-                if (m_RenderTarget3 != nullptr)
-                {
-                    m_RenderTargets[3] = m_RenderTarget3;
-
-					if (m_RenderTarget4 != nullptr)
-					{
-						m_RenderTargets[4] = m_RenderTarget4;
-					}
-                }
-            }
-        }
-    }
-
-    return m_RenderTargets;
-}
-
-void VulkanStateManager::SetRenderTarget0(VulkanImageView* rt)
-{
-    m_RenderTarget0 = rt;
-    m_DirtyPipeline = true;
-	m_DirtyRenderPass = true;
-}
-
-void VulkanStateManager::SetRenderTarget1(VulkanImageView* rt)
-{
-    m_RenderTarget1 = rt;
-    m_DirtyPipeline = true;
-	m_DirtyRenderPass = true;
-	m_DirtyFramebuffer = true;
-}
-
-void VulkanStateManager::SetRenderTarget2(VulkanImageView* rt)
-{
-    m_RenderTarget2 = rt;
-    m_DirtyPipeline = true;
-	m_DirtyRenderPass = true;
-	m_DirtyFramebuffer = true;
-}
-
-void VulkanStateManager::SetRenderTarget3(VulkanImageView* rt)
-{
-    m_RenderTarget3 = rt;
-    m_DirtyPipeline = true;
-	m_DirtyRenderPass = true;
-	m_DirtyFramebuffer = true;
-}
-
-void VulkanStateManager::SetRenderTarget4(VulkanImageView* rt)
-{
-	m_RenderTarget4 = rt;
-	m_DirtyPipeline = true;
-	m_DirtyRenderPass = true;
-	m_DirtyFramebuffer = true;
 }
 
 void VulkanStateManager::SetDepthStencil(VulkanImageView* ds)
@@ -350,7 +279,7 @@ VulkanDescriptorSet* VulkanStateManager::FinalizeDescriptorSet(VulkanDevice& dev
 
 uint8_t VulkanStateManager::GetRenderTargetCount()
 {
-    return m_RenderTarget0 ? (m_RenderTarget1 ? (m_RenderTarget2 ? (m_RenderTarget3 ? ( m_RenderTarget4 ? 5 : 4) : 3) : 2) : 1) : 0;
+    return static_cast<uint8_t>(m_RenderTargets.size());
 }
 
 void VulkanStateManager::UpdateResourceStage(ManagableResource* texture)
@@ -364,13 +293,20 @@ void VulkanStateManager::UpdateResourceStage(ManagableResource* texture)
 	texture->SetCurrentResourceStage(currentStage);
 }
 
+void VulkanStateManager::SetRenderTarget(uint32_t slot, VulkanImageView* rt)
+{
+	ASSERT(slot < MaxRenderTargetCount, "Reached out max number of RTs!");
+	ASSERT(slot == m_RenderTargets.size(), "Slot must be current equal to current size!");
+	m_RenderTargets.push_back(rt);
+
+	m_DirtyFramebuffer = true;
+	m_DirtyPipeline = true;
+	m_DirtyRenderPass = true;
+}
+
 void VulkanStateManager::Reset()
 {
-    m_RenderTarget0 = nullptr;
-    m_RenderTarget1 = nullptr;
-	m_RenderTarget2 = nullptr;
-	m_RenderTarget3 = nullptr;
-	m_RenderTarget4 = nullptr;
+	m_RenderTargets.clear();
 
     m_DepthStencil = nullptr;
 

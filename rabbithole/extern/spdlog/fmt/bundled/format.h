@@ -3507,7 +3507,7 @@ inline typename buffer_context<Char>::iterator format_to(
   detail::check_format_string<Args...>(format_str);
   using context = buffer_context<Char>;
   return detail::vformat_to(buf, to_string_view(format_str),
-                            make_format_args<context>(args...));
+                            fmt::v7::make_format_args<context>(args...));
 }
 
 template <typename OutputIt, typename Char = char>

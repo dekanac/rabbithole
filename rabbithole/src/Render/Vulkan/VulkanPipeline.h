@@ -20,6 +20,20 @@ class VulkanDescriptor;
 class Shader;
 struct RenderPassConfigInfo;
 
+class VulkanPipelineLayout
+{
+public:
+	VulkanPipelineLayout(VulkanDevice& device, std::vector<VulkanDescriptorSetLayout*>& descriptorSetLayouts, const std::vector<VkPushConstantRange>& pushConsts);
+	~VulkanPipelineLayout();
+
+	inline const VkPipelineLayout GetVkHandle() const { return m_PipelineLayout; }
+
+private:
+	VulkanDevice& m_Device;
+
+	VkPipelineLayout m_PipelineLayout;
+};
+
 class PipelineConfigInfo 
 {
 public:
@@ -83,7 +97,7 @@ public:
 
 	static void						 DefaultPipelineConfigInfo(PipelineConfigInfo*& configInfo, uint32_t width, uint32_t height);
 	const VulkanDescriptorSetLayout* GetDescriptorSetLayout() { return m_DescriptorSetLayout; }
-	const VkPipelineLayout*			 GetPipelineLayout() const { return &m_PipelineLayout; }
+	const VulkanPipelineLayout*		 GetPipelineLayout() const { return m_PipelineLayout; }
 	const PipelineType				 GetType() const { return m_Type; }
 
 	VkPipeline						 GetVkHandle() { return m_Pipeline; }
@@ -94,7 +108,7 @@ private:
 
 	VulkanDevice&					 m_VulkanDevice;
 	PipelineConfigInfo&				 m_PipelineInfo;
-	VkPipelineLayout				 m_PipelineLayout;
+	VulkanPipelineLayout*			 m_PipelineLayout;
 	VulkanDescriptorSetLayout*		 m_DescriptorSetLayout;
 	VulkanRenderPass*				 m_RenderPass;
 	PipelineType					 m_Type;
@@ -102,3 +116,4 @@ private:
 protected:							 
 	VkPipeline						 m_Pipeline;
 };
+

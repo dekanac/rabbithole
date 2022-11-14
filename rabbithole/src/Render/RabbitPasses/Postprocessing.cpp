@@ -43,7 +43,7 @@ void BloomCompute::Setup()
 
 	stateManager.SetComputeShader(m_Renderer.GetShader("CS_Downsample"));
 
-	if (m_Renderer.imguiReady)
+	if (m_Renderer.IsImguiReady())
 	{
 		ImGui::Begin("BloomParams");
 		ImGui::SliderFloat("Threshold:", &BloomParamsCPU[0].threshold, 0.0f, 1.f);

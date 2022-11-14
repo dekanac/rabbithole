@@ -229,30 +229,3 @@ void Camera::SetProjectionJitter(float jitterX, float jitterY)
 	m_ProjMatrixJittered[2][0] = jitterX;
 	m_ProjMatrixJittered[2][1] = jitterY;
 }
-
-void Camera::SetProjectionJitter(uint32_t width, uint32_t height, uint32_t& sampleIndex)
-{
-	static const auto CalculateHaltonNumber = [](uint32_t index, uint32_t base)
-	{
-		float f = 1.0f, result = 0.0f;
-
-		for (uint32_t i = index; i > 0;)
-		{
-			f /= static_cast<float>(base);
-			result = result + f * static_cast<float>(i % base);
-			i = static_cast<uint32_t>(floorf(static_cast<float>(i) / static_cast<float>(base)));
-		}
-
-		return result;
-	};
-
-	sampleIndex = (sampleIndex + 1) % 16;   // 16x TAA
-
-	float jitterX = 2.0f * CalculateHaltonNumber(sampleIndex + 1, 2) - 1.0f;
-	float jitterY = 2.0f * CalculateHaltonNumber(sampleIndex + 1, 3) - 1.0f;
-
-	jitterX /= static_cast<float>(width);
-	jitterY /= static_cast<float>(height);
-
-	SetProjectionJitter(jitterX, jitterY);
-}

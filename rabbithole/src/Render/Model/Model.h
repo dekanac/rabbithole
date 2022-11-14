@@ -18,6 +18,7 @@ class VulkanImage;
 class VulkanImageView;
 class VulkanImageSampler;
 class VulkanDescriptorSet;
+class VulkanPipelineLayout;
 struct IndexedIndirectBuffer;
 class Renderer;
 
@@ -230,7 +231,7 @@ private:
 	void LoadModelFromFile(std::string filename);
 
 public:
-	void DrawNode(VulkanCommandBuffer& commandBuffer, const VkPipelineLayout* pipelineLayout, VulkanglTFModel::Node node, uint8_t backBufferIndex, IndexedIndirectBuffer* indirectBuffer);
-	void Draw(VulkanCommandBuffer& commandBuffer, const VkPipelineLayout* pipeLayout, uint8_t backBufferIndex, IndexedIndirectBuffer* indirectBuffer);
+	void DrawNode(VulkanCommandBuffer& commandBuffer, const VulkanPipelineLayout* pipelineLayout, VulkanglTFModel::Node node, uint8_t backBufferIndex, IndexedIndirectBuffer* indirectBuffer);
+	void Draw(VulkanCommandBuffer& commandBuffer, const VulkanPipelineLayout* pipeLayout, uint8_t backBufferIndex, IndexedIndirectBuffer* indirectBuffer);
 	void BindBuffers(VulkanCommandBuffer& commandBuffer);
 };

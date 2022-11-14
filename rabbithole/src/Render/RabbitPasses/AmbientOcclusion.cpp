@@ -68,7 +68,7 @@ void SSAOPass::Setup()
 	VulkanStateManager& stateManager = m_Renderer.GetStateManager();
 
 	//fill params buffer
-	if (m_Renderer.imguiReady)
+	if (m_Renderer.IsImguiReady())
 	{
 		ImGui::Begin("SSAOParams");
 

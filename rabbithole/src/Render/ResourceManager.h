@@ -18,7 +18,7 @@ public:
 	VulkanBuffer*	CreateBuffer(VulkanDevice& device, BufferCreateInfo createInfo);
 	void			CreateShader(VulkanDevice& device, ShaderInfo& createInfo, const std::vector<char>& code, const char* name);
 
-	inline Shader*									GetShader(const std::string& name) { return m_Shaders[name]; }
+	Shader*											GetShader(const std::string& name);
 	std::unordered_map<uint32_t, VulkanTexture*>&	GetTextures() { return m_Textures; }
 private:
 

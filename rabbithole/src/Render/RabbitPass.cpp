@@ -88,28 +88,7 @@ void RabbitPass::SetRenderTarget(uint32_t slot, VulkanTexture* texture)
 
 	texture->SetShouldBeResourceState(ResourceState::RenderTarget);
 	rstManager.AddResourceForTransition(texture);
-
-	switch (slot)
-	{
-	case 0:
-		stateManager.SetRenderTarget0(texture->GetView());
-		break;
-	case 1:
-		stateManager.SetRenderTarget1(texture->GetView());
-		break;
-	case 2:
-		stateManager.SetRenderTarget2(texture->GetView());
-		break;
-	case 3:
-		stateManager.SetRenderTarget3(texture->GetView());
-		break;
-	case 4:
-		stateManager.SetRenderTarget4(texture->GetView());
-		break;
-	default:
-		ASSERT(false, "Render Target number exceeded!");
-		break;
-	}
+	stateManager.SetRenderTarget(slot, texture->GetView());
 }
 
 void RabbitPass::SetDepthStencil(VulkanTexture* texture)

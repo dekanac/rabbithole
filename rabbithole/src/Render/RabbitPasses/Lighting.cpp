@@ -32,7 +32,7 @@ void LightingPass::Setup()
 	stateManager.SetPixelShader(m_Renderer.GetShader("FS_PBR"));
 
 	//fill the light buffer
-	if (m_Renderer.imguiReady)
+	if (m_Renderer.IsImguiReady())
 	{
 		ImGui::Begin("Light params");
 

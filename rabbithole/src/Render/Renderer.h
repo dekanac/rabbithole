@@ -4,6 +4,7 @@
 #include "Logger/Logger.h"
 #include "Render/BVH.h"
 #include "Render/Camera.h"
+#include "Render/ImGuiManager.h"
 #include "Render/Model/Model.h"
 #include "Render/PipelineManager.h"
 #include "Render/ResourceManager.h"
@@ -41,10 +42,10 @@ struct UIState
 	float	renderWidth;
 	float	renderHeight;
 	bool	reset;
-	bool	useRcas;
-	float	sharpness;
+	bool	useRcas = true;
+	float	sharpness = 1.f;
 	float	deltaTime;
-	bool	useTaa;
+	bool	useTaa = true;
 	Camera* camera;
 };
 
@@ -114,6 +115,7 @@ private:
 	ResourceManager										m_ResourceManager{};
 	RabbitPassManager									m_RabbitPassManager{};
 	PipelineManager										m_PipelineManager{};
+	ImGuiManager										m_ImGuiManager{};
 
 	std::unique_ptr<VulkanSwapchain>					m_VulkanSwapchain;
 	std::unique_ptr<VulkanDescriptorPool>				m_DescriptorPool;
@@ -146,7 +148,7 @@ private:
 	ImVec2 GetScaledSizeWithAspectRatioKept(ImVec2 currentSize);
 
 	void RecordCommandBuffer();
-	void BeginRenderPass(Extent2D extent);
+	void BeginRenderPass();
 	void EndRenderPass();
 
 	void BindPushConstInternal();
@@ -167,6 +169,7 @@ public:
 
 	inline VulkanSwapchain*					GetSwapchain() const { return m_VulkanSwapchain.get(); }
 	inline VulkanImageView*					GetSwapchainImage() { return m_VulkanSwapchain->GetImageView(m_CurrentImageIndex); }
+	inline VulkanDescriptorPool&			GetDescriptorPool() { return *m_DescriptorPool; }
 	inline VulkanBuffer*					GetVertexUploadBuffer() { return m_VertexUploadBuffer; }
 	inline VulkanBuffer*					GetMainConstBuffer() { return m_MainConstBuffer[m_CurrentImageIndex]; }
 
@@ -182,6 +185,7 @@ public:
 	inline Camera&			GetCamera() { return m_MainCamera; }
 	inline UIState&			GetUIState() { return m_CurrentUIState; }
 	inline CameraState&		GetCameraState() { return m_CurrentCameraState; }
+	inline bool				IsImguiReady() { return m_ImGuiManager.IsInitialized() && m_ImGuiManager.IsReady(); }
 
 	void UpdateEntityPickId();
 
@@ -224,8 +228,6 @@ public:
 	//debug texture
 	std::string currentTextureSelectedName = "Choose texture to debug: ";
 	uint32_t currentTextureSelectedID;
-	VkDescriptorSet debugTextureImGuiDS;
-	VkDescriptorSet finalImageImGuiDS;
 	
 	//BVH Construction
 	VulkanBuffer* vertexBuffer;
@@ -252,14 +254,10 @@ public:
 private:
 	void CreateGeometryDescriptors(std::vector<VulkanglTFModel>& models, uint32_t imageIndex);
 	void InitDefaultTextures();
-	void InitImgui();
-	void DestroyImgui();
-	bool m_ImguiInitialized = false;
 	float m_CurrentDeltaTime;
 
 public:
 	//Don't ask, Imgui init wants swapchain renderpass to be ready, but its not. So basically we need 2 init phases..
-	bool imguiReady = false;
 #ifdef RABBITHOLE_USING_IMGUI
 	bool isInEditorMode = true;
 #else

@@ -2,6 +2,7 @@
 
 #include "Render/Vulkan/VulkanTexture.h"
 #include "Render/Vulkan/VulkanBuffer.h"
+#include "Logger/Logger.h"
 
 ResourceManager::~ResourceManager()
 {
@@ -84,4 +85,18 @@ void ResourceManager::CreateShader(VulkanDevice& device, ShaderInfo& createInfo,
 {
 	Shader* shader = new Shader(device, code.size(), code.data(), createInfo, name);
 	m_Shaders[{name}] = shader;
+}
+
+Shader* ResourceManager::GetShader(const std::string& name)
+{
+	auto shader = m_Shaders.find(name);
+	if (shader != m_Shaders.end())
+	{
+		return shader->second;
+	}
+	else
+	{
+		ASSERT(false, "Cannot find shader with that name!");
+		return nullptr;
+	}
 }
