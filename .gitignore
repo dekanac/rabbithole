@@ -349,3 +349,4 @@ MigrationBackup/
 .ionide/
 rabbithole/rabbithole.vcxproj
 *.vcxproj
+*.spv

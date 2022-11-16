@@ -30,6 +30,7 @@ layout(push_constant) uniform Push
 	bool useAlbedoMap;
 	bool useNormalMap;
 	bool useMetallicRoughnessMap;
+    vec4 baseColor;
 } push;
 
 void main() 
@@ -38,7 +39,7 @@ void main()
     float metalness = texture(samplerMetalicRoughness, fs_in.FragUV).b;
 	vec3 N = normalize(fs_in.FragTBN * (texture(samplerNormal, fs_in.FragUV).xyz * 2.0 - vec3(1.0)));
 
-    outAlbedo = vec4(texture(samplerAlbedo, fs_in.FragUV).rgb, 1.0);
+    outAlbedo = push.useAlbedoMap ? vec4(texture(samplerAlbedo, fs_in.FragUV).rgb, 1.0) : push.baseColor;
     outNormalRoughness.xyz = push.useNormalMap ? N :  fs_in.FragNormal;
     outNormalRoughness.w = push.useMetallicRoughnessMap ? roughness : 1.f;
     outWorldPosMetalness.xyz = fs_in.FragPos;

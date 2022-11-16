@@ -38,6 +38,7 @@ struct SimplePushConstantData
 	uint32_t	useAlbedoMap;
 	uint32_t	useNormalMap;
 	uint32_t	useMetallicRoughnessMap;
+	rabbitVec4f baseColor;
 };
 
 struct Vertex

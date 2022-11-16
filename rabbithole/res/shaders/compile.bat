@@ -21,11 +21,11 @@ glslc.exe -g -fshader-stage=fragment FS_Tonemap.glsl -o FS_Tonemap.spv
 glslc.exe -g -fshader-stage=fragment FS_TextureDebug.glsl -o FS_TextureDebug.spv
 glslc.exe -g -fshader-stage=compute CS_Downsample.glsl -o CS_Downsample.spv
 glslc.exe -g -fshader-stage=compute CS_Upsample.glsl -o CS_Upsample.spv
-dxc.exe -Zpc -Zi -Qembed_debug -enable-16bit-types -fspv-reflect -T cs_6_5 -E main -spirv -fspv-target-env=vulkan1.2 CS_PrepareShadowMask.hlsl -Fc IntermediateCS_PrepareShadowMask
-dxc.exe -Zpc -Zi -Qembed_debug -enable-16bit-types -fspv-reflect -T cs_6_5 -E main -spirv -fspv-target-env=vulkan1.2 CS_TileClassification.hlsl -Fc IntermediateCS_TileClassification
-dxc.exe -Zpc -Zi -Qembed_debug -enable-16bit-types -fspv-reflect -T cs_6_5  -E Pass0 -spirv -fspv-target-env=vulkan1.2 CS_FilterSoftShadows.hlsl -Fc IntermediateCS_FilterSoftShadowsP0
-dxc.exe -Zpc -Zi -Qembed_debug -enable-16bit-types -fspv-reflect -T cs_6_5  -E Pass1 -spirv -fspv-target-env=vulkan1.2 CS_FilterSoftShadows.hlsl -Fc IntermediateCS_FilterSoftShadowsP1
-dxc.exe -Zpc -Zi -Qembed_debug -enable-16bit-types -fspv-reflect -T cs_6_5  -E Pass2 -spirv -fspv-target-env=vulkan1.2 CS_FilterSoftShadows.hlsl -Fc IntermediateCS_FilterSoftShadowsP2
+dxc.exe -Zpc -Zi -Qembed_debug -enable-16bit-types -T cs_6_5 -E main -spirv -fspv-target-env=vulkan1.2 CS_PrepareShadowMask.hlsl -Fc IntermediateCS_PrepareShadowMask
+dxc.exe -Zpc -Zi -Qembed_debug -enable-16bit-types -T cs_6_5 -E main -spirv -fspv-target-env=vulkan1.2 CS_TileClassification.hlsl -Fc IntermediateCS_TileClassification
+dxc.exe -Zpc -Zi -Qembed_debug -enable-16bit-types -T cs_6_5  -E Pass0 -spirv -fspv-target-env=vulkan1.2 CS_FilterSoftShadows.hlsl -Fc IntermediateCS_FilterSoftShadowsP0
+dxc.exe -Zpc -Zi -Qembed_debug -enable-16bit-types -T cs_6_5  -E Pass1 -spirv -fspv-target-env=vulkan1.2 CS_FilterSoftShadows.hlsl -Fc IntermediateCS_FilterSoftShadowsP1
+dxc.exe -Zpc -Zi -Qembed_debug -enable-16bit-types -T cs_6_5  -E Pass2 -spirv -fspv-target-env=vulkan1.2 CS_FilterSoftShadows.hlsl -Fc IntermediateCS_FilterSoftShadowsP2
 spirv-as.exe --target-env vulkan1.2 IntermediateCS_PrepareShadowMask -o CS_PrepareShadowMask.spv
 spirv-as.exe --target-env vulkan1.2 IntermediateCS_TileClassification -o CS_TileClassification.spv
 spirv-as.exe --target-env vulkan1.2 IntermediateCS_FilterSoftShadowsP0 -o CS_FilterSoftShadowsPass0.spv

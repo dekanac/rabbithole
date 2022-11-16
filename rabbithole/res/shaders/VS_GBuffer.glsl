@@ -29,6 +29,10 @@ layout(push_constant) uniform Push
 {
     mat4 model;
     uint id;
+	bool useAlbedoMap;
+	bool useNormalMap;
+	bool useMetallicRoughnessMap;
+    vec4 baseColor;
 } push;
 
 void main() 

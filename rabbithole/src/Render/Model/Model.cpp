@@ -787,6 +787,7 @@ void VulkanglTFModel::DrawNode(VulkanCommandBuffer& commandBuffer, const VulkanP
 			pushData.useAlbedoMap = (uint32_t)(m_Materials[primitive.materialIndex].baseColorTextureIndex != UINT32_MAX);
 			pushData.useNormalMap = (uint32_t)(m_Materials[primitive.materialIndex].normalTextureIndex != UINT32_MAX);
 			pushData.useMetallicRoughnessMap = (uint32_t)(m_Materials[primitive.materialIndex].metallicRoughnessTextureIndex != UINT32_MAX);
+			pushData.baseColor = m_Materials[primitive.materialIndex].baseColorFactor;
 
 			vkCmdPushConstants(GET_VK_HANDLE(commandBuffer), GET_VK_HANDLE_PTR(pipelineLayout), VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(SimplePushConstantData), &pushData);
 
