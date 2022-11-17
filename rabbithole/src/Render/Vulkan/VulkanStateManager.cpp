@@ -1,5 +1,6 @@
 #include "precomp.h"
 
+#include "Render/RenderPass.h"
 #include "Render/PipelineManager.h"
 #include "Render/Renderer.h"
 #include "Render/SuperResolutionManager.h"
@@ -10,19 +11,13 @@ VulkanStateManager::VulkanStateManager()
 {
 	m_Pipeline = nullptr;
 	m_RenderPass = nullptr;
-	m_Framebuffer = nullptr;
-	m_PipelineConfig = new PipelineConfigInfo();
-    m_RenderPassConfig = new RenderPassConfigInfo();
+	m_PipelineInfo = new PipelineInfo();
+	m_RenderPassInfo = new RenderPassInfo();
 	m_CurrentPipelinetype = PipelineType::Count;
 
-    VulkanRenderPass::DefaultRenderPassInfo(m_RenderPassConfig);
-
 	m_DirtyPipeline = true;
-	m_DirtyFramebuffer = true;
 	m_DirtyRenderPass = true;
 	m_DirtyUBO = false;
-
-	SetFramebufferExtent(Extent2D{ 0, 0 });
 
     m_RenderTargets.reserve(MaxRenderTargetCount);
 
@@ -36,20 +31,26 @@ VulkanStateManager::~VulkanStateManager()
 
 void VulkanStateManager::EnableWireframe(bool enable)
 {
-	m_PipelineConfig->SetWireFrameEnabled(enable);
+	m_PipelineInfo->SetWireFrameEnabled(enable);
 	m_DirtyPipeline = true;
 }
 
 void VulkanStateManager::SetCullMode(const CullMode mode)
 {
-	m_PipelineConfig->SetCullMode(mode);
+	m_PipelineInfo->SetCullMode(mode);
 	m_DirtyPipeline = true;
 }
 
 void VulkanStateManager::SetWindingOrder(const WindingOrder wo)
 {
-    m_PipelineConfig->SetWindingOrder(wo);
+    m_PipelineInfo->SetWindingOrder(wo);
     m_DirtyPipeline = true;
+}
+
+void VulkanStateManager::SetRenderPassExtent(Extent2D extent)
+{
+	m_RenderPassInfo->extent = extent;
+	m_DirtyRenderPass = true;
 }
 
 void VulkanStateManager::UpdateUBOElement(UBOElement element, uint32_t count, void* data)
@@ -65,19 +66,18 @@ void VulkanStateManager::SetDepthStencil(VulkanImageView* ds)
     m_DepthStencil = ds;
     m_DirtyPipeline = true;
 	m_DirtyRenderPass = true;
-	m_DirtyFramebuffer = true;
 }
 
 void VulkanStateManager::ShouldCleanColor(bool clean)
 {
-    m_RenderPassConfig->ClearRenderTargets = clean;
+	m_RenderPassInfo->ClearRenderTargets = clean;
 	m_DirtyRenderPass = true;
 }
 
 void VulkanStateManager::ShouldCleanDepth(bool clean)
 {
-	m_RenderPassConfig->ClearDepth = clean;
-	m_RenderPassConfig->ClearStencil = clean;
+	m_RenderPassInfo->ClearDepth = clean;
+	m_RenderPassInfo->ClearStencil = clean;
 	m_DirtyRenderPass = true;
 }
 
@@ -299,7 +299,6 @@ void VulkanStateManager::SetRenderTarget(uint32_t slot, VulkanImageView* rt)
 	ASSERT(slot == m_RenderTargets.size(), "Slot must be current equal to current size!");
 	m_RenderTargets.push_back(rt);
 
-	m_DirtyFramebuffer = true;
 	m_DirtyPipeline = true;
 	m_DirtyRenderPass = true;
 }
@@ -310,32 +309,30 @@ void VulkanStateManager::Reset()
 
     m_DepthStencil = nullptr;
 
-    VulkanPipeline::DefaultPipelineConfigInfo(m_PipelineConfig, GetNativeWidth, GetNativeHeight);
-    VulkanRenderPass::DefaultRenderPassInfo(m_RenderPassConfig);
-
-	SetFramebufferExtent({ GetNativeWidth , GetNativeHeight });
+    VulkanPipeline::DefaultPipelineInfo(m_PipelineInfo, GetNativeWidth, GetNativeHeight);
+	RenderPass::DefaultRenderPassInfo(*m_RenderPassInfo, GetNativeWidth, GetNativeHeight);
 }
 
 void VulkanStateManager::SetVertexShader(Shader* shader, std::string entryPoint)
 {
 	m_CurrentPipelinetype = PipelineType::Graphics;
-	m_PipelineConfig->vertexShader = shader;
-	m_PipelineConfig->vsEntryPoint = entryPoint.c_str();
+	m_PipelineInfo->vertexShader = shader;
+	m_PipelineInfo->vsEntryPoint = entryPoint.c_str();
 	m_DirtyPipeline = true;
 }
 
 void VulkanStateManager::SetPixelShader(Shader* shader, std::string entryPoint)
 {
 	m_CurrentPipelinetype = PipelineType::Graphics;
-	m_PipelineConfig->pixelShader = shader;
-	m_PipelineConfig->psEntryPoint = entryPoint.c_str();
+	m_PipelineInfo->pixelShader = shader;
+	m_PipelineInfo->psEntryPoint = entryPoint.c_str();
 	m_DirtyPipeline = true;
 }
 
 void VulkanStateManager::SetComputeShader(Shader* shader, std::string entryPoint)
 {
 	m_CurrentPipelinetype = PipelineType::Compute;
-	m_PipelineConfig->computeShader = shader;
-	m_PipelineConfig->csEntryPoint = entryPoint.c_str();
+	m_PipelineInfo->computeShader = shader;
+	m_PipelineInfo->csEntryPoint = entryPoint.c_str();
 	m_DirtyPipeline = true;
 }

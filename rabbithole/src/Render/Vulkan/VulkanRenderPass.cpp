@@ -6,7 +6,7 @@ VulkanRenderPass::VulkanRenderPass(
 	const VulkanDevice* device, 
 	const std::vector<VulkanImageView*> renderTargetViews, 
 	const VulkanImageView* depthStencilView, 
-	const RenderPassConfigInfo& info, 
+	const VulkanRenderPassInfo& info,
 	const char* name)
 	: m_VulkanDevice(device)
 	, m_Info(info)
@@ -115,15 +115,4 @@ VulkanRenderPass::VulkanRenderPass(
 VulkanRenderPass::~VulkanRenderPass()
 {
 	vkDestroyRenderPass(m_VulkanDevice->GetGraphicDevice(), m_RenderPass, nullptr);
-}
-
-void VulkanRenderPass::DefaultRenderPassInfo(RenderPassConfigInfo*& renderPassInfo)
-{
-    renderPassInfo->ClearDepth = true;
-    renderPassInfo->ClearRenderTargets = true;
-    renderPassInfo->ClearStencil = true;
-    renderPassInfo->InitialRenderTargetState = ResourceState::None;
-    renderPassInfo->FinalRenderTargetState = ResourceState::RenderTarget;
-    renderPassInfo->InitialDepthStencilState = ResourceState::DepthStencilWrite;
-    renderPassInfo->FinalDepthStencilState = ResourceState::DepthStencilWrite;
 }

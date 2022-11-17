@@ -18,7 +18,6 @@ class VulkanDescriptorSet;
 class VulkanDescriptorPool;
 class VulkanDescriptor;
 class Shader;
-struct RenderPassConfigInfo;
 
 class VulkanPipelineLayout
 {
@@ -34,10 +33,10 @@ private:
 	VkPipelineLayout m_PipelineLayout;
 };
 
-class PipelineConfigInfo 
+class PipelineInfo
 {
 public:
-	PipelineConfigInfo();
+	PipelineInfo();
 	//void SetVertexBinding(const VertexBinding* vertexBinding);
 	void SetTopology(const Topology topology);
 	void SetMultisampleType(const MultisampleType multisampleType);
@@ -61,14 +60,12 @@ public:
 	void SetColorWriteMask(const uint32_t mrtIndex, const ColorWriteMaskFlags mask);
 	void SetColorWriteMask(const uint32_t mrtIndex, const uint32_t mrtCount, const ColorWriteMaskFlags masks[]);
 
-	NonCopyableAndMovable(PipelineConfigInfo);
-
 	Shader*									vertexShader;
-	std::string vsEntryPoint = "main";
+	std::string								vsEntryPoint = "main";
 	Shader*									pixelShader;
-	std::string psEntryPoint = "main";
+	std::string								psEntryPoint = "main";
 	Shader*									computeShader;
-	std::string csEntryPoint = "main";
+	std::string								csEntryPoint = "main";
 
 	VkViewport								viewport;
 	VkRect2D								scissor;
@@ -82,20 +79,19 @@ public:
 	VkPipelineLayout						pipelineLayout = nullptr;
 	VulkanRenderPass*						renderPass = nullptr;
 	uint32_t								subpass = 0;
-
 };
 
 class VulkanPipeline 
 {
 public:
-	VulkanPipeline(VulkanDevice& device, PipelineConfigInfo& configInfo, PipelineType type = PipelineType::Graphics);
+	VulkanPipeline(VulkanDevice& device, PipelineInfo& pipelineInfo, PipelineType type = PipelineType::Graphics);
 	~VulkanPipeline();
 
 	NonCopyableAndMovable(VulkanPipeline);
 
 	virtual void					 Bind(VulkanCommandBuffer& commandBuffer) { ASSERT(false, "Should not be called!"); }
 
-	static void						 DefaultPipelineConfigInfo(PipelineConfigInfo*& configInfo, uint32_t width, uint32_t height);
+	static void						 DefaultPipelineInfo(PipelineInfo*& pipelineInfo, uint32_t width, uint32_t height);
 	const VulkanDescriptorSetLayout* GetDescriptorSetLayout() { return m_DescriptorSetLayout; }
 	const VulkanPipelineLayout*		 GetPipelineLayout() const { return m_PipelineLayout; }
 	const PipelineType				 GetType() const { return m_Type; }
@@ -107,7 +103,7 @@ private:
 	void							 CreateComputePipeline();
 
 	VulkanDevice&					 m_VulkanDevice;
-	PipelineConfigInfo&				 m_PipelineInfo;
+	PipelineInfo&					 m_PipelineInfo;
 	VulkanPipelineLayout*			 m_PipelineLayout;
 	VulkanDescriptorSetLayout*		 m_DescriptorSetLayout;
 	VulkanRenderPass*				 m_RenderPass;

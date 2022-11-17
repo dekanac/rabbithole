@@ -3,6 +3,7 @@
 #include "Logger/Logger.h"
 #include "Render/Vulkan/VulkanPipeline.h"
 #include "Render/Converters.h"
+#include "Render/RenderPass.h"
 #include "Render/Shader.h"
 
 bool GraphicsPipelineKey::operator<(const GraphicsPipelineKey& k) const
@@ -28,7 +29,6 @@ bool ComputePipelineKey::operator==(const ComputePipelineKey& k) const
 bool RenderPassKey::operator<(const RenderPassKey& k) const
 {
 	return memcmp(this, &k, sizeof(RenderPassKey)) < 0;
-
 }
 
 bool RenderPassKey::operator==(const RenderPassKey& k) const
@@ -41,22 +41,22 @@ void PipelineManager::Destroy()
 	for (auto object : m_GraphicPipelines) { delete object.second; }
 	for (auto object : m_ComputePipelines) { delete object.second; }
 	for (auto object : m_RenderPasses) { delete object.second; }
-	for (auto object : m_Framebuffers) { delete object.second; }
 }
 
-VulkanPipeline* PipelineManager::FindOrCreateGraphicsPipeline(VulkanDevice& device, PipelineConfigInfo& pipelineInfo)
+VulkanPipeline* PipelineManager::FindOrCreateGraphicsPipeline(VulkanDevice& device, PipelineInfo& pipelineInfo)
 {
 	GraphicsPipelineKey key{};
 
-	key.m_VertexShaderCRC = pipelineInfo.vertexShader ? pipelineInfo.vertexShader->GetHash() : 0;
-	key.m_VertexShaderEntryPointCRC = (uint32_t)crc32_fast((const void*)pipelineInfo.vsEntryPoint.c_str(), pipelineInfo.vsEntryPoint.length());
-	key.m_PixelShaderCRC = pipelineInfo.pixelShader ? pipelineInfo.pixelShader->GetHash() : 0;
-	key.m_PixelShaderEntryPointCRC = (uint32_t)crc32_fast((const void*)pipelineInfo.psEntryPoint.c_str(), pipelineInfo.psEntryPoint.length());
-	key.m_Topology = pipelineInfo.inputAssemblyInfo.topology;
+	key.vertexShaderCRC = pipelineInfo.vertexShader ? pipelineInfo.vertexShader->GetHash() : 0;
+	key.vertexShaderEntryPointCRC = (uint32_t)crc32_fast((const void*)pipelineInfo.vsEntryPoint.c_str(), pipelineInfo.vsEntryPoint.length());
+	key.pixelShaderCRC = pipelineInfo.pixelShader ? pipelineInfo.pixelShader->GetHash() : 0;
+	key.pixelShaderEntryPointCRC = (uint32_t)crc32_fast((const void*)pipelineInfo.psEntryPoint.c_str(), pipelineInfo.psEntryPoint.length());
+	key.topology = pipelineInfo.inputAssemblyInfo.topology;
 
-	key.m_PolygonMode = pipelineInfo.rasterizationInfo.polygonMode;
-	key.m_CullMode = pipelineInfo.rasterizationInfo.cullMode;
-	key.m_Frontface = pipelineInfo.rasterizationInfo.frontFace;
+	key.polygonMode = pipelineInfo.rasterizationInfo.polygonMode;
+	key.cullMode = pipelineInfo.rasterizationInfo.cullMode;
+	key.frontface = pipelineInfo.rasterizationInfo.frontFace;
+	memcpy(&key.blendAttachmentStates, &pipelineInfo.colorBlendAttachment, sizeof(VkPipelineColorBlendAttachmentState) * MaxRenderTargetCount);
 
 	//fill the key, find the pipeline in the map
 	//if it is not in the map, create and add to map
@@ -75,13 +75,13 @@ VulkanPipeline* PipelineManager::FindOrCreateGraphicsPipeline(VulkanDevice& devi
 	}
 }
 
-VulkanPipeline* PipelineManager::FindOrCreateComputePipeline(VulkanDevice& device, PipelineConfigInfo& pipelineInfo)
+VulkanPipeline* PipelineManager::FindOrCreateComputePipeline(VulkanDevice& device, PipelineInfo& pipelineInfo)
 {
 	//for now the key is only CRC of compute shader and CRC of string of entry point
 	ComputePipelineKey key{};
 
-	key.m_ComputeShaderCRC = pipelineInfo.computeShader->GetHash();
-	key.m_ComputeShaderEntryPointCRC = (uint32_t)crc32_fast((const void*)pipelineInfo.csEntryPoint.c_str(), pipelineInfo.csEntryPoint.length());
+	key.computeShaderCRC = pipelineInfo.computeShader->GetHash();
+	key.computeShaderEntryPointCRC = (uint32_t)crc32_fast((const void*)pipelineInfo.csEntryPoint.c_str(), pipelineInfo.csEntryPoint.length());
 
 	auto pipeline = m_ComputePipelines.find(key);
 
@@ -98,13 +98,13 @@ VulkanPipeline* PipelineManager::FindOrCreateComputePipeline(VulkanDevice& devic
 	}
 }
 
-VulkanRenderPass* PipelineManager::FindOrCreateRenderPass(VulkanDevice& device, const std::vector<VulkanImageView*>& renderTargets, const VulkanImageView* depthStencil, RenderPassConfigInfo& renderPassInfo)
+RenderPass* PipelineManager::FindOrCreateRenderPass(VulkanDevice& device, const std::vector<VulkanImageView*>& renderTargets, const VulkanImageView* depthStencil, RenderPassInfo& renderPassInfo)
 {
-	//create hash key
 	RenderPassKey key{};
 
 	for (size_t i = 0; i < renderTargets.size(); i++)
 	{
+		key.attachmentDescriptions[i].id = renderTargets[i]->GetID();
 		key.attachmentDescriptions[i].format = GetVkFormatFrom(renderTargets[i]->GetFormat());
 		key.attachmentDescriptions[i].samples = GetVkSampleFlagsFrom(renderTargets[i]->GetInfo().Resource->GetInfo().MultisampleType);
 		key.attachmentDescriptions[i].loadOp = renderPassInfo.ClearRenderTargets ? VK_ATTACHMENT_LOAD_OP_CLEAR : VK_ATTACHMENT_LOAD_OP_LOAD;
@@ -115,11 +115,11 @@ VulkanRenderPass* PipelineManager::FindOrCreateRenderPass(VulkanDevice& device, 
 
 	if (depthStencil != nullptr)
 	{
+		key.depthStencilAttachmentDescription.id = depthStencil->GetID();
 		key.depthStencilAttachmentDescription.format = GetVkFormatFrom(depthStencil->GetFormat());
 		key.depthStencilAttachmentDescription.samples = GetVkSampleFlagsFrom(depthStencil->GetInfo().Resource->GetInfo().MultisampleType);
 		key.depthStencilAttachmentDescription.loadOp = renderPassInfo.ClearDepth ? VK_ATTACHMENT_LOAD_OP_CLEAR : VK_ATTACHMENT_LOAD_OP_LOAD;
 		key.depthStencilAttachmentDescription.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
-		//missing for stencil, TODO: implement this if needed
 		key.depthStencilAttachmentDescription.initialLayout = GetVkImageLayoutFrom(renderPassInfo.InitialDepthStencilState);
 		key.depthStencilAttachmentDescription.finalLayout = GetVkImageLayoutFrom(renderPassInfo.FinalDepthStencilState);
 	}
@@ -132,39 +132,11 @@ VulkanRenderPass* PipelineManager::FindOrCreateRenderPass(VulkanDevice& device, 
 	else
 	{
 		LOG_WARNING("If you're seeing this every frame, you're doing something wrong! Check RenderPassKey!");
-		auto newRenderPass = new VulkanRenderPass(&device, renderTargets, depthStencil, renderPassInfo, "somename");
+		RenderPass* newRenderPass = new RenderPass(device, renderTargets, depthStencil, renderPassInfo, "RenderPass");
 		m_RenderPasses[key] = newRenderPass;
 		return newRenderPass;
 	}
 
-}
-
-VulkanFramebuffer* PipelineManager::FindOrCreateFramebuffer(VulkanDevice& device, const std::vector<VulkanImageView*>& renderTargets, const VulkanImageView* depthStencil, const VulkanRenderPass* renderpass, const VulkanFramebufferInfo& framebufferInfo)
-{
-	FramebufferKey key{};
-	key.resize(MaxRenderTargetCount + 1);
-
-	for (size_t i = 0; i < renderTargets.size(); i++)
-	{
-		key[i] = renderTargets[i]->GetID();
-	}
-	if (depthStencil != nullptr)
-	{
-		key[MaxRenderTargetCount] = depthStencil->GetID();
-	}
-
-	auto framebuffer = m_Framebuffers.find(key);
-	if (framebuffer != m_Framebuffers.end())
-	{
-		return framebuffer->second;
-	}
-	else
-	{
-		LOG_WARNING("If you're seeing this every frame, you're doing something wrong! Check FrameBufferKey!");
-		auto newFramebuffer = new VulkanFramebuffer(&device, framebufferInfo, renderpass, renderTargets, depthStencil);
-		m_Framebuffers[key] = newFramebuffer;
-		return newFramebuffer;
-	}
 }
 
 VulkanDescriptorSet* PipelineManager::FindOrCreateDescriptorSet(VulkanDevice& device, const VulkanDescriptorPool* desciptorPool, const VulkanDescriptorSetLayout* descriptorSetLayout, const std::vector<VulkanDescriptor*>& descriptors)

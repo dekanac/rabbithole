@@ -22,8 +22,8 @@ void CopyToSwapchainPass::Setup()
 	uint32_t renderWindowWidth = Window::instance().GetExtent().width;
 	uint32_t renderWindowHeight = Window::instance().GetExtent().height;
 
-	stateManager.SetFramebufferExtent(Extent2D{ renderWindowWidth, renderWindowHeight });
 	m_Renderer.BindViewport(0, 0, static_cast<float>(renderWindowWidth), static_cast<float>(renderWindowHeight));
+	stateManager.SetRenderPassExtent({ renderWindowWidth , renderWindowHeight });
 
 	stateManager.SetVertexShader(m_Renderer.GetShader("VS_PassThrough"));
 	stateManager.SetPixelShader(m_Renderer.GetShader("FS_PassThrough"));

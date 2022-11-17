@@ -174,8 +174,9 @@ void TonemappingPass::Setup()
 {
 	VulkanStateManager& stateManager = m_Renderer.GetStateManager();
 
-	stateManager.SetFramebufferExtent(Extent2D{ GetUpscaledWidth , GetUpscaledHeight });
 	m_Renderer.BindViewport(0, 0, static_cast<float>(GetUpscaledWidth), static_cast<float>(GetUpscaledHeight));
+	stateManager.SetRenderPassExtent({ GetUpscaledWidth , GetUpscaledHeight });
+
 
 	stateManager.SetVertexShader(m_Renderer.GetShader("VS_PassThrough"));
 	stateManager.SetPixelShader(m_Renderer.GetShader("FS_Tonemap"));

@@ -1,9 +1,11 @@
 #pragma once
 
+#include "precomp.h"
+
 class VulkanDevice;
 class VulkanImageView;
 
-struct RenderPassConfigInfo
+struct VulkanRenderPassInfo
 {
 	bool ClearRenderTargets;
 	bool ClearDepth;
@@ -19,17 +21,15 @@ class VulkanRenderPass
 {
 public:
 	VulkanRenderPass(const VulkanDevice* device, const std::vector<VulkanImageView*> renderTargetViews,
-		const VulkanImageView* depthStencilView, const RenderPassConfigInfo& info, const char* name);
+		const VulkanImageView* depthStencilView, const VulkanRenderPassInfo& info, const char* name);
 	~VulkanRenderPass();
-
-    static void DefaultRenderPassInfo(RenderPassConfigInfo*& renderPassInfo);
 
 	VkRenderPass GetVkHandle() const { return m_RenderPass; }
 private:
 	VkRenderPass				m_RenderPass;
 	
     const VulkanDevice*			m_VulkanDevice;
-	const RenderPassConfigInfo	m_Info;
+	const VulkanRenderPassInfo	m_Info;
 
 	uint8_t						m_AttachmentCount;
 	VkClearValue				m_ClearValues[MaxRenderTargetCount];

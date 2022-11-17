@@ -63,7 +63,7 @@ void ImGuiManager::Init(Renderer& renderer)
 	init_info.MinImageCount = swapchain.GetImageCount();
 	init_info.ImageCount = swapchain.GetImageCount();
 
-	ImGui_ImplVulkan_Init(&init_info, GET_VK_HANDLE_PTR(renderer.GetStateManager().GetRenderPass()));
+	ImGui_ImplVulkan_Init(&init_info, GET_VK_HANDLE(renderer.GetStateManager().GetRenderPass()->GetVulkanRenderPass()));
 
 	VulkanCommandBuffer tempCommandBuffer(device, "Temp Imgui Command Buffer");
 	tempCommandBuffer.BeginCommandBuffer(true);

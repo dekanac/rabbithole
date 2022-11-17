@@ -7,6 +7,7 @@
 #include "Render/ImGuiManager.h"
 #include "Render/Model/Model.h"
 #include "Render/PipelineManager.h"
+#include "Render/RenderPass.h"
 #include "Render/ResourceManager.h"
 #include "Render/ResourceStateTracking.h"
 #include "Render/RabbitPassManager.h"
@@ -148,8 +149,6 @@ private:
 	ImVec2 GetScaledSizeWithAspectRatioKept(ImVec2 currentSize);
 
 	void RecordCommandBuffer();
-	void BeginRenderPass();
-	void EndRenderPass();
 
 	void BindPushConstInternal();
 	template<class T = Pipeline> void BindPipeline();

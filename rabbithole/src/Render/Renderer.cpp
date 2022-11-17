@@ -252,45 +252,6 @@ void Renderer::LoadModels()
 	//gltfModels.emplace_back(this, "res/meshes/sponzaNovaOpti.gltf");
 }
 
-void Renderer::BeginRenderPass()
-{
-	VkRenderPassBeginInfo renderPassInfo{};
-	renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-	renderPassInfo.renderPass = GET_VK_HANDLE_PTR(m_StateManager.GetRenderPass());
-	renderPassInfo.framebuffer = GET_VK_HANDLE_PTR(m_StateManager.GetFramebuffer());
-	renderPassInfo.renderArea.offset = { 0, 0 };
-	renderPassInfo.renderArea.extent = m_StateManager.GetFramebufferExtent();
-
-	uint8_t attachmentCount = m_StateManager.GetRenderTargetCount();
-
-	auto& renderTargets = m_StateManager.GetRenderTargets();
-	std::vector<VkClearValue> clearValues(attachmentCount);
-
-	for (uint8_t i = 0; i < attachmentCount; i++)
-	{
-		auto format = renderTargets[i]->GetFormat();
-		clearValues[i] = GetVkClearColorValueFor(format);
-	}
-
-	if (m_StateManager.HasDepthStencil())
-	{
-		attachmentCount++;
-		auto format = m_StateManager.GetDepthStencil()->GetFormat();
-		clearValues.push_back(GetVkClearColorValueFor(format));
-	}
-
-	renderPassInfo.clearValueCount = static_cast<uint32_t>(attachmentCount);
-	renderPassInfo.pClearValues = clearValues.data();
-
-	vkCmdBeginRenderPass(GET_VK_HANDLE(GetCurrentCommandBuffer()), &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
-}
-
-void Renderer::EndRenderPass()
-{
-	vkCmdEndRenderPass(GET_VK_HANDLE(GetCurrentCommandBuffer()));
-	m_StateManager.Reset();
-}
-
 void Renderer::BeginLabel(const char* name)
 {
 	m_VulkanDevice.BeginLabel(GetCurrentCommandBuffer(), name);
@@ -311,7 +272,7 @@ void Renderer::DrawGeometryGLTF(std::vector<VulkanglTFModel>& bucket)
 {
 	BindPipeline<GraphicsPipeline>();
 
-	BeginRenderPass();
+	m_StateManager.GetRenderPass()->BeginRenderPass(GetCurrentCommandBuffer());
 
 	for (auto& model : bucket)
 	{
@@ -322,18 +283,22 @@ void Renderer::DrawGeometryGLTF(std::vector<VulkanglTFModel>& bucket)
 
 	m_GeometryIndirectDrawBuffer->SubmitToGPU();
 
-	EndRenderPass();
+	m_StateManager.GetRenderPass()->EndRenderPass(GetCurrentCommandBuffer());
+
+	m_StateManager.Reset();
 }
 
 void Renderer::DrawFullScreenQuad()
 {
 	BindPipeline<GraphicsPipeline>();
 
-	BeginRenderPass();
+	m_StateManager.GetRenderPass()->BeginRenderPass(GetCurrentCommandBuffer());
 
 	vkCmdDraw(GET_VK_HANDLE(GetCurrentCommandBuffer()), 3, 1, 0, 0);
 
-	EndRenderPass();
+	m_StateManager.GetRenderPass()->EndRenderPass(GetCurrentCommandBuffer());
+	
+	m_StateManager.Reset();
 }
 
 void Renderer::BindPushConstInternal()
@@ -384,7 +349,7 @@ void Renderer::CopyToSwapChain()
 		m_ImGuiManager.RegisterTextureForImGui(TextureDebugPass::Output);
 	}
 
-	BeginRenderPass();
+	m_StateManager.GetRenderPass()->BeginRenderPass(GetCurrentCommandBuffer());
 
 	//if editor is activated render into ImGui image, else render full screen into swapchain
 	if (!isInEditorMode)
@@ -402,7 +367,9 @@ void Renderer::CopyToSwapChain()
 		m_ImGuiManager.Render(*this);
 	}
 
-	EndRenderPass();
+	m_StateManager.GetRenderPass()->EndRenderPass(GetCurrentCommandBuffer());
+	
+	m_StateManager.Reset();
 }
 
 void Renderer::BindCameraMatrices(Camera* camera)
@@ -1089,11 +1056,13 @@ void Renderer::DrawVertices(uint32_t count)
 {
 	BindPipeline<GraphicsPipeline>();
 
-	BeginRenderPass();
+	m_StateManager.GetRenderPass()->BeginRenderPass(GetCurrentCommandBuffer());
 
 	vkCmdDraw(GET_VK_HANDLE(GetCurrentCommandBuffer()), count, 1, 0, 0);
 
-	EndRenderPass();
+	m_StateManager.GetRenderPass()->EndRenderPass(GetCurrentCommandBuffer());
+	
+	m_StateManager.Reset();
 }
 
 void Renderer::Dispatch(uint32_t x, uint32_t y, uint32_t z)
@@ -1165,34 +1134,22 @@ void Renderer::BindPipeline<GraphicsPipeline>()
 	m_ResourceStateTrackingManager.CommitBarriers(*this);
 
 	//renderpass
-	auto& attachments = m_StateManager.GetRenderTargets();
-	auto depthStencil = m_StateManager.GetDepthStencil();
-	auto renderPassInfo = m_StateManager.GetRenderPassInfo();
+	std::vector<VulkanImageView*>& attachments = m_StateManager.GetRenderTargets();
+	VulkanImageView* depthStencil = m_StateManager.GetDepthStencil();
+	RenderPassInfo* renderPassInfo = m_StateManager.GetRenderPassInfo();
 
-	VulkanRenderPass* renderpass =
+	RenderPass* renderpass =
 		m_StateManager.GetRenderPassDirty()
 		? m_PipelineManager.FindOrCreateRenderPass(m_VulkanDevice, attachments, depthStencil, *renderPassInfo)
 		: m_StateManager.GetRenderPass();
 
 	m_StateManager.SetRenderPass(renderpass);
 
-	//framebuffer
-	VulkanFramebufferInfo framebufferInfo{};
-	framebufferInfo.width = m_StateManager.GetFramebufferExtent().width;
-	framebufferInfo.height = m_StateManager.GetFramebufferExtent().height;
-
-	VulkanFramebuffer* framebuffer =
-		m_StateManager.GetFramebufferDirty()
-		? m_PipelineManager.FindOrCreateFramebuffer(m_VulkanDevice, attachments, depthStencil, renderpass, framebufferInfo)
-		: m_StateManager.GetFramebuffer();
-
-	m_StateManager.SetFramebuffer(framebuffer);
-
 	//pipeline
-	auto pipelineInfo = m_StateManager.GetPipelineInfo();
+	PipelineInfo* pipelineInfo = m_StateManager.GetPipelineInfo();
 
-	pipelineInfo->renderPass = m_StateManager.GetRenderPass();
-	auto pipeline =
+	pipelineInfo->renderPass = &m_StateManager.GetRenderPass()->GetVulkanRenderPass();
+	VulkanPipeline* pipeline =
 		m_StateManager.GetPipelineDirty()
 		? m_PipelineManager.FindOrCreateGraphicsPipeline(m_VulkanDevice, *pipelineInfo)
 		: m_StateManager.GetPipeline();
@@ -1211,7 +1168,7 @@ void Renderer::BindPipeline<ComputePipeline>()
 {
 	m_ResourceStateTrackingManager.CommitBarriers(*this);
 
-	auto pipelineInfo = m_StateManager.GetPipelineInfo();
+	PipelineInfo* pipelineInfo = m_StateManager.GetPipelineInfo();
 
 	VulkanPipeline* computePipeline = m_StateManager.GetPipelineDirty()
 		? m_PipelineManager.FindOrCreateComputePipeline(m_VulkanDevice, *pipelineInfo)

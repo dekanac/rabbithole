@@ -63,8 +63,8 @@ void main()
     
     if (FindTriangleIntersection(ray))
     {
-        shadowedSunlight = 0.00001f;
-        noiseDensity *= 0.01f;
+        shadowedSunlight = 0.4f;
+        noiseDensity *= 0.3f;
     }
     else
     {
