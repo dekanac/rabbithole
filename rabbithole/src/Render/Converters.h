@@ -34,6 +34,6 @@ uint32_t					GetBPPFrom(const Format format);
 VkImageUsageFlags			GetVkImageUsageFlagsFrom(const ImageUsageFlags usageFlags);
 VkBorderColor				GetVkBorderColorFrom(const Color color);
 bool						IsDepthFormat(const Format format);
-VkPipelineStageFlags		GetVkPipelineStageFromResourceStageAndState(const ResourceStage stage, const ResourceState state);
+VkPipelineStageFlags		GetVkPipelineStageFromResourceStageAndState(const ResourceStage stage, const ResourceState state, bool isSrcStage);
 VkAccessFlags				GetVkAccessFlagsFromResourceState(const ResourceState state);
 enum VkPipelineBindPoint	GetVkBindPointFrom(const PipelineType pipelineType);

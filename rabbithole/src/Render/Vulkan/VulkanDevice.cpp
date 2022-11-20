@@ -679,8 +679,8 @@ void VulkanDevice::ResourceBarrier(VulkanCommandBuffer& commandBuffer, VulkanTex
 	barrier.srcAccessMask = GetVkAccessFlagsFromResourceState(oldLayout);
 	barrier.dstAccessMask = GetVkAccessFlagsFromResourceState(newLayout);
 
-	VkPipelineStageFlags sourceStage = GetVkPipelineStageFromResourceStageAndState(srcStage, oldLayout);
-	VkPipelineStageFlags destinationStage = GetVkPipelineStageFromResourceStageAndState(dstStage, newLayout);
+	VkPipelineStageFlags sourceStage = GetVkPipelineStageFromResourceStageAndState(srcStage, oldLayout, true);
+	VkPipelineStageFlags destinationStage = GetVkPipelineStageFromResourceStageAndState(dstStage, newLayout, false);
 
 	vkCmdPipelineBarrier(
 		GET_VK_HANDLE(commandBuffer),
@@ -712,8 +712,8 @@ void VulkanDevice::ResourceBarrier(VulkanCommandBuffer& commandBuffer, VulkanBuf
 
 		vkCmdPipelineBarrier(
 			GET_VK_HANDLE(commandBuffer),
-			GetVkPipelineStageFromResourceStageAndState(srcStage, oldLayout),
-			GetVkPipelineStageFromResourceStageAndState(dstStage, newLayout),
+			GetVkPipelineStageFromResourceStageAndState(srcStage, oldLayout, true),
+			GetVkPipelineStageFromResourceStageAndState(dstStage, newLayout, false),
 			0,
 			0, nullptr,
 			1, &bufferBarrier,
@@ -751,5 +751,5 @@ void VulkanDevice::CopyImageToBuffer(VulkanCommandBuffer& commandBuffer, VulkanT
 	vkCmdCopyImageToBuffer(GET_VK_HANDLE(commandBuffer), GET_VK_HANDLE_PTR(texture->GetResource()), VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, GET_VK_HANDLE_PTR(buffer), 1, &region);
 
 	if (srcState != ResourceState::TransferSrc)
-		ResourceBarrier(commandBuffer, texture, ResourceState::TransferSrc,srcState , ResourceStage::Transfer, srcStage);
+		ResourceBarrier(commandBuffer, texture, ResourceState::TransferSrc, srcState, ResourceStage::Transfer, srcStage);
 }

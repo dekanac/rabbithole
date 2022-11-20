@@ -136,12 +136,12 @@ void ShadowDenoiseTileClassificationPass::DeclareResources()
 
 	const uint32_t tileSize = tileH * tileW;
 
-	LastFrameDepth = m_Renderer.GetResourceManager().CreateTexture(m_Renderer.GetVulkanDevice(), RWTextureCreateInfo{
-			.dimensions = {RTShadowsPass::ShadowResX, RTShadowsPass::ShadowResY, 1},
-			.flags = {TextureFlags::DepthStencil | TextureFlags::Read | TextureFlags::TransferDst },
-			.format = {Format::D32_SFLOAT},
-			.name = {"Denoise Last Frame Depth"}
-		});
+    LastFrameDepth = m_Renderer.GetResourceManager().CreateTexture(m_Renderer.GetVulkanDevice(), RWTextureCreateInfo{
+            .dimensions = {RTShadowsPass::ShadowResX, RTShadowsPass::ShadowResY, 1},
+            .flags = {TextureFlags::Read | TextureFlags::TransferDst},
+            .format = {Format::R32_SFLOAT},
+            .name = {"Last Frame DepthR32"}
+        });
 
 	ReprojectionInfo = m_Renderer.GetResourceManager().CreateBuffer(m_Renderer.GetVulkanDevice(), BufferCreateInfo{
 			.flags = {BufferUsageFlags::UniformBuffer},

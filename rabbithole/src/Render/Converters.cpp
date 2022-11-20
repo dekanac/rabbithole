@@ -605,10 +605,10 @@ bool IsDepthFormat(const Format format)
 	return (format == Format::D32_SFLOAT || format == Format::D32_SFLOAT);
 }
 
-VkPipelineStageFlags GetVkPipelineStageFromResourceStageAndState(const ResourceStage stage, const ResourceState state)
+VkPipelineStageFlags GetVkPipelineStageFromResourceStageAndState(const ResourceStage stage, const ResourceState state, bool isSrcStage)
 {
 	if (state == ResourceState::DepthStencilWrite || state == ResourceState::DepthStencilRead)
-		return VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
+		return isSrcStage ? VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT : VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
 
 	switch (stage)
 	{

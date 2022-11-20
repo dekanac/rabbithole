@@ -36,7 +36,7 @@ void GBufferPass::DeclareResources()
 	Velocity = m_Renderer.GetResourceManager().CreateTexture(m_Renderer.GetVulkanDevice(), RWTextureCreateInfo{
 			.dimensions = {GetNativeWidth , GetNativeHeight, 1},
 			.flags = {TextureFlags::RenderTarget | TextureFlags::Read | TextureFlags::Storage},
-			.format = {Format::R32G32_FLOAT},
+			.format = {Format::R16G16_FLOAT},
 			.name = {"GBuffer Velocity"}
 		});
 
@@ -105,9 +105,9 @@ void CopyDepthPass::DeclareResources()
 {
 	DepthR32 = m_Renderer.GetResourceManager().CreateTexture(m_Renderer.GetVulkanDevice(), RWTextureCreateInfo{
 			.dimensions = {GetNativeWidth , GetNativeHeight, 1},
-			.flags = {TextureFlags::Read | TextureFlags::Storage | TextureFlags::RenderTarget},
+			.flags = {TextureFlags::Read | TextureFlags::Storage | TextureFlags::RenderTarget | TextureFlags::TransferSrc},
 			.format = {Format::R32_SFLOAT},
-			.name = {"GBuffer DepthR32"}
+			.name = {"DepthR32"}
 		});
 }
 

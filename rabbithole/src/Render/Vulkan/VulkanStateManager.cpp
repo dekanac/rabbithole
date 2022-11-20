@@ -284,8 +284,6 @@ uint8_t VulkanStateManager::GetRenderTargetCount()
 
 void VulkanStateManager::UpdateResourceStage(ManagableResource* texture)
 {
-	texture->SetPreviousResourceStage(texture->GetCurrentResourceStage());
-
 	ResourceStage currentStage = (m_CurrentPipelinetype != PipelineType::Count)
 		? ((m_CurrentPipelinetype == PipelineType::Compute) ? ResourceStage::Compute : ResourceStage::Graphics)
 		: ResourceStage::Count;
