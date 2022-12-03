@@ -55,5 +55,18 @@ namespace Utils
 		return buffer;
 	}
 
+	void* RabbitMalloc(size_t size)
+	{
+		void* allocatedData = malloc(size);
+		ASSERT(allocatedData != nullptr, "Allocation failed!");
+		return allocatedData;
+	}
+
+	void RabbitFree(void* ptr)
+	{
+		ASSERT(ptr != nullptr, "Free failed!");
+		free(ptr);
+	}
+
 }
 

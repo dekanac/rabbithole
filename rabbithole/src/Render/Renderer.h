@@ -144,7 +144,6 @@ private:
 	void UpdateConstantBuffer();
 	void UpdateUIStateAndFSR2PreDraw();
 	void ImguiProfilerWindow(std::vector<TimeStamp>& timestamps);
-	void RegisterTexturesToImGui();
 	void ImGuiTextureDebugger();
 	ImVec2 GetScaledSizeWithAspectRatioKept(ImVec2 currentSize);
 
@@ -228,10 +227,6 @@ public:
 
 	//geometry
 	IndexedIndirectBuffer* m_GeometryIndirectDrawBuffer;
-
-	//entity helper
-	VulkanTexture* entityHelper;
-	VulkanBuffer*  entityHelperBuffer;
 
 	//debug texture
 	std::string currentTextureSelectedName = "Choose texture to debug: ";

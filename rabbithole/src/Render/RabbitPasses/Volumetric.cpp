@@ -39,7 +39,7 @@ void VolumetricPass::Setup()
 	SetStorageBufferRead(2, m_Renderer.triangleIndxsBuffer);
 	SetStorageBufferRead(3, m_Renderer.cfbvhNodesBuffer);
 	SetConstantBuffer(4, VolumetricPass::ParamsGPU);
-	SetStorageImage(5, VolumetricPass::MediaDensity);
+	SetStorageImageWrite(5, VolumetricPass::MediaDensity);
 	SetCombinedImageSampler(6, m_Renderer.noise3DLUT);
 	SetConstantBuffer(7, LightingPass::LightParamsGPU);
 	SetConstantBuffer(8, m_Renderer.GetMainConstBuffer());
@@ -89,7 +89,7 @@ void Create3DNoiseTexturePass::Setup()
 	stateManager.SetComputeShader(m_Renderer.GetShader("CS_3DNoiseLUT"));
 
 	SetCombinedImageSampler(0, m_Renderer.noise2DTexture);
-	SetStorageImage(1, m_Renderer.noise3DLUT);
+	SetStorageImageWrite(1, m_Renderer.noise3DLUT);
 }
 
 void Create3DNoiseTexturePass::Render()
@@ -115,8 +115,8 @@ void ComputeScatteringPass::Setup()
 
 	stateManager.SetComputeShader(m_Renderer.GetShader("CS_ComputeScattering"));
 
-	SetStorageImage(0, VolumetricPass::MediaDensity);
-	SetStorageImage(1, ComputeScatteringPass::LightScattering);
+	SetStorageImageRead(0, VolumetricPass::MediaDensity);
+	SetStorageImageWrite(1, ComputeScatteringPass::LightScattering);
 	SetConstantBuffer(2, VolumetricPass::ParamsGPU);
 }
 

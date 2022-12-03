@@ -81,17 +81,13 @@ void VulkanTexture::CreateResource(VulkanDevice* device, const TextureData* texD
 	m_Resource = new VulkanImage(device, textureResourceInfo, m_Name.c_str());
 
 	ResourceState stateAfter = ResourceState::None;
-	if (IsFlagSet(m_Flags & TextureFlags::Read) && IsFlagSet(m_Flags & TextureFlags::DepthStencil))
+	if (IsFlagSet(m_Flags & TextureFlags::DepthStencil))
 	{
-		stateAfter = ResourceState::DepthStencilRead;
+		stateAfter = ResourceState::DepthStencilWrite;
 	}
 	else if (IsFlagSet(m_Flags & TextureFlags::Read))
 	{
 		stateAfter = ResourceState::GenericRead;
-	}
-	else if (IsFlagSet(m_Flags & TextureFlags::RenderTarget) && IsFlagSet(m_Flags & TextureFlags::DepthStencil))
-	{
-		stateAfter = ResourceState::DepthStencilWrite;
 	}
 	else if (IsFlagSet(m_Flags & TextureFlags::RenderTarget))
 	{
@@ -152,17 +148,13 @@ void VulkanTexture::CreateResource(VulkanDevice* device, RWTextureCreateInfo& cr
 	m_Resource = new VulkanImage(device, textureResourceInfo, m_Name.c_str());
 
 	ResourceState stateAfter = ResourceState::None;
-	if (IsFlagSet(m_Flags & TextureFlags::Read) && IsFlagSet(m_Flags & TextureFlags::DepthStencil))
+	if (IsFlagSet(m_Flags & TextureFlags::DepthStencil))
 	{
-		stateAfter = ResourceState::DepthStencilRead;
+		stateAfter = ResourceState::DepthStencilWrite;
 	}
 	else if (IsFlagSet(m_Flags & TextureFlags::Read))
 	{
 		stateAfter = ResourceState::GenericRead;
-	}
-	else if (IsFlagSet(m_Flags & TextureFlags::RenderTarget) && IsFlagSet(m_Flags & TextureFlags::DepthStencil))
-	{
-		stateAfter = ResourceState::DepthStencilWrite;
 	}
 	else if (IsFlagSet(m_Flags & TextureFlags::RenderTarget))
 	{

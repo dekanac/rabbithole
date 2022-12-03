@@ -3,6 +3,7 @@
 #include "Render/Vulkan/VulkanTexture.h"
 #include "Render/Vulkan/VulkanBuffer.h"
 #include "Logger/Logger.h"
+#include "Utils/utils.h"
 
 ResourceManager::~ResourceManager()
 {
@@ -32,7 +33,7 @@ VulkanTexture* ResourceManager::CreateTexture(VulkanDevice& device, std::string 
 
 		size_t imageSize = texData->height * texData->width * 4;
 
-		texData->pData = (unsigned char*)malloc(imageSize * 6);
+		texData->pData = RABBIT_ALLOC(unsigned char, imageSize * 6);
 		for (int i = 0; i < 6; i++)
 		{
 			memcpy(texData->pData + i * imageSize, cubeMapData->pData[i]->pData, imageSize);

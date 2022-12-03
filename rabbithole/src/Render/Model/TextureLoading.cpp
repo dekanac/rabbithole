@@ -3,6 +3,7 @@
 #include <string>
 
 #include "Logger/Logger.h"
+#include "Utils/utils.h"
 
 #include "stb_image/stb_image.h"
 
@@ -93,7 +94,7 @@ namespace TextureLoading
 	{
 		if (textureData == TextureData::INVALID) return;
 
-		free(textureData->pData);
+		RABBIT_FREE(textureData->pData);
 		delete textureData;
 	}
 

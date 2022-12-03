@@ -10,17 +10,11 @@ VulkanImage::VulkanImage(const VulkanDevice* device, const VulkanImageInfo& info
 {
 	VkImageCreateInfo imageCreateInfo = { VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO };
 
-	uint32_t blockSize = GetBlockSizeFrom(m_Format);
-	uint32_t blockAlignedWidth = m_Info.Extent.Width;
-	uint32_t blockAlignedHeight = m_Info.Extent.Height;
-
-	bool isCubeMap = IsFlagSet(m_Info.Flags & ImageFlags::CubeMap);
-
-	imageCreateInfo.flags |= isCubeMap ? VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT : 0;
+	imageCreateInfo.flags |= IsFlagSet(m_Info.Flags & ImageFlags::CubeMap) ? VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT : 0;
 	imageCreateInfo.imageType = m_Info.Extent.Depth == 1 ? VK_IMAGE_TYPE_2D : VK_IMAGE_TYPE_3D;
 	imageCreateInfo.format = m_Format;
-	imageCreateInfo.extent.width = blockAlignedWidth;
-	imageCreateInfo.extent.height = blockAlignedHeight;
+	imageCreateInfo.extent.width = m_Info.Extent.Width;
+	imageCreateInfo.extent.height = m_Info.Extent.Height;
 	imageCreateInfo.extent.depth = m_Info.Extent.Depth;
 	imageCreateInfo.mipLevels = m_Info.MipLevels;
 	imageCreateInfo.arrayLayers = m_Info.ArraySize;

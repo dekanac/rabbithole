@@ -12,4 +12,7 @@ namespace Utils
 
 	void PrintMatrix(const rabbitMat4f& matrix);
 	std::vector<char> ReadFile(const std::string& filepath);
+
+	void* RabbitMalloc(size_t size);
+	void RabbitFree(void* ptr);
 }

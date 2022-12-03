@@ -60,7 +60,6 @@ void DestroyDebugUtilsMessengerEXT(VkInstance instance, VkDebugUtilsMessengerEXT
 		func(instance, debugMessenger, pAllocator);
 }
 
-// class member functions
 VulkanDevice::VulkanDevice() 
 {
 	CreateInstance();
@@ -184,6 +183,7 @@ void VulkanDevice::CreateLogicalDevice()
 
 	VkPhysicalDeviceFeatures deviceFeatures = {};
 	deviceFeatures.samplerAnisotropy = VK_TRUE;
+	deviceFeatures.robustBufferAccess = VK_TRUE;
 
 	VkDeviceCreateInfo createInfo = {};
 	createInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
@@ -659,10 +659,6 @@ void VulkanDevice::EndLabel(VulkanCommandBuffer& commandBuffer)
 
 void VulkanDevice::ResourceBarrier(VulkanCommandBuffer& commandBuffer, VulkanTexture* texture, ResourceState oldLayout, ResourceState newLayout, ResourceStage srcStage, ResourceStage dstStage, uint32_t mipLevel, uint32_t mipCount)
 {
-	uint32_t arraySize = texture->GetResource()->GetInfo().ArraySize;
-
-	bool isDepth = GetVkImageAspectFlagsFrom(GetVkFormatFrom(texture->GetFormat())) == VK_IMAGE_ASPECT_DEPTH_BIT;
-
 	VkImageMemoryBarrier barrier{};
 	barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
 	barrier.oldLayout = GetVkImageLayoutFrom(oldLayout);
@@ -674,7 +670,7 @@ void VulkanDevice::ResourceBarrier(VulkanCommandBuffer& commandBuffer, VulkanTex
 	barrier.subresourceRange.baseMipLevel = mipLevel;
 	barrier.subresourceRange.levelCount = (mipCount == UINT32_MAX) ? texture->GetMipCount() : mipCount;
 	barrier.subresourceRange.baseArrayLayer = 0;
-	barrier.subresourceRange.layerCount = arraySize;
+	barrier.subresourceRange.layerCount = texture->GetResource()->GetInfo().ArraySize;
 
 	barrier.srcAccessMask = GetVkAccessFlagsFromResourceState(oldLayout);
 	barrier.dstAccessMask = GetVkAccessFlagsFromResourceState(newLayout);

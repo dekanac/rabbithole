@@ -22,7 +22,9 @@ protected:
 
 	void SetCombinedImageSampler(uint32_t slot, VulkanTexture* texture, uint32_t mipSlice = 0);
 	void SetSampledImage(uint32_t slot, VulkanTexture* texture, uint32_t mipSlice = 0);
-	void SetStorageImage(uint32_t slot, VulkanTexture* texture, uint32_t mipSlice = 0);
+	void SetStorageImageRead(uint32_t slot, VulkanTexture* texture, uint32_t mipSlice = 0);
+	void SetStorageImageWrite(uint32_t slot, VulkanTexture* texture, uint32_t mipSlice = 0);
+	void SetStorageImageReadWrite(uint32_t slot, VulkanTexture* texture, uint32_t mipSlice = 0);
 	void SetConstantBuffer(uint32_t slot, VulkanBuffer* buffer);
 	void SetStorageBufferRead(uint32_t slot, VulkanBuffer* buffer);
 	void SetStorageBufferWrite(uint32_t slot, VulkanBuffer* buffer);

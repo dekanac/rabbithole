@@ -331,7 +331,9 @@ VkImageLayout GetVkImageLayoutFrom(const ResourceState resourceState)
 	{
 		return VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
 	}
-	else if (resourceState == ResourceState::GeneralCompute)
+	else if (resourceState == ResourceState::GeneralComputeRead || 
+			 resourceState == ResourceState::GeneralComputeWrite ||
+			 resourceState == ResourceState::GeneralComputeReadWrite)
 	{
 		return VK_IMAGE_LAYOUT_GENERAL;
 	}
@@ -638,8 +640,12 @@ VkAccessFlags GetVkAccessFlagsFromResourceState(const ResourceState state)
 		return VK_ACCESS_SHADER_READ_BIT;
 	case ResourceState::RenderTarget:
 		return VK_ACCESS_SHADER_WRITE_BIT;
-	case ResourceState::GeneralCompute:
-		return VK_ACCESS_SHADER_WRITE_BIT | VK_ACCESS_SHADER_READ_BIT;
+	case ResourceState::GeneralComputeRead:
+		return VK_ACCESS_SHADER_READ_BIT;
+	case ResourceState::GeneralComputeWrite:
+		return VK_ACCESS_SHADER_WRITE_BIT;
+	case ResourceState::GeneralComputeReadWrite:
+		return VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT;
 	case ResourceState::TransferDst:
 		return VK_ACCESS_TRANSFER_WRITE_BIT;
 	case ResourceState::TransferSrc:
@@ -760,7 +766,7 @@ VkClearValue GetVkClearColorValueFor(const Format format)
 		return VkClearValue{ 0.5f, 0.5f, 0.5f, 1.0f };
 	case Format::R8_UNORM:
 	case Format::R32_SFLOAT:
-		return VkClearValue{ 0.1f };
+		return VkClearValue{ 0.0f };
 	case Format::R32G32B32_FLOAT:
 	case Format::R11G11B10_FLOAT:
 		return VkClearValue{ 0.1f, 0.1f, 0.1f };

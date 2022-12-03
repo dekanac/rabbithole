@@ -48,10 +48,9 @@ public:
 	virtual void			SetShouldBeResourceState(ResourceState state) { m_ShouldBeResourceState = state; }
 
 	virtual ResourceStage	GetCurrentResourceStage() { return m_CurrentResourceStage; }
-	virtual void			SetCurrentResourceStage(ResourceStage stage) { m_CurrentResourceStage = stage; }
+	virtual void			SetCurrentResourceStage(ResourceStage stage) { m_PreviousResourceStage = m_CurrentResourceStage; m_CurrentResourceStage = stage; }
 
 	virtual ResourceStage	GetPreviousResourceStage() { return m_PreviousResourceStage; }
-	virtual void			SetPreviousResourceStage(ResourceStage stage) { m_PreviousResourceStage = stage; }
 
 protected:
 	ResourceState			m_CurrentResourceState = ResourceState::Count;

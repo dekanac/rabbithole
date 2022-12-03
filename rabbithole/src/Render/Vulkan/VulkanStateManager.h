@@ -43,7 +43,7 @@ public:
 	~VulkanStateManager();
 
 	//pipeline
-	PipelineInfo*		GetPipelineInfo() { return m_PipelineInfo; }
+	PipelineInfo*		GetPipelineInfo() const { return m_PipelineInfo; }
 	VulkanPipeline*		GetPipeline() const { return m_Pipeline; }
 	void SetPipeline(VulkanPipeline* pipeline) { m_Pipeline = pipeline; m_DirtyPipeline = false; }
 	bool GetPipelineDirty() { return m_DirtyPipeline; }
@@ -108,7 +108,7 @@ public:
 private:
 	PipelineInfo*			m_PipelineInfo;
 	VulkanPipeline*		    m_Pipeline;
-    RenderPassInfo* m_RenderPassInfo;
+    RenderPassInfo*			m_RenderPassInfo;
 	RenderPass*				m_RenderPass;
 	UniformBufferObject*    m_UBO;
 

@@ -78,8 +78,8 @@ void BloomCompute::Setup()
 
 	BloomParamsGPU->FillBuffer(&BloomParamsCPU);
 
-	SetStorageImage(0, LightingPass::MainLighting);
-	SetStorageImage(1, BloomCompute::Downsampled, 0);
+	SetStorageImageReadWrite(0, LightingPass::MainLighting);
+	SetStorageImageReadWrite(1, BloomCompute::Downsampled, 0);
 	SetConstantBuffer(2, BloomCompute::BloomParamsGPU);
 
 	uint32_t mipIndex = 0;
@@ -97,8 +97,8 @@ void BloomCompute::Setup()
 		width /= 2;
 		height /= 2;
 	
-		SetStorageImage(0, BloomCompute::Downsampled);
-		SetStorageImage(1, BloomCompute::Downsampled, i);
+		SetStorageImageReadWrite(0, BloomCompute::Downsampled);
+		SetStorageImageReadWrite(1, BloomCompute::Downsampled, i);
 		SetConstantBuffer(2, BloomCompute::BloomParamsGPU);
 		m_Renderer.BindPushConst(i);
 	
@@ -116,7 +116,7 @@ void BloomCompute::Setup()
 	//	height *= 2;
 	//
 	//	SetCombinedImageSampler(0, BloomCompute::Downsampled);
-	//	SetStorageImage(1, BloomCompute::Downsampled, i-1);
+	//	SetStorageImageReadWrite(1, BloomCompute::Downsampled, i-1);
 	//	SetConstantBuffer(2, BloomCompute::BloomParamsGPU);
 	//	m_Renderer.BindPushConst((uint32_t)i);
 	//
@@ -129,8 +129,8 @@ void BloomCompute::Setup()
 
 	//for (uint32_t i = 0; i < 4; i++)
 	//{
-	//	SetStorageImage(0, BloomCompute::Downsampled, i);
-	//	SetStorageImage(1, BloomCompute::Downsampled, i + 1);
+	//	SetStorageImageReadWrite(0, BloomCompute::Downsampled, i);
+	//	SetStorageImageReadWrite(1, BloomCompute::Downsampled, i + 1);
 	//	SetConstantBuffer(2, BloomCompute::BloomParamsGPU);
 	//
 	//	width /= 2;
@@ -142,8 +142,8 @@ void BloomCompute::Setup()
 	//{
 	//	stateManager.SetComputeShader(m_Renderer.GetShader("CS_Upsample"));
 	//
-	//	SetStorageImage(0, BloomCompute::Downsampled, 4);
-	//	SetStorageImage(1, BloomCompute::Downsampled, 3);
+	//	SetStorageImageReadWrite(0, BloomCompute::Downsampled, 4);
+	//	SetStorageImageReadWrite(1, BloomCompute::Downsampled, 3);
 	//	SetConstantBuffer(2, BloomCompute::BloomParamsGPU);
 	//
 	//	constexpr uint32_t threadGroupWorkRegionDim = 8;

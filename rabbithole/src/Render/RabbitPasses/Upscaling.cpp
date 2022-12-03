@@ -17,7 +17,7 @@ void FSR2Pass::DeclareResources()
 
 void FSR2Pass::Setup()
 {
-	m_Renderer.ResourceBarrier(FSR2Pass::Output, ResourceState::GenericRead, ResourceState::GeneralCompute, ResourceStage::Graphics, ResourceStage::Compute);
+	m_Renderer.ResourceBarrier(FSR2Pass::Output, ResourceState::GenericRead, ResourceState::GeneralComputeReadWrite, ResourceStage::Graphics, ResourceStage::Compute);
 	m_Renderer.ResourceBarrier(ApplyVolumetricFogPass::Output, ResourceState::RenderTarget, ResourceState::GenericRead, ResourceStage::Graphics, ResourceStage::Compute);
 }
 
@@ -39,5 +39,5 @@ void FSR2Pass::Render()
 
 	SuperResolutionManager::instance().Draw(m_Renderer.GetCurrentCommandBuffer(), fsrSetup, &m_Renderer.GetUIState());
 
-	m_Renderer.ResourceBarrier(FSR2Pass::Output, ResourceState::GeneralCompute, ResourceState::GenericRead, ResourceStage::Compute, ResourceStage::Graphics);
+	m_Renderer.ResourceBarrier(FSR2Pass::Output, ResourceState::GeneralComputeReadWrite, ResourceState::GenericRead, ResourceStage::Compute, ResourceStage::Graphics);
 }

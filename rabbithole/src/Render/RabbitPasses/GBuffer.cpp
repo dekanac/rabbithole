@@ -15,7 +15,7 @@ void GBufferPass::DeclareResources()
 	Albedo = m_Renderer.GetResourceManager().CreateTexture(m_Renderer.GetVulkanDevice(), RWTextureCreateInfo{
 			.dimensions = {GetNativeWidth , GetNativeHeight, 1},
 			.flags = {TextureFlags::RenderTarget | TextureFlags::Read},
-			.format = {Format::B8G8R8A8_UNORM},
+			.format = {Format::R8G8B8A8_UNORM},
 			.name = {"GBuffer Albedo"}
 		});
 
@@ -65,12 +65,7 @@ void GBufferPass::Setup()
 
 	SetConstantBuffer(0, m_Renderer.GetMainConstBuffer());
 
-#ifdef USE_RABBITHOLE_TOOLS
-	pipelineInfo->SetAttachmentCount(5);
-	pipelineInfo->SetColorWriteMask(4, ColorWriteMaskFlags::RGBA);
-#else
 	pipelineInfo->SetAttachmentCount(4);
-#endif
 	pipelineInfo->SetColorWriteMask(0, ColorWriteMaskFlags::RGBA);
 	pipelineInfo->SetColorWriteMask(1, ColorWriteMaskFlags::RGBA);
 	pipelineInfo->SetColorWriteMask(2, ColorWriteMaskFlags::RGBA);
@@ -80,18 +75,15 @@ void GBufferPass::Setup()
 	SetRenderTarget(1, GBufferPass::Normals);
 	SetRenderTarget(2, GBufferPass::WorldPosition);
 	SetRenderTarget(3, GBufferPass::Velocity);
-#ifdef RABBITHOLE_TOOLS
-	SetRenderTarget(4, m_Renderer.entityHelper);
-#endif
 	SetDepthStencil(GBufferPass::Depth);
 
 	auto renderPassInfo = stateManager.GetRenderPassInfo();
 
 	stateManager.GetPipelineInfo()->SetDepthTestEnabled(true);
-	renderPassInfo->InitialRenderTargetState = ResourceState::None;
-	renderPassInfo->FinalRenderTargetState = ResourceState::RenderTarget;
-	renderPassInfo->InitialDepthStencilState = ResourceState::None;
-	renderPassInfo->FinalDepthStencilState = ResourceState::DepthStencilWrite;
+	renderPassInfo->InitialRenderTargetState =	ResourceState::None;
+	renderPassInfo->FinalRenderTargetState =	ResourceState::RenderTarget;
+	renderPassInfo->InitialDepthStencilState =	ResourceState::None;
+	renderPassInfo->FinalDepthStencilState =	ResourceState::DepthStencilWrite;
 
 	stateManager.SetCullMode(CullMode::Front);
 }

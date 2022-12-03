@@ -7,6 +7,7 @@
 #include "Render/Renderer.h"
 #include "Render/Vulkan/VulkanDevice.h"
 #include "Render/Window.h"
+#include "Utils/utils.h"
 
 #include <fsr2.0/ffx_fsr2.h>
 #include <fsr2.0/vk/ffx_fsr2_vk.h>
@@ -36,10 +37,9 @@ void SuperResolutionManager::Destroy()
 void SuperResolutionManager::CreateFsrContext(VulkanDevice* device)
 {
 	// Setup VK interface.
-
 	auto physicalDevice = device->GetPhysicalDevice();
 	const size_t scratchBufferSize = ffxFsr2GetScratchMemorySizeVK(physicalDevice);
-	void* scratchBuffer = malloc(scratchBufferSize);
+	void* scratchBuffer = Utils::RabbitMalloc(scratchBufferSize);
 	FfxErrorCode errorCode = ffxFsr2GetInterfaceVK(&m_FsrContextDescription.callbacks, scratchBuffer, scratchBufferSize, physicalDevice, vkGetDeviceProcAddr);
 	FFX_ASSERT(errorCode == FFX_OK);
 

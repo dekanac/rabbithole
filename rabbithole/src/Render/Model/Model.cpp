@@ -496,6 +496,8 @@ VulkanglTFModel::~VulkanglTFModel()
 {
 }
 
+uint32_t VulkanglTFModel::ms_CurrentDrawId = 0;
+
 /*
 	glTF loading functions
 
@@ -782,7 +784,7 @@ void VulkanglTFModel::DrawNode(VulkanCommandBuffer& commandBuffer, const VulkanP
 		{
 			SimplePushConstantData pushData{};
 			//TODO: add primitive id
-			pushData.id = 1;
+			pushData.id = ms_CurrentDrawId++;
 			pushData.modelMatrix = nodeMatrix;
 			pushData.useAlbedoMap = (uint32_t)(m_Materials[primitive.materialIndex].baseColorTextureIndex != UINT32_MAX);
 			pushData.useNormalMap = (uint32_t)(m_Materials[primitive.materialIndex].normalTextureIndex != UINT32_MAX);
@@ -815,8 +817,6 @@ void VulkanglTFModel::DrawNode(VulkanCommandBuffer& commandBuffer, const VulkanP
 		DrawNode(commandBuffer, pipelineLayout, child, backBufferIndex, indirectBuffer);
 	}
 }
-
-
 
 void VulkanglTFModel::Draw(VulkanCommandBuffer& commandBuffer, const VulkanPipelineLayout* pipeLayout, uint8_t backBufferIndex, IndexedIndirectBuffer* indirectBuffer)
 {

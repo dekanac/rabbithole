@@ -83,7 +83,7 @@ void OutlineEntityPass::Setup()
 	renderPassInfo->InitialRenderTargetState = ResourceState::None;
 	renderPassInfo->FinalRenderTargetState = ResourceState::RenderTarget;
 
-	SetCombinedImageSampler(0, m_Renderer.entityHelper);
+	SetCombinedImageSampler(0, OutlineEntityPass::Main);
 	SetRenderTarget(0, LightingPass::MainLighting);
 }
 

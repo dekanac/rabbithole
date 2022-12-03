@@ -4,7 +4,9 @@
 
 #include <limits>
 
-#define RABBITHOLE_DEBUG
+#ifdef _DEBUG
+	#define RABBITHOLE_DEBUG
+#endif
 
 #define PROFILE_CODE(code) auto start = Utils::SetStartTime(); \
 	code \
@@ -83,3 +85,6 @@ struct WindowExtent
 		code; \
 		doOnceFlag = true; \
 	}
+
+#define RABBIT_ALLOC(t,n) (t*)Utils::RabbitMalloc((n)*sizeof(t))
+#define RABBIT_FREE(ptr) Utils::RabbitFree(ptr)

@@ -47,11 +47,11 @@ void RTShadowsPass::Setup()
 	SetStorageBufferRead(1, m_Renderer.trianglesBuffer);
 	SetStorageBufferRead(2, m_Renderer.triangleIndxsBuffer);
 	SetStorageBufferRead(3, m_Renderer.cfbvhNodesBuffer);
-	SetStorageImage(4, GBufferPass::WorldPosition);
-	SetStorageImage(5, GBufferPass::Normals);
-	SetStorageImage(6, RTShadowsPass::ShadowMask);
+	SetStorageImageRead(4, GBufferPass::WorldPosition);
+	SetStorageImageRead(5, GBufferPass::Normals);
+	SetStorageImageWrite(6, RTShadowsPass::ShadowMask);
 	SetConstantBuffer(7, LightingPass::LightParamsGPU);
-	SetStorageImage(8, m_Renderer.blueNoise2DTexture);
+	SetStorageImageRead(8, m_Renderer.blueNoise2DTexture);
 	SetConstantBuffer(9, m_Renderer.GetMainConstBuffer());
 }
 
@@ -228,9 +228,9 @@ void ShadowDenoiseTileClassificationPass::ClassifyTiles(uint32_t shadowSlice)
 	SetSampledImage(5, ShadowDenoiseTileClassificationPass::LastFrameDepth);
 	SetStorageBufferRead(6, ShadowDenoisePrePass::ShadowData[shadowSlice]);
 	SetStorageBufferWrite(7, ShadowDenoiseTileClassificationPass::TileMetadata[shadowSlice]);
-	SetStorageImage(8, ShadowDenoiseTileClassificationPass::Reprojection0[shadowSlice]);
+	SetStorageImageReadWrite(8, ShadowDenoiseTileClassificationPass::Reprojection0[shadowSlice]);
 	SetSampledImage(9, GetCurrentIDFromFrameIndex(0) ? ShadowDenoiseTileClassificationPass::Moments0[shadowSlice] : ShadowDenoiseTileClassificationPass::Moments1[shadowSlice]);
-	SetStorageImage(10, GetCurrentIDFromFrameIndex(1) ? ShadowDenoiseTileClassificationPass::Moments0[shadowSlice] : ShadowDenoiseTileClassificationPass::Moments1[shadowSlice]);
+	SetStorageImageReadWrite(10, GetCurrentIDFromFrameIndex(1) ? ShadowDenoiseTileClassificationPass::Moments0[shadowSlice] : ShadowDenoiseTileClassificationPass::Moments1[shadowSlice]);
 	SetSampler(11, ShadowDenoiseFilterPass::ShadowMask);
 
 	constexpr uint32_t threadGroupWorkRegionDim = 8;
@@ -278,7 +278,7 @@ void ShadowDenoiseFilterPass::Setup()
 
 	ShadowDenoiseFilterPass::FilterData->FillBuffer(&shadowFilterData);
 
-	m_Renderer.CopyImage(GBufferPass::Depth, ShadowDenoiseTileClassificationPass::LastFrameDepth);
+	m_Renderer.CopyImage(CopyDepthPass::DepthR32, ShadowDenoiseTileClassificationPass::LastFrameDepth);
 }
 
 void ShadowDenoiseFilterPass::Render()
@@ -302,7 +302,7 @@ void ShadowDenoiseFilterPass::RenderFilterPass0(uint32_t shadowSlice)
 	SetSampledImage(2, GBufferPass::Normals);
 	SetStorageBufferRead(3, ShadowDenoiseTileClassificationPass::TileMetadata[shadowSlice]);
 	SetSampledImage(4, ShadowDenoiseTileClassificationPass::Reprojection0[shadowSlice]);
-	SetStorageImage(5, ShadowDenoiseTileClassificationPass::Reprojection1[shadowSlice]);
+	SetStorageImageReadWrite(5, ShadowDenoiseTileClassificationPass::Reprojection1[shadowSlice]);
 
 	constexpr uint32_t threadGroupWorkRegionDim = 8;
 
@@ -323,7 +323,7 @@ void ShadowDenoiseFilterPass::RenderFilterPass1(uint32_t shadowSlice)
 	SetSampledImage(2, GBufferPass::Normals);
 	SetStorageBufferRead(3, ShadowDenoiseTileClassificationPass::TileMetadata[shadowSlice]);
 	SetSampledImage(4, ShadowDenoiseTileClassificationPass::Reprojection1[shadowSlice]);
-	SetStorageImage(5, ShadowDenoiseTileClassificationPass::Reprojection0[shadowSlice]);
+	SetStorageImageReadWrite(5, ShadowDenoiseTileClassificationPass::Reprojection0[shadowSlice]);
 
 	constexpr uint32_t threadGroupWorkRegionDim = 8;
 
@@ -346,7 +346,7 @@ void ShadowDenoiseFilterPass::RenderFilterPass2(uint32_t shadowSlice)
 	SetSampledImage(2, GBufferPass::Normals);
 	SetStorageBufferRead(3, ShadowDenoiseTileClassificationPass::TileMetadata[shadowSlice]);
 	SetSampledImage(4, ShadowDenoiseTileClassificationPass::Reprojection0[shadowSlice]);
-	SetStorageImage(6, ShadowDenoiseFilterPass::ShadowMask);
+	SetStorageImageReadWrite(6, ShadowDenoiseFilterPass::ShadowMask);
 
 	constexpr uint32_t threadGroupWorkRegionDim = 8;
 

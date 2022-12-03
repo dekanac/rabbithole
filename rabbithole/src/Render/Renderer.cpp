@@ -32,6 +32,7 @@
 #include <sstream>
 #include <thread>
 #include <vector>
+#include <cstdio>
 
 bool Renderer::Init()
 {
@@ -273,6 +274,8 @@ void Renderer::DrawGeometryGLTF(std::vector<VulkanglTFModel>& bucket)
 	BindPipeline<GraphicsPipeline>();
 
 	m_StateManager.GetRenderPass()->BeginRenderPass(GetCurrentCommandBuffer());
+
+	VulkanglTFModel::ms_CurrentDrawId = 0;
 
 	for (auto& model : bucket)
 	{
@@ -771,16 +774,45 @@ void Renderer::ConstructBVH()
 
 	std::cout << triangles.size() << " triangles!" << std::endl;
 
-	auto node = CreateBVH(verticesFinal, triangles);
-
 	uint32_t* triIndices;
 	uint32_t indicesNum = 0;
 		
 	CacheFriendlyBVHNode* root;
 	uint32_t nodeNum = 0;
 
-	CreateCFBVH(triangles.data(), node, &triIndices, &indicesNum, &root, &nodeNum);
-	
+	bool createBVH = true;
+	if (createBVH)
+	{
+		//create and store BVH data in file
+		auto node = CreateBVH(verticesFinal, triangles);
+		CreateCFBVH(triangles.data(), node, &triIndices, &indicesNum, &root, &nodeNum);
+
+		FILE* dat;
+		fopen_s(&dat, "res/bvhdata/separateObjects.bin", "wb");
+
+		std::fwrite(&indicesNum, sizeof(uint32_t), 1, dat);
+		std::fwrite(triIndices, sizeof(uint32_t) * indicesNum, 1, dat);
+		std::fwrite(&nodeNum, sizeof(uint32_t), 1, dat);
+		std::fwrite(root, sizeof(CacheFriendlyBVHNode), nodeNum, dat);
+
+		std::fclose(dat);
+	}
+	else
+	{
+		//load BVH data from file
+		FILE* dat;
+		fopen_s(&dat, "res/bvhdata/sponza.bin", "rb");
+
+		std::fread(&indicesNum, sizeof uint32_t, 1, dat);
+		triIndices = RABBIT_ALLOC(uint32_t, indicesNum);
+		std::fread(triIndices, sizeof uint32_t * indicesNum, 1, dat);
+		std::fread(&nodeNum, sizeof uint32_t, 1, dat);
+		root = RABBIT_ALLOC(CacheFriendlyBVHNode, nodeNum);
+		std::fread(root, sizeof CacheFriendlyBVHNode, nodeNum, dat);
+
+		std::fclose(dat);
+	}
+
 	vertexBuffer = m_ResourceManager.CreateBuffer(m_VulkanDevice, BufferCreateInfo{
 			.flags = {BufferUsageFlags::StorageBuffer},
 			.memoryAccess = {MemoryAccess::GPU},
@@ -813,6 +845,9 @@ void Renderer::ConstructBVH()
 	trianglesBuffer->FillBuffer(triangles.data(), static_cast<uint32_t>(triangles.size()) * sizeof(Triangle));
 	triangleIndxsBuffer->FillBuffer(triIndices, indicesNum * sizeof(uint32_t));
 	cfbvhNodesBuffer->FillBuffer(root, nodeNum * sizeof(CacheFriendlyBVHNode));
+
+	RABBIT_FREE(triIndices);
+	RABBIT_FREE(root);
 }
 
 void Renderer::UpdateConstantBuffer()
@@ -1101,12 +1136,12 @@ void Renderer::CopyBuffer(VulkanBuffer& src, VulkanBuffer& dst, uint64_t size /*
 IndexedIndirectBuffer::IndexedIndirectBuffer(VulkanDevice& device, uint32_t numCommands)
 	: gpuBuffer(device, BufferUsageFlags::IndirectBuffer | BufferUsageFlags::TransferSrc, MemoryAccess::CPU2GPU, sizeof(IndexIndirectDrawData)* numCommands, "GeomDataIndirectDraw")
 {
-	localBuffer = (IndexIndirectDrawData*)malloc(sizeof(IndexIndirectDrawData) * numCommands);
+	localBuffer = RABBIT_ALLOC(IndexIndirectDrawData, numCommands);
 }
 
 IndexedIndirectBuffer::~IndexedIndirectBuffer()
 {
-	free(localBuffer);
+	RABBIT_FREE(localBuffer);
 }
 
 void IndexedIndirectBuffer::SubmitToGPU()

@@ -162,6 +162,8 @@ class VulkanglTFModel
 public:
 	VulkanglTFModel(Renderer* renderer, std::string filename);
 	~VulkanglTFModel();
+
+	static uint32_t ms_CurrentDrawId;
 	
 	VulkanglTFModel(const VulkanglTFModel& other) = delete;
 	VulkanglTFModel(VulkanglTFModel&& other) = default;

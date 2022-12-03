@@ -91,10 +91,10 @@ void SSAOPass::Setup()
 		stateManager.SetComputeShader(m_Renderer.GetShader("CS_SSAO"));
 
 		SetConstantBuffer(0, m_Renderer.GetMainConstBuffer());
-		SetStorageImage(1, CopyDepthPass::DepthR32);
-		SetStorageImage(2, GBufferPass::Normals);
+		SetStorageImageRead(1, CopyDepthPass::DepthR32);
+		SetStorageImageRead(2, GBufferPass::Normals);
 
-		SetStorageImage(5, SSAOPass::Output);
+		SetStorageImageWrite(5, SSAOPass::Output);
 	}
 	else
 	{
