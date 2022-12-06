@@ -83,11 +83,11 @@ void VulkanStateManager::ShouldCleanDepth(bool clean)
 
 // for now descriptor key is vector of uint32_t with following layout:
 // (slot, bufferId/imageviewId, type)
-void VulkanStateManager::SetCombinedImageSampler(uint32_t slot, VulkanTexture* texture, uint32_t mipSlice)
+void VulkanStateManager::SetCombinedImageSampler(uint32_t slot, VulkanTexture* texture)
 {
 	DescriptorKey k(3);
 	k[0] = slot;
-	k[1] = texture->GetView(mipSlice)->GetID();
+	k[1] = texture->GetView()->GetID();
 	k[2] = (uint32_t)DescriptorType::CombinedSampler;
 
 	//TODO: remove this ugly Singleton call
@@ -104,7 +104,7 @@ void VulkanStateManager::SetCombinedImageSampler(uint32_t slot, VulkanTexture* t
 		info.Binding = slot;
 
 		info.imageSampler = texture->GetSampler();
-		info.imageView = texture->GetView(mipSlice);
+		info.imageView = texture->GetView();
 		info.Type = DescriptorType::CombinedSampler;
 
 		VulkanDescriptor* descriptor = new VulkanDescriptor(info);

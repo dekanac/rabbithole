@@ -543,7 +543,6 @@ VkFilter GetVkFilterFrom(const FilterType filterType)
 	case FilterType::Point:
 		return VK_FILTER_NEAREST;
 	case FilterType::Linear:
-	case FilterType::Anisotropic:
 		return VK_FILTER_LINEAR;
 	default:
 		ASSERT(false, "Not supported FilterType.");

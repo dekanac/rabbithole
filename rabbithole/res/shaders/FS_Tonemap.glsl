@@ -6,17 +6,6 @@ layout(binding = 0) uniform sampler2D samplerInputTexture;
 
 layout(location = 0) out vec4 outputTexture;
 
-vec3 Uncharted2Tonemap(vec3 x)
-{
-	float A = 0.15;
-	float B = 0.50;
-	float C = 0.10;
-	float D = 0.20;
-	float E = 0.02;
-	float F = 0.30;
-	return ((x*(A*x+C*B)+D*E)/(x*(A*x+B)+D*F))-E/F;
-}
-
 // General tonemapping operator, build 'b' term.
 float ColToneB(float hdrMax, float contrast, float shoulder, float midIn, float midOut) 
 {
@@ -80,12 +69,13 @@ vec3 AMDTonemapper(vec3 color)
 void main()
 {
 	vec3 color = texture(samplerInputTexture, inUV).rgb;
-        // HDR tonemapping
+    // HDR tonemapping
     color = color / (color + vec3(1.0));
 
+    // tonemap
 	color = AMDTonemapper(color);
-	//color = color * (1.0f / Uncharted2Tonemap(vec3(11.2f)));	
-    //// gamma correct
+
+    // gamma correct
     color = pow(color, vec3(1.0/2.2));
 
     outputTexture = vec4(color, 1.0);

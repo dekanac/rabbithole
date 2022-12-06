@@ -17,7 +17,11 @@ void ResourceStateTrackingManager::CommitBarriers(Renderer& renderer)
 		{
 			if (resource->GetType() == ResourceType::Texture)
 			{
-				renderer.ResourceBarrier((VulkanTexture*)resource, resourceState, resourceShouldBe, resourcePreviousStage, resourceCurrentStage);
+				VulkanTexture* textureResource = (VulkanTexture*)resource;
+				uint32_t mipSlice = textureResource->GetRegion().Subresource.MipSlice;
+				uint32_t mipCount = textureResource->GetRegion().Subresource.MipSize;
+
+				renderer.ResourceBarrier(textureResource, resourceState, resourceShouldBe, resourcePreviousStage, resourceCurrentStage, mipSlice,mipCount);
 			}
 			else if (resource->GetType() == ResourceType::Buffer)
 			{

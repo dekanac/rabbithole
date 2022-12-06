@@ -123,7 +123,7 @@ VulkanImageSampler::VulkanImageSampler(const VulkanDevice* device, const VulkanI
 	samplerCreateInfo.maxLod = m_Info.MaxLOD;
 	samplerCreateInfo.unnormalizedCoordinates = VK_FALSE;
 	samplerCreateInfo.borderColor = GetVkBorderColorFrom(m_Info.BorderColor);
-	samplerCreateInfo.anisotropyEnable = VK_TRUE;
+	samplerCreateInfo.anisotropyEnable = m_Info.MaxLevelOfAnisotropy != 0 ? VK_TRUE : VK_FALSE;
 	samplerCreateInfo.maxAnisotropy = m_Info.MaxLevelOfAnisotropy;
 
 	VULKAN_API_CALL(vkCreateSampler(m_VulkanDevice->GetGraphicDevice(), &samplerCreateInfo, nullptr, &m_Sampler));

@@ -12,6 +12,7 @@ public:
 	~ResourceManager();
 
 public:
+	VulkanTexture*	CreateSingleMipFromTexture(VulkanDevice& device, const VulkanTexture* texture, uint32_t mipSlice);
 	VulkanTexture*	CreateTexture(VulkanDevice& device, const TextureData* data, ROTextureCreateInfo createInfo);
 	VulkanTexture*	CreateTexture(VulkanDevice& device, std::string path, ROTextureCreateInfo createInfo);
 	VulkanTexture*	CreateTexture(VulkanDevice& device, RWTextureCreateInfo createInfo);

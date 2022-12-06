@@ -17,13 +17,14 @@ public:
 
 	friend class ResourceManager; //Resource Manager will take care of creation and deletion of textures
 private:
+	VulkanTexture(VulkanDevice& device, const VulkanTexture* other, uint32_t mipSlice);
 	VulkanTexture(VulkanDevice& device, RWTextureCreateInfo& createInfo);
 	VulkanTexture(VulkanDevice& device, const TextureData* data, ROTextureCreateInfo& createInfo);
 	~VulkanTexture();
 
 public:
 	VulkanImage*			GetResource() const { return m_Resource; }
-	VulkanImageView*		GetView(uint32_t mipSlice = 0) const { return m_ViewMips[mipSlice]; }
+	VulkanImageView*		GetView() const { return m_View; }
 	VulkanImageSampler*		GetSampler() const { return m_Sampler; }
 	Format					GetFormat() const{ return m_Format; }
 	TextureFlags			GetFlags() const { return m_Flags; }
@@ -41,13 +42,11 @@ private:
 	void CreateSampler(VulkanDevice* device, SamplerType type, AddressMode addressMode);
 	void InitializeRegion(Extent3D dimensions, uint32_t arraySize = 1, uint32_t mipCount = 1);
 	void GenerateMips(VulkanCommandBuffer& commandBuffer, VulkanDevice* device, uint32_t mipCount);
-	void CreateViewsForMips(VulkanDevice* device);
 
 private:
-	VulkanImage*				  m_Resource;
-	std::vector<VulkanImageView*> m_ViewMips;
-	VulkanImageSampler*		      m_Sampler;
-
+	VulkanImage*			m_Resource;
+	VulkanImageView*		m_View;
+	VulkanImageSampler*		m_Sampler;
 
 	ImageRegion				m_Region;
 	Format					m_Format;

@@ -7,6 +7,8 @@
 
 ResourceManager::~ResourceManager()
 {
+	//TODO: since VulkanTexture can have reference to some other's texture Resource and Sampler
+	// this should be reimplemented not to delete shared resources
 	for (auto texture : m_Textures) { delete(texture.second); }
 	for (auto shader : m_Shaders) { delete(shader.second); }
 	for (auto buffer : m_Buffers) { delete(buffer.second); }
@@ -14,6 +16,15 @@ ResourceManager::~ResourceManager()
 	m_Textures.clear();
 	m_Shaders.clear();
 	m_Buffers.clear();
+}
+
+VulkanTexture* ResourceManager::CreateSingleMipFromTexture(VulkanDevice& device, const VulkanTexture* texture, uint32_t mipSlice)
+{
+	VulkanTexture* newTextureMip = new VulkanTexture(device, texture, mipSlice);
+
+	m_Textures[newTextureMip->GetID()] = newTextureMip;
+
+	return newTextureMip;
 }
 
 VulkanTexture* ResourceManager::CreateTexture(VulkanDevice& device, std::string path, ROTextureCreateInfo createInfo)

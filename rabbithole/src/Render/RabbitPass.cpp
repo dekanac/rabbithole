@@ -4,7 +4,7 @@
 #include "Render/SuperResolutionManager.h"
 #include "Utils/utils.h"
 
-void RabbitPass::SetCombinedImageSampler(uint32_t slot, VulkanTexture* texture, uint32_t mipSlice)
+void RabbitPass::SetCombinedImageSampler(uint32_t slot, VulkanTexture* texture)
 {
 	VulkanStateManager& stateManager = m_Renderer.GetStateManager();
 	ResourceStateTrackingManager& rstManager = m_Renderer.GetResourceStateTrackingManager();
@@ -12,10 +12,10 @@ void RabbitPass::SetCombinedImageSampler(uint32_t slot, VulkanTexture* texture, 
 
 	texture->SetShouldBeResourceState(ResourceState::GenericRead);
 	rstManager.AddResourceForTransition(texture);
-	stateManager.SetCombinedImageSampler(slot, texture, mipSlice);
+	stateManager.SetCombinedImageSampler(slot, texture);
 }
 
-void RabbitPass::SetSampledImage(uint32_t slot, VulkanTexture* texture, uint32_t mipSlice)
+void RabbitPass::SetSampledImage(uint32_t slot, VulkanTexture* texture)
 {
 	VulkanStateManager& stateManager = m_Renderer.GetStateManager();
 	ResourceStateTrackingManager& rstManager = m_Renderer.GetResourceStateTrackingManager();
@@ -23,10 +23,10 @@ void RabbitPass::SetSampledImage(uint32_t slot, VulkanTexture* texture, uint32_t
 
 	texture->SetShouldBeResourceState(ResourceState::GenericRead);
 	rstManager.AddResourceForTransition(texture);
-	stateManager.SetSampledImage(slot, texture->GetView(mipSlice));
+	stateManager.SetSampledImage(slot, texture->GetView());
 }
 
-void RabbitPass::SetStorageImageRead(uint32_t slot, VulkanTexture* texture, uint32_t mipSlice)
+void RabbitPass::SetStorageImageRead(uint32_t slot, VulkanTexture* texture)
 {
 	VulkanStateManager& stateManager = m_Renderer.GetStateManager();
 	ResourceStateTrackingManager& rstManager = m_Renderer.GetResourceStateTrackingManager();
@@ -34,10 +34,10 @@ void RabbitPass::SetStorageImageRead(uint32_t slot, VulkanTexture* texture, uint
 
 	texture->SetShouldBeResourceState(ResourceState::GeneralComputeRead);
 	rstManager.AddResourceForTransition(texture);
-	stateManager.SetStorageImage(slot, texture->GetView(mipSlice));
+	stateManager.SetStorageImage(slot, texture->GetView());
 }
 
-void RabbitPass::SetStorageImageWrite(uint32_t slot, VulkanTexture* texture, uint32_t mipSlice)
+void RabbitPass::SetStorageImageWrite(uint32_t slot, VulkanTexture* texture)
 {
 	VulkanStateManager& stateManager = m_Renderer.GetStateManager();
 	ResourceStateTrackingManager& rstManager = m_Renderer.GetResourceStateTrackingManager();
@@ -45,10 +45,10 @@ void RabbitPass::SetStorageImageWrite(uint32_t slot, VulkanTexture* texture, uin
 
 	texture->SetShouldBeResourceState(ResourceState::GeneralComputeWrite);
 	rstManager.AddResourceForTransition(texture);
-	stateManager.SetStorageImage(slot, texture->GetView(mipSlice));
+	stateManager.SetStorageImage(slot, texture->GetView());
 }
 
-void RabbitPass::SetStorageImageReadWrite(uint32_t slot, VulkanTexture* texture, uint32_t mipSlice)
+void RabbitPass::SetStorageImageReadWrite(uint32_t slot, VulkanTexture* texture)
 {
 	VulkanStateManager& stateManager = m_Renderer.GetStateManager();
 	ResourceStateTrackingManager& rstManager = m_Renderer.GetResourceStateTrackingManager();
@@ -56,7 +56,7 @@ void RabbitPass::SetStorageImageReadWrite(uint32_t slot, VulkanTexture* texture,
 
 	texture->SetShouldBeResourceState(ResourceState::GeneralComputeReadWrite);
 	rstManager.AddResourceForTransition(texture);
-	stateManager.SetStorageImage(slot, texture->GetView(mipSlice));
+	stateManager.SetStorageImage(slot, texture->GetView());
 }
 
 void RabbitPass::SetConstantBuffer(uint32_t slot, VulkanBuffer* buffer)

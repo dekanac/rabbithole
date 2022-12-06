@@ -14,6 +14,11 @@ void LightingPass::DeclareResources()
 			.flags = {TextureFlags::RenderTarget | TextureFlags::Read | TextureFlags::TransferSrc | TextureFlags::Storage},
 			.format = {Format::R16G16B16A16_FLOAT},
 			.name = {"Lighting Main"},
+			.arraySize = 1,
+			.isCube = false,
+			.multisampleType = MultisampleType::Sample_1,
+			.samplerType = SamplerType::Bilinear,
+			.addressMode = AddressMode::Clamp
 		});
 
 	LightParamsGPU = m_Renderer.GetResourceManager().CreateBuffer(m_Renderer.GetVulkanDevice(), BufferCreateInfo{

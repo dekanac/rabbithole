@@ -69,7 +69,7 @@ struct ROTextureCreateInfo
 	std::string		name = "ROTexture";
 	bool			isCube = false;
 	bool			generateMips = false;
-	SamplerType     samplerType = SamplerType::Trilinear;
+	SamplerType     samplerType = SamplerType::Bilinear;
 	AddressMode		addressMode = AddressMode::Repeat;
 };
 
@@ -82,7 +82,7 @@ struct RWTextureCreateInfo
 	uint32_t		arraySize = 1;
 	bool			isCube = false;
 	MultisampleType multisampleType = MultisampleType::Sample_1;
-	SamplerType     samplerType = SamplerType::Anisotropic;
+	SamplerType     samplerType = SamplerType::Bilinear;
 	AddressMode		addressMode = AddressMode::Repeat;
 	uint32_t		mipCount = 1;
 };

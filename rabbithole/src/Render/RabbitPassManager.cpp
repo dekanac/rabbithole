@@ -29,7 +29,7 @@ void RabbitPassManager::SchedulePasses(Renderer& renderer)
 	AddPass(new ApplyVolumetricFogPass(renderer));
 	AddPass(new TextureDebugPass(renderer));
 	AddPass(new FSR2Pass(renderer));
-	//AddPass(new BloomCompute(renderer));
+	AddPass(new BloomCompute(renderer));
 	AddPass(new TonemappingPass(renderer));
 	AddPass(new CopyToSwapchainPass(renderer));
 }

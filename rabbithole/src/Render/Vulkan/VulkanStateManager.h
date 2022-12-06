@@ -89,7 +89,7 @@ public:
 	void ShouldCleanColor(bool clean);
 	void ShouldCleanDepth(bool clean);
 
-	void SetCombinedImageSampler(uint32_t slot, VulkanTexture* texture, uint32_t mipSlice = 0);
+	void SetCombinedImageSampler(uint32_t slot, VulkanTexture* texture);
 	void SetConstantBuffer(uint32_t slot, VulkanBuffer* buffer);
 	void SetStorageImage(uint32_t slot, VulkanImageView* view);
 	void SetStorageBuffer(uint32_t slot, VulkanBuffer* buffer);

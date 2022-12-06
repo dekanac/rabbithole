@@ -13,10 +13,9 @@ VulkanTexture::VulkanTexture(VulkanDevice& device, RWTextureCreateInfo& createIn
 	CreateResource(&device, createInfo);
 	CreateView(&device);
 	CreateSampler(&device, createInfo.samplerType, createInfo.addressMode);
-	CreateViewsForMips(&device);
 
 	device.SetObjectName((uint64_t)GET_VK_HANDLE_PTR(m_Resource), VK_OBJECT_TYPE_IMAGE, createInfo.name.c_str());
-	device.SetObjectName((uint64_t)GET_VK_HANDLE_PTR(m_ViewMips[0]), VK_OBJECT_TYPE_IMAGE_VIEW, createInfo.name.c_str());
+	device.SetObjectName((uint64_t)GET_VK_HANDLE_PTR(m_View), VK_OBJECT_TYPE_IMAGE_VIEW, createInfo.name.c_str());
 	device.SetObjectName((uint64_t)GET_VK_HANDLE_PTR(m_Sampler), VK_OBJECT_TYPE_SAMPLER, createInfo.name.c_str());
 }
 
@@ -29,18 +28,62 @@ VulkanTexture::VulkanTexture(VulkanDevice& device, const TextureData* data, ROTe
 	CreateResource(&device, data, createInfo.generateMips);
 	CreateView(&device);
 	CreateSampler(&device, createInfo.samplerType, createInfo.addressMode);
-	CreateViewsForMips(&device);
 
 	device.SetObjectName((uint64_t)GET_VK_HANDLE_PTR(m_Resource), VK_OBJECT_TYPE_IMAGE, createInfo.name.c_str());
-	device.SetObjectName((uint64_t)GET_VK_HANDLE_PTR(m_ViewMips[0]), VK_OBJECT_TYPE_IMAGE_VIEW, createInfo.name.c_str());
+	device.SetObjectName((uint64_t)GET_VK_HANDLE_PTR(m_View), VK_OBJECT_TYPE_IMAGE_VIEW, createInfo.name.c_str());
 	device.SetObjectName((uint64_t)GET_VK_HANDLE_PTR(m_Sampler), VK_OBJECT_TYPE_SAMPLER, createInfo.name.c_str());
+}
+
+VulkanTexture::VulkanTexture(VulkanDevice& device, const VulkanTexture* other, uint32_t mipSlice)
+	: ManagableResource((ManagableResource)*other)
+	, m_Resource(other->m_Resource)
+	, m_Sampler(other->m_Sampler)
+	, m_Format(other->m_Format)
+	, m_Flags(other->m_Flags)
+	, m_Name(std::format("{}_mip{}", other->m_Name, mipSlice))
+{
+	uint32_t mipWidth = other->m_Region.Extent.Width;
+	uint32_t mipHeight = other->m_Region.Extent.Height;
+
+	uint32_t maxMipLevels = GET_MIP_LEVELS_FROM_RES(mipWidth, mipHeight);
+	ASSERT(mipSlice <= maxMipLevels, "More mips than its possible");
+
+	for (uint32_t i = 0; i < mipSlice; i++)
+	{
+		mipWidth >>= 1;
+		mipHeight >>= 1;
+	}
+
+	m_Region.Subresource.ArraySize = 1;
+	m_Region.Subresource.ArraySlice = 0;
+	m_Region.Subresource.MipSize = 1;
+	m_Region.Subresource.MipSlice = mipSlice;
+
+	m_Region.Extent.Height = mipHeight;
+	m_Region.Extent.Width = mipWidth;
+	m_Region.Extent.Depth = other->m_Region.Extent.Depth;
+
+	m_Region.Offset = other->m_Region.Offset;
+
+	VulkanImageViewInfo imageViewInfo;
+	imageViewInfo.Resource = m_Resource;
+	imageViewInfo.Format = m_Format;
+	imageViewInfo.Subresource.MipSlice = mipSlice;
+	imageViewInfo.Subresource.MipSize = m_Region.Subresource.MipSize;
+	imageViewInfo.Subresource.ArraySlice = 0;
+	imageViewInfo.Subresource.ArraySize = 1;
+	imageViewInfo.ClearValue = GetClearColorValueFor(m_Format);
+
+	m_View = new VulkanImageView(&device, imageViewInfo, m_Name.c_str());
+
+	device.SetObjectName((uint64_t)GET_VK_HANDLE_PTR(m_View), VK_OBJECT_TYPE_IMAGE_VIEW, m_Name.c_str());
 }
 
 VulkanTexture::~VulkanTexture()
 {
-	if (m_Sampler) delete(m_Sampler);
-	for (auto view : m_ViewMips) delete view;
-	if (m_Resource) delete(m_Resource);
+	if (m_Sampler) { delete(m_Sampler); m_Sampler = nullptr; }
+	if (m_View) { delete(m_View); m_View = nullptr; }
+	if (m_Resource) { delete(m_Resource); m_Resource = nullptr; }
 }
 
 void VulkanTexture::CreateResource(VulkanDevice* device, const TextureData* texData, bool generateMips)
@@ -176,14 +219,13 @@ void VulkanTexture::CreateView(VulkanDevice* device)
 	VulkanImageViewInfo imageViewInfo;
 	imageViewInfo.Resource = m_Resource;
 	imageViewInfo.Format = m_Format;
-	imageViewInfo.Flags = ImageViewFlags::Color;
 	imageViewInfo.Subresource.MipSlice = 0;
 	imageViewInfo.Subresource.MipSize = m_Region.Subresource.MipSize;
 	imageViewInfo.Subresource.ArraySlice = 0;
 	imageViewInfo.Subresource.ArraySize = m_Region.Subresource.ArraySize;
 	imageViewInfo.ClearValue = GetClearColorValueFor(m_Format);
 
-	m_ViewMips.push_back(new VulkanImageView(device, imageViewInfo, m_Name.c_str()));
+	m_View = new VulkanImageView(device, imageViewInfo, m_Name.c_str());
 }
 
 void VulkanTexture::CreateSampler(VulkanDevice* device, SamplerType type, AddressMode addressMode)
@@ -192,11 +234,11 @@ void VulkanTexture::CreateSampler(VulkanDevice* device, SamplerType type, Addres
 	imageSamplerInfo.AddressModeU = addressMode;
 	imageSamplerInfo.AddressModeV = addressMode;
 	imageSamplerInfo.AddressModeW = addressMode;
-	imageSamplerInfo.MagFilterType = (type == SamplerType::Bilinear || type == SamplerType::Trilinear || type == SamplerType::Anisotropic) ? FilterType::Linear : FilterType::Point;
-	imageSamplerInfo.MinFilterType = (type == SamplerType::Bilinear || type == SamplerType::Trilinear || type == SamplerType::Anisotropic) ? FilterType::Linear : FilterType::Point;
-	imageSamplerInfo.MipFilterType = (type == SamplerType::Trilinear || type == SamplerType::Anisotropic) ? FilterType::Linear : FilterType::Point;
+	imageSamplerInfo.MagFilterType = (type == SamplerType::Point) ? FilterType::Point : FilterType::Linear;
+	imageSamplerInfo.MinFilterType = (type == SamplerType::Point) ? FilterType::Point : FilterType::Linear;
+	imageSamplerInfo.MipFilterType = (type == SamplerType::Point) ? FilterType::Point : FilterType::Linear;
 	imageSamplerInfo.CompareOperation = CompareOperation::Never;
-	imageSamplerInfo.MaxLevelOfAnisotropy = 16;
+	imageSamplerInfo.MaxLevelOfAnisotropy = type == SamplerType::Anisotropic ? 16 : 0;
 	imageSamplerInfo.BorderColor.value[0] = 0.0f;
 	imageSamplerInfo.BorderColor.value[1] = 0.0f;
 	imageSamplerInfo.BorderColor.value[2] = 0.0f;
@@ -262,27 +304,4 @@ void VulkanTexture::GenerateMips(VulkanCommandBuffer& commandBuffer, VulkanDevic
 	}
 
 	device->ResourceBarrier(commandBuffer, this, ResourceState::TransferDst, m_ShouldBeResourceState, ResourceStage::Transfer, ResourceStage::Undefined, mipCount - 1, 1);
-}
-
-void VulkanTexture::CreateViewsForMips(VulkanDevice* device)
-{
-	if (m_Region.Subresource.MipSize > 1)
-	{
-		VulkanImageViewInfo imageViewInfo;
-		imageViewInfo.Resource = m_Resource;
-		imageViewInfo.Format = m_Format;
-		imageViewInfo.Flags = ImageViewFlags::Color;
-		imageViewInfo.Subresource.ArraySlice = 0;
-		imageViewInfo.Subresource.ArraySize = m_Region.Subresource.ArraySize;
-		imageViewInfo.ClearValue = GetClearColorValueFor(m_Format);
-
-		for (uint32_t i = 1; i < m_Region.Subresource.MipSize; i++)
-		{
-			imageViewInfo.Subresource.MipSlice = i;
-			imageViewInfo.Subresource.MipSize = 1;
-			VulkanImageView* mipView = new VulkanImageView(device, imageViewInfo, m_Name.c_str());
-
-			m_ViewMips.push_back(mipView);
-		}
-	}
 }

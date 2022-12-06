@@ -7,32 +7,47 @@ defineResource(TonemappingPass, Output, VulkanTexture);
 
 defineResource(BloomCompute, Downsampled, VulkanTexture);
 defineResource(BloomCompute, BloomParamsGPU, VulkanBuffer);
-BloomCompute::BloomParams BloomCompute::BloomParamsCPU[DOWNSAMPLE_COUNT] = {};
+defineResource(BloomCompute, BloomApplied, VulkanTexture);
 
-void BloomCompute::Downsample(VulkanTexture* input, VulkanTexture* output, Extent2D resolution, uint32_t mipLevel)
-{
-
-}
+BloomCompute::BloomParams BloomCompute::BloomParamsCPU = {};
 
 void BloomCompute::DeclareResources()
 {
-	Downsampled = m_Renderer.GetResourceManager().CreateTexture(m_Renderer.GetVulkanDevice(), RWTextureCreateInfo{
-			.dimensions = { GetNativeWidth / 2, GetNativeHeight / 2, 1},
-			.flags = {TextureFlags::Storage | TextureFlags::Read},
+	BloomApplied = m_Renderer.GetResourceManager().CreateTexture(m_Renderer.GetVulkanDevice(), RWTextureCreateInfo{
+			.dimensions = { GetUpscaledWidth, GetUpscaledHeight, 1},
+			.flags = {TextureFlags::RenderTarget | TextureFlags::Read},
 			.format = {Format::R16G16B16A16_FLOAT},
-			.name = {"Bloom Output"},
+			.name = {"Applied Bloom Output"},
 			.arraySize = {1},
 			.isCube = {false},
 			.multisampleType = {MultisampleType::Sample_1},
 			.samplerType = {SamplerType::Bilinear},
-			.addressMode = {AddressMode::Border},
-			.mipCount = {5}
+			.addressMode = {AddressMode::Clamp},
+			.mipCount = {1}
 		});
+
+	Downsampled = m_Renderer.GetResourceManager().CreateTexture(m_Renderer.GetVulkanDevice(), RWTextureCreateInfo{
+			.dimensions = { GetUpscaledWidth, GetUpscaledHeight, 1},
+			.flags = {TextureFlags::Storage | TextureFlags::Read},
+			.format = {Format::R16G16B16A16_FLOAT},
+			.name = {"Bloom Downsampled"},
+			.arraySize = {1},
+			.isCube = {false},
+			.multisampleType = {MultisampleType::Sample_1},
+			.samplerType = {SamplerType::Trilinear},
+			.addressMode = {AddressMode::Clamp},
+			.mipCount = {DOWNSAMPLE_COUNT}
+		});
+
+	for (uint32_t i = 0; i < DOWNSAMPLE_COUNT; i++)
+	{
+		m_DownsampledMipChain.push_back(m_Renderer.GetResourceManager().CreateSingleMipFromTexture(m_Renderer.GetVulkanDevice(), Downsampled, i));
+	}
 
 	BloomParamsGPU = m_Renderer.GetResourceManager().CreateBuffer(m_Renderer.GetVulkanDevice(), BufferCreateInfo{
 			.flags = {BufferUsageFlags::UniformBuffer},
 			.memoryAccess = {MemoryAccess::CPU2GPU},
-			.size = {sizeof(BloomParams) * DOWNSAMPLE_COUNT},
+			.size = {sizeof(BloomParams)},
 			.name = {"Bloom Params"}
 		});
 }
@@ -41,64 +56,47 @@ void BloomCompute::Setup()
 {
 	VulkanStateManager& stateManager = m_Renderer.GetStateManager();
 
-	stateManager.SetComputeShader(m_Renderer.GetShader("CS_Downsample"));
-
 	if (m_Renderer.IsImguiReady())
 	{
 		ImGui::Begin("BloomParams");
-		ImGui::SliderFloat("Threshold:", &BloomParamsCPU[0].threshold, 0.0f, 1.f);
+		ImGui::SliderFloat("Threshold:", &BloomParamsCPU.threshold, 0.0f, 5.f);
+		ImGui::SliderFloat("Knee:", &BloomParamsCPU.knee, 0.0f, 5.f);
+		ImGui::SliderFloat("Exposure:", &BloomParamsCPU.exposure, 0.0f, 5.f);
 		ImGui::End();
 	}
 
-	uint32_t width = LightingPass::MainLighting->GetWidth();
-	uint32_t height = LightingPass::MainLighting->GetHeight();
-
-	width /= 2;
-	height /= 2;
-
-	BloomParamsCPU[0].mipLevel = 0;
-	BloomParamsCPU[0].texelSize[0] = width;
-	BloomParamsCPU[0].texelSize[1] = height;
-
-	BloomParamsCPU[1].mipLevel = 0;
-	BloomParamsCPU[1].texelSize[0] = width/2;
-	BloomParamsCPU[1].texelSize[1] = height/2;
-
-	BloomParamsCPU[2].mipLevel = 1;
-	BloomParamsCPU[2].texelSize[0] = width / 4;
-	BloomParamsCPU[2].texelSize[1] = height / 4;
-
-	BloomParamsCPU[3].mipLevel = 2;
-	BloomParamsCPU[3].texelSize[0] = width / 8;
-	BloomParamsCPU[3].texelSize[1] = height / 8;
-
-	BloomParamsCPU[4].mipLevel = 3;
-	BloomParamsCPU[4].texelSize[0] = width / 16;
-	BloomParamsCPU[4].texelSize[1] = height / 16;
+	uint32_t width = BloomCompute::Downsampled->GetWidth();
+	uint32_t height = BloomCompute::Downsampled->GetHeight();
 
 	BloomParamsGPU->FillBuffer(&BloomParamsCPU);
 
-	SetStorageImageReadWrite(0, LightingPass::MainLighting);
-	SetStorageImageReadWrite(1, BloomCompute::Downsampled, 0);
+	//DOWNSAMPLE
+	stateManager.SetComputeShader(m_Renderer.GetShader("CS_Downsample"));
+
+	SetCombinedImageSampler(0, FSR2Pass::Output);
+	SetStorageImageWrite(1, m_DownsampledMipChain[1]);
 	SetConstantBuffer(2, BloomCompute::BloomParamsGPU);
 
-	uint32_t mipIndex = 0;
+	uint32_t mipIndex = 1;
 	m_Renderer.BindPushConst(mipIndex);
 
 	constexpr uint32_t threadGroupWorkRegionDim = 8;
+
+	width = width / 2 + 1;
+	height = height / 2 + 1;
 
 	uint32_t dispatchX = GetCSDispatchCount(width, threadGroupWorkRegionDim);
 	uint32_t dispatchY = GetCSDispatchCount(height, threadGroupWorkRegionDim);
 
 	m_Renderer.Dispatch(dispatchX, dispatchY, 1);
 
-	for (uint32_t i = 1; i < DOWNSAMPLE_COUNT; i++)
+	for (uint32_t i = 2; i < DOWNSAMPLE_COUNT; i++)
 	{
-		width /= 2;
-		height /= 2;
-	
-		SetStorageImageReadWrite(0, BloomCompute::Downsampled);
-		SetStorageImageReadWrite(1, BloomCompute::Downsampled, i);
+		width = width / 2 + 1;
+		height = height / 2 + 1;
+
+		SetCombinedImageSampler(0, BloomCompute::m_DownsampledMipChain[i-1]);
+		SetStorageImageWrite(1, BloomCompute::m_DownsampledMipChain[i]);
 		SetConstantBuffer(2, BloomCompute::BloomParamsGPU);
 		m_Renderer.BindPushConst(i);
 	
@@ -107,52 +105,54 @@ void BloomCompute::Setup()
 	
 		m_Renderer.Dispatch(dispatchX, dispatchY, 1);
 	}
-	//
-	//stateManager.SetComputeShader(m_Renderer.GetShader("CS_Upsample"));
-	//
-	//for (uint32_t i = (DOWNSAMPLE_COUNT - 1); i > 0; i--)
-	//{
-	//	width *= 2;
-	//	height *= 2;
-	//
-	//	SetCombinedImageSampler(0, BloomCompute::Downsampled);
-	//	SetStorageImageReadWrite(1, BloomCompute::Downsampled, i-1);
-	//	SetConstantBuffer(2, BloomCompute::BloomParamsGPU);
-	//	m_Renderer.BindPushConst((uint32_t)i);
-	//
-	//	dispatchX = GetCSDispatchCount(width, threadGroupWorkRegionDim);
-	//	dispatchY = GetCSDispatchCount(height, threadGroupWorkRegionDim);
-	//
-	//	m_Renderer.Dispatch(dispatchX, dispatchY, 1);
-	//}
+	
+	//UPSAMPLE
+	stateManager.SetComputeShader(m_Renderer.GetShader("CS_Upsample"));
+	
+	for (uint32_t i = (DOWNSAMPLE_COUNT - 1); i > 0; i--)
+	{
+		width *= 2;
+		height *= 2;
 
+		SetCombinedImageSampler(0, BloomCompute::m_DownsampledMipChain[i]);
+		SetStorageImageReadWrite(1, m_DownsampledMipChain[i-1]);
+		SetConstantBuffer(2, BloomCompute::BloomParamsGPU);
 
-	//for (uint32_t i = 0; i < 4; i++)
-	//{
-	//	SetStorageImageReadWrite(0, BloomCompute::Downsampled, i);
-	//	SetStorageImageReadWrite(1, BloomCompute::Downsampled, i + 1);
-	//	SetConstantBuffer(2, BloomCompute::BloomParamsGPU);
-	//
-	//	width /= 2;
-	//	height /= 2;
-	//	uint32_t dispatchX = GetCSDispatchCount(width, threadGroupWorkRegionDim);
-	//	uint32_t dispatchY = GetCSDispatchCount(height, threadGroupWorkRegionDim);
-	//	m_Renderer.Dispatch(dispatchX, dispatchY, 1);
-	//}
-	//{
-	//	stateManager.SetComputeShader(m_Renderer.GetShader("CS_Upsample"));
-	//
-	//	SetStorageImageReadWrite(0, BloomCompute::Downsampled, 4);
-	//	SetStorageImageReadWrite(1, BloomCompute::Downsampled, 3);
-	//	SetConstantBuffer(2, BloomCompute::BloomParamsGPU);
-	//
-	//	constexpr uint32_t threadGroupWorkRegionDim = 8;
-	//
-	//	uint32_t dispatchX = GetCSDispatchCount(width, threadGroupWorkRegionDim);
-	//	uint32_t dispatchY = GetCSDispatchCount(height, threadGroupWorkRegionDim);
-	//
-	//	m_Renderer.Dispatch(dispatchX, dispatchY, 1);
-	//}
+		bool isLastPass = i == 1;
+		m_Renderer.BindPushConst(isLastPass);
+	
+		dispatchX = GetCSDispatchCount(width, threadGroupWorkRegionDim);
+		dispatchY = GetCSDispatchCount(height, threadGroupWorkRegionDim);
+	
+		m_Renderer.Dispatch(dispatchX, dispatchY, 1);
+	}
+
+/*
+	stateManager.SetVertexShader(m_Renderer.GetShader("VS_PassThrough"));
+	stateManager.SetPixelShader(m_Renderer.GetShader("FS_GaussianBlur"));
+	
+	m_Renderer.BindViewport(0, 0, static_cast<float>(Downsampled->GetWidth()), static_cast<float>(Downsampled->GetHeight()));
+	stateManager.SetRenderPassExtent({ Downsampled->GetWidth() , Downsampled->GetHeight() });
+	
+	SetCombinedImageSampler(0, m_DownsampledMipChain[0]);
+	SetRenderTarget(0, BloomCompute::BloomApplied);
+
+	m_Renderer.DrawFullScreenQuad();*/
+
+	//APPLY BLOOM
+	stateManager.SetVertexShader(m_Renderer.GetShader("VS_PassThrough"));
+	stateManager.SetPixelShader(m_Renderer.GetShader("FS_ApplyBloom"));
+	
+	m_Renderer.BindViewport(0, 0, static_cast<float>(GetUpscaledWidth), static_cast<float>(GetUpscaledHeight));
+	stateManager.SetRenderPassExtent({ GetUpscaledWidth , GetUpscaledHeight });
+	
+	SetCombinedImageSampler(0, FSR2Pass::Output);
+	SetCombinedImageSampler(1, m_DownsampledMipChain[0]);
+	SetConstantBuffer(2, BloomCompute::BloomParamsGPU);
+	
+	SetRenderTarget(0, BloomCompute::BloomApplied);
+	
+	m_Renderer.DrawFullScreenQuad();
 }
 
 void BloomCompute::Render()
@@ -177,11 +177,10 @@ void TonemappingPass::Setup()
 	m_Renderer.BindViewport(0, 0, static_cast<float>(GetUpscaledWidth), static_cast<float>(GetUpscaledHeight));
 	stateManager.SetRenderPassExtent({ GetUpscaledWidth , GetUpscaledHeight });
 
-
 	stateManager.SetVertexShader(m_Renderer.GetShader("VS_PassThrough"));
 	stateManager.SetPixelShader(m_Renderer.GetShader("FS_Tonemap"));
 
-	SetCombinedImageSampler(0, FSR2Pass::Output);
+	SetCombinedImageSampler(0, BloomCompute::BloomApplied);
 
 	SetRenderTarget(0, TonemappingPass::Output);
 }

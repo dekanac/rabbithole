@@ -550,7 +550,9 @@ void VulkanglTFModel::LoadImages(tinygltf::Model& input)
 				.flags = {TextureFlags::Color | TextureFlags::Read | TextureFlags::TransferDst | TextureFlags::TransferSrc},
 				.format = {Format::R8G8B8A8_UNORM},
 				.name = {std::format("InputTexture_{}", glTFImage.name)},
-				.generateMips = true
+				.generateMips = true,
+				.samplerType = SamplerType::Anisotropic,
+				.addressMode = AddressMode::Repeat
 			});
 
 		if (deleteBuffer) 

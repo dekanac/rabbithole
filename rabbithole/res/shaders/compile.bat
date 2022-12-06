@@ -18,6 +18,7 @@ glslc.exe -g -fshader-stage=compute CS_3DNoiseLUT.glsl -o CS_3DNoiseLUT.spv
 glslc.exe -g -fshader-stage=compute CS_ComputeScattering.glsl -o CS_ComputeScattering.spv
 glslc.exe -g -fshader-stage=fragment FS_ApplyVolumetricFog.glsl -o FS_ApplyVolumetricFog.spv
 glslc.exe -g -fshader-stage=fragment FS_Tonemap.glsl -o FS_Tonemap.spv
+glslc.exe -g -fshader-stage=fragment FS_ApplyBloom.glsl -o FS_ApplyBloom.spv
 glslc.exe -g -fshader-stage=fragment FS_TextureDebug.glsl -o FS_TextureDebug.spv
 glslc.exe -g -fshader-stage=compute CS_Downsample.glsl -o CS_Downsample.spv
 glslc.exe -g -fshader-stage=compute CS_Upsample.glsl -o CS_Upsample.spv

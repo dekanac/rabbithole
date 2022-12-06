@@ -780,7 +780,7 @@ void Renderer::ConstructBVH()
 	CacheFriendlyBVHNode* root;
 	uint32_t nodeNum = 0;
 
-	bool createBVH = true;
+	bool createBVH = false;
 	if (createBVH)
 	{
 		//create and store BVH data in file

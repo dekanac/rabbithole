@@ -210,7 +210,6 @@ enum class FilterType : uint8_t
 {
 	Point,
 	Linear,
-	Anisotropic,
 
 	Count
 };

@@ -12,6 +12,11 @@ void FSR2Pass::DeclareResources()
 			.flags = {TextureFlags::RenderTarget | TextureFlags::Read | TextureFlags::Storage},
 			.format = {Format::R16G16B16A16_FLOAT},
 			.name = {"FSR2 Output"},
+			.arraySize = 1,
+			.isCube = false,
+			.multisampleType = MultisampleType::Sample_1,
+			.samplerType = SamplerType::Bilinear,
+			.addressMode = AddressMode::Clamp
 		});
 }
 
