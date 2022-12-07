@@ -2,10 +2,12 @@
 
 ## 3D Game Engine written in C++ and Vulkan using GLTF models
 
+![rabbithole bloom](https://user-images.githubusercontent.com/34007000/206199252-f6f1e969-20b1-47c6-897a-47df294e9a79.png)
+
 ![img1](https://user-images.githubusercontent.com/34007000/190272509-1d3cc2e8-7d7e-47fc-9fdf-8f6c001065b6.png)
 ![ezgif-3-b46c2eb673](https://user-images.githubusercontent.com/34007000/190277866-6037d555-3050-49f2-bdee-602c8e6dc0d6.gif)
 
-## rabbithole editor style using Dear ImGui
+## Rabbithole editor style using Dear ImGui
 ![2022-09-15 00_14_19-Rabbithole](https://user-images.githubusercontent.com/34007000/190272679-6116bd91-4fe2-4348-bf81-c5c7a2c0e88b.png)
 
 <b>List of features:</b>
@@ -16,7 +18,7 @@
 - <b>Volumetric Fog</b>
 - <b>GPU Profiler</b>
 
-## raytraced shadows and denoiser
+## Raytraced shadows and denoiser
 ![2022-09-15 00_18_26-rabbithole (Running) - Microsoft Visual Studio (Administrator)](https://user-images.githubusercontent.com/34007000/190273033-6ff6b7f9-32fc-4a52-b211-afa07b863328.png)
 - software raytracing using compute shaders
 - support for multiple lights (up to 4 for now)
@@ -36,7 +38,15 @@
 - volumetric fog with multiple lights support in compute shader with raytraced shadows
 - implementation based on Bart Wronski's idea from SIGGRAPH 2014 : <url>https://bartwronski.com/publications/</url>
 
-## other features
+## Bloom
+- bloom fully implemented in compute shader
+- based on http://www.iryoku.com/next-generation-post-processing-in-call-of-duty-advanced-warfare
+- 5 downscale passes into mips of a single texture with temporally stable box filtering
+- 5 upscale passes back to original resolution with tent filtering
+- whole bloom pass, with apply (on RTX3070) takes less than 0.3ms on 1080p resolution
+
+## Other features
+
 - PBR technique for lighting and tweakable basic SSAO for ambient occlusion
 - GLTF models
 - SPIR-V reflection and VMA for shader reflection and GPU memory allocation
