@@ -45,6 +45,12 @@
 - 5 upscale passes back to original resolution with tent filtering
 - whole bloom pass, with apply (on RTX3070) takes less than 0.3ms on 1080p resolution
 
+## SSAO
+![gif](https://user-images.githubusercontent.com/34007000/206211527-3de91ae0-031e-4f10-8cbd-6a19ac7aec5c.gif)
+- ssao generation using compute shader (fragment shader option also available)
+- simple cheap blur
+- less then 0.6ms in total on RTX3070
+
 ## Other features
 
 - PBR technique for lighting and tweakable basic SSAO for ambient occlusion
