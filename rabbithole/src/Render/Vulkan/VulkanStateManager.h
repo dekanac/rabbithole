@@ -86,8 +86,8 @@ public:
 	void SetRenderTarget(uint32_t slot, VulkanImageView* rt);
 	void SetDepthStencil(VulkanImageView* ds);
 
-	void ShouldCleanColor(bool clean);
-	void ShouldCleanDepth(bool clean);
+	void ShouldCleanColor(LoadOp op);
+	void ShouldCleanDepth(LoadOp op);
 
 	void SetCombinedImageSampler(uint32_t slot, VulkanTexture* texture);
 	void SetConstantBuffer(uint32_t slot, VulkanBuffer* buffer);

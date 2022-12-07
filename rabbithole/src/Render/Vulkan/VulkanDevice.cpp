@@ -113,11 +113,19 @@ void VulkanDevice::CreateInstance()
 	VkDebugUtilsMessengerCreateInfoEXT debugCreateInfo;
 	if (enableValidationLayers) 
 	{
+		VkValidationFeatureEnableEXT enabledValidationFeatures[1];
+
+		VkValidationFeaturesEXT validationFeatures = { VK_STRUCTURE_TYPE_VALIDATION_FEATURES_EXT };
+		validationFeatures.enabledValidationFeatureCount = ARRAYSIZE(enabledValidationFeatures);
+		validationFeatures.pEnabledValidationFeatures = enabledValidationFeatures;
+		
+		PopulateDebugMessengerCreateInfo(debugCreateInfo);
+		validationFeatures.pNext = (VkDebugUtilsMessengerCreateInfoEXT*)&debugCreateInfo;
+
 		createInfo.enabledLayerCount = static_cast<uint32_t>(m_ValidationLayers.size());
 		createInfo.ppEnabledLayerNames = m_ValidationLayers.data();
 
-		PopulateDebugMessengerCreateInfo(debugCreateInfo);
-		createInfo.pNext = (VkDebugUtilsMessengerCreateInfoEXT*)&debugCreateInfo;
+		createInfo.pNext = &validationFeatures;
 	}
 	else 
 	{
@@ -194,18 +202,6 @@ void VulkanDevice::CreateLogicalDevice()
 	createInfo.pEnabledFeatures = &deviceFeatures;
 	createInfo.enabledExtensionCount = static_cast<uint32_t>(m_DeviceExtensions.size());
 	createInfo.ppEnabledExtensionNames = m_DeviceExtensions.data();
-
-	// might not really be necessary anymore because device specific validation layers
-	// have been deprecated
-	if (enableValidationLayers) 
-	{
-		createInfo.enabledLayerCount = static_cast<uint32_t>(m_ValidationLayers.size());
-		createInfo.ppEnabledLayerNames = m_ValidationLayers.data();
-	}
-	else 
-	{
-		createInfo.enabledLayerCount = 0;
-	}
 
 	if (vkCreateDevice(m_PhysicalDevice, &createInfo, nullptr, &m_Device) != VK_SUCCESS) 
 	{
@@ -701,8 +697,8 @@ void VulkanDevice::ResourceBarrier(VulkanCommandBuffer& commandBuffer, VulkanBuf
 		bufferBarrier.sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER;
 		bufferBarrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
 		bufferBarrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-		bufferBarrier.srcAccessMask = GetVkAccessFlagsFrom(oldLayout);
-		bufferBarrier.dstAccessMask = GetVkAccessFlagsFrom(newLayout);
+		bufferBarrier.srcAccessMask = GetVkAccessFlagsFromResourceState(oldLayout);
+		bufferBarrier.dstAccessMask = GetVkAccessFlagsFromResourceState(newLayout);
 		bufferBarrier.size = buffer->GetSize();
 		bufferBarrier.buffer = GET_VK_HANDLE_PTR(buffer);
 

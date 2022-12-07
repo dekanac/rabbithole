@@ -44,5 +44,5 @@ void FSR2Pass::Render()
 
 	SuperResolutionManager::instance().Draw(m_Renderer.GetCurrentCommandBuffer(), fsrSetup, &m_Renderer.GetUIState());
 
-	m_Renderer.ResourceBarrier(FSR2Pass::Output, ResourceState::GeneralComputeReadWrite, ResourceState::GenericRead, ResourceStage::Compute, ResourceStage::Graphics);
+	m_Renderer.ResourceBarrier(FSR2Pass::Output, ResourceState::GeneralComputeReadWrite, ResourceState::GenericRead, ResourceStage::Compute, ResourceStage::Compute);
 }

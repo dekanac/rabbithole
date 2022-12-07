@@ -68,16 +68,15 @@ void VulkanStateManager::SetDepthStencil(VulkanImageView* ds)
 	m_DirtyRenderPass = true;
 }
 
-void VulkanStateManager::ShouldCleanColor(bool clean)
+void VulkanStateManager::ShouldCleanColor(LoadOp op)
 {
-	m_RenderPassInfo->ClearRenderTargets = clean;
+	m_RenderPassInfo->ClearRenderTargets = op;
 	m_DirtyRenderPass = true;
 }
 
-void VulkanStateManager::ShouldCleanDepth(bool clean)
+void VulkanStateManager::ShouldCleanDepth(LoadOp op)
 {
-	m_RenderPassInfo->ClearDepth = clean;
-	m_RenderPassInfo->ClearStencil = clean;
+	m_RenderPassInfo->ClearDepth = op;
 	m_DirtyRenderPass = true;
 }
 

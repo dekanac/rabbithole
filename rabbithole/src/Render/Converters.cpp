@@ -342,97 +342,6 @@ VkImageLayout GetVkImageLayoutFrom(const ResourceState resourceState)
 	return VK_IMAGE_LAYOUT_UNDEFINED;
 }
 
-VkAccessFlags GetVkAccessFlagsFrom(const ResourceState resourceState)
-{
-	if (resourceState == ResourceState::None)
-	{
-		return VkAccessFlagBits(0);
-	}
-	else if (resourceState == ResourceState::BufferRead)
-	{
-		return VK_ACCESS_SHADER_READ_BIT;
-	}
-	else if (resourceState == ResourceState::BufferWrite)
-	{
-		return VK_ACCESS_SHADER_WRITE_BIT;
-	}
-	else if (resourceState == ResourceState::BufferReadWrite)
-	{
-		return VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT;
-	}
-	else if (resourceState == ResourceState::TransferSrc)
-	{
-		return VK_ACCESS_TRANSFER_READ_BIT;
-	}
-	else if (resourceState == ResourceState::TransferDst)
-	{
-		return VK_ACCESS_TRANSFER_WRITE_BIT;
-	}
-	else if (resourceState == ResourceState::DepthStencilRead)
-	{
-		return VkAccessFlagBits(VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT | VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_UNIFORM_READ_BIT);
-	}
-	else if (resourceState == ResourceState::DepthStencilWrite)
-	{
-		return VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
-	}
-	else if (resourceState == ResourceState::GenericRead)
-	{
-		return VkAccessFlagBits(VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_UNIFORM_READ_BIT |
-			VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT | VK_ACCESS_INDEX_READ_BIT |
-			VK_ACCESS_INDIRECT_COMMAND_READ_BIT | VK_ACCESS_TRANSFER_READ_BIT);
-	}
-	else if (resourceState == ResourceState::RenderTarget)
-	{
-		return VkAccessFlagBits(VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_COLOR_ATTACHMENT_READ_BIT);
-	}
-	else if (resourceState == ResourceState::Present)
-	{
-		return VK_ACCESS_MEMORY_READ_BIT;
-	}
-
-	ASSERT(false, "Not supported ResourceState.");
-	return VK_IMAGE_LAYOUT_UNDEFINED;
-}
-
-VkPipelineStageFlagBits GetGraphicsPipelineStage(const ResourceState resourceState)
-{
-	switch (resourceState)
-	{
-	case ResourceState::TransferSrc:
-	case ResourceState::TransferDst:
-		return VK_PIPELINE_STAGE_TRANSFER_BIT;
-	case ResourceState::DepthStencilRead:
-		return VkPipelineStageFlagBits(
-			VK_PIPELINE_STAGE_VERTEX_SHADER_BIT |
-			VK_PIPELINE_STAGE_GEOMETRY_SHADER_BIT |
-			VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT |
-			VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT |
-			VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT);
-	case ResourceState::DepthStencilWrite:
-		return VkPipelineStageFlagBits(
-			VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT |
-			VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT);
-	case ResourceState::GenericRead:
-		return VkPipelineStageFlagBits(
-			VK_PIPELINE_STAGE_VERTEX_SHADER_BIT |
-			VK_PIPELINE_STAGE_GEOMETRY_SHADER_BIT |
-			VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT |
-			VK_PIPELINE_STAGE_VERTEX_INPUT_BIT |
-			VK_PIPELINE_STAGE_DRAW_INDIRECT_BIT |
-			VK_PIPELINE_STAGE_TRANSFER_BIT);
-	case ResourceState::RenderTarget:
-		return VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-	case ResourceState::None:
-	case ResourceState::Present:
-		return VK_PIPELINE_STAGE_ALL_COMMANDS_BIT;
-	default:
-		ASSERT(false, "Not supported ResourceState.");
-	}
-
-	return VK_PIPELINE_STAGE_ALL_COMMANDS_BIT;
-}
-
 VkPipelineStageFlagBits GetTransferPipelineStage(const ResourceState resourceState)
 {
 	if ((resourceState == ResourceState::TransferSrc) || (resourceState == ResourceState::TransferDst))
@@ -653,6 +562,13 @@ VkAccessFlags GetVkAccessFlagsFromResourceState(const ResourceState state)
 		return VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT;
 	case ResourceState::DepthStencilWrite:
 		return VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+	case ResourceState::BufferRead:
+		return VK_ACCESS_SHADER_READ_BIT;
+	case ResourceState::BufferWrite:
+		return VK_ACCESS_SHADER_WRITE_BIT;
+	case ResourceState::BufferReadWrite:
+		return VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT;
+
 	default:
 		ASSERT(false, "Not supported access state.");
 		return VK_ACCESS_NONE_KHR;
@@ -670,6 +586,19 @@ enum VkPipelineBindPoint GetVkBindPointFrom(const PipelineType pipelineType)
 	default:
 		ASSERT(false, "Unknown pipeline type.");
 		return VK_PIPELINE_BIND_POINT_MAX_ENUM;
+	}
+}
+
+VkAttachmentLoadOp GetVkLoadOpFrom(LoadOp op)
+{
+	switch (op)
+	{
+	case LoadOp::DontCare:
+		return VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+	case LoadOp::Clear:
+		return VK_ATTACHMENT_LOAD_OP_CLEAR;
+	case LoadOp::Load:
+		return VK_ATTACHMENT_LOAD_OP_LOAD;
 	}
 }
 

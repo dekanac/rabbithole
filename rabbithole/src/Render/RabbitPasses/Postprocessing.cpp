@@ -77,8 +77,8 @@ void BloomCompute::Setup()
 	SetStorageImageWrite(1, m_DownsampledMipChain[1]);
 	SetConstantBuffer(2, BloomCompute::BloomParamsGPU);
 
-	uint32_t mipIndex = 1;
-	m_Renderer.BindPushConst(mipIndex);
+	uint32_t downsampleTick = 1;
+	m_Renderer.BindPushConst(downsampleTick);
 
 	constexpr uint32_t threadGroupWorkRegionDim = 8;
 
@@ -118,7 +118,7 @@ void BloomCompute::Setup()
 		SetStorageImageReadWrite(1, m_DownsampledMipChain[i-1]);
 		SetConstantBuffer(2, BloomCompute::BloomParamsGPU);
 
-		bool isLastPass = i == 1;
+		uint32_t isLastPass = i == 1;
 		m_Renderer.BindPushConst(isLastPass);
 	
 		dispatchX = GetCSDispatchCount(width, threadGroupWorkRegionDim);

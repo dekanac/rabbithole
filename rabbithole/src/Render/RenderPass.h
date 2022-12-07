@@ -12,13 +12,13 @@ class VulkanCommandBuffer;
 
 struct RenderPassInfo
 {
-	bool ClearRenderTargets = true;
-	bool ClearDepth = true;
-	bool ClearStencil = true;
+	LoadOp ClearRenderTargets = LoadOp::DontCare;
+	LoadOp ClearDepth = LoadOp::DontCare;
+	LoadOp ClearStencil = LoadOp::DontCare;
 	ResourceState InitialRenderTargetState = ResourceState::None;
-	ResourceState FinalRenderTargetState = ResourceState::RenderTarget;
-	ResourceState InitialDepthStencilState = ResourceState::DepthStencilWrite;
-	ResourceState FinalDepthStencilState = ResourceState::DepthStencilWrite;
+	ResourceState FinalRenderTargetState = ResourceState::None;
+	ResourceState InitialDepthStencilState = ResourceState::None;
+	ResourceState FinalDepthStencilState = ResourceState::None;
 	Extent2D extent = { 0, 0 };
 };
 

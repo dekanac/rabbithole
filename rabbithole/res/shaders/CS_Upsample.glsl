@@ -17,7 +17,7 @@ layout(binding = 2) uniform bloomParamsBuffer
 
 layout(push_constant) uniform Push 
 {
-    bool isLastPass;
+    uint isLastPass;
 } push;
 
 vec4 UpsampleTent(sampler2D tex, vec2 uv, vec2 texelSize, vec4 sampleScale)
@@ -50,7 +50,7 @@ void main()
     
     vec4 currentMip = vec4(0.0);
 
-    if (!push.isLastPass)
+    if (!bool(push.isLastPass))
         currentMip = imageLoad(outputImage, ivec2(gl_GlobalInvocationID.xy));
     
     imageStore(outputImage, ivec2(gl_GlobalInvocationID.xy), bloom + currentMip);

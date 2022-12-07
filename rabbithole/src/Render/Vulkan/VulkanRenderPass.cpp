@@ -32,7 +32,7 @@ VulkanRenderPass::VulkanRenderPass(
 		attachmentDescription.flags = 0;
 		attachmentDescription.format = GetVkFormatFrom(renderTargetView->GetFormat());
 		attachmentDescription.samples = GetVkSampleFlagsFrom(renderTargetView->GetInfo().Resource->GetInfo().MultisampleType);
-		attachmentDescription.loadOp = m_Info.ClearRenderTargets ? VK_ATTACHMENT_LOAD_OP_CLEAR : VK_ATTACHMENT_LOAD_OP_LOAD;
+		attachmentDescription.loadOp = GetVkLoadOpFrom(m_Info.ClearRenderTargets);
 		attachmentDescription.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
 		attachmentDescription.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
 		attachmentDescription.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
@@ -65,9 +65,9 @@ VulkanRenderPass::VulkanRenderPass(
 		VkAttachmentDescription attachmentDescription{};
 		attachmentDescription.format = GetVkFormatFrom(depthStencilView->GetFormat());
 		attachmentDescription.samples = GetVkSampleFlagsFrom(depthStencilView->GetInfo().Resource->GetInfo().MultisampleType);
-		attachmentDescription.loadOp = m_Info.ClearDepth ? VK_ATTACHMENT_LOAD_OP_CLEAR : VK_ATTACHMENT_LOAD_OP_LOAD;
+		attachmentDescription.loadOp = GetVkLoadOpFrom(m_Info.ClearDepth);
 		attachmentDescription.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
-		attachmentDescription.stencilLoadOp = m_Info.ClearStencil ? VK_ATTACHMENT_LOAD_OP_CLEAR : VK_ATTACHMENT_LOAD_OP_LOAD;
+		attachmentDescription.stencilLoadOp = GetVkLoadOpFrom(m_Info.ClearStencil);
 		attachmentDescription.stencilStoreOp = VK_ATTACHMENT_STORE_OP_STORE;
 		attachmentDescription.initialLayout = GetVkImageLayoutFrom(m_Info.InitialDepthStencilState);
 		attachmentDescription.finalLayout = GetVkImageLayoutFrom(m_Info.FinalDepthStencilState);

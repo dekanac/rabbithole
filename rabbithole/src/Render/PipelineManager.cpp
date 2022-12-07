@@ -107,7 +107,7 @@ RenderPass* PipelineManager::FindOrCreateRenderPass(VulkanDevice& device, const 
 		key.attachmentDescriptions[i].id = renderTargets[i]->GetID();
 		key.attachmentDescriptions[i].format = GetVkFormatFrom(renderTargets[i]->GetFormat());
 		key.attachmentDescriptions[i].samples = GetVkSampleFlagsFrom(renderTargets[i]->GetInfo().Resource->GetInfo().MultisampleType);
-		key.attachmentDescriptions[i].loadOp = renderPassInfo.ClearRenderTargets ? VK_ATTACHMENT_LOAD_OP_CLEAR : VK_ATTACHMENT_LOAD_OP_LOAD;
+		key.attachmentDescriptions[i].loadOp = GetVkLoadOpFrom(renderPassInfo.ClearRenderTargets);
 		key.attachmentDescriptions[i].storeOp = VK_ATTACHMENT_STORE_OP_STORE;
 		key.attachmentDescriptions[i].initialLayout = GetVkImageLayoutFrom(renderPassInfo.InitialRenderTargetState);
 		key.attachmentDescriptions[i].finalLayout = GetVkImageLayoutFrom(renderPassInfo.FinalRenderTargetState);
@@ -118,7 +118,7 @@ RenderPass* PipelineManager::FindOrCreateRenderPass(VulkanDevice& device, const 
 		key.depthStencilAttachmentDescription.id = depthStencil->GetID();
 		key.depthStencilAttachmentDescription.format = GetVkFormatFrom(depthStencil->GetFormat());
 		key.depthStencilAttachmentDescription.samples = GetVkSampleFlagsFrom(depthStencil->GetInfo().Resource->GetInfo().MultisampleType);
-		key.depthStencilAttachmentDescription.loadOp = renderPassInfo.ClearDepth ? VK_ATTACHMENT_LOAD_OP_CLEAR : VK_ATTACHMENT_LOAD_OP_LOAD;
+		key.depthStencilAttachmentDescription.loadOp = GetVkLoadOpFrom(renderPassInfo.ClearDepth);
 		key.depthStencilAttachmentDescription.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
 		key.depthStencilAttachmentDescription.initialLayout = GetVkImageLayoutFrom(renderPassInfo.InitialDepthStencilState);
 		key.depthStencilAttachmentDescription.finalLayout = GetVkImageLayoutFrom(renderPassInfo.FinalDepthStencilState);

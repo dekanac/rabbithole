@@ -7,9 +7,9 @@ class VulkanImageView;
 
 struct VulkanRenderPassInfo
 {
-	bool ClearRenderTargets;
-	bool ClearDepth;
-	bool ClearStencil;
+	LoadOp ClearRenderTargets;
+	LoadOp ClearDepth;
+	LoadOp ClearStencil;
 	ResourceState InitialRenderTargetState;
 	ResourceState FinalRenderTargetState;
     ResourceState InitialDepthStencilState;

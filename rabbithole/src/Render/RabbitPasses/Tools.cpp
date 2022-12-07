@@ -18,6 +18,7 @@ void CopyToSwapchainPass::DeclareResources()
 void CopyToSwapchainPass::Setup()
 {
 	VulkanStateManager& stateManager = m_Renderer.GetStateManager();
+	stateManager.ShouldCleanColor(LoadOp::Clear);
 
 	uint32_t renderWindowWidth = Window::instance().GetExtent().width;
 	uint32_t renderWindowHeight = Window::instance().GetExtent().height;
@@ -71,7 +72,7 @@ void OutlineEntityPass::Setup()
 	stateManager.SetVertexShader(m_Renderer.GetShader("VS_PassThrough"));
 	stateManager.SetPixelShader(m_Renderer.GetShader("FS_OutlineEntity"));
 
-	stateManager.ShouldCleanColor(false);
+	stateManager.ShouldCleanColor(LoadOp::Load);
 
 	m_Renderer.UpdateEntityPickId();
 

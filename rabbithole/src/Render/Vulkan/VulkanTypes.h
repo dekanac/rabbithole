@@ -408,3 +408,10 @@ union ClearValue
 	Color Color;
 	DepthStencil DepthStencil;
 };
+
+enum class LoadOp : uint8_t
+{
+	DontCare = 0,
+	Load = 1,
+	Clear = 2
+};

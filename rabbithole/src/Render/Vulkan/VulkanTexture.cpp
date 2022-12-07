@@ -68,6 +68,7 @@ VulkanTexture::VulkanTexture(VulkanDevice& device, const VulkanTexture* other, u
 	VulkanImageViewInfo imageViewInfo;
 	imageViewInfo.Resource = m_Resource;
 	imageViewInfo.Format = m_Format;
+	imageViewInfo.Flags = ImageViewFlags::None;
 	imageViewInfo.Subresource.MipSlice = mipSlice;
 	imageViewInfo.Subresource.MipSize = m_Region.Subresource.MipSize;
 	imageViewInfo.Subresource.ArraySlice = 0;
@@ -219,6 +220,7 @@ void VulkanTexture::CreateView(VulkanDevice* device)
 	VulkanImageViewInfo imageViewInfo;
 	imageViewInfo.Resource = m_Resource;
 	imageViewInfo.Format = m_Format;
+	imageViewInfo.Flags = ImageViewFlags::None;
 	imageViewInfo.Subresource.MipSlice = 0;
 	imageViewInfo.Subresource.MipSize = m_Region.Subresource.MipSize;
 	imageViewInfo.Subresource.ArraySlice = 0;

@@ -58,8 +58,8 @@ void GBufferPass::Setup()
 	m_Renderer.BindViewport(0, 0, static_cast<float>(GetNativeWidth), static_cast<float>(GetNativeHeight));
 	stateManager.SetRenderPassExtent({ GetNativeWidth , GetNativeHeight });
 
-	stateManager.ShouldCleanColor(true);
-	stateManager.ShouldCleanDepth(true);
+	stateManager.ShouldCleanColor(LoadOp::Clear);
+	stateManager.ShouldCleanDepth(LoadOp::Clear);
 
 	auto pipelineInfo = stateManager.GetPipelineInfo();
 
@@ -80,9 +80,9 @@ void GBufferPass::Setup()
 	auto renderPassInfo = stateManager.GetRenderPassInfo();
 
 	stateManager.GetPipelineInfo()->SetDepthTestEnabled(true);
-	renderPassInfo->InitialRenderTargetState =	ResourceState::None;
+	renderPassInfo->InitialRenderTargetState =	ResourceState::RenderTarget;
 	renderPassInfo->FinalRenderTargetState =	ResourceState::RenderTarget;
-	renderPassInfo->InitialDepthStencilState =	ResourceState::None;
+	renderPassInfo->InitialDepthStencilState =	ResourceState::DepthStencilWrite;
 	renderPassInfo->FinalDepthStencilState =	ResourceState::DepthStencilWrite;
 
 	stateManager.SetCullMode(CullMode::Front);
@@ -109,6 +109,10 @@ void CopyDepthPass::Setup()
 
 	stateManager.SetVertexShader(m_Renderer.GetShader("VS_PassThrough"));
 	stateManager.SetPixelShader(m_Renderer.GetShader("FS_CopyDepth"));
+
+	auto renderPassInfo = stateManager.GetRenderPassInfo();
+	renderPassInfo->InitialRenderTargetState = ResourceState::RenderTarget;
+	renderPassInfo->FinalRenderTargetState = ResourceState::RenderTarget;
 
 	SetCombinedImageSampler(0, GBufferPass::Depth);
 
@@ -176,8 +180,8 @@ void SkyboxPass::Setup()
 	stateManager.SetVertexShader(m_Renderer.GetShader("VS_Skybox"));
 	stateManager.SetPixelShader(m_Renderer.GetShader("FS_Skybox"));
 
-	stateManager.ShouldCleanDepth(false);
-	stateManager.ShouldCleanColor(false);
+	stateManager.ShouldCleanDepth(LoadOp::Load);
+	stateManager.ShouldCleanColor(LoadOp::Load);
 
 	auto pipelineInfo = stateManager.GetPipelineInfo();
 	pipelineInfo->SetDepthTestEnabled(true);

@@ -67,9 +67,9 @@ RenderPass::~RenderPass()
 
 void RenderPass::DefaultRenderPassInfo(RenderPassInfo& info, uint32_t width, uint32_t height)
 {
-	info.ClearRenderTargets = true;
-	info.ClearDepth = true;
-	info.ClearStencil = true;
+	info.ClearRenderTargets = LoadOp::DontCare;
+	info.ClearDepth = LoadOp::DontCare;
+	info.ClearStencil = LoadOp::DontCare;
 	info.InitialRenderTargetState = ResourceState::None;
 	info.FinalRenderTargetState = ResourceState::RenderTarget;
 	info.InitialDepthStencilState = ResourceState::DepthStencilWrite;
