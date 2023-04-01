@@ -59,7 +59,7 @@ void OutlineEntityPass::DeclareResources()
 
 	HelperBuffer = m_Renderer.GetResourceManager().CreateBuffer(m_Renderer.GetVulkanDevice(), BufferCreateInfo{
 			.flags = {BufferUsageFlags::StorageBuffer},
-			.memoryAccess = {MemoryAccess::CPU2GPU},
+			.memoryAccess = {MemoryAccess::CPU2GPU}, //TODO: this should probably be GPU2CPU
 			.size = {GetNativeWidth * GetNativeHeight * 4},
 			.name = {"Entity Helper"}
 		});

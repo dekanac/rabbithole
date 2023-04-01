@@ -26,7 +26,6 @@ VkSamplerAddressMode		GetVkAddressModeFrom(const AddressMode addressMode);
 VkBlendFactor				GetVkBlendFactorFrom(const BlendValue blendValue);
 VkBlendOp					GetVkBlendOpFrom(const BlendOperation blendOperation);
 VkVertexInputRate			GetVkVertexInputRateFrom(const VertexInputRate inputRate);
-VkClearValue				GetVkClearColorValueFor(const Format format);
 ClearValue					GetClearColorValueFor(const Format format);
 uint32_t					GetBPPFrom(const Format format);
 VkImageUsageFlags			GetVkImageUsageFlagsFrom(const ImageUsageFlags usageFlags);

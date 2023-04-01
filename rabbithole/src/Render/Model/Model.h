@@ -39,6 +39,7 @@ struct SimplePushConstantData
 	uint32_t	useNormalMap;
 	uint32_t	useMetallicRoughnessMap;
 	rabbitVec4f baseColor;
+	rabbitVec4f emmisiveColorAndStrength;
 };
 
 struct Vertex
@@ -206,6 +207,7 @@ public:
 	struct Material 
 	{
 		glm::vec4	baseColorFactor = glm::vec4(1.0f);
+		glm::vec4   emissiveColorAndStrenght = glm::vec4(0.0f);
 		uint32_t	baseColorTextureIndex = UINT32_MAX;
 		uint32_t	normalTextureIndex = UINT32_MAX;
 		uint32_t	metallicRoughnessTextureIndex = UINT32_MAX;

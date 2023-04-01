@@ -680,7 +680,7 @@ VkVertexInputRate GetVkVertexInputRateFrom(const VertexInputRate inputRate)
 	}
 }
 
-VkClearValue GetVkClearColorValueFor(const Format format)
+ClearValue GetClearColorValueFor(const Format format)
 {
 	switch (format)
 	{
@@ -691,38 +691,30 @@ VkClearValue GetVkClearColorValueFor(const Format format)
 	case Format::R16G16B16A16_FLOAT:
 	case Format::R16G16B16A16_UNORM:
 	case Format::R32G32B32A32_FLOAT:
-		return VkClearValue{ 0.5f, 0.5f, 0.5f, 1.0f };
+		return ClearValue{ rabbitVec4f(0.5f, 0.5f, 0.5f, 1.0f) };
 	case Format::R8_UNORM:
 	case Format::R32_SFLOAT:
-		return VkClearValue{ 0.0f };
+		return ClearValue{ rabbitVec4f(1.0f) };
 	case Format::R32G32B32_FLOAT:
 	case Format::R11G11B10_FLOAT:
-		return VkClearValue{ 0.1f, 0.1f, 0.1f };
+		return ClearValue{ rabbitVec4f(0.0f, 0.0f, 0.0f, 0.0f) };
 	case Format::R32G32_FLOAT:
 	case Format::R16G16_FLOAT:
-		return VkClearValue{ 0.0f, 0.0f };
+		return ClearValue{ rabbitVec4f(0.0f, 0.0f, 0.0f, 0.f) };
 	case Format::R32_UINT:
-		return VkClearValue{ 0 };
+		return ClearValue{ rabbitVec4f(0.0f) };
 	case Format::D32_SFLOAT:
 	case Format::D32_SFLOAT_S8_UINT:
 	{
-		VkClearValue cv{};
-		cv.depthStencil.depth = 1.f;
-		cv.depthStencil.stencil = 0;
+		ClearValue cv{};
+		cv.DepthStencil.Depth = 1.f;
+		cv.DepthStencil.Stencil = 0;
 		return cv;
 	}
 	default:
 		ASSERT(false, "Not supported format.");
-		return VkClearValue{ 0 };
+		return ClearValue{ rabbitVec4f(0.0f) };
 	}
-}
-
-ClearValue GetClearColorValueFor(const Format format)
-{
-	VkClearValue vkcv = GetVkClearColorValueFor(format);
-	ClearValue cv{};
-	memcpy(&cv, &vkcv, sizeof(VkClearValue));
-	return cv;
 }
 
 uint32_t GetBPPFrom(const Format format)

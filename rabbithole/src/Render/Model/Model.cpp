@@ -583,6 +583,12 @@ void VulkanglTFModel::LoadMaterials(tinygltf::Model& input)
 		{
 			m_Materials[i].baseColorFactor = glm::make_vec4(glTFMaterial.values["baseColorFactor"].ColorFactor().data());
 		}
+		// Get Emissive Color and Strength
+		//if (glTFMaterial.values.find("emissiveFactor") != glTFMaterial.values.end())
+		{
+			glm::vec3 emis = glm::make_vec3(glTFMaterial.emissiveFactor.data());
+			m_Materials[i].emissiveColorAndStrenght = glm::vec4(emis.x, emis.y, emis.z, 1.f);
+		}
 		// Get base color texture index
 		if (glTFMaterial.values.find("baseColorTexture") != glTFMaterial.values.end()) 
 		{
@@ -792,6 +798,7 @@ void VulkanglTFModel::DrawNode(VulkanCommandBuffer& commandBuffer, const VulkanP
 			pushData.useNormalMap = (uint32_t)(m_Materials[primitive.materialIndex].normalTextureIndex != UINT32_MAX);
 			pushData.useMetallicRoughnessMap = (uint32_t)(m_Materials[primitive.materialIndex].metallicRoughnessTextureIndex != UINT32_MAX);
 			pushData.baseColor = m_Materials[primitive.materialIndex].baseColorFactor;
+			pushData.emmisiveColorAndStrength = m_Materials[primitive.materialIndex].emissiveColorAndStrenght;
 
 			vkCmdPushConstants(GET_VK_HANDLE(commandBuffer), GET_VK_HANDLE_PTR(pipelineLayout), VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(SimplePushConstantData), &pushData);
 

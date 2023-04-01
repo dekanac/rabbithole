@@ -17,6 +17,7 @@ layout(location = 0) out VS_OUT
     uint FragId;
     mat3 FragTBN;
     vec2 FragVelocity;
+    vec4 FragEmissive;
 } vs_out;
 
 //use UBO as a Constant Buffer to provide common stuff to shaders
@@ -33,6 +34,7 @@ layout(push_constant) uniform Push
 	bool useNormalMap;
 	bool useMetallicRoughnessMap;
     vec4 baseColor;
+    vec4 emissiveColorAndStrenght;
 } push;
 
 void main() 
@@ -54,6 +56,7 @@ void main()
     vs_out.FragTBN = TBN;  
 
     vs_out.FragDebugOption = UBO.debugOption;
+    vs_out.FragEmissive = push.emissiveColorAndStrenght;
     
     //TODO: this works only for non moving objects, need to provide previous model matrix as well
     vec4 currentPos = UBO.viewProjMatrix * vec4(worldPosition, 1);    

@@ -1,6 +1,6 @@
 // This file is part of the FidelityFX SDK.
 //
-// Copyright (c) 2022 Advanced Micro Devices, Inc. All rights reserved.
+// Copyright (c) 2022-2023 Advanced Micro Devices, Inc. All rights reserved.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -22,56 +22,45 @@
 #ifndef FFX_FSR2_RECONSTRUCT_DILATED_VELOCITY_AND_PREVIOUS_DEPTH_H
 #define FFX_FSR2_RECONSTRUCT_DILATED_VELOCITY_AND_PREVIOUS_DEPTH_H
 
-void ReconstructPrevDepth(FFX_MIN16_I2 iPxPos, FfxFloat32 fDepth, FfxFloat32x2 fMotionVector, FFX_MIN16_I2 iPxDepthSize)
+void ReconstructPrevDepth(FfxInt32x2 iPxPos, FfxFloat32 fDepth, FfxFloat32x2 fMotionVector, FfxInt32x2 iPxDepthSize)
 {
-    FfxFloat32x2 fDepthUv = (FfxFloat32x2(iPxPos) + 0.5f) / iPxDepthSize;
-    FfxFloat32x2 fPxPrevPos = (fDepthUv + fMotionVector) * FfxFloat32x2(iPxDepthSize)-0.5f;
-    FFX_MIN16_I2 iPxPrevPos = FFX_MIN16_I2(floor(fPxPrevPos));
-    FfxFloat32x2 fPxFrac = ffxFract(fPxPrevPos);
+    fMotionVector *= FfxFloat32(length(fMotionVector * DisplaySize()) > 0.1f);
 
-    const FfxFloat32 bilinearWeights[2][2] = {
-        {
-            (1 - fPxFrac.x) * (1 - fPxFrac.y),
-            (fPxFrac.x) * (1 - fPxFrac.y)
-        },
-        {
-            (1 - fPxFrac.x) * (fPxFrac.y),
-            (fPxFrac.x) * (fPxFrac.y)
-        }
-    };
+    FfxFloat32x2 fUv = (iPxPos + FfxFloat32(0.5)) / iPxDepthSize;
+    FfxFloat32x2 fReprojectedUv = fUv + fMotionVector;
+ 
+    BilinearSamplingData bilinearInfo = GetBilinearSamplingData(fReprojectedUv, RenderSize());
 
     // Project current depth into previous frame locations.
     // Push to all pixels having some contribution if reprojection is using bilinear logic.
-    for (FfxInt32 y = 0; y <= 1; ++y) {
-        for (FfxInt32 x = 0; x <= 1; ++x) {
-            
-            FFX_MIN16_I2 offset = FFX_MIN16_I2(x, y);
-            FfxFloat32 w = bilinearWeights[y][x];
+    for (FfxInt32 iSampleIndex = 0; iSampleIndex < 4; iSampleIndex++) {
+        
+        const FfxInt32x2 iOffset = bilinearInfo.iOffsets[iSampleIndex];
+        FfxFloat32 fWeight = bilinearInfo.fWeights[iSampleIndex];
 
-            if (w > reconstructedDepthBilinearWeightThreshold) {
+        if (fWeight > fReconstructedDepthBilinearWeightThreshold) {
 
-                FFX_MIN16_I2 storePos = iPxPrevPos + offset;
-                if (IsOnScreen(storePos, iPxDepthSize)) {
-                    StoreReconstructedDepth(storePos, fDepth);
-                }
+            FfxInt32x2 iStorePos = bilinearInfo.iBasePos + iOffset;
+            if (IsOnScreen(iStorePos, iPxDepthSize)) {
+                StoreReconstructedDepth(iStorePos, fDepth);
             }
         }
     }
 }
 
-void FindNearestDepth(FFX_PARAMETER_IN FFX_MIN16_I2 iPxPos, FFX_PARAMETER_IN FFX_MIN16_I2 iPxSize, FFX_PARAMETER_OUT FfxFloat32 fNearestDepth, FFX_PARAMETER_OUT FFX_MIN16_I2 fNearestDepthCoord)
+void FindNearestDepth(FFX_PARAMETER_IN FfxInt32x2 iPxPos, FFX_PARAMETER_IN FfxInt32x2 iPxSize, FFX_PARAMETER_OUT FfxFloat32 fNearestDepth, FFX_PARAMETER_OUT FfxInt32x2 fNearestDepthCoord)
 {
     const FfxInt32 iSampleCount = 9;
-    const FFX_MIN16_I2 iSampleOffsets[iSampleCount] = {
-        FFX_MIN16_I2(+0, +0),
-        FFX_MIN16_I2(+1, +0),
-        FFX_MIN16_I2(+0, +1),
-        FFX_MIN16_I2(+0, -1),
-        FFX_MIN16_I2(-1, +0),
-        FFX_MIN16_I2(-1, +1),
-        FFX_MIN16_I2(+1, +1),
-        FFX_MIN16_I2(-1, -1),
-        FFX_MIN16_I2(+1, -1),
+    const FfxInt32x2 iSampleOffsets[iSampleCount] = {
+        FfxInt32x2(+0, +0),
+        FfxInt32x2(+1, +0),
+        FfxInt32x2(+0, +1),
+        FfxInt32x2(+0, -1),
+        FfxInt32x2(-1, +0),
+        FfxInt32x2(-1, +1),
+        FfxInt32x2(+1, +1),
+        FfxInt32x2(-1, -1),
+        FfxInt32x2(+1, -1),
     };
 
     // pull out the depth loads to allow SC to batch them
@@ -80,7 +69,7 @@ void FindNearestDepth(FFX_PARAMETER_IN FFX_MIN16_I2 iPxPos, FFX_PARAMETER_IN FFX
     FFX_UNROLL
     for (iSampleIndex = 0; iSampleIndex < iSampleCount; ++iSampleIndex) {
 
-        FFX_MIN16_I2 iPos = iPxPos + iSampleOffsets[iSampleIndex];
+        FfxInt32x2 iPos = iPxPos + iSampleOffsets[iSampleIndex];
         depth[iSampleIndex] = LoadInputDepth(iPos);
     }
 
@@ -90,7 +79,7 @@ void FindNearestDepth(FFX_PARAMETER_IN FFX_MIN16_I2 iPxPos, FFX_PARAMETER_IN FFX
     FFX_UNROLL
     for (iSampleIndex = 1; iSampleIndex < iSampleCount; ++iSampleIndex) {
 
-        FFX_MIN16_I2 iPos = iPxPos + iSampleOffsets[iSampleIndex];
+        FfxInt32x2 iPos = iPxPos + iSampleOffsets[iSampleIndex];
         if (IsOnScreen(iPos, iPxSize)) {
 
             FfxFloat32 fNdDepth = depth[iSampleIndex];
@@ -106,30 +95,51 @@ void FindNearestDepth(FFX_PARAMETER_IN FFX_MIN16_I2 iPxPos, FFX_PARAMETER_IN FFX
     }
 }
 
-void ReconstructPrevDepthAndDilateMotionVectors(FFX_MIN16_I2 iPxLrPos)
+FfxFloat32 ComputeLockInputLuma(FfxInt32x2 iPxLrPos)
 {
-    FFX_MIN16_I2 iPxLrSize = FFX_MIN16_I2(RenderSize());
-    FFX_MIN16_I2 iPxHrSize = FFX_MIN16_I2(DisplaySize());
+    //We assume linear data. if non-linear input (sRGB, ...),
+    //then we should convert to linear first and back to sRGB on output.
+    FfxFloat32x3 fRgb = ffxMax(FfxFloat32x3(0, 0, 0), LoadInputColor(iPxLrPos));
 
+    // Use internal auto exposure for locking logic
+    fRgb /= PreExposure();
+    fRgb *= Exposure();
+
+#if FFX_FSR2_OPTION_HDR_COLOR_INPUT
+    fRgb = Tonemap(fRgb);
+#endif
+
+    //compute luma used to lock pixels, if used elsewhere the ffxPow must be moved!
+    const FfxFloat32 fLockInputLuma = ffxPow(RGBToPerceivedLuma(fRgb), FfxFloat32(1.0 / 6.0));
+
+    return fLockInputLuma;
+}
+
+void ReconstructAndDilate(FfxInt32x2 iPxLrPos)
+{
     FfxFloat32 fDilatedDepth;
-    FFX_MIN16_I2 iNearestDepthCoord;
+    FfxInt32x2 iNearestDepthCoord;
 
-    FindNearestDepth(iPxLrPos, iPxLrSize, fDilatedDepth, iNearestDepthCoord);
+    FindNearestDepth(iPxLrPos, RenderSize(), fDilatedDepth, iNearestDepthCoord);
 
 #if FFX_FSR2_OPTION_LOW_RESOLUTION_MOTION_VECTORS
-    FfxFloat32x2 fDilatedMotionVector = LoadInputMotionVector(iNearestDepthCoord);
+    FfxInt32x2 iSamplePos = iPxLrPos;
+    FfxInt32x2 iMotionVectorPos = iNearestDepthCoord;
 #else
-    FfxFloat32x2 fSrcJitteredPos = FfxFloat32x2(iNearestDepthCoord) + 0.5f - Jitter();
-    FfxFloat32x2 fLrPosInHr = (fSrcJitteredPos / iPxLrSize) * iPxHrSize;
-    FfxFloat32x2 fHrPos = floor(fLrPosInHr) + 0.5;
-
-    FfxFloat32x2 fDilatedMotionVector = LoadInputMotionVector(FFX_MIN16_I2(fHrPos));
+    FfxInt32x2 iSamplePos = ComputeHrPosFromLrPos(iPxLrPos);
+    FfxInt32x2 iMotionVectorPos = ComputeHrPosFromLrPos(iNearestDepthCoord);
 #endif
+
+    FfxFloat32x2 fDilatedMotionVector = LoadInputMotionVector(iMotionVectorPos);
 
     StoreDilatedDepth(iPxLrPos, fDilatedDepth);
     StoreDilatedMotionVector(iPxLrPos, fDilatedMotionVector);
 
-    ReconstructPrevDepth(iPxLrPos, fDilatedDepth, fDilatedMotionVector, iPxLrSize);
+    ReconstructPrevDepth(iPxLrPos, fDilatedDepth, fDilatedMotionVector, RenderSize());
+
+    FfxFloat32 fLockInputLuma = ComputeLockInputLuma(iPxLrPos);
+    StoreLockInputLuma(iPxLrPos, fLockInputLuma);
 }
+
 
 #endif //!defined( FFX_FSR2_RECONSTRUCT_DILATED_VELOCITY_AND_PREVIOUS_DEPTH_H )

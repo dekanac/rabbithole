@@ -114,7 +114,7 @@ struct AngularInfo
     vec3 padding;
 };
 
-AngularInfo getAngularInfo(vec3 pointToLight, vec3 normal, vec3 view)
+AngularInfo GetAngularInfo(vec3 pointToLight, vec3 normal, vec3 view)
 {
     // Standard one-letter names
     vec3 n = normalize(normal);           // Outward direction of surface point

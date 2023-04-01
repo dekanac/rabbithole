@@ -33,7 +33,6 @@ public:
 	inline const VulkanBufferInfo	GetInfo() const { return m_Info; }
 	inline void*					GetHostVisibleData() { return m_HostVisibleData; }
 	inline VkBuffer					GetVkHandle() { return m_Buffer; }
-	uint32_t						GetID() { return m_Id; }
 	inline uint64_t					GetSize() { return m_Size; }
 
 private:

@@ -127,18 +127,6 @@ void BloomCompute::Setup()
 		m_Renderer.Dispatch(dispatchX, dispatchY, 1);
 	}
 
-/*
-	stateManager.SetVertexShader(m_Renderer.GetShader("VS_PassThrough"));
-	stateManager.SetPixelShader(m_Renderer.GetShader("FS_GaussianBlur"));
-	
-	m_Renderer.BindViewport(0, 0, static_cast<float>(Downsampled->GetWidth()), static_cast<float>(Downsampled->GetHeight()));
-	stateManager.SetRenderPassExtent({ Downsampled->GetWidth() , Downsampled->GetHeight() });
-	
-	SetCombinedImageSampler(0, m_DownsampledMipChain[0]);
-	SetRenderTarget(0, BloomCompute::BloomApplied);
-
-	m_Renderer.DrawFullScreenQuad();*/
-
 	//APPLY BLOOM
 	stateManager.SetVertexShader(m_Renderer.GetShader("VS_PassThrough"));
 	stateManager.SetPixelShader(m_Renderer.GetShader("FS_ApplyBloom"));

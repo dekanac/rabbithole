@@ -11,7 +11,7 @@ class VulkanImageSampler;
 
 using namespace TextureLoading;
 
-class VulkanTexture : public ManagableResource, public AllocatedResource
+class VulkanTexture : public AllocatedResource, public ManagableResource
 {
 public:
 
@@ -25,7 +25,7 @@ private:
 public:
 	VulkanImage*			GetResource() const { return m_Resource; }
 	VulkanImageView*		GetView() const { return m_View; }
-	VulkanImageSampler*		GetSampler() const { return m_Sampler; }
+	VulkanImageSampler*		GetSampler() const { return m_Sampler; } 
 	Format					GetFormat() const{ return m_Format; }
 	TextureFlags			GetFlags() const { return m_Flags; }
 	ImageRegion				GetRegion() const { return m_Region; }
@@ -38,7 +38,7 @@ public:
 private:
 	void CreateResource(VulkanDevice* device, const TextureData* texData, bool generateMips = false);
 	void CreateResource(VulkanDevice* device, RWTextureCreateInfo& createInfo);
-	void CreateView(VulkanDevice* device);
+	void CreateView(VulkanDevice* device, ClearValue value = ClearValue{});
 	void CreateSampler(VulkanDevice* device, SamplerType type, AddressMode addressMode);
 	void InitializeRegion(Extent3D dimensions, uint32_t arraySize = 1, uint32_t mipCount = 1);
 	void GenerateMips(VulkanCommandBuffer& commandBuffer, VulkanDevice* device, uint32_t mipCount);

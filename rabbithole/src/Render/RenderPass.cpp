@@ -27,15 +27,13 @@ RenderPass::RenderPass(VulkanDevice& device, const std::vector<VulkanImageView*>
 
 	for (uint32_t i = 0; i < m_RTCount; i++)
 	{
-		Format format = renderTargetViews[i]->GetFormat();
-		m_ClearValues[i] = GetVkClearColorValueFor(format);
+		m_ClearValues[i] = renderTargetViews[i]->GetInfo().ClearValue;
 	}
 
 	if (depthStencilView)
 	{
 		m_RTCount++;
-		Format format = depthStencilView->GetFormat();
-		m_ClearValues.push_back(GetVkClearColorValueFor(format));
+		m_ClearValues.push_back(depthStencilView->GetInfo().ClearValue);
 	}
 }
 
@@ -49,7 +47,7 @@ void RenderPass::BeginRenderPass(VulkanCommandBuffer& commandBuffer)
 	renderPassInfo.renderArea.extent = m_Extent;
 
 	renderPassInfo.clearValueCount = static_cast<uint32_t>(m_RTCount);
-	renderPassInfo.pClearValues = m_ClearValues.data();
+	renderPassInfo.pClearValues = reinterpret_cast<VkClearValue*>(m_ClearValues.data());
 
 	vkCmdBeginRenderPass(GET_VK_HANDLE(commandBuffer), &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
 }

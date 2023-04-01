@@ -11,7 +11,7 @@ VulkanTexture::VulkanTexture(VulkanDevice& device, RWTextureCreateInfo& createIn
 	, m_Name(createInfo.name)
 {
 	CreateResource(&device, createInfo);
-	CreateView(&device);
+	CreateView(&device, createInfo.clearValue);
 	CreateSampler(&device, createInfo.samplerType, createInfo.addressMode);
 
 	device.SetObjectName((uint64_t)GET_VK_HANDLE_PTR(m_Resource), VK_OBJECT_TYPE_IMAGE, createInfo.name.c_str());
@@ -215,7 +215,7 @@ void VulkanTexture::CreateResource(VulkanDevice* device, RWTextureCreateInfo& cr
 	tempCommandBuffer.EndAndSubmitCommandBuffer();
 }
 
-void VulkanTexture::CreateView(VulkanDevice* device)
+void VulkanTexture::CreateView(VulkanDevice* device, ClearValue value)
 {
 	VulkanImageViewInfo imageViewInfo;
 	imageViewInfo.Resource = m_Resource;
@@ -225,7 +225,7 @@ void VulkanTexture::CreateView(VulkanDevice* device)
 	imageViewInfo.Subresource.MipSize = m_Region.Subresource.MipSize;
 	imageViewInfo.Subresource.ArraySlice = 0;
 	imageViewInfo.Subresource.ArraySize = m_Region.Subresource.ArraySize;
-	imageViewInfo.ClearValue = GetClearColorValueFor(m_Format);
+	imageViewInfo.ClearValue = value;
 
 	m_View = new VulkanImageView(device, imageViewInfo, m_Name.c_str());
 }

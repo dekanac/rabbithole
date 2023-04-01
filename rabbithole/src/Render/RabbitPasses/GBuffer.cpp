@@ -3,6 +3,7 @@
 defineResource(GBufferPass, Albedo, VulkanTexture);
 defineResource(GBufferPass, Normals, VulkanTexture);
 defineResource(GBufferPass, Velocity, VulkanTexture);
+defineResource(GBufferPass, Emissive, VulkanTexture);
 defineResource(GBufferPass, WorldPosition, VulkanTexture);
 defineResource(GBufferPass, Depth, VulkanTexture);
 
@@ -17,6 +18,20 @@ void GBufferPass::DeclareResources()
 			.flags = {TextureFlags::RenderTarget | TextureFlags::Read},
 			.format = {Format::R8G8B8A8_UNORM},
 			.name = {"GBuffer Albedo"}
+		});
+
+	Emissive = m_Renderer.GetResourceManager().CreateTexture(m_Renderer.GetVulkanDevice(), RWTextureCreateInfo{
+			.dimensions = {GetNativeWidth , GetNativeHeight, 1},
+			.flags = {TextureFlags::RenderTarget | TextureFlags::Read},
+			.format = {Format::R8G8B8A8_UNORM},
+			.name = {"GBuffer Emissive"},
+			.arraySize = {1},
+			.isCube = false,
+			.multisampleType = MultisampleType::Sample_1,
+			.samplerType = SamplerType::Bilinear,
+			.addressMode = AddressMode::Repeat,
+			.mipCount = 1,
+			.clearValue = BLACK_COLOR
 		});
 
 	Normals = m_Renderer.GetResourceManager().CreateTexture(m_Renderer.GetVulkanDevice(), RWTextureCreateInfo{
@@ -65,16 +80,18 @@ void GBufferPass::Setup()
 
 	SetConstantBuffer(0, m_Renderer.GetMainConstBuffer());
 
-	pipelineInfo->SetAttachmentCount(4);
+	pipelineInfo->SetAttachmentCount(5);
 	pipelineInfo->SetColorWriteMask(0, ColorWriteMaskFlags::RGBA);
 	pipelineInfo->SetColorWriteMask(1, ColorWriteMaskFlags::RGBA);
 	pipelineInfo->SetColorWriteMask(2, ColorWriteMaskFlags::RGBA);
 	pipelineInfo->SetColorWriteMask(3, ColorWriteMaskFlags::RGBA);
+	pipelineInfo->SetColorWriteMask(4, ColorWriteMaskFlags::RGBA);
 
 	SetRenderTarget(0, GBufferPass::Albedo);
 	SetRenderTarget(1, GBufferPass::Normals);
 	SetRenderTarget(2, GBufferPass::WorldPosition);
 	SetRenderTarget(3, GBufferPass::Velocity);
+	SetRenderTarget(4, GBufferPass::Emissive);
 	SetDepthStencil(GBufferPass::Depth);
 
 	auto renderPassInfo = stateManager.GetRenderPassInfo();

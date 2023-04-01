@@ -13,6 +13,7 @@ BEGIN_DECLARE_RABBITPASS(GBufferPass)
 	declareResource(Albedo, VulkanTexture);
 	declareResource(Normals, VulkanTexture);
 	declareResource(Velocity, VulkanTexture);
+	declareResource(Emissive, VulkanTexture);
 	declareResource(WorldPosition, VulkanTexture);
     declareResource(Depth, VulkanTexture);
 

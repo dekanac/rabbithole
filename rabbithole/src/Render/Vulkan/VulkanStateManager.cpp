@@ -87,7 +87,7 @@ void VulkanStateManager::SetCombinedImageSampler(uint32_t slot, VulkanTexture* t
 	DescriptorKey k(3);
 	k[0] = slot;
 	k[1] = texture->GetView()->GetID();
-	k[2] = (uint32_t)DescriptorType::CombinedSampler;
+	k[2] = static_cast<uint32_t>(DescriptorType::CombinedSampler);
 
 	//TODO: remove this ugly Singleton call
 	auto& descriptorsMap = Renderer::instance().GetPipelineManager().GetDescriptors();
@@ -119,7 +119,7 @@ void VulkanStateManager::SetConstantBuffer(uint32_t slot, VulkanBuffer* buffer)
 	DescriptorKey k(3);
 	k[0] = slot;
 	k[1] = buffer->GetID();
-	k[2] = (uint32_t)DescriptorType::UniformBuffer;
+	k[2] = static_cast<uint32_t>(DescriptorType::UniformBuffer);
 
 	//TODO: remove this ugly Singleton call
 	auto& descriptorsMap = Renderer::instance().GetPipelineManager().GetDescriptors();
@@ -149,7 +149,7 @@ void VulkanStateManager::SetStorageImage(uint32_t slot, VulkanImageView* view)
 	DescriptorKey k(3);
 	k[0] = slot;
 	k[1] = view->GetID();
-	k[2] = (uint32_t)DescriptorType::StorageImage;
+	k[2] = static_cast<uint32_t>(DescriptorType::StorageImage);
 
 	//TODO: remove this ugly Singleton call
 	auto& descriptorsMap = Renderer::instance().GetPipelineManager().GetDescriptors();
@@ -180,7 +180,7 @@ void VulkanStateManager::SetStorageBuffer(uint32_t slot, VulkanBuffer* buffer)
 	DescriptorKey k(3);
 	k[0] = slot;
 	k[1] = buffer->GetID();
-	k[2] = (uint32_t)DescriptorType::StorageBuffer;
+	k[2] = static_cast<uint32_t>(DescriptorType::StorageBuffer);
 
 	//TODO: remove this ugly Singleton call
 	auto& descriptorsMap = Renderer::instance().GetPipelineManager().GetDescriptors();
@@ -210,7 +210,7 @@ void VulkanStateManager::SetSampledImage(uint32_t slot, VulkanImageView* view)
 	DescriptorKey k(3);
 	k[0] = slot;
 	k[1] = view->GetID();
-	k[2] = (uint32_t)DescriptorType::SampledImage;
+	k[2] = static_cast<uint32_t>(DescriptorType::SampledImage);
 
 	//TODO: remove this ugly Singleton call
 	auto& descriptorsMap = Renderer::instance().GetPipelineManager().GetDescriptors();
@@ -241,7 +241,7 @@ void VulkanStateManager::SetSampler(uint32_t slot, VulkanImageSampler* sampler)
 	DescriptorKey k(3);
 	k[0] = slot;
 	k[1] = sampler->GetID();
-	k[2] = (uint32_t)DescriptorType::Sampler;
+	k[2] = static_cast<uint32_t>(DescriptorType::Sampler);
 
 	//TODO: remove this ugly Singleton call
 	auto& descriptorsMap = Renderer::instance().GetPipelineManager().GetDescriptors();

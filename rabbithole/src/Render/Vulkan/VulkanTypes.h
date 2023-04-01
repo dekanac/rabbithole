@@ -1,6 +1,7 @@
 #pragma once
 
 #include <memory>
+#include "common.h"
 
 #define RABBITHOLE_FLAG_TYPE_SETUP(flagType) \
     inline flagType operator&(flagType a, flagType b) \
@@ -372,7 +373,7 @@ RABBITHOLE_FLAG_TYPE_SETUP(TextureFlags)
 
 struct Color
 {
-	float value[4];
+	rabbitVec4f value;
 };
 
 struct Extent3D

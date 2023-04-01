@@ -48,7 +48,7 @@ void SuperResolutionManager::CreateFsrContext(VulkanDevice* device)
 	m_FsrContextDescription.maxRenderSize.height = m_NativeResolutionHeight;
 	m_FsrContextDescription.displaySize.width = m_UpscaledResolutionWidth;
 	m_FsrContextDescription.displaySize.height = m_UpscaledResolutionHeight;
-	m_FsrContextDescription.flags = FFX_FSR2_ENABLE_AUTO_EXPOSURE;
+	m_FsrContextDescription.flags = 0;
 
 	if (m_Hdr) 
 	{

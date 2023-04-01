@@ -48,5 +48,5 @@ private:
 	Extent2D						m_Extent;
 	uint32_t						m_RTCount = 0;
 	bool							m_HasDepth = false;
-	std::vector<VkClearValue>		m_ClearValues;
+	std::vector<ClearValue>			m_ClearValues;
 };

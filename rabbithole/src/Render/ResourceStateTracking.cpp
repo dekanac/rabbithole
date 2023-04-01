@@ -17,7 +17,7 @@ void ResourceStateTrackingManager::CommitBarriers(Renderer& renderer)
 		{
 			if (resource->GetType() == ResourceType::Texture)
 			{
-				VulkanTexture* textureResource = (VulkanTexture*)resource;
+				VulkanTexture* textureResource = static_cast<VulkanTexture*>(resource);
 				uint32_t mipSlice = textureResource->GetRegion().Subresource.MipSlice;
 				uint32_t mipCount = textureResource->GetRegion().Subresource.MipSize;
 
@@ -25,7 +25,7 @@ void ResourceStateTrackingManager::CommitBarriers(Renderer& renderer)
 			}
 			else if (resource->GetType() == ResourceType::Buffer)
 			{
-				renderer.ResourceBarrier((VulkanBuffer*)resource, resourceState, resourceShouldBe, resourcePreviousStage, resourceCurrentStage);
+				renderer.ResourceBarrier(static_cast<VulkanBuffer*>(resource), resourceState, resourceShouldBe, resourcePreviousStage, resourceCurrentStage);
 			}
 		}
 	}

@@ -12,6 +12,7 @@ layout (binding = 6) uniform sampler2DArray samplerShadowMap;
 layout (binding = 7) uniform sampler2D samplerVelocity;
 layout (binding = 8) uniform sampler2D samplerDepth;
 layout (binding = 9) uniform sampler2DArray samplerDenoisedShadow;
+layout (binding = 10) uniform sampler2D samplerEmissive;
 
 layout (location = 0) out vec4 outColor;
 
@@ -71,7 +72,7 @@ float MicrofacetDistribution(MaterialInfo materialInfo, AngularInfo angularInfo)
 
 vec3 GetPointShade(vec3 pointToLight, MaterialInfo materialInfo, vec3 normal, vec3 view)
 {
-    AngularInfo angularInfo = getAngularInfo(pointToLight, normal, view);
+    AngularInfo angularInfo = GetAngularInfo(pointToLight, normal, view);
 
     if (angularInfo.NdotL > 0.0 || angularInfo.NdotV > 0.0)
     {
@@ -144,7 +145,6 @@ vec3 ApplySpotLight(Light light, MaterialInfo materialInfo, vec3 normal, vec3 wo
 
 vec3 DoPBRLighting(SceneInfo sceneInfo, in vec3 diffuseColor, in vec3 specularColor, in float perceptualRoughness)
 {
-
     // Roughness is authored as perceptual roughness; as is convention,
     // convert to material roughness by squaring the perceptual roughness [2].
     float alphaRoughness = perceptualRoughness * perceptualRoughness;
@@ -198,7 +198,7 @@ vec3 DoPBRLighting(SceneInfo sceneInfo, in vec3 diffuseColor, in vec3 specularCo
 
     vec3 emissive = vec3(0, 0, 0);
 //#ifdef ID_emissiveTexture
-//    emissive = (emissiveTexture.Sample(samEmissive, getEmissiveUV(Input))).rgb * u_pbrParams.myPerObject_u_EmissiveFactor.rgb * perFrame.u_EmissiveFactor;
+    emissive = texture(samplerEmissive, inUV).rgb * 2.f;
 //#else        
 //    emissive = u_pbrParams.myPerObject_u_EmissiveFactor.rgb * perFrame.u_EmissiveFactor;
 //#endif

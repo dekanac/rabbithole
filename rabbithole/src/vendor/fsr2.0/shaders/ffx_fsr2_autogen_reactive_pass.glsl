@@ -1,6 +1,6 @@
 // This file is part of the FidelityFX SDK.
 //
-// Copyright (c) 2022 Advanced Micro Devices, Inc. All rights reserved.
+// Copyright (c) 2022-2023 Advanced Micro Devices, Inc. All rights reserved.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -24,18 +24,18 @@
 #extension GL_GOOGLE_include_directive : require
 #extension GL_EXT_samplerless_texture_functions : require
 
-#define FSR2_BIND_SRV_PRE_ALPHA_COLOR                       0
-#define FSR2_BIND_SRV_POST_ALPHA_COLOR                      1
-#define FSR2_BIND_UAV_REACTIVE                              2
+#define FSR2_BIND_SRV_INPUT_OPAQUE_ONLY                     0
+#define FSR2_BIND_SRV_INPUT_COLOR                           1
+#define FSR2_BIND_UAV_AUTOREACTIVE                          2
 #define FSR2_BIND_CB_REACTIVE                               3
-#define FSR2_BIND_CB_FSR2									4
+#define FSR2_BIND_CB_FSR2                                   4
 
 #include "ffx_fsr2_callbacks_glsl.h"
 #include "ffx_fsr2_common.h"
 
-layout (set = 1, binding = FSR2_BIND_SRV_PRE_ALPHA_COLOR) 	uniform texture2D   r_input_color_pre_alpha;
-layout (set = 1, binding = FSR2_BIND_SRV_POST_ALPHA_COLOR) 	uniform texture2D   r_input_color_post_alpha;
-layout (set = 1, binding = FSR2_BIND_UAV_REACTIVE, r8)   uniform image2D     rw_output_reactive_mask;
+// layout (set = 1, binding = FSR2_BIND_SRV_PRE_ALPHA_COLOR)  uniform texture2D   r_input_color_pre_alpha;
+// layout (set = 1, binding = FSR2_BIND_SRV_POST_ALPHA_COLOR) uniform texture2D   r_input_color_post_alpha;
+// layout (set = 1, binding = FSR2_BIND_UAV_REACTIVE, r8)     uniform image2D     rw_output_reactive_mask;
 
 
 #ifndef FFX_FSR2_THREAD_GROUP_WIDTH
@@ -51,21 +51,23 @@ layout (set = 1, binding = FSR2_BIND_UAV_REACTIVE, r8)   uniform image2D     rw_
 #define FFX_FSR2_NUM_THREADS layout (local_size_x = FFX_FSR2_THREAD_GROUP_WIDTH, local_size_y = FFX_FSR2_THREAD_GROUP_HEIGHT, local_size_z = FFX_FSR2_THREAD_GROUP_DEPTH) in;
 #endif // #ifndef FFX_FSR2_NUM_THREADS
 
+#if defined(FSR2_BIND_CB_REACTIVE)
 layout (set = 1, binding = FSR2_BIND_CB_REACTIVE, std140) uniform cbGenerateReactive_t
 {
 	float   scale;
 	float   threshold;
+	float   binaryValue;
 	uint    flags;
-	float   _padding_;
 } cbGenerateReactive;
+#endif
 
 FFX_FSR2_NUM_THREADS
 void main()
 {
     FfxUInt32x2 uDispatchThreadId = gl_GlobalInvocationID.xy;
 
-    FfxFloat32x3 ColorPreAlpha    = texelFetch(r_input_color_pre_alpha, FfxInt32x2(uDispatchThreadId), 0).rgb;
-    FfxFloat32x3 ColorPostAlpha   = texelFetch(r_input_color_post_alpha, FfxInt32x2(uDispatchThreadId), 0).rgb;
+    FfxFloat32x3 ColorPreAlpha  = LoadOpaqueOnly(FFX_MIN16_I2(uDispatchThreadId)).rgb;
+    FfxFloat32x3 ColorPostAlpha = LoadInputColor(FFX_MIN16_I2(uDispatchThreadId)).rgb;
     
     if ((cbGenerateReactive.flags & FFX_FSR2_AUTOREACTIVEFLAGS_APPLY_TONEMAP) != 0)
     {
@@ -85,7 +87,7 @@ void main()
     out_reactive_value = ((cbGenerateReactive.flags & FFX_FSR2_AUTOREACTIVEFLAGS_USE_COMPONENTS_MAX)!=0) ? max(delta.x, max(delta.y, delta.z)) : length(delta);
     out_reactive_value *= cbGenerateReactive.scale;
 
-    out_reactive_value = ((cbGenerateReactive.flags & FFX_FSR2_AUTOREACTIVEFLAGS_APPLY_THRESHOLD)!=0) ? ((out_reactive_value < cbGenerateReactive.threshold) ? 0 : 1) : out_reactive_value;
+    out_reactive_value = ((cbGenerateReactive.flags & FFX_FSR2_AUTOREACTIVEFLAGS_APPLY_THRESHOLD)!=0) ? ((out_reactive_value < cbGenerateReactive.threshold) ? 0 : cbGenerateReactive.binaryValue) : out_reactive_value;
 
-    imageStore(rw_output_reactive_mask, FfxInt32x2(uDispatchThreadId), vec4(out_reactive_value));
+    imageStore(rw_output_autoreactive, FfxInt32x2(uDispatchThreadId), vec4(out_reactive_value));
 }

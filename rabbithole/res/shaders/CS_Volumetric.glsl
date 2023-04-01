@@ -64,7 +64,7 @@ void main()
     if (FindTriangleIntersection(ray))
     {
         shadowedSunlight = 0.4f;
-        noiseDensity *= 0.3f;
+        noiseDensity *= 0.05f;
     }
     else
     {
@@ -87,7 +87,7 @@ void main()
             float distance = length(incidentVector);
             float attenutation = Lights.light[j].radius / (pow(distance, 2.0) + 1.0);
             vec3 lightColor = Lights.light[j].color;
-            lightIntensity += lightColor * attenutation* attenutation;
+            lightIntensity += lightColor * attenutation * attenutation;
         }
     }
 
