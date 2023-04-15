@@ -60,10 +60,21 @@ bool Renderer::Init()
 
 	//for now max 10240 commands
 	m_GeometryIndirectDrawBuffer = new IndexedIndirectBuffer(m_VulkanDevice, 10240);
+	
+#if defined(VULKAN_HWRT)
+	RayTracing::InitRTFunctions(m_VulkanDevice);
+#endif
 
 	//init acceleration structure
+	CreateAccelerationStructure();
 	ConstructBVH();
 	InitLights();
+
+	PipelineInfo rtPipeInfo{};
+	rtPipeInfo.rayTracingShaders[0] = GetShader("RS_RTShadowRaygen");
+	rtPipeInfo.rayTracingShaders[1] = GetShader("HS_RTShadowClosestHit");
+
+	tmpRTPipeline = new RayTracingPipeline(GetVulkanDevice(), rtPipeInfo);
 
 	return true;
 }
@@ -304,15 +315,33 @@ void Renderer::DrawFullScreenQuad()
 	m_StateManager.Reset();
 }
 
+
+void Renderer::TraceRays()
+{
+#if defined(VULKAN_HWRT)
+	BindPipeline<RayTracingPipeline>();
+	
+	VkStridedDeviceAddressRegionKHR emptySbtEntry = {};
+	auto& bindingTables = m_StateManager.GetPipeline()->GetBindingTables();
+	m_VulkanDevice.pfnCmdTraceRaysKHR(
+		GET_VK_HANDLE(GetCurrentCommandBuffer()),
+		&bindingTables.raygen.stridedDeviceAddressRegion,
+		&bindingTables.miss.stridedDeviceAddressRegion,
+		&bindingTables.hit.stridedDeviceAddressRegion,
+		&emptySbtEntry,
+		GetNativeWidth,
+		GetNativeHeight,
+		1);
+#endif
+}
+
 void Renderer::BindPushConstInternal()
 {
 	if (m_StateManager.ShouldBindPushConst())
 	{
-		VkShaderStageFlagBits shaderStage = (m_StateManager.GetPipeline()->GetType() == PipelineType::Graphics) ? VkShaderStageFlagBits(VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_VERTEX_BIT) : (VK_SHADER_STAGE_COMPUTE_BIT);
-		//TODO: what the hell is going on here
 		vkCmdPushConstants(GET_VK_HANDLE(GetCurrentCommandBuffer()),
 			GET_VK_HANDLE_PTR(m_StateManager.GetPipeline()->GetPipelineLayout()),
-			shaderStage,
+			GetVkShaderStageFrom(m_StateManager.GetPipeline()->GetType()),
 			0,
 			m_StateManager.GetPushConst()->size,
 			m_StateManager.GetPushConst()->data);
@@ -442,6 +471,261 @@ void Renderer::BindUBO()
 	}
 }
 
+void Renderer::CreateAccelerationStructure()
+{
+#if defined(VULKAN_HWRT)
+	std::vector<rabbitVec4f> verticesFinal;
+
+	uint32_t vertexOffset = 0;
+
+	for (auto& model : gltfModels)
+	{
+		std::vector<bool> verticesMultipliedWithMatrix;
+
+		auto modelVertexBuffer = model.GetVertexBuffer();
+		auto modelIndexBuffer = model.GetIndexBuffer();
+
+		//TODO: replace this with one Main Init Render command buffer with a lifetime only in init stages
+		VulkanCommandBuffer tempCommandBuffer(m_VulkanDevice, "Temp command buffer");
+		tempCommandBuffer.BeginCommandBuffer();
+
+		VulkanBuffer stagingBuffer(m_VulkanDevice, BufferUsageFlags::TransferDst, MemoryAccess::CPU, modelVertexBuffer->GetSize(), "StagingBuffer");
+		m_VulkanDevice.CopyBuffer(tempCommandBuffer, *modelVertexBuffer, stagingBuffer, modelVertexBuffer->GetSize());
+
+		Vertex* vertexBufferCpu = (Vertex*)stagingBuffer.Map();
+		uint32_t vertexCount = static_cast<uint32_t>(modelVertexBuffer->GetSize() / sizeof(Vertex));
+		verticesMultipliedWithMatrix.resize(vertexCount);
+
+		VulkanBuffer stagingBuffer2(m_VulkanDevice, BufferUsageFlags::TransferDst, MemoryAccess::CPU, modelIndexBuffer->GetSize(), "StagingBuffer");
+		m_VulkanDevice.CopyBuffer(tempCommandBuffer, *modelIndexBuffer, stagingBuffer2, modelIndexBuffer->GetSize());
+
+		tempCommandBuffer.EndAndSubmitCommandBuffer();
+
+		uint32_t* indexBufferCpu = (uint32_t*)stagingBuffer2.Map();
+		uint32_t indexCount = static_cast<uint32_t>(modelIndexBuffer->GetSize() / sizeof(uint32_t));
+
+		for (auto node : model.GetNodes())
+		{
+			glm::mat4 nodeMatrix = node.matrix;
+			VulkanglTFModel::Node* currentParent = node.parent;
+
+			while (currentParent)
+			{
+				nodeMatrix = currentParent->matrix * nodeMatrix;
+				currentParent = currentParent->parent;
+			}
+
+			for (auto& primitive : node.mesh.primitives)
+			{
+				for (uint32_t i = primitive.firstIndex; i < primitive.firstIndex + primitive.indexCount; i++)
+				{
+					auto currentIndex = indexBufferCpu[i];
+					if (!verticesMultipliedWithMatrix[currentIndex])
+					{
+						vertexBufferCpu[currentIndex].position = nodeMatrix * rabbitVec4f{ vertexBufferCpu[currentIndex].position, 1 };
+						verticesMultipliedWithMatrix[currentIndex] = true;
+					}
+				}
+			}
+		}
+
+		for (uint32_t k = 0; k < vertexCount; k++)
+		{
+			rabbitVec4f position = rabbitVec4f{ vertexBufferCpu[k].position, 1.f };
+			verticesFinal.push_back(position);
+		}
+
+		vertexOffset += vertexCount;
+	}
+	//BLAS
+	{
+		VkDeviceOrHostAddressConstKHR vertexBufferDeviceAddress{};
+		VkDeviceOrHostAddressConstKHR indexBufferDeviceAddress{};
+
+		VulkanBuffer* sceneVertexBuffer = m_ResourceManager.CreateBuffer(m_VulkanDevice, BufferCreateInfo{
+			.flags = {BufferUsageFlags::StorageBuffer | BufferUsageFlags::ShaderDeviceAddress | BufferUsageFlags::AccelerationStructureBuild },
+			.memoryAccess = {MemoryAccess::GPU},
+			.size = {static_cast<uint32_t>(verticesFinal.size() * sizeof(rabbitVec4f))},
+			.name = {"VertexBuffer"}
+			});
+		sceneVertexBuffer->FillBuffer(verticesFinal.data(), static_cast<uint32_t>(verticesFinal.size()) * sizeof(rabbitVec4f));
+
+		VulkanBuffer* sceneIndexBuffer = gltfModels[0].GetIndexBuffer();
+
+		vertexBufferDeviceAddress.deviceAddress = RayTracing::GetBufferDeviceAddress(m_VulkanDevice, sceneVertexBuffer);
+		indexBufferDeviceAddress.deviceAddress = RayTracing::GetBufferDeviceAddress(m_VulkanDevice, sceneIndexBuffer);
+
+		uint32_t numTriangles = static_cast<uint32_t>(sceneIndexBuffer->GetSize() / sizeof(uint32_t)) / 3;
+		uint32_t maxVertex = static_cast<uint32_t>(sceneVertexBuffer->GetSize() / sizeof(rabbitVec4f));
+
+		VkAccelerationStructureGeometryKHR accelerationStructureGeometry{ VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_KHR };
+		accelerationStructureGeometry.flags = VK_GEOMETRY_OPAQUE_BIT_KHR;
+		accelerationStructureGeometry.geometryType = VK_GEOMETRY_TYPE_TRIANGLES_KHR;
+		accelerationStructureGeometry.geometry.triangles.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_TRIANGLES_DATA_KHR;
+		accelerationStructureGeometry.geometry.triangles.vertexFormat = VK_FORMAT_R32G32B32_SFLOAT;
+		accelerationStructureGeometry.geometry.triangles.vertexData = vertexBufferDeviceAddress;
+		accelerationStructureGeometry.geometry.triangles.maxVertex = maxVertex;
+		accelerationStructureGeometry.geometry.triangles.vertexStride = sizeof(rabbitVec4f);
+		accelerationStructureGeometry.geometry.triangles.indexType = VK_INDEX_TYPE_UINT32;
+		accelerationStructureGeometry.geometry.triangles.indexData = indexBufferDeviceAddress;
+		accelerationStructureGeometry.geometry.triangles.transformData.deviceAddress = 0;
+		accelerationStructureGeometry.geometry.triangles.transformData.hostAddress = nullptr;
+
+		// Get size info
+		VkAccelerationStructureBuildGeometryInfoKHR accelerationStructureBuildGeometryInfo{ VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_GEOMETRY_INFO_KHR };
+		accelerationStructureBuildGeometryInfo.type = VK_ACCELERATION_STRUCTURE_TYPE_BOTTOM_LEVEL_KHR;
+		accelerationStructureBuildGeometryInfo.flags = VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_TRACE_BIT_KHR;
+		accelerationStructureBuildGeometryInfo.geometryCount = 1;
+		accelerationStructureBuildGeometryInfo.pGeometries = &accelerationStructureGeometry;
+
+		VkAccelerationStructureBuildSizesInfoKHR accelerationStructureBuildSizesInfo{ VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_SIZES_INFO_KHR };
+		m_VulkanDevice.pfnGetAccelerationStructureBuildSizesKHR(
+			m_VulkanDevice.GetGraphicDevice(),
+			VK_ACCELERATION_STRUCTURE_BUILD_TYPE_DEVICE_KHR,
+			&accelerationStructureBuildGeometryInfo,
+			&numTriangles,
+			&accelerationStructureBuildSizesInfo);
+
+		RayTracing::CreateAccelerationStructure(this, BLAS, VK_ACCELERATION_STRUCTURE_TYPE_BOTTOM_LEVEL_KHR, accelerationStructureBuildSizesInfo);
+
+		RayTracing::ScratchBuffer scratchBuffer{};
+		scratchBuffer.buffer = m_ResourceManager.CreateBuffer(m_VulkanDevice, BufferCreateInfo{
+				.flags = {BufferUsageFlags::StorageBuffer | BufferUsageFlags::ShaderDeviceAddress},
+				.memoryAccess = {MemoryAccess::GPU},
+				.size = {static_cast<uint32_t>(accelerationStructureBuildSizesInfo.buildScratchSize)},
+				.name = {"BLAS ScratchBuffer"}
+			});
+		scratchBuffer.deviceAddress = RayTracing::AlignedSize(RayTracing::GetBufferDeviceAddress(m_VulkanDevice, scratchBuffer.buffer), m_VulkanDevice.GetAccelerationStructureProperties().minAccelerationStructureScratchOffsetAlignment);
+
+		VkAccelerationStructureBuildGeometryInfoKHR accelerationBuildGeometryInfo{ VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_GEOMETRY_INFO_KHR };
+		accelerationBuildGeometryInfo.type = VK_ACCELERATION_STRUCTURE_TYPE_BOTTOM_LEVEL_KHR;
+		accelerationBuildGeometryInfo.flags = VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_TRACE_BIT_KHR;
+		accelerationBuildGeometryInfo.mode = VK_BUILD_ACCELERATION_STRUCTURE_MODE_BUILD_KHR;
+		accelerationBuildGeometryInfo.dstAccelerationStructure = BLAS.accelerationStructure;
+		accelerationBuildGeometryInfo.geometryCount = 1;
+		accelerationBuildGeometryInfo.pGeometries = &accelerationStructureGeometry;
+		accelerationBuildGeometryInfo.scratchData.deviceAddress = scratchBuffer.deviceAddress;
+
+		VkAccelerationStructureBuildRangeInfoKHR accelerationStructureBuildRangeInfo{};
+		accelerationStructureBuildRangeInfo.primitiveCount = numTriangles;
+		accelerationStructureBuildRangeInfo.primitiveOffset = 0;
+		accelerationStructureBuildRangeInfo.firstVertex = 0;
+		accelerationStructureBuildRangeInfo.transformOffset = 0;
+		std::vector<VkAccelerationStructureBuildRangeInfoKHR*> accelerationBuildStructureRangeInfos = { &accelerationStructureBuildRangeInfo };
+
+		VulkanCommandBuffer commandBuffer{ m_VulkanDevice, "BuildBLAS" };
+		commandBuffer.BeginCommandBuffer(true);
+
+		m_VulkanDevice.pfnCmdBuildAccelerationStructuresKHR(
+			GET_VK_HANDLE(commandBuffer),
+			1,
+			&accelerationBuildGeometryInfo,
+			accelerationBuildStructureRangeInfos.data());
+
+		commandBuffer.EndAndSubmitCommandBuffer();
+
+		delete scratchBuffer.buffer;
+	}
+	//TLAS
+	{
+		VkTransformMatrixKHR transformMatrix = {
+				1.0f, 0.0f, 0.0f, 0.0f,
+				0.0f, 1.0f, 0.0f, 0.0f,
+				0.0f, 0.0f, 1.0f, 0.0f };
+
+		VkAccelerationStructureInstanceKHR instance{};
+		instance.transform = transformMatrix;
+		instance.instanceCustomIndex = 0;
+		instance.mask = 0xFF;
+		instance.instanceShaderBindingTableRecordOffset = 0;
+		instance.flags = VK_GEOMETRY_INSTANCE_TRIANGLE_FACING_CULL_DISABLE_BIT_KHR;
+		instance.accelerationStructureReference = BLAS.deviceAddress;
+
+		// Buffer for instance data
+		VulkanBuffer* instancesBuffer = m_ResourceManager.CreateBuffer(m_VulkanDevice, BufferCreateInfo{
+				.flags = { BufferUsageFlags::ShaderDeviceAddress | BufferUsageFlags::AccelerationStructureBuild },
+				.memoryAccess = { MemoryAccess::CPU },
+				.size = { sizeof(VkAccelerationStructureInstanceKHR) },
+				.name = { "Instances Buffer" }
+			});
+		instancesBuffer->FillBuffer(&instance);
+
+		VkDeviceOrHostAddressConstKHR instanceDataDeviceAddress{};
+		instanceDataDeviceAddress.deviceAddress = RayTracing::GetBufferDeviceAddress(m_VulkanDevice, instancesBuffer);
+
+		VkAccelerationStructureGeometryKHR accelerationStructureGeometry{ VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_KHR };
+		accelerationStructureGeometry.geometryType = VK_GEOMETRY_TYPE_INSTANCES_KHR;
+		accelerationStructureGeometry.flags = VK_GEOMETRY_OPAQUE_BIT_KHR;
+		accelerationStructureGeometry.geometry.instances.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_INSTANCES_DATA_KHR;
+		accelerationStructureGeometry.geometry.instances.arrayOfPointers = VK_FALSE;
+		accelerationStructureGeometry.geometry.instances.data = instanceDataDeviceAddress;
+
+		// Get size info
+		VkAccelerationStructureBuildGeometryInfoKHR accelerationStructureBuildGeometryInfo{ VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_GEOMETRY_INFO_KHR };
+		accelerationStructureBuildGeometryInfo.type = VK_ACCELERATION_STRUCTURE_TYPE_TOP_LEVEL_KHR;
+		accelerationStructureBuildGeometryInfo.flags = VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_TRACE_BIT_KHR;
+		accelerationStructureBuildGeometryInfo.geometryCount = 1;
+		accelerationStructureBuildGeometryInfo.pGeometries = &accelerationStructureGeometry;
+
+		uint32_t primitive_count = 1;
+
+		VkAccelerationStructureBuildSizesInfoKHR accelerationStructureBuildSizesInfo{ VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_SIZES_INFO_KHR };
+		m_VulkanDevice.pfnGetAccelerationStructureBuildSizesKHR(
+			m_VulkanDevice.GetGraphicDevice(),
+			VK_ACCELERATION_STRUCTURE_BUILD_TYPE_DEVICE_KHR,
+			&accelerationStructureBuildGeometryInfo,
+			&primitive_count,
+			&accelerationStructureBuildSizesInfo);
+
+		// @todo: as return value?
+		RayTracing::CreateAccelerationStructure(this, TLAS, VK_ACCELERATION_STRUCTURE_TYPE_TOP_LEVEL_KHR, accelerationStructureBuildSizesInfo);
+
+		// Create a small scratch buffer used during build of the top level acceleration structure
+		RayTracing::ScratchBuffer scratchBufferTLAS{};
+		scratchBufferTLAS.buffer = m_ResourceManager.CreateBuffer(m_VulkanDevice, BufferCreateInfo{
+				.flags = {BufferUsageFlags::StorageBuffer | BufferUsageFlags::ShaderDeviceAddress},
+				.memoryAccess = {MemoryAccess::GPU},
+				.size = {static_cast<uint32_t>(accelerationStructureBuildSizesInfo.buildScratchSize)},
+				.name = {"TLAS ScratchBuffer"}
+			});
+		scratchBufferTLAS.deviceAddress = RayTracing::AlignedSize(RayTracing::GetBufferDeviceAddress(m_VulkanDevice, scratchBufferTLAS.buffer), m_VulkanDevice.GetAccelerationStructureProperties().minAccelerationStructureScratchOffsetAlignment);
+
+		VkAccelerationStructureBuildGeometryInfoKHR accelerationBuildGeometryInfo{ VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_GEOMETRY_INFO_KHR };
+		accelerationBuildGeometryInfo.type = VK_ACCELERATION_STRUCTURE_TYPE_TOP_LEVEL_KHR;
+		accelerationBuildGeometryInfo.flags = VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_TRACE_BIT_KHR;
+		accelerationBuildGeometryInfo.mode = VK_BUILD_ACCELERATION_STRUCTURE_MODE_BUILD_KHR;
+		accelerationBuildGeometryInfo.dstAccelerationStructure = TLAS.accelerationStructure;
+		accelerationBuildGeometryInfo.geometryCount = 1;
+		accelerationBuildGeometryInfo.pGeometries = &accelerationStructureGeometry;
+		accelerationBuildGeometryInfo.scratchData.deviceAddress = scratchBufferTLAS.deviceAddress;
+
+		VkAccelerationStructureBuildRangeInfoKHR accelerationStructureBuildRangeInfo{};
+		accelerationStructureBuildRangeInfo.primitiveCount = 1;
+		accelerationStructureBuildRangeInfo.primitiveOffset = 0;
+		accelerationStructureBuildRangeInfo.firstVertex = 0;
+		accelerationStructureBuildRangeInfo.transformOffset = 0;
+		std::vector<VkAccelerationStructureBuildRangeInfoKHR*> accelerationBuildStructureRangeInfos = { &accelerationStructureBuildRangeInfo };
+
+		// Build the acceleration structure on the device via a one-time command buffer submission
+		// Some implementations may support acceleration structure building on the host (VkPhysicalDeviceAccelerationStructureFeaturesKHR->accelerationStructureHostCommands), but we prefer device builds
+		
+		VulkanCommandBuffer commandBuffer{ m_VulkanDevice, "BuildTLAS" };
+		commandBuffer.BeginCommandBuffer(true);
+
+		m_VulkanDevice.pfnCmdBuildAccelerationStructuresKHR(
+			GET_VK_HANDLE(commandBuffer),
+			1,
+			&accelerationBuildGeometryInfo,
+			accelerationBuildStructureRangeInfos.data());
+
+		commandBuffer.EndAndSubmitCommandBuffer();
+
+		delete scratchBufferTLAS.buffer;
+		delete instancesBuffer;
+	}
+#endif
+}
+
 void Renderer::BindDescriptorSets()
 {
 	VulkanDescriptorSet* descriptorSet = m_StateManager.FinalizeDescriptorSet(m_VulkanDevice, m_DescriptorPool.get());
@@ -498,8 +782,17 @@ void Renderer::LoadAndCreateShaders()
 					case 'F':
 						createInfo.Type = ShaderType::Fragment;
 						break;
+					case 'R':
+						createInfo.Type = ShaderType::RayGen;
+						break;
+					case 'H':
+						createInfo.Type = ShaderType::ClosestHit;
+						break;
+					case 'M':
+						createInfo.Type = ShaderType::Miss;
+						break;
 					default:
-						LOG_ERROR("Unrecognized shader stage! Should be CS, VS or FS");
+						LOG_ERROR("Unrecognized shader stage! Should be CS, VS, FS, HS, MS or RS");
 						break;
 					}
 
@@ -564,7 +857,7 @@ void Renderer::RecordCommandBuffer()
 	{
 		//make imgui window pos and size same as the main window
 		m_ImGuiManager.NewFrame(0.f, 0.f, static_cast<float>(Window::instance().GetExtent().width), static_cast<float>(Window::instance().GetExtent().height));
-		
+
 		ImGui::Begin("Main debug frame");
 		ImGui::Checkbox("GPU Profiler Enabled: ", &m_RecordGPUTimeStamps);
 		ImGui::End();
@@ -623,6 +916,10 @@ void Renderer::CreateDescriptorPool()
 	uboPoolSize.Count = 400;
 	uboPoolSize.Type = DescriptorType::UniformBuffer;
 
+	VulkanDescriptorPoolSize asPoolSize{};
+	asPoolSize.Count = 20;
+	asPoolSize.Type = DescriptorType::AccelerationStructure;
+
 	VulkanDescriptorPoolSize samImgPoolSize{};
 	samImgPoolSize.Count = 400;
 	samImgPoolSize.Type = DescriptorType::SampledImage;
@@ -645,7 +942,7 @@ void Renderer::CreateDescriptorPool()
 
 	VulkanDescriptorPoolInfo vulkanDescriptorPoolInfo{};
 
-	vulkanDescriptorPoolInfo.DescriptorSizes = { uboPoolSize, cisPoolSize, siPoolSize, sbPoolSize, samImgPoolSize, sPoolSize };
+	vulkanDescriptorPoolInfo.DescriptorSizes = { uboPoolSize, asPoolSize, cisPoolSize, siPoolSize, sbPoolSize, samImgPoolSize, sPoolSize };
 
 	vulkanDescriptorPoolInfo.MaxSets = 2000;
 
@@ -776,7 +1073,7 @@ void Renderer::ConstructBVH()
 
 	uint32_t* triIndices;
 	uint32_t indicesNum = 0;
-		
+
 	CacheFriendlyBVHNode* root;
 	uint32_t nodeNum = 0;
 
@@ -872,7 +1169,7 @@ void Renderer::UpdateUIStateAndFSR2PreDraw()
 	m_CurrentUIState.deltaTime = m_CurrentDeltaTime * 1000.f; //needs to be in ms
 	m_CurrentUIState.renderHeight = static_cast<float>(GetNativeHeight);
 	m_CurrentUIState.renderWidth = static_cast<float>(GetNativeWidth);
-	m_CurrentUIState.sharpness = 1.f;
+	m_CurrentUIState.sharpness = 0.5f;
 	m_CurrentUIState.reset = m_CurrentCameraState.HasViewProjMatrixChanged;
 	m_CurrentUIState.useRcas = true;
 	m_CurrentUIState.useTaa = true;
@@ -884,7 +1181,7 @@ void Renderer::ImguiProfilerWindow(std::vector<TimeStamp>& timeStamps)
 {
 	ImGui::Begin("GPU Profiler");
 
-	ImGui::TextWrapped("GPU Adapter: %s", m_VulkanDevice.GetPhysicalDeviceProperties().deviceName);
+	ImGui::TextWrapped("GPU Adapter: %s", m_VulkanDevice.GetPhysicalDeviceProperties().properties.deviceName);
 	ImGui::Text("Display Resolution : %ix%i", GetUpscaledWidth, GetUpscaledHeight);
 	ImGui::Text("Render Resolution : %ix%i", GetNativeWidth, GetNativeHeight);
 
@@ -895,10 +1192,8 @@ void Renderer::ImguiProfilerWindow(std::vector<TimeStamp>& timeStamps)
 	ImGui::Text("FPS        : %d (%.2f ms)", fps, frameTime_ms);
 	ImGui::Text("Num of triangles   : %.2fk", numOfTriangles);
 
-
 	if (ImGui::CollapsingHeader("GPU Timings", ImGuiTreeNodeFlags_DefaultOpen))
 	{
-
 		const float unitScaling = 1.0f / 1000.0f; //turn to miliseconds
 
 		for (uint32_t i = 0; i < timeStamps.size(); i++)
@@ -912,24 +1207,6 @@ void Renderer::ImguiProfilerWindow(std::vector<TimeStamp>& timeStamps)
 			}
 
 			ImGui::Text("%-27s: %7.2f %s", name.c_str(), value, "ms");
-
-			// 		if (m_UIState.bShowAverage)
-			// 		{
-			// 			if (m_UIState.displayedTimeStamps.size() == timeStamps.size())
-			// 			{
-			// 				ImGui::SameLine();
-			// 				ImGui::Text("  avg: %7.2f %s", m_UIState.displayedTimeStamps[i].sum * unitScaling, pStrUnit);
-			// 				ImGui::SameLine();
-			// 				ImGui::Text("  min: %7.2f %s", m_UIState.displayedTimeStamps[i].minimum * unitScaling, pStrUnit);
-			// 				ImGui::SameLine();
-			// 				ImGui::Text("  max: %7.2f %s", m_UIState.displayedTimeStamps[i].maximum * unitScaling, pStrUnit);
-			// 			}
-			// 
-			// 			UIState::AccumulatedTimeStamp* pAccumulatingTimeStamp = &m_UIState.accumulatingTimeStamps[i];
-			// 			pAccumulatingTimeStamp->sum += timeStamps[i].m_microseconds;
-			// 			pAccumulatingTimeStamp->minimum = min(pAccumulatingTimeStamp->minimum, timeStamps[i].m_microseconds);
-			// 			pAccumulatingTimeStamp->maximum = max(pAccumulatingTimeStamp->maximum, timeStamps[i].m_microseconds);
-			// 		}
 		}
 	}
 
@@ -1107,6 +1384,18 @@ void Renderer::Dispatch(uint32_t x, uint32_t y, uint32_t z)
 	vkCmdDispatch(GET_VK_HANDLE(GetCurrentCommandBuffer()), x, y, z);
 }
 
+void Renderer::ClearImage(VulkanTexture* texture, Color clearValue)
+{
+	auto currentState = texture->GetResourceState();
+	m_VulkanDevice.ResourceBarrier(GetCurrentCommandBuffer(), texture, texture->GetResourceState(), ResourceState::TransferDst, texture->GetCurrentResourceStage(), ResourceStage::Transfer);
+
+	VkClearColorValue clearColor{ clearValue.value.x, clearValue.value.y, clearValue.value.z, clearValue.value.w };
+	VkImageSubresourceRange range = { VK_IMAGE_ASPECT_COLOR_BIT, 0, texture->GetMipCount(), 0, texture->GetRegion().Subresource.ArraySize };
+	vkCmdClearColorImage(GET_VK_HANDLE(GetCurrentCommandBuffer()), GET_VK_HANDLE_PTR(texture->GetResource()), VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, &clearColor, 1, &range);
+
+	m_VulkanDevice.ResourceBarrier(GetCurrentCommandBuffer(), texture, ResourceState::TransferDst, currentState, ResourceStage::Transfer, texture->GetPreviousResourceStage());
+}
+
 void Renderer::CopyImageToBuffer(VulkanTexture* texture, VulkanBuffer* buffer)
 {
 	m_VulkanDevice.CopyImageToBuffer(GetCurrentCommandBuffer(), texture, buffer);
@@ -1212,6 +1501,21 @@ void Renderer::BindPipeline<ComputePipeline>()
 	m_StateManager.SetPipeline(computePipeline);
 
 	computePipeline->Bind(GetCurrentCommandBuffer());
+
+	BindDescriptorSets();
+
+	BindPushConstInternal();
+}
+
+
+template<>
+void Renderer::BindPipeline<RayTracingPipeline>()
+{
+	m_ResourceStateTrackingManager.CommitBarriers(*this);
+
+	m_StateManager.SetPipeline(tmpRTPipeline);
+
+	tmpRTPipeline->Bind(GetCurrentCommandBuffer());
 
 	BindDescriptorSets();
 

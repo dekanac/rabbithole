@@ -1,5 +1,7 @@
 #pragma once
 
+#include "Render/Raytracing.h"
+
 class VulkanDevice;
 class VulkanBuffer;
 class VulkanImageView;
@@ -14,14 +16,18 @@ struct VulkanDescriptorInfo
 	VulkanBuffer*			buffer; 
 	VulkanImageView*		imageView;
 	VulkanImageSampler*		imageSampler;
+#if defined(VULKAN_HWRT)
+	RayTracing::AccelerationStructure* accelerationStructure;
+#endif
 };
 
 struct DescriptorResourceInfo
 {
 	union
 	{
-		VkDescriptorImageInfo	ImageInfo;
-		VkDescriptorBufferInfo	BufferInfo;
+		VkDescriptorImageInfo		ImageInfo;
+		VkDescriptorBufferInfo		BufferInfo;
+		VkAccelerationStructureKHR	AccelerationStructureHandle;
 	} m_ResourceInfo;
 };
 

@@ -267,6 +267,37 @@ void VulkanStateManager::SetSampler(uint32_t slot, VulkanImageSampler* sampler)
 	}
 }
 
+#if defined(VULKAN_HWRT)
+void VulkanStateManager::SetAccelerationStructure(uint32_t slot, RayTracing::AccelerationStructure* as)
+{
+	DescriptorKey k(3);
+	k[0] = slot;
+	k[1] = as->GetID();
+	k[2] = static_cast<uint32_t>(DescriptorType::AccelerationStructure);
+
+	auto& descriptorsMap = Renderer::instance().GetPipelineManager().GetDescriptors();
+	auto descriptor = descriptorsMap.find(k);
+
+	if (descriptor != descriptorsMap.end())
+	{
+		m_Descriptors.push_back(descriptor->second);
+	}
+	else
+	{
+		VulkanDescriptorInfo info{};
+		info.Binding = slot;
+		info.accelerationStructure = as;
+		info.Type = DescriptorType::AccelerationStructure;
+
+		VulkanDescriptor* descriptor = new VulkanDescriptor(info);
+
+		descriptorsMap[k] = descriptor;
+
+		m_Descriptors.push_back(descriptor);
+	}
+}
+#endif
+
 VulkanDescriptorSet* VulkanStateManager::FinalizeDescriptorSet(VulkanDevice& device, const VulkanDescriptorPool* pool)
 {
 	//TODO: remove this ugly Singleton call
@@ -283,11 +314,7 @@ uint8_t VulkanStateManager::GetRenderTargetCount()
 
 void VulkanStateManager::UpdateResourceStage(ManagableResource* texture)
 {
-	ResourceStage currentStage = (m_CurrentPipelinetype != PipelineType::Count)
-		? ((m_CurrentPipelinetype == PipelineType::Compute) ? ResourceStage::Compute : ResourceStage::Graphics)
-		: ResourceStage::Count;
-
-	texture->SetCurrentResourceStage(currentStage);
+	texture->SetCurrentResourceStage(GetResourceStageFrom(m_CurrentPipelinetype));
 }
 
 void VulkanStateManager::SetRenderTarget(uint32_t slot, VulkanImageView* rt)

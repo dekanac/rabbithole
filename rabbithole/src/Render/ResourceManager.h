@@ -4,13 +4,21 @@
 #include "Render/Shader.h"
 #include "Render/Model/TextureLoading.h"
 
+#include <set>
+
 using TextureData = TextureLoading::TextureData;
+
+bool operator<(const AllocatedResource& lhs, const AllocatedResource& rhs);
+
+bool operator==(const AllocatedResource& lhs, const AllocatedResource& rhs);
 
 class ResourceManager
 {
 public:
+	ResourceManager();
 	~ResourceManager();
 
+	NonCopyableAndMovable(ResourceManager);
 public:
 	VulkanTexture*	CreateSingleMipFromTexture(VulkanDevice& device, const VulkanTexture* texture, uint32_t mipSlice);
 	VulkanTexture*	CreateTexture(VulkanDevice& device, const TextureData* data, ROTextureCreateInfo createInfo);
@@ -26,4 +34,6 @@ private:
 	std::unordered_map<std::string, Shader*>		m_Shaders;
 	std::unordered_map<uint32_t, VulkanTexture*>	m_Textures;
 	std::unordered_map<uint32_t, VulkanBuffer*>		m_Buffers;
+
+	std::set<AllocatedResource*> m_AllocatedResources;
 };

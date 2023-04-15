@@ -56,27 +56,35 @@ public:
 	VkQueue						GetPresentQueue() const { return m_PresentQueue; }
 	VmaAllocator				GetVmaAllocator() const { return m_VmaAllocator; }
 	VkPhysicalDevice			GetPhysicalDevice() const { return m_PhysicalDevice; }
-	VkPhysicalDeviceProperties	GetPhysicalDeviceProperties() const { return m_Properties; }
+	VkPhysicalDeviceProperties2	GetPhysicalDeviceProperties() const { return m_Properties; }
+	VkPhysicalDeviceRayTracingPipelinePropertiesKHR GetRayTracingProperties() const { return m_RaytracingProperties; }
+	VkPhysicalDeviceAccelerationStructurePropertiesKHR GetAccelerationStructureProperties() const { return m_AccelerationStructureProperties; }
 	SwapChainSupportDetails		GetSwapChainSupport() { return QuerySwapChainSupport(m_PhysicalDevice); }
 	QueueFamilyIndices			FindPhysicalQueueFamilies() { return FindQueueFamilies(m_PhysicalDevice); }
 	VkFormat					FindSupportedFormat(const std::vector<VkFormat>& candidates, VkImageTiling tiling, VkFormatFeatureFlags features);
 
 
 	// Buffer Helper Functions
-	void					CopyBuffer(VulkanCommandBuffer& commandBuffer, VulkanBuffer& srcBuffer, VulkanBuffer& dstBuffer, uint64_t size, uint64_t srcOffset = 0, uint64_t dstOffset = 0);
-	void					CopyBufferToImage(VulkanCommandBuffer& commandBuffer, VulkanBuffer* buffer, VulkanTexture* texture, bool copyFirstMipOnly = false);
-	void					CopyBufferToImageCubeMap(VulkanCommandBuffer& commandBuffer, VulkanBuffer* buffer, VulkanTexture* texture);
-	void					CopyImageToBuffer(VulkanCommandBuffer& commandBuffer, VulkanTexture* texture, VulkanBuffer* buffer);
-	void					CopyImage(VulkanCommandBuffer& commandBuffer, VulkanTexture* src, VulkanTexture* dst);
-	void					ResourceBarrier(VulkanCommandBuffer& commandBuffer, VulkanTexture* texture, ResourceState oldLayout, ResourceState newLayout, ResourceStage srcStage, ResourceStage dstStage, uint32_t mipLevel = 0, uint32_t mipCount = UINT32_MAX);
-	void					ResourceBarrier(VulkanCommandBuffer& commandBuffer, VulkanBuffer* buffer, ResourceState oldLayout, ResourceState newLayout, ResourceStage srcStage, ResourceStage dstStage);
-	
-	void					InitImguiForVulkan(ImGui_ImplVulkan_InitInfo& info);
+	void CopyBuffer(VulkanCommandBuffer& commandBuffer, VulkanBuffer& srcBuffer, VulkanBuffer& dstBuffer, uint64_t size, uint64_t srcOffset = 0, uint64_t dstOffset = 0);
+	void CopyBufferToImage(VulkanCommandBuffer& commandBuffer, VulkanBuffer* buffer, VulkanTexture* texture, bool copyFirstMipOnly = false);
+	void CopyBufferToImageCubeMap(VulkanCommandBuffer& commandBuffer, VulkanBuffer* buffer, VulkanTexture* texture);
+	void CopyImageToBuffer(VulkanCommandBuffer& commandBuffer, VulkanTexture* texture, VulkanBuffer* buffer);
+	void CopyImage(VulkanCommandBuffer& commandBuffer, VulkanTexture* src, VulkanTexture* dst);
+	void ResourceBarrier(VulkanCommandBuffer& commandBuffer, VulkanTexture* texture, ResourceState oldLayout, ResourceState newLayout, ResourceStage srcStage, ResourceStage dstStage, uint32_t mipLevel = 0, uint32_t mipCount = UINT32_MAX);
+	void ResourceBarrier(VulkanCommandBuffer& commandBuffer, VulkanBuffer* buffer, ResourceState oldLayout, ResourceState newLayout, ResourceStage srcStage, ResourceStage dstStage);
+		 
+	void InitImguiForVulkan(ImGui_ImplVulkan_InitInfo& info);
 
 	//debug utils
 	void SetObjectName(uint64_t object, VkObjectType objectType, const char* name);
 	void BeginLabel(VulkanCommandBuffer& commandBuffer, const char* name);
 	void EndLabel(VulkanCommandBuffer& commandBuffer);
+
+	PFN_vkGetAccelerationStructureBuildSizesKHR pfnGetAccelerationStructureBuildSizesKHR;
+	PFN_vkCmdBuildAccelerationStructuresKHR pfnCmdBuildAccelerationStructuresKHR;
+	PFN_vkCreateRayTracingPipelinesKHR pfnCreateRayTracingPipelinesKHR;
+	PFN_vkGetRayTracingShaderGroupHandlesKHR pfnGetRayTracingShaderGroupHandlesKHR;
+	PFN_vkCmdTraceRaysKHR pfnCmdTraceRaysKHR;
 
 private:
 	void CreateInstance();
@@ -109,9 +117,23 @@ private:
 	VkQueue						m_GraphicsQueue;
 	VkQueue						m_PresentQueue;
 	VkDebugUtilsMessengerEXT	m_DebugMessenger;
-	VkPhysicalDeviceProperties	m_Properties;
+	VkPhysicalDeviceProperties2	m_Properties{ VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2 };
+	VkPhysicalDeviceRayTracingPipelinePropertiesKHR m_RaytracingProperties{ VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_PROPERTIES_KHR };
+	VkPhysicalDeviceAccelerationStructurePropertiesKHR m_AccelerationStructureProperties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ACCELERATION_STRUCTURE_PROPERTIES_KHR};
 
 	const std::vector<const char*> m_ValidationLayers = { "VK_LAYER_KHRONOS_validation" };
-	const std::vector<const char*> m_DeviceExtensions = { VK_KHR_SWAPCHAIN_EXTENSION_NAME, VK_GOOGLE_HLSL_FUNCTIONALITY_1_EXTENSION_NAME, VK_GOOGLE_USER_TYPE_EXTENSION_NAME };
+	const std::vector<const char*> m_DeviceExtensions = { 
+		VK_KHR_SWAPCHAIN_EXTENSION_NAME 
+		, VK_GOOGLE_HLSL_FUNCTIONALITY_1_EXTENSION_NAME
+		, VK_GOOGLE_USER_TYPE_EXTENSION_NAME 
+#ifdef VULKAN_HWRT
+		, VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME
+		, VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME
+		, VK_KHR_RAY_QUERY_EXTENSION_NAME
+		, VK_KHR_PIPELINE_LIBRARY_EXTENSION_NAME
+		, VK_KHR_DEFERRED_HOST_OPERATIONS_EXTENSION_NAME
+		, VK_KHR_BUFFER_DEVICE_ADDRESS_EXTENSION_NAME
+#endif
+	};
 };
 

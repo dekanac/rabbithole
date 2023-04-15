@@ -60,7 +60,7 @@ void GPUTimeStamps::OnBeginFrame(VulkanCommandBuffer& cmd_buf, std::vector<TimeS
 	if (measurements > 0)
 	{
 		// timestampPeriod is the number of nanoseconds per timestamp value increment
-		double microsecondsPerTick = (1e-3f * m_Device->GetPhysicalDeviceProperties().limits.timestampPeriod);
+		double microsecondsPerTick = (1e-3f * m_Device->GetPhysicalDeviceProperties().properties.limits.timestampPeriod);
 		{
 			UINT64 TimingsInTicks[256] = {};
 			VULKAN_API_CALL(vkGetQueryPoolResults(m_Device->GetGraphicDevice(), m_QueryPool, offset, measurements, measurements * sizeof(UINT64), &TimingsInTicks, sizeof(UINT64), VK_QUERY_RESULT_64_BIT));
@@ -74,7 +74,6 @@ void GPUTimeStamps::OnBeginFrame(VulkanCommandBuffer& cmd_buf, std::vector<TimeS
 			// compute total
 			TimeStamp ts = { "Total GPU Time", float(microsecondsPerTick * (double)(TimingsInTicks[measurements - 1] - TimingsInTicks[0])) };
 			pTimestamps->push_back(ts);
-
 		}
 	}
 

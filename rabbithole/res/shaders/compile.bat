@@ -27,5 +27,7 @@ dxc.exe -Zpc -Zi -Qembed_debug -enable-16bit-types -T cs_6_5 -E main -spirv -fsp
 dxc.exe -Zpc -Zi -Qembed_debug -enable-16bit-types -T cs_6_5  -E Pass0 -spirv -fspv-target-env=vulkan1.2 CS_FilterSoftShadows.hlsl -Fo CS_FilterSoftShadowsPass0.spv
 dxc.exe -Zpc -Zi -Qembed_debug -enable-16bit-types -T cs_6_5  -E Pass1 -spirv -fspv-target-env=vulkan1.2 CS_FilterSoftShadows.hlsl -Fo CS_FilterSoftShadowsPass1.spv
 dxc.exe -Zpc -Zi -Qembed_debug -enable-16bit-types -T cs_6_5  -E Pass2 -spirv -fspv-target-env=vulkan1.2 CS_FilterSoftShadows.hlsl -Fo CS_FilterSoftShadowsPass2.spv
+dxc.exe -E main -T lib_6_3 -spirv -fspv-target-env=vulkan1.2 RS_RTShadowRaygen.hlsl -Fo RS_RTShadowRaygen.spv
+dxc.exe -E main -T lib_6_3 -spirv -fspv-target-env=vulkan1.2 HS_RTShadowClosestHit.hlsl -Fo HS_RTShadowClosestHit.spv
 
 pause

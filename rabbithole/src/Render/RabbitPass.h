@@ -32,6 +32,9 @@ protected:
 	void SetSampler(uint32_t slot, VulkanTexture* texture);
 	void SetRenderTarget(uint32_t slot, VulkanTexture* texture);
 	void SetDepthStencil(VulkanTexture* texture);
+#if defined(VULKAN_HWRT)
+	void SetAccelerationStructure(uint32_t slot, RayTracing::AccelerationStructure* as);
+#endif
 
 	Renderer& m_Renderer;
 };

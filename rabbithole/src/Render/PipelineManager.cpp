@@ -171,6 +171,12 @@ VulkanDescriptorSet* PipelineManager::FindOrCreateDescriptorSet(VulkanDevice& de
 			key.push_back(descriptors[i]->GetDescriptorInfo().buffer->GetID());
 			key.push_back((uint32_t)descriptors[i]->GetDescriptorInfo().Type);
 			break;
+#if defined(VULKAN_HWRT)
+		case DescriptorType::AccelerationStructure:
+			key.push_back(descriptors[i]->GetDescriptorInfo().accelerationStructure->GetID());
+			key.push_back((uint32_t)descriptors[i]->GetDescriptorInfo().Type);
+			break;
+#endif
 		}
 	}
 
@@ -198,4 +204,9 @@ void GraphicsPipeline::Bind(VulkanCommandBuffer& commandBuffer)
 void ComputePipeline::Bind(VulkanCommandBuffer& commandBuffer)
 {
 	vkCmdBindPipeline(GET_VK_HANDLE(commandBuffer), VK_PIPELINE_BIND_POINT_COMPUTE, m_Pipeline);
+}
+
+void RayTracingPipeline::Bind(VulkanCommandBuffer& commandBuffer)
+{
+	vkCmdBindPipeline(GET_VK_HANDLE(commandBuffer), VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, m_Pipeline);
 }

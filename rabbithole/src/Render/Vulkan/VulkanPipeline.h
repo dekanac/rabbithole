@@ -11,7 +11,8 @@
 
 #include <crc32/Crc32.h>
 
-const uint8_t MaxRenderTargetCount = 5;
+const uint8_t MaxRenderTargetCount = 6;
+const uint8_t MaxRTShaders = 8;
 
 class VulkanDescriptorSetLayout;
 class VulkanDescriptorSet;
@@ -66,6 +67,7 @@ public:
 	std::string								psEntryPoint = "main";
 	Shader*									computeShader;
 	std::string								csEntryPoint = "main";
+	std::array<Shader*, MaxRTShaders>		rayTracingShaders = { nullptr };
 
 	VkViewport								viewport;
 	VkRect2D								scissor;
@@ -95,12 +97,16 @@ public:
 	const VulkanDescriptorSetLayout* GetDescriptorSetLayout() { return m_DescriptorSetLayout; }
 	const VulkanPipelineLayout*		 GetPipelineLayout() const { return m_PipelineLayout; }
 	const PipelineType				 GetType() const { return m_Type; }
+#if defined(VULKAN_HWRT)
+	const RayTracing::ShaderBindingTables& GetBindingTables() const { return m_BindingTables; }
+#endif
 
 	VkPipeline						 GetVkHandle() { return m_Pipeline; }
 
 private:
 	void							 CreateGraphicsPipeline();
 	void							 CreateComputePipeline();
+	void							 CreateRayTracingPipeline();
 
 	VulkanDevice&					 m_VulkanDevice;
 	PipelineInfo&					 m_PipelineInfo;
@@ -108,6 +114,10 @@ private:
 	VulkanDescriptorSetLayout*		 m_DescriptorSetLayout;
 	VulkanRenderPass*				 m_RenderPass;
 	PipelineType					 m_Type;
+
+#if defined(VULKAN_HWRT)
+	RayTracing::ShaderBindingTables  m_BindingTables{};
+#endif
 									 
 protected:							 
 	VkPipeline						 m_Pipeline;

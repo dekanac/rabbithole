@@ -47,6 +47,33 @@ VkBufferUsageFlags GetVkBufferUsageFlags(const BufferUsageFlags usageFlags)
 		bufferUsageFlags |= VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT;
 	}
 
+	if (IsFlagSet(usageFlags & BufferUsageFlags::ShaderDeviceAddress))
+	{
+#ifdef VULKAN_HWRT
+		bufferUsageFlags |= VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT;
+#endif
+	}
+
+	if (IsFlagSet(usageFlags & BufferUsageFlags::AccelerationStructureStorage))
+	{
+#ifdef VULKAN_HWRT
+		bufferUsageFlags |= VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_STORAGE_BIT_KHR;
+#endif
+	}
+
+	if (IsFlagSet(usageFlags & BufferUsageFlags::AccelerationStructureBuild))
+	{
+#ifdef VULKAN_HWRT
+		bufferUsageFlags |= VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR;
+#endif
+	}
+	if (IsFlagSet(usageFlags & BufferUsageFlags::ShaderBindingTable))
+	{
+#ifdef VULKAN_HWRT
+		bufferUsageFlags |= VK_BUFFER_USAGE_SHADER_BINDING_TABLE_BIT_KHR;
+#endif
+	}
+
 	return bufferUsageFlags;
 }
 
@@ -82,6 +109,8 @@ VkDescriptorType GetVkDescriptorTypeFrom(const DescriptorType descriptorSetBindi
 		return VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE;
 	case DescriptorType::Sampler:
 		return VK_DESCRIPTOR_TYPE_SAMPLER;
+	case DescriptorType::AccelerationStructure:
+		return VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR;
 	default:
 		ASSERT(false, "Not supported DescriptorSetBindingType.");
 		return VK_DESCRIPTOR_TYPE_MAX_ENUM;
@@ -104,9 +133,44 @@ VkShaderStageFlagBits GetVkShaderStageFrom(const ShaderType shaderType)
 		return VK_SHADER_STAGE_TESSELLATION_EVALUATION_BIT;
 	case ShaderType::Compute:
 		return VK_SHADER_STAGE_COMPUTE_BIT;
+	case ShaderType::RayGen:
+		return VK_SHADER_STAGE_RAYGEN_BIT_KHR;
+	case ShaderType::ClosestHit:
+		return VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR;
+	case ShaderType::Miss:
+		return VK_SHADER_STAGE_MISS_BIT_KHR;
 	default:
 		ASSERT(false, "Not supported ShaderType.");
 		return VK_SHADER_STAGE_FLAG_BITS_MAX_ENUM;
+	}
+}
+
+VkShaderStageFlagBits GetVkShaderStageFrom(const PipelineType pipelineType)
+{
+	switch (pipelineType)
+	{
+	case PipelineType::Graphics:
+		return VkShaderStageFlagBits(VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_VERTEX_BIT);
+	case PipelineType::Compute:
+		return VK_SHADER_STAGE_COMPUTE_BIT;
+	case PipelineType::RayTracing:
+		return VK_SHADER_STAGE_RAYGEN_BIT_KHR;
+	default:
+		ASSERT(false, "Not supported ShaderType");
+		return VK_SHADER_STAGE_FLAG_BITS_MAX_ENUM;
+	}
+}
+
+ResourceStage GetResourceStageFrom(const PipelineType pipelineType)
+{
+	switch (pipelineType)
+	{
+	case PipelineType::Graphics:
+		return ResourceStage::Graphics;
+	case PipelineType::Compute:
+		return ResourceStage::Compute;
+	default:
+		return ResourceStage::Count;
 	}
 }
 
@@ -126,6 +190,8 @@ VkDescriptorType GetVkDescriptorTypeFrom(const SpvReflectDescriptorType reflectD
 		return VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE;
 	case SPV_REFLECT_DESCRIPTOR_TYPE_SAMPLER:
 		return VK_DESCRIPTOR_TYPE_SAMPLER;
+	case SPV_REFLECT_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR:
+		return VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR;
 	default:
 		ASSERT(false, "Not supported SpvReflectDescriptorBinding.");
 		return VK_DESCRIPTOR_TYPE_MAX_ENUM;
@@ -583,6 +649,8 @@ enum VkPipelineBindPoint GetVkBindPointFrom(const PipelineType pipelineType)
 		return VK_PIPELINE_BIND_POINT_GRAPHICS;
 	case PipelineType::Compute:
 		return VK_PIPELINE_BIND_POINT_COMPUTE;
+	case PipelineType::RayTracing:
+		return VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR;
 	default:
 		ASSERT(false, "Unknown pipeline type.");
 		return VK_PIPELINE_BIND_POINT_MAX_ENUM;

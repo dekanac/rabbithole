@@ -95,6 +95,9 @@ public:
 	void SetStorageBuffer(uint32_t slot, VulkanBuffer* buffer);
 	void SetSampledImage(uint32_t slot, VulkanImageView* view);
 	void SetSampler(uint32_t slot, VulkanImageSampler* sampler);
+#if defined(VULKAN_HWRT)
+	void SetAccelerationStructure(uint32_t slot, RayTracing::AccelerationStructure* as);
+#endif
 
 	VulkanDescriptorSet* FinalizeDescriptorSet(VulkanDevice& device, const VulkanDescriptorPool* pool);
 	uint8_t GetRenderTargetCount();

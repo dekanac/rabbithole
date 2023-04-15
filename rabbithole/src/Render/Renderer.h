@@ -7,6 +7,7 @@
 #include "Render/ImGuiManager.h"
 #include "Render/Model/Model.h"
 #include "Render/PipelineManager.h"
+#include "Render/Raytracing.h"
 #include "Render/RenderPass.h"
 #include "Render/ResourceManager.h"
 #include "Render/ResourceStateTracking.h"
@@ -141,6 +142,7 @@ private:
 
 	void InitLights();
 	void ConstructBVH();
+	void CreateAccelerationStructure();
 	void UpdateConstantBuffer();
 	void UpdateUIStateAndFSR2PreDraw();
 	void ImguiProfilerWindow(std::vector<TimeStamp>& timestamps);
@@ -153,10 +155,12 @@ private:
 	template<class T = Pipeline> void BindPipeline();
 	template<> void BindPipeline<GraphicsPipeline>();
 	template<> void BindPipeline<ComputePipeline>();
+	template<> void BindPipeline<RayTracingPipeline>();
 	void BindCameraMatrices(Camera* camera);
 	void BindDescriptorSets();
 	void BindUBO();
 
+	RayTracingPipeline* tmpRTPipeline;
 public:
 	inline VulkanDevice&					GetVulkanDevice() { return m_VulkanDevice; }
 	inline VulkanStateManager&				GetStateManager() { return m_StateManager; }
@@ -204,6 +208,8 @@ public:
 	void CopyToSwapChain();
 	void DrawGeometryGLTF(std::vector<VulkanglTFModel>& bucket);
 	void DrawFullScreenQuad();
+	void TraceRays();
+	void ClearImage(VulkanTexture* texture, Color clearValue);
 
 	uint32_t	GetCurrentImageIndex() { return m_CurrentImageIndex; }
 	uint64_t	GetCurrentFrameIndex() { return m_CurrentFrameIndex; }
@@ -237,6 +243,11 @@ public:
 	VulkanBuffer* trianglesBuffer;
 	VulkanBuffer* triangleIndxsBuffer;
 	VulkanBuffer* cfbvhNodesBuffer;
+
+#if defined(VULKAN_HWRT)
+	RayTracing::AccelerationStructure BLAS;
+	RayTracing::AccelerationStructure TLAS;
+#endif
 
 	//frustrum 3d map
 	VulkanTexture* noise3DLUT;

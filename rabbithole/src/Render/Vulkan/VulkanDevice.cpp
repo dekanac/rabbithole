@@ -12,7 +12,6 @@
 
 std::vector<rabbitVec4f> g_Colors = { YELLOW_COLOR, RED_COLOR, BLUE_COLOR, PUPRPLE_COLOR, GREEN_COLOR };
 
-
 rabbitVec4f GetNextColor()
 {
 	static int i = 0;
@@ -99,7 +98,7 @@ void VulkanDevice::CreateInstance()
 	appInfo.pApplicationName = "Rabbithole";
 	appInfo.applicationVersion = VK_MAKE_API_VERSION(0, 1, 3, 0);
 	appInfo.pEngineName = "Rabbithole Engine";
-	appInfo.engineVersion = VK_MAKE_VERSION(1, 3, 0);
+	appInfo.engineVersion = 1;
 	appInfo.apiVersion = VK_API_VERSION_1_3;
 
 	VkInstanceCreateInfo createInfo = {};
@@ -167,8 +166,11 @@ void VulkanDevice::PickPhysicalDevice()
 		LOG_ERROR("failed to find a suitable GPU!");
 	}
 
-	vkGetPhysicalDeviceProperties(m_PhysicalDevice, &m_Properties);
-	std::cout << "physical device: " << m_Properties.deviceName << std::endl;
+	m_RaytracingProperties.pNext = &m_AccelerationStructureProperties;
+	m_Properties.pNext = &m_RaytracingProperties;
+
+	vkGetPhysicalDeviceProperties2(m_PhysicalDevice, &m_Properties);
+	std::cout << "physical device: " << m_Properties.properties.deviceName << std::endl;
 }
 
 void VulkanDevice::CreateLogicalDevice() 
@@ -189,17 +191,44 @@ void VulkanDevice::CreateLogicalDevice()
 		queueCreateInfos.push_back(queueCreateInfo);
 	}
 
-	VkPhysicalDeviceFeatures deviceFeatures = {};
-	deviceFeatures.samplerAnisotropy = VK_TRUE;
-	deviceFeatures.robustBufferAccess = VK_TRUE;
+	VkPhysicalDeviceFeatures2 deviceFeatures2 = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2 };
+	deviceFeatures2.features.samplerAnisotropy = VK_TRUE;
+	deviceFeatures2.features.robustBufferAccess = VK_TRUE;
+	deviceFeatures2.features.shaderInt16 = VK_TRUE;
+
+	VkPhysicalDeviceShaderFloat16Int8FeaturesKHR float16Feature{ VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_FLOAT16_INT8_FEATURES_KHR };
+	float16Feature.shaderFloat16 = VK_TRUE;
+
+#ifdef VULKAN_HWRT
+	VkPhysicalDeviceAccelerationStructureFeaturesKHR asFeature{ VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ACCELERATION_STRUCTURE_FEATURES_KHR };
+	asFeature.accelerationStructure = VK_TRUE;
+	asFeature.accelerationStructureIndirectBuild = VK_TRUE;
+
+	VkPhysicalDeviceRayTracingPipelineFeaturesKHR rtPipelineFeature{ VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_FEATURES_KHR };
+	rtPipelineFeature.rayTracingPipeline = VK_TRUE;
+	rtPipelineFeature.rayTracingPipelineTraceRaysIndirect = VK_TRUE;
+
+	VkPhysicalDeviceRayQueryFeaturesKHR rayQueryFeature{ VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_QUERY_FEATURES_KHR };
+	rayQueryFeature.rayQuery = VK_TRUE;
+
+	VkPhysicalDeviceBufferDeviceAddressFeatures deviceAddrFeature{ VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_BUFFER_DEVICE_ADDRESS_FEATURES };
+	deviceAddrFeature.bufferDeviceAddress = VK_TRUE;
+
+	rayQueryFeature.pNext = &deviceAddrFeature;
+	asFeature.pNext = &rayQueryFeature;
+	rtPipelineFeature.pNext = &asFeature;
+	float16Feature.pNext = &rtPipelineFeature;
+#endif
+
+	deviceFeatures2.pNext = &float16Feature;
 
 	VkDeviceCreateInfo createInfo = {};
+	createInfo.pNext = &deviceFeatures2;
 	createInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
 
 	createInfo.queueCreateInfoCount = static_cast<uint32_t>(queueCreateInfos.size());
 	createInfo.pQueueCreateInfos = queueCreateInfos.data();
 
-	createInfo.pEnabledFeatures = &deviceFeatures;
 	createInfo.enabledExtensionCount = static_cast<uint32_t>(m_DeviceExtensions.size());
 	createInfo.ppEnabledExtensionNames = m_DeviceExtensions.data();
 
@@ -219,6 +248,9 @@ void VulkanDevice::CreateVmaAllocator()
 	allocatorInfo.instance = m_Instance;
 	allocatorInfo.physicalDevice = m_PhysicalDevice;
 	allocatorInfo.device = m_Device;
+#ifdef VULKAN_HWRT
+	allocatorInfo.flags = VMA_ALLOCATOR_CREATE_BUFFER_DEVICE_ADDRESS_BIT;
+#endif
 
 	vmaCreateAllocator(&allocatorInfo, &m_VmaAllocator);
 }
@@ -457,6 +489,13 @@ void VulkanDevice::InitializeFunctionsThroughProcAddr()
 	pfnDebugUtilsObjectName = (PFN_vkSetDebugUtilsObjectNameEXT)vkGetDeviceProcAddr(m_Device, "vkSetDebugUtilsObjectNameEXT");
 	pfnCmdBeginDebugUtilsLabelEXT = (PFN_vkCmdBeginDebugUtilsLabelEXT)vkGetInstanceProcAddr(m_Instance, "vkCmdBeginDebugUtilsLabelEXT");
 	pfnCmdEndDebugUtilsLabelEXT = (PFN_vkCmdEndDebugUtilsLabelEXT)vkGetInstanceProcAddr(m_Instance, "vkCmdEndDebugUtilsLabelEXT");
+
+	pfnGetAccelerationStructureBuildSizesKHR = reinterpret_cast<PFN_vkGetAccelerationStructureBuildSizesKHR>(vkGetDeviceProcAddr(m_Device, "vkGetAccelerationStructureBuildSizesKHR"));
+	pfnCmdBuildAccelerationStructuresKHR = reinterpret_cast<PFN_vkCmdBuildAccelerationStructuresKHR>(vkGetDeviceProcAddr(m_Device, "vkCmdBuildAccelerationStructuresKHR"));
+	pfnCreateRayTracingPipelinesKHR = reinterpret_cast<PFN_vkCreateRayTracingPipelinesKHR>(vkGetDeviceProcAddr(m_Device, "vkCreateRayTracingPipelinesKHR"));
+	pfnGetRayTracingShaderGroupHandlesKHR = reinterpret_cast<PFN_vkGetRayTracingShaderGroupHandlesKHR>(vkGetDeviceProcAddr(m_Device, "vkGetRayTracingShaderGroupHandlesKHR"));
+	pfnCmdTraceRaysKHR = reinterpret_cast<PFN_vkCmdTraceRaysKHR>(vkGetDeviceProcAddr(m_Device, "vkCmdTraceRaysKHR"));
+
 }
 
 VkFormat VulkanDevice::FindSupportedFormat(const std::vector<VkFormat>& candidates, VkImageTiling tiling, VkFormatFeatureFlags features) 

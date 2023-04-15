@@ -5,13 +5,24 @@
 #include "Logger/Logger.h"
 #include "Utils/utils.h"
 
+bool operator<(const AllocatedResource& lhs, const AllocatedResource& rhs)
+{
+	return lhs.GetID() < rhs.GetID();
+}
+
+bool operator==(const AllocatedResource& lhs, const AllocatedResource& rhs)
+{
+	return lhs.GetID() == rhs.GetID();
+}
+
+ResourceManager::ResourceManager()
+{
+
+}
+
 ResourceManager::~ResourceManager()
 {
-	//TODO: since VulkanTexture can have reference to some other's texture Resource and Sampler
-	// this should be reimplemented not to delete shared resources
-	for (auto texture : m_Textures) { delete(texture.second); }
-	for (auto shader : m_Shaders) { delete(shader.second); }
-	for (auto buffer : m_Buffers) { delete(buffer.second); }
+	for (auto allocatedResource : m_AllocatedResources) { delete(allocatedResource); }
 
 	m_Textures.clear();
 	m_Shaders.clear();
@@ -23,6 +34,10 @@ VulkanTexture* ResourceManager::CreateSingleMipFromTexture(VulkanDevice& device,
 	VulkanTexture* newTextureMip = new VulkanTexture(device, texture, mipSlice);
 
 	m_Textures[newTextureMip->GetID()] = newTextureMip;
+
+	m_AllocatedResources.insert(newTextureMip->GetResource());
+	m_AllocatedResources.insert(newTextureMip->GetSampler());
+	m_AllocatedResources.insert(newTextureMip->GetView());
 
 	return newTextureMip;
 }
@@ -62,6 +77,9 @@ VulkanTexture* ResourceManager::CreateTexture(VulkanDevice& device, std::string 
 	TextureLoading::FreeTexture(texData);
 
 	m_Textures[newTexture->GetID()] = newTexture;
+	m_AllocatedResources.insert(newTexture->GetResource());
+	m_AllocatedResources.insert(newTexture->GetSampler());
+	m_AllocatedResources.insert(newTexture->GetView());
 
 	return newTexture;
 }
@@ -71,6 +89,9 @@ VulkanTexture* ResourceManager::CreateTexture(VulkanDevice& device, RWTextureCre
 	VulkanTexture* newTexture = new VulkanTexture(device, createInfo);
 
 	m_Textures[newTexture->GetID()] = newTexture;
+	m_AllocatedResources.insert(newTexture->GetResource());
+	m_AllocatedResources.insert(newTexture->GetSampler());
+	m_AllocatedResources.insert(newTexture->GetView());
 
 	return newTexture;
 }
@@ -80,6 +101,9 @@ VulkanTexture* ResourceManager::CreateTexture(VulkanDevice& device, const Textur
 	VulkanTexture* newTexture = new VulkanTexture(device, data, createInfo);
 
 	m_Textures[newTexture->GetID()] = newTexture;
+	m_AllocatedResources.insert(newTexture->GetResource());
+	m_AllocatedResources.insert(newTexture->GetSampler());
+	m_AllocatedResources.insert(newTexture->GetView());
 
 	return newTexture;
 }
@@ -89,6 +113,7 @@ VulkanBuffer* ResourceManager::CreateBuffer(VulkanDevice& device, BufferCreateIn
 	VulkanBuffer* newBuffer = new VulkanBuffer(device, createInfo);
 
 	m_Buffers[newBuffer->GetID()] = newBuffer;
+	m_AllocatedResources.insert(newBuffer);
 
 	return newBuffer;
 }
@@ -97,6 +122,7 @@ void ResourceManager::CreateShader(VulkanDevice& device, ShaderInfo& createInfo,
 {
 	Shader* shader = new Shader(device, code.size(), code.data(), createInfo, name);
 	m_Shaders[{name}] = shader;
+	m_AllocatedResources.insert(shader);
 }
 
 Shader* ResourceManager::GetShader(const std::string& name)

@@ -9,6 +9,8 @@ VmaMemoryUsage				GetVmaMemoryUsageFrom(const MemoryAccess memoryAccess);
 VkDescriptorType			GetVkDescriptorTypeFrom(const DescriptorType descriptorSetBinding);
 VkDescriptorType			GetVkDescriptorTypeFrom(const SpvReflectDescriptorType reflectDescriptorType);
 VkShaderStageFlagBits		GetVkShaderStageFrom(const ShaderType shaderType);
+VkShaderStageFlagBits		GetVkShaderStageFrom(const PipelineType pipelineType);
+ResourceStage				GetResourceStageFrom(const PipelineType pipelineType);
 VkFormat					GetVkFormatFrom(const Format format);
 VkColorSpaceKHR				GetVkColorSpaceFrom(const ColorSpace colorSpace);
 uint32_t					GetBlockSizeFrom(const VkFormat format);

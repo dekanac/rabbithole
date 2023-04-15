@@ -44,6 +44,7 @@ enum class PipelineType : uint8_t
 {
 	Graphics,
 	Compute,
+	RayTracing,
 
 	Count
 };
@@ -136,6 +137,9 @@ enum class ShaderType : uint8_t
 	Hull,
 	Domain,
 	Compute,
+	RayGen,
+	Miss,
+	ClosestHit,
 
 	Count
 };
@@ -286,11 +290,12 @@ enum class DescriptorType : uint8_t
 	StorageBuffer,
 	SampledImage,
 	Sampler,
+	AccelerationStructure,
 
 	Count
 };
 
-enum class BufferUsageFlags : uint8_t
+enum class BufferUsageFlags : uint16_t
 {
 	None = 0x0 << 0,
 	TransferSrc = 0x1 << 0,
@@ -301,6 +306,10 @@ enum class BufferUsageFlags : uint8_t
 	IndexBuffer = 0x1 << 5,
 	UniformBuffer = 0x1 << 6,
 	IndirectBuffer = 0x1 << 7,
+	ShaderDeviceAddress = 0x1 << 8,
+	AccelerationStructureStorage = 0x1 << 9,
+	AccelerationStructureBuild = 0x1 << 10,
+	ShaderBindingTable = 0x1 << 11
 };
 RABBITHOLE_FLAG_TYPE_SETUP(BufferUsageFlags);
 

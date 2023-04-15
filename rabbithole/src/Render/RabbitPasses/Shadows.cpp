@@ -39,10 +39,19 @@ void RTShadowsPass::DeclareResources()
 
 void RTShadowsPass::Setup()
 {
+#if defined(VULKAN_HWRT)
+	SetAccelerationStructure(0, &m_Renderer.TLAS);
+	SetStorageImageReadWrite(1, ShadowMask);
+	SetConstantBuffer(2, m_Renderer.GetMainConstBuffer());
+	SetStorageImageRead(3, GBufferPass::WorldPosition);
+	SetStorageImageRead(4, GBufferPass::Normals);
+	SetConstantBuffer(5, LightingPass::LightParamsGPU);
+	SetStorageImageRead(6, m_Renderer.blueNoise2DTexture);
+#else
 	VulkanStateManager& stateManager = m_Renderer.GetStateManager();
-
+	
 	stateManager.SetComputeShader(m_Renderer.GetShader("CS_RayTracingShadows"));
-
+	
 	SetStorageBufferRead(0, m_Renderer.vertexBuffer);
 	SetStorageBufferRead(1, m_Renderer.trianglesBuffer);
 	SetStorageBufferRead(2, m_Renderer.triangleIndxsBuffer);
@@ -53,19 +62,24 @@ void RTShadowsPass::Setup()
 	SetConstantBuffer(7, LightingPass::LightParamsGPU);
 	SetStorageImageRead(8, m_Renderer.blueNoise2DTexture);
 	SetConstantBuffer(9, m_Renderer.GetMainConstBuffer());
+#endif
 }
 
 void RTShadowsPass::Render()
 {
-	static const int threadGroupWorkRegionDim = 8;
-
+#if defined(VULKAN_HWRT)
+	m_Renderer.TraceRays();
+#else
+	constexpr int threadGroupWorkRegionDim = 8;
+	
 	int texWidth = RTShadowsPass::ShadowMask->GetWidth();
 	int texHeight = RTShadowsPass::ShadowMask->GetHeight();
-
+	
 	int dispatchX = GetCSDispatchCount(texWidth, threadGroupWorkRegionDim);
 	int dispatchY = GetCSDispatchCount(texHeight, threadGroupWorkRegionDim);
-
+	
 	m_Renderer.Dispatch(dispatchX, dispatchY, numOfLights);
+#endif
 }
 
 void ShadowDenoisePrePass::DeclareResources()
@@ -154,7 +168,7 @@ void ShadowDenoiseTileClassificationPass::DeclareResources()
 	{
 
 		TileMetadata[i] = m_Renderer.GetResourceManager().CreateBuffer(m_Renderer.GetVulkanDevice(), BufferCreateInfo{
-				.flags = {BufferUsageFlags::StorageBuffer},
+				.flags = {BufferUsageFlags::StorageBuffer | BufferUsageFlags::ShaderDeviceAddress},
 				.memoryAccess = {MemoryAccess::GPU},
 				.size = {tileSize * static_cast<uint32_t>(sizeof(uint32_t))},
 				.name = {std::format("Denoise Tile Metadata Buffer {} slice", i)}
@@ -252,7 +266,7 @@ void ShadowDenoiseFilterPass::DeclareResources()
 
 	ShadowMask = m_Renderer.GetResourceManager().CreateTexture(m_Renderer.GetVulkanDevice(), RWTextureCreateInfo{
 			.dimensions = {RTShadowsPass::ShadowResX, RTShadowsPass::ShadowResY, 1},
-			.flags = {TextureFlags::Read | TextureFlags::Storage},
+			.flags = {TextureFlags::Read | TextureFlags::Storage | TextureFlags::TransferDst},
 			.format = {Format::R16G16B16A16_UNORM},
 			.name = {"Shadow Mask Denoised"},
 			.arraySize = {MAX_NUM_OF_LIGHTS},
@@ -279,6 +293,8 @@ void ShadowDenoiseFilterPass::Setup()
 	ShadowDenoiseFilterPass::FilterData->FillBuffer(&shadowFilterData);
 
 	m_Renderer.CopyImage(CopyDepthPass::DepthR32, ShadowDenoiseTileClassificationPass::LastFrameDepth);
+
+	//TODO: should clear here
 }
 
 void ShadowDenoiseFilterPass::Render()

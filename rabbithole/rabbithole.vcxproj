@@ -150,6 +150,7 @@
     <ClCompile Include="src\Render\RabbitPasses\Upscaling.cpp" />
     <ClCompile Include="src\Render\RabbitPasses\Volumetric.cpp" />
     <ClCompile Include="src\Render\RabbitPassManager.cpp" />
+    <ClCompile Include="src\Render\Raytracing.cpp" />
     <ClCompile Include="src\Render\RenderPass.cpp" />
     <ClCompile Include="src\Render\ResourceManager.cpp" />
     <ClCompile Include="src\Render\ResourceStateTracking.cpp" />
@@ -213,6 +214,7 @@
     <ClInclude Include="src\Render\RabbitPasses\Tools.h" />
     <ClInclude Include="src\Render\RabbitPasses\Upscaling.h" />
     <ClInclude Include="src\Render\RabbitPasses\Volumetric.h" />
+    <ClInclude Include="src\Render\Raytracing.h" />
     <ClInclude Include="src\Render\RenderPass.h" />
     <ClInclude Include="src\Render\ResourceManager.h" />
     <ClInclude Include="src\Render\ResourceStateTracking.h" />

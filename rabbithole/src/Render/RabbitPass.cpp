@@ -2,6 +2,7 @@
 #include "Render/RabbitPass.h"
 #include "Render/ResourceStateTracking.h"
 #include "Render/SuperResolutionManager.h"
+#include "Render/Raytracing.h"
 #include "Utils/utils.h"
 
 void RabbitPass::SetCombinedImageSampler(uint32_t slot, VulkanTexture* texture)
@@ -123,3 +124,11 @@ void RabbitPass::SetDepthStencil(VulkanTexture* texture)
 	rstManager.AddResourceForTransition(texture);
 	stateManager.SetDepthStencil(texture->GetView());
 }
+
+#if defined(VULKAN_HWRT)
+void RabbitPass::SetAccelerationStructure(uint32_t slot, RayTracing::AccelerationStructure* as)
+{
+	VulkanStateManager& stateManager = m_Renderer.GetStateManager();
+	stateManager.SetAccelerationStructure(slot, as);
+}
+#endif

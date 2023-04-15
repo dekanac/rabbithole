@@ -4,6 +4,8 @@
 
 #include <limits>
 
+//#define VULKAN_HWRT
+
 #ifdef _DEBUG
 	#define RABBITHOLE_DEBUG
 #endif

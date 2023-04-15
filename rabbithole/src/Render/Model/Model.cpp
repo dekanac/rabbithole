@@ -470,7 +470,7 @@ void VulkanglTFModel::LoadModelFromFile(std::string filename)
 	VulkanDevice& device = m_Renderer->GetVulkanDevice();
 
 	m_VertexBuffer = resourceManager.CreateBuffer(device, BufferCreateInfo{
-			.flags = {BufferUsageFlags::VertexBuffer | BufferUsageFlags::TransferSrc},
+			.flags = {BufferUsageFlags::VertexBuffer | BufferUsageFlags::TransferSrc | BufferUsageFlags::ShaderDeviceAddress | BufferUsageFlags::AccelerationStructureBuild | BufferUsageFlags::StorageBuffer},
 			.memoryAccess = {MemoryAccess::GPU},
 			.size = {static_cast<uint32_t>(vertexBufferSize)},
 			.name = {std::format("ModelVertexBuffer_{}", name)}
@@ -478,7 +478,7 @@ void VulkanglTFModel::LoadModelFromFile(std::string filename)
 	m_VertexBuffer->FillBuffer(vertexBuffer.data(), vertexBufferSize);
 
 	m_IndexBuffer = resourceManager.CreateBuffer(device, BufferCreateInfo{
-			.flags = {BufferUsageFlags::IndexBuffer | BufferUsageFlags::TransferSrc},
+			.flags = {BufferUsageFlags::IndexBuffer | BufferUsageFlags::TransferSrc | BufferUsageFlags::ShaderDeviceAddress | BufferUsageFlags::AccelerationStructureBuild | BufferUsageFlags::StorageBuffer},
 			.memoryAccess = {MemoryAccess::GPU},
 			.size = {static_cast<uint32_t>(indexBufferSize)},
 			.name = {std::format("ModelIndexBuffer_{}", name)}

@@ -126,6 +126,15 @@ public:
 	virtual void Bind(VulkanCommandBuffer& commandBuffer) override;
 };
 
+class RayTracingPipeline : public Pipeline
+{
+public:
+	RayTracingPipeline(VulkanDevice& device, PipelineInfo& pipelineInfo)
+		: Pipeline(device, pipelineInfo, PipelineType::RayTracing) {}
+
+	virtual void Bind(VulkanCommandBuffer& commandBuffer) override;
+};
+
 class PipelineManager
 {
 public:

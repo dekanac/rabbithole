@@ -33,6 +33,7 @@ public:
 	inline const VkShaderModule GetModule()  { return m_ShaderModule; }
 	inline const char*			GetName() const { return m_Name; }
 	inline const uint32_t		GetHash() const { return m_Hash; }
+	inline const ShaderType		GetType() const { return m_Info.Type; }
 	inline const std::vector<VkDescriptorSetLayoutBinding>& GetDescriptorSetLayoutBindings() const { return m_DescriptorSetLayoutBindings; }
 	inline const std::vector<VkPushConstantRange>& GetPushConstants() const { return m_PushConstants; }
 

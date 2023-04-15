@@ -17,6 +17,7 @@ class AllocatedResource
 {
 public:
 	AllocatedResource();
+	virtual ~AllocatedResource() {}
 
 	uint32_t GetID() const { return m_Id; }
 

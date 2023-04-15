@@ -5,6 +5,7 @@
 #include "Render/Renderer.h"
 #include "Render/Shader.h"
 #include "Render/SuperResolutionManager.h"
+#include "Render/Raytracing.h"
 
 #include <cassert>
 #include <fstream>
@@ -24,6 +25,10 @@ VulkanPipeline::VulkanPipeline(VulkanDevice& device, PipelineInfo& pipelineInfo,
 	if (m_Type == PipelineType::Compute)
 	{
 		CreateComputePipeline();
+	}
+	if (m_Type == PipelineType::RayTracing)
+	{
+		CreateRayTracingPipeline();
 	}
 }
 
@@ -122,7 +127,90 @@ void VulkanPipeline::CreateComputePipeline()
 	computePipelineInfo.flags = 0;
 
 	VULKAN_API_CALL(vkCreateComputePipelines(m_VulkanDevice.GetGraphicDevice(), VK_NULL_HANDLE, 1, &computePipelineInfo, nullptr, &m_Pipeline));
+}
 
+void VulkanPipeline::CreateRayTracingPipeline()
+{
+#if defined(VULKAN_HWRT)
+	std::vector<VkPipelineShaderStageCreateInfo> shaderStages;
+	std::vector<VkRayTracingShaderGroupCreateInfoKHR> shaderGroups;
+	std::vector<Shader*> raytracingShaders;
+
+	for (uint8_t i = 0; i < MaxRTShaders; i++)
+	{
+		Shader* currentShader = m_PipelineInfo.rayTracingShaders[i];
+
+		if (currentShader)
+		{
+			raytracingShaders.push_back(currentShader);
+			
+			VkPipelineShaderStageCreateInfo shaderStage{};
+
+			shaderStage.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+			shaderStage.stage = GetVkShaderStageFrom(currentShader->GetInfo().Type);
+			shaderStage.module = currentShader->GetModule();
+			shaderStage.pName = "main"; //TODORT: hardcoded entry points for RT shaders
+			shaderStage.flags = 0;
+			shaderStage.pNext = nullptr;
+			
+			shaderStages.push_back(shaderStage);
+		
+			VkRayTracingShaderGroupCreateInfoKHR shaderGroup{}; 
+			shaderGroup.sType = VK_STRUCTURE_TYPE_RAY_TRACING_SHADER_GROUP_CREATE_INFO_KHR;
+			shaderGroup.generalShader = VK_SHADER_UNUSED_KHR;
+			shaderGroup.closestHitShader = VK_SHADER_UNUSED_KHR;
+			shaderGroup.anyHitShader = VK_SHADER_UNUSED_KHR;
+			shaderGroup.intersectionShader = VK_SHADER_UNUSED_KHR;
+			
+			//TODORT: hardcoded separate shader groups
+			if (currentShader->GetType() == ShaderType::ClosestHit)
+			{
+				shaderGroup.closestHitShader = static_cast<uint32_t>(shaderStages.size()) - 1;
+				shaderGroup.type = VK_RAY_TRACING_SHADER_GROUP_TYPE_TRIANGLES_HIT_GROUP_KHR;
+			}
+			else
+			{
+				shaderGroup.generalShader = static_cast<uint32_t>(shaderStages.size()) - 1;
+				shaderGroup.type = VK_RAY_TRACING_SHADER_GROUP_TYPE_GENERAL_KHR;
+			}
+
+			shaderGroups.push_back(shaderGroup);
+		}
+	}
+
+	m_DescriptorSetLayout = new VulkanDescriptorSetLayout(&m_VulkanDevice, { raytracingShaders }, "Raytracing descriptor layout");
+	
+	std::vector<VulkanDescriptorSetLayout*> descSetLayouts;
+	descSetLayouts.push_back(m_DescriptorSetLayout);
+
+	m_PipelineLayout = new VulkanPipelineLayout(m_VulkanDevice, descSetLayouts, {});
+
+	VkRayTracingPipelineCreateInfoKHR rayTracingPipelineCI{ VK_STRUCTURE_TYPE_RAY_TRACING_PIPELINE_CREATE_INFO_KHR };
+	rayTracingPipelineCI.stageCount = static_cast<uint32_t>(shaderStages.size());
+	rayTracingPipelineCI.pStages = shaderStages.data();
+	rayTracingPipelineCI.groupCount = static_cast<uint32_t>(shaderGroups.size());
+	rayTracingPipelineCI.pGroups = shaderGroups.data();
+	rayTracingPipelineCI.maxPipelineRayRecursionDepth = 1;
+	rayTracingPipelineCI.layout = GET_VK_HANDLE_PTR(m_PipelineLayout);
+
+	VULKAN_API_CALL(m_VulkanDevice.pfnCreateRayTracingPipelinesKHR(m_VulkanDevice.GetGraphicDevice(), VK_NULL_HANDLE, VK_NULL_HANDLE, 1, &rayTracingPipelineCI, nullptr, &m_Pipeline));
+
+	auto shaderGroupHandleSize = m_VulkanDevice.GetRayTracingProperties().shaderGroupHandleSize;
+	auto shaderGroupHandleAlignment = m_VulkanDevice.GetRayTracingProperties().shaderGroupHandleAlignment;
+	const uint32_t handleSize = shaderGroupHandleSize;
+	const uint32_t handleSizeAligned = RayTracing::AlignedSize(shaderGroupHandleSize, shaderGroupHandleAlignment);
+	const uint32_t groupCount = static_cast<uint32_t>(shaderGroups.size());
+	const uint32_t sbtSize = groupCount * handleSizeAligned;
+
+	std::vector<uint8_t> shaderHandleStorage(sbtSize);
+	VULKAN_API_CALL(m_VulkanDevice.pfnGetRayTracingShaderGroupHandlesKHR(m_VulkanDevice.GetGraphicDevice(), m_Pipeline, 0, groupCount, sbtSize, shaderHandleStorage.data()));
+
+	m_BindingTables.raygen = RayTracing::CreateShaderBindingTable(m_VulkanDevice, 1);
+	m_BindingTables.hit = RayTracing::CreateShaderBindingTable(m_VulkanDevice, 1);
+
+	memcpy(m_BindingTables.raygen.buffer->GetHostVisibleData(), shaderHandleStorage.data(), m_BindingTables.raygen.buffer->GetSize());
+	memcpy(m_BindingTables.hit.buffer->GetHostVisibleData(), shaderHandleStorage.data() + handleSizeAligned, handleSize);
+#endif
 }
 
 void VulkanPipeline::CreateGraphicsPipeline()
