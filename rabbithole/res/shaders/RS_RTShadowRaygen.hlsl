@@ -109,11 +109,6 @@ void main()
 	float3 normal = gbufferNormal[LaunchID.xy].xyz;
 	float3 lightVec = normalize(lightPosition - positionOfOrigin);
 
-	//const float2 pixelCenter = float2(LaunchID.xy) + float2(0.5, 0.5);
-	//const float2 inUV = pixelCenter / float2(LaunchSize.xy);
-	//float2 d = inUV * 2.0 - 1.0;
-	//float4 target = mul(UBO.projInverse, float4(d.x, d.y, 1, 1));
-	
 	// early exit if the normal of the surface doesn't face light 
 	if (dot(normal, lightVec) < 0)
 	{
@@ -136,8 +131,8 @@ void main()
 	RayDesc rayDesc;
 	rayDesc.Origin = positionOfOrigin + normal * 0.01f;
 	rayDesc.Direction = lightVec;
-	rayDesc.TMin = 0.001;
-	rayDesc.TMax = 10000.0;
+	rayDesc.TMin = 0.01;
+	rayDesc.TMax = pointToLightDistance;
 
 	Payload payload;
 	payload.shadowMask = 1.f;

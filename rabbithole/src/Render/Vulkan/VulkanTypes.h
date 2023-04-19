@@ -82,6 +82,7 @@ enum class Format : uint8_t
 	BC2_UNORM_SRGB,
 	BC3_UNORM,
 	BC3_UNORM_SRGB,
+	BC5_UNORM,
 	BC7_UNORM,
 	BC7_UNORM_SRGB,
 	R32_UINT,

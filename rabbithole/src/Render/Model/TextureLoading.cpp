@@ -1,11 +1,16 @@
 #include "TextureLoading.h"
 
-#include <string>
-
+#include "Render/ResourceManager.h"
+#include "Render/Renderer.h"
+#include "Render/Vulkan/VulkanTexture.h"
 #include "Logger/Logger.h"
 #include "Utils/utils.h"
 
-#include "stb_image/stb_image.h"
+#include <stb_image/stb_image.h>
+#include <ddsloader/dds.h>
+
+#include <string>
+
 
 namespace TextureLoading
 {
@@ -35,12 +40,8 @@ namespace TextureLoading
 	{
 		return path.substr(0, 1 + path.find_last_of("\\/"));
 	}
-}
 
-// Loading
-namespace TextureLoading
-{
-	TextureData* LoadTexture(const std::string& path, bool flipY)
+	TextureData* LoadTextureFromFile(const std::string& path, bool flipY)
 	{
 		std::string apsolutePath = GetAbsolutePath(path);
 		int width, height, numChannels;
@@ -77,7 +78,7 @@ namespace TextureLoading
 		for (int i = 0; i < 6; i++)
 		{
 			const std::string imagePath = basePath + "_" + sides[i] + "." + ext;
-			output->pData[i] = LoadTexture(imagePath, false);
+			output->pData[i] = LoadTextureFromFile(imagePath, false);
 			ASSERT(i == 0 || (last_height == output->pData[i]->height && last_width == output->pData[i]->width), "[LoadCubemap] Invalid cubemap textures format!");
 			last_height = output->pData[i]->height;
 			last_width = output->pData[i]->width;
@@ -85,11 +86,38 @@ namespace TextureLoading
 
 		return output;
 	}
-}
 
-// Freeing
-namespace TextureLoading
-{
+	TextureData* LoadTextureFromDDSFile(const std::string& path)
+	{
+		DDSFile* dds = dds_load(path.c_str());
+
+		TextureData* textureData = new TextureData();
+		textureData->bpp = 4;
+		textureData->height = dds->dwHeight;
+		textureData->width = dds->dwWidth;
+		textureData->pData = dds->blBuffer;
+		textureData->mipCount = dds->dwMipMapCount;
+
+		dds_free(dds);
+
+		return textureData;
+	}
+
+	TextureData* LoadEmbeddedTexture(const aiScene* scene, uint32_t index)
+	{
+		const unsigned char* data = reinterpret_cast<const unsigned char*>(scene->mTextures[index]->pcData);
+		int width, height, channels;
+		unsigned char* image = stbi_load_from_memory(data, scene->mTextures[index]->mWidth, &width, &height, &channels, STBI_rgb_alpha);
+
+		TextureData* textureData = new TextureData();
+		textureData->bpp = channels;
+		textureData->height = height;
+		textureData->width = width;
+		textureData->pData = image;
+
+		return textureData;
+	}
+
 	void FreeTexture(TextureData* textureData)
 	{
 		if (textureData == TextureData::INVALID) return;
@@ -107,4 +135,4 @@ namespace TextureLoading
 		delete cubemap;
 	}
 
-};
+}

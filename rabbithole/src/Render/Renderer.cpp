@@ -4,6 +4,7 @@
 #include "ECS/EntityManager.h"
 #include "Input/InputManager.h"
 #include "Model/Model.h"
+#include "Render/BVH.h"
 #include "Render/Camera.h"
 #include "Render/Converters.h"
 #include "Render/PipelineManager.h"
@@ -152,12 +153,11 @@ void Renderer::CreateGeometryDescriptors(std::vector<VulkanglTFModel>& models, u
 		{
 			VulkanglTFModel::Material& modelMaterial = model.GetMaterials()[i];
 			auto& modelTextures = model.GetTextures();
-			auto& modelTexureIndices = model.GetTextureIndices();
 
 			//albedo
 			VulkanTexture* albedo;
-			if (modelMaterial.baseColorTextureIndex != 0xFFFFFFFF && modelTextures.size() > 0)
-				albedo = modelTextures[modelTexureIndices[modelMaterial.baseColorTextureIndex]];
+			if (modelMaterial.baseColorTextureIndex != -1 && modelTextures.size() > 0)
+				albedo = modelTextures[modelMaterial.baseColorTextureIndex];
 			else
 				albedo = g_DefaultWhiteTexture;
 
@@ -172,8 +172,8 @@ void Renderer::CreateGeometryDescriptors(std::vector<VulkanglTFModel>& models, u
 			//normal
 			//TODO: do something with useNormalMap bool in shaders
 			VulkanTexture* normal;
-			if (modelMaterial.normalTextureIndex != 0xFFFFFFFF && modelTextures.size() > 0)
-				normal = modelTextures[modelTexureIndices[modelMaterial.normalTextureIndex]];
+			if (modelMaterial.normalTextureIndex != -1 && modelTextures.size() > 0)
+				normal = modelTextures[modelMaterial.normalTextureIndex];
 			else
 				normal = g_DefaultWhiteTexture;
 
@@ -187,8 +187,8 @@ void Renderer::CreateGeometryDescriptors(std::vector<VulkanglTFModel>& models, u
 
 			//metallicRoughness
 			VulkanTexture* metallicRoughness;
-			if (modelMaterial.metallicRoughnessTextureIndex != 0xFFFFFFFF && modelTextures.size() > 0)
-				metallicRoughness = modelTextures[modelTexureIndices[modelMaterial.metallicRoughnessTextureIndex]];
+			if (modelMaterial.metallicRoughnessTextureIndex != -1 && modelTextures.size() > 0)
+				metallicRoughness = modelTextures[modelMaterial.metallicRoughnessTextureIndex];
 			else
 				metallicRoughness = g_DefaultWhiteTexture;
 
@@ -256,12 +256,42 @@ void Renderer::InitDefaultTextures()
 		});
 }
 
+void Renderer::CalculateMatrices(VulkanglTFModel::Node* node, Vertex* vertexBufferCpu, uint32_t* indexBufferCpu, std::vector<bool>& verticesMultipliedWithMatrix)
+{
+	glm::mat4 nodeMatrix = node->matrix;
+	VulkanglTFModel::Node* currentParent = node->parent;
+
+	while (currentParent)
+	{
+		nodeMatrix = currentParent->matrix * nodeMatrix;
+		currentParent = currentParent->parent;
+	}
+
+	for (auto& primitive : node->mesh.primitives)
+	{
+		for (uint32_t i = primitive.firstIndex; i < primitive.firstIndex + primitive.indexCount; i++)
+		{
+			auto currentIndex = indexBufferCpu[i];
+			if (!verticesMultipliedWithMatrix[currentIndex])
+			{
+				vertexBufferCpu[currentIndex].position = nodeMatrix * rabbitVec4f{ vertexBufferCpu[currentIndex].position, 1 };
+				verticesMultipliedWithMatrix[currentIndex] = true;
+			}
+		}
+	}
+
+	for (auto& child : node->children)
+	{
+		CalculateMatrices(&child, vertexBufferCpu, indexBufferCpu, verticesMultipliedWithMatrix);
+	}
+}
+
 void Renderer::LoadModels()
 {
 	//gltfModels.emplace_back(this, "res/meshes/separateObjects.gltf");
 	//gltfModels.emplace_back(this, "res/meshes/cottage.gltf");
 	gltfModels.emplace_back(this, "res/meshes/sponza/sponza.gltf");
-	//gltfModels.emplace_back(this, "res/meshes/sponzaNovaOpti.gltf");
+	//gltfModels.emplace_back(this, "res/meshes/sponzaNovaOpti.gltf", true);
 }
 
 void Renderer::BeginLabel(const char* name)
@@ -331,7 +361,7 @@ void Renderer::TraceRays()
 		&emptySbtEntry,
 		GetNativeWidth,
 		GetNativeHeight,
-		1);
+		4);
 #endif
 }
 
@@ -504,29 +534,9 @@ void Renderer::CreateAccelerationStructure()
 		uint32_t* indexBufferCpu = (uint32_t*)stagingBuffer2.Map();
 		uint32_t indexCount = static_cast<uint32_t>(modelIndexBuffer->GetSize() / sizeof(uint32_t));
 
-		for (auto node : model.GetNodes())
+		for (auto& node : model.GetNodes())
 		{
-			glm::mat4 nodeMatrix = node.matrix;
-			VulkanglTFModel::Node* currentParent = node.parent;
-
-			while (currentParent)
-			{
-				nodeMatrix = currentParent->matrix * nodeMatrix;
-				currentParent = currentParent->parent;
-			}
-
-			for (auto& primitive : node.mesh.primitives)
-			{
-				for (uint32_t i = primitive.firstIndex; i < primitive.firstIndex + primitive.indexCount; i++)
-				{
-					auto currentIndex = indexBufferCpu[i];
-					if (!verticesMultipliedWithMatrix[currentIndex])
-					{
-						vertexBufferCpu[currentIndex].position = nodeMatrix * rabbitVec4f{ vertexBufferCpu[currentIndex].position, 1 };
-						verticesMultipliedWithMatrix[currentIndex] = true;
-					}
-				}
-			}
+			CalculateMatrices(&node, vertexBufferCpu, indexBufferCpu, verticesMultipliedWithMatrix);
 		}
 
 		for (uint32_t k = 0; k < vertexCount; k++)
@@ -994,7 +1004,7 @@ void Renderer::InitLights()
 
 void Renderer::ConstructBVH()
 {
-	std::vector<Triangle> triangles;
+	std::vector<BVH::Triangle> triangles;
 	std::vector<rabbitVec4f> verticesFinal;
 
 	uint32_t vertexOffset = 0;
@@ -1025,29 +1035,9 @@ void Renderer::ConstructBVH()
 		uint32_t* indexBufferCpu = (uint32_t*)stagingBuffer2.Map();
 		uint32_t indexCount = static_cast<uint32_t>(modelIndexBuffer->GetSize() / sizeof(uint32_t));
 		
-		for (auto node : model.GetNodes())
-		{ 
-			glm::mat4 nodeMatrix = node.matrix;
-			VulkanglTFModel::Node* currentParent = node.parent;
-		
-			while (currentParent)
-			{
-				nodeMatrix = currentParent->matrix * nodeMatrix;
-			    currentParent = currentParent->parent;
-			}
-
-			for (auto& primitive : node.mesh.primitives)
-			{
-				for (uint32_t i = primitive.firstIndex; i < primitive.firstIndex + primitive.indexCount; i++)
-				{
-					auto currentIndex = indexBufferCpu[i];
-					if (!verticesMultipliedWithMatrix[currentIndex])
-					{
-						vertexBufferCpu[currentIndex].position = nodeMatrix * rabbitVec4f { vertexBufferCpu[currentIndex].position, 1 };
-						verticesMultipliedWithMatrix[currentIndex] = true;
-					}
-				}
-			}
+		for (auto& node : model.GetNodes())
+		{
+			CalculateMatrices(&node, vertexBufferCpu, indexBufferCpu, verticesMultipliedWithMatrix);
 		}
 
 		for (uint32_t k = 0; k < vertexCount; k++)
@@ -1058,7 +1048,7 @@ void Renderer::ConstructBVH()
 
 		for (uint32_t j = 0; j < indexCount; j += 3)
 		{
-			Triangle tri;
+			BVH::Triangle tri;
 			tri.indices[0] = vertexOffset + indexBufferCpu[j];
 			tri.indices[1] = vertexOffset + indexBufferCpu[j + 1];
 			tri.indices[2] = vertexOffset + indexBufferCpu[j + 2];
@@ -1074,7 +1064,7 @@ void Renderer::ConstructBVH()
 	uint32_t* triIndices;
 	uint32_t indicesNum = 0;
 
-	CacheFriendlyBVHNode* root;
+	BVH::CacheFriendlyBVHNode* root;
 	uint32_t nodeNum = 0;
 
 	bool createBVH = false;
@@ -1090,7 +1080,7 @@ void Renderer::ConstructBVH()
 		std::fwrite(&indicesNum, sizeof(uint32_t), 1, dat);
 		std::fwrite(triIndices, sizeof(uint32_t) * indicesNum, 1, dat);
 		std::fwrite(&nodeNum, sizeof(uint32_t), 1, dat);
-		std::fwrite(root, sizeof(CacheFriendlyBVHNode), nodeNum, dat);
+		std::fwrite(root, sizeof(BVH::CacheFriendlyBVHNode), nodeNum, dat);
 
 		std::fclose(dat);
 	}
@@ -1104,8 +1094,8 @@ void Renderer::ConstructBVH()
 		triIndices = RABBIT_ALLOC(uint32_t, indicesNum);
 		std::fread(triIndices, sizeof uint32_t * indicesNum, 1, dat);
 		std::fread(&nodeNum, sizeof uint32_t, 1, dat);
-		root = RABBIT_ALLOC(CacheFriendlyBVHNode, nodeNum);
-		std::fread(root, sizeof CacheFriendlyBVHNode, nodeNum, dat);
+		root = RABBIT_ALLOC(BVH::CacheFriendlyBVHNode, nodeNum);
+		std::fread(root, sizeof(BVH::CacheFriendlyBVHNode), nodeNum, dat);
 
 		std::fclose(dat);
 	}
@@ -1120,7 +1110,7 @@ void Renderer::ConstructBVH()
 	trianglesBuffer = m_ResourceManager.CreateBuffer(m_VulkanDevice, BufferCreateInfo{
 			.flags = {BufferUsageFlags::StorageBuffer},
 			.memoryAccess = {MemoryAccess::GPU},
-			.size = {static_cast<uint32_t>(triangles.size() * sizeof(Triangle))},
+			.size = {static_cast<uint32_t>(triangles.size() * sizeof(BVH::Triangle))},
 			.name = {"TrianglesBuffer"}
 		});
 
@@ -1134,14 +1124,14 @@ void Renderer::ConstructBVH()
 	cfbvhNodesBuffer = m_ResourceManager.CreateBuffer(m_VulkanDevice, BufferCreateInfo{
 			.flags = {BufferUsageFlags::StorageBuffer},
 			.memoryAccess = {MemoryAccess::GPU},
-			.size = {static_cast<uint32_t>(nodeNum * sizeof(CacheFriendlyBVHNode))},
+			.size = {static_cast<uint32_t>(nodeNum * sizeof(BVH::CacheFriendlyBVHNode))},
 			.name = {"CfbvhNodes"}
 		});
    
 	vertexBuffer->FillBuffer(verticesFinal.data(), static_cast<uint32_t>(verticesFinal.size()) * sizeof(rabbitVec4f));
-	trianglesBuffer->FillBuffer(triangles.data(), static_cast<uint32_t>(triangles.size()) * sizeof(Triangle));
+	trianglesBuffer->FillBuffer(triangles.data(), static_cast<uint32_t>(triangles.size()) * sizeof(BVH::Triangle));
 	triangleIndxsBuffer->FillBuffer(triIndices, indicesNum * sizeof(uint32_t));
-	cfbvhNodesBuffer->FillBuffer(root, nodeNum * sizeof(CacheFriendlyBVHNode));
+	cfbvhNodesBuffer->FillBuffer(root, nodeNum * sizeof(BVH::CacheFriendlyBVHNode));
 
 	RABBIT_FREE(triIndices);
 	RABBIT_FREE(root);
@@ -1187,7 +1177,7 @@ void Renderer::ImguiProfilerWindow(std::vector<TimeStamp>& timeStamps)
 
 	uint32_t fps = static_cast<uint32_t>(1.f / m_CurrentDeltaTime);
 	float frameTime_ms = m_CurrentDeltaTime * 1000.f;
-	float numOfTriangles = static_cast<float>(trianglesBuffer->GetSize()) / static_cast<float>(sizeof(Triangle)) / 1000.f;
+	float numOfTriangles = static_cast<float>(trianglesBuffer->GetSize()) / static_cast<float>(sizeof(BVH::Triangle)) / 1000.f;
 
 	ImGui::Text("FPS        : %d (%.2f ms)", fps, frameTime_ms);
 	ImGui::Text("Num of triangles   : %.2fk", numOfTriangles);

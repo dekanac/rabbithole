@@ -72,6 +72,7 @@ struct ROTextureCreateInfo
 	bool			generateMips = false;
 	SamplerType     samplerType = SamplerType::Bilinear;
 	AddressMode		addressMode = AddressMode::Repeat;
+	uint32_t		mipCount = 1;
 };
 
 struct RWTextureCreateInfo

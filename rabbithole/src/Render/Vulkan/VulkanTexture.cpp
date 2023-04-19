@@ -25,7 +25,7 @@ VulkanTexture::VulkanTexture(VulkanDevice& device, const TextureData* data, ROTe
 	, m_Flags(createInfo.flags)
 	, m_Name(createInfo.name)
 {
-	CreateResource(&device, data, createInfo.generateMips);
+	CreateResource(&device, data, createInfo);
 	CreateView(&device);
 	CreateSampler(&device, createInfo.samplerType, createInfo.addressMode);
 
@@ -87,22 +87,22 @@ VulkanTexture::~VulkanTexture()
 	if (m_Resource) { delete(m_Resource); m_Resource = nullptr; }
 }
 
-void VulkanTexture::CreateResource(VulkanDevice* device, const TextureData* texData, bool generateMips)
+void VulkanTexture::CreateResource(VulkanDevice* device, const TextureData* texData, ROTextureCreateInfo& createInfo)
 {
 	bool isCubeMap = IsFlagSet(m_Flags & TextureFlags::CubeMap);
 
-	uint32_t mipCount = generateMips ? GET_MIP_LEVELS_FROM_RES(texData->width, texData->height) : 1;
+	bool generateMipsLater = createInfo.generateMips;
+	//decide whether we generate mips or we load (mipCount) already generated mips from file
+	uint32_t mipCount = generateMipsLater ? GET_MIP_LEVELS_FROM_RES(texData->width, texData->height) : createInfo.mipCount;
 	uint32_t arraySize = isCubeMap ? 6 : 1;
+	Extent3D textureExtent = Extent3D{ static_cast<uint32_t>(texData->width), static_cast<uint32_t>(texData->height), 1 };
 
-	InitializeRegion(Extent3D{ static_cast<uint32_t>(texData->width), static_cast<uint32_t>(texData->height), 1 }, arraySize, mipCount);
+	InitializeRegion(textureExtent, arraySize, mipCount);
 
-	uint32_t textureSize = texData->height * texData->width * GetBPPFrom(m_Format) * arraySize;
+	uint64_t textureSize = GetTextureSizeFrom(m_Format, textureExtent, generateMipsLater ? 1 : mipCount, arraySize);
 
 	VulkanBuffer stagingBuffer(*device, BufferUsageFlags::TransferSrc, MemoryAccess::CPU, textureSize, "StagingBuffer");
-
-	void* data = stagingBuffer.Map();
-	memcpy(data, texData->pData, textureSize);
-	stagingBuffer.Unmap();
+	stagingBuffer.FillBuffer(texData->pData, textureSize);
 
 	VulkanImageInfo textureResourceInfo;
 	textureResourceInfo.Flags = (isCubeMap ? ImageFlags::CubeMap : ImageFlags::None) |
@@ -149,12 +149,12 @@ void VulkanTexture::CreateResource(VulkanDevice* device, const TextureData* texD
 	}
 	else
 	{
-		device->CopyBufferToImage(tempCommandBuffer, &stagingBuffer, this, true);
+		device->CopyBufferToImage(tempCommandBuffer, &stagingBuffer, this, generateMipsLater ? 1 : mipCount);
 	}
 
 	m_ShouldBeResourceState = m_CurrentResourceState = stateAfter;
 
-	if (generateMips)
+	if (generateMipsLater)
 	{
 		GenerateMips(tempCommandBuffer, device, mipCount);
 	}

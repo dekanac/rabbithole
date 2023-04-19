@@ -543,30 +543,39 @@ void VulkanDevice::CopyBuffer(VulkanCommandBuffer& commandBuffer, VulkanBuffer& 
 	vkCmdCopyBuffer(GET_VK_HANDLE(commandBuffer), GET_VK_HANDLE(srcBuffer), GET_VK_HANDLE(dstBuffer), 1, &copyRegion);
 }
 
-void VulkanDevice::CopyBufferToImage(VulkanCommandBuffer& commandBuffer, VulkanBuffer* buffer, VulkanTexture* texture, bool copyFirstMipOnly)
+void VulkanDevice::CopyBufferToImage(VulkanCommandBuffer& commandBuffer, VulkanBuffer* buffer, VulkanTexture* texture, uint32_t mipCount)
 {
 	ImageRegion texRegion = texture->GetRegion();
+	std::vector<VkBufferImageCopy> regions(mipCount);
 
-	VkBufferImageCopy region{};
-	region.bufferOffset = 0;
-	region.bufferRowLength = 0;
-	region.bufferImageHeight = 0;
+	uint32_t width = texRegion.Extent.Width;
+	uint32_t height = texRegion.Extent.Height;
+	uint32_t offset = 0;
 
-	region.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-	region.imageSubresource.mipLevel = texRegion.Subresource.MipSlice;
-	region.imageSubresource.baseArrayLayer = texRegion.Subresource.ArraySlice;
-	region.imageSubresource.layerCount = copyFirstMipOnly ? 1 : texRegion.Subresource.MipSize;
+	for (uint32_t i = 0; i < mipCount; i++)
+	{
+		regions[i].bufferOffset = offset;
+		regions[i].bufferRowLength = 0;
+		regions[i].bufferImageHeight = 0;
+			 
+		regions[i].imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+		regions[i].imageSubresource.mipLevel = i;
+		regions[i].imageSubresource.baseArrayLayer = texRegion.Subresource.ArraySlice;
+		regions[i].imageSubresource.layerCount = texRegion.Subresource.ArraySize;
+			  
+		regions[i].imageOffset = { 0, 0, 0 };
+		regions[i].imageExtent = { width >> i, height >> i, 1 };
 
-	region.imageOffset = { texRegion.Offset.X, texRegion.Offset.Y, texRegion.Offset.Z };
-	region.imageExtent = { texRegion.Extent.Width, texRegion.Extent.Height, 1 };
+		offset += GetTextureSizeFrom(texture->GetFormat(), { width >> i ,height >> i, 1}, 1, 1);
+	}
 
 	vkCmdCopyBufferToImage(
 		GET_VK_HANDLE(commandBuffer),
 		GET_VK_HANDLE_PTR(buffer),
 		GET_VK_HANDLE_PTR(texture->GetResource()),
 		VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-		1,
-		&region);
+		mipCount,
+		regions.data());
 
 	texture->SetCurrentResourceStage(ResourceStage::Transfer);
 }

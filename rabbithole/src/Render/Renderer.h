@@ -277,4 +277,6 @@ public:
 #else
 	bool isInEditorMode = false;
 #endif
+private:
+	void CalculateMatrices(VulkanglTFModel::Node* node, Vertex* vertexBufferCpu, uint32_t* indexBufferCpu, std::vector<bool>& verticesMultipliedWithMatrix);
 };

@@ -37,3 +37,5 @@ VkPipelineStageFlags		GetVkPipelineStageFromResourceStageAndState(const Resource
 VkAccessFlags				GetVkAccessFlagsFromResourceState(const ResourceState state);
 enum VkPipelineBindPoint	GetVkBindPointFrom(const PipelineType pipelineType);
 VkAttachmentLoadOp			GetVkLoadOpFrom(LoadOp op);
+uint64_t					GetTextureSizeFrom(Format format, Extent3D textureExtent, uint32_t mipCount, uint32_t arrayCount);
+uint64_t					GetTexelSizeFrom(Format format);

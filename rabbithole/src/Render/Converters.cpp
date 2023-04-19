@@ -1,6 +1,7 @@
 #include "Converters.h"
 
 #include "Logger/Logger.h"
+#include "Render/Renderer.h"
 
 VkBufferUsageFlags GetVkBufferUsageFlags(const BufferUsageFlags usageFlags)
 {
@@ -246,6 +247,8 @@ VkFormat GetVkFormatFrom(const Format format)
 		return VK_FORMAT_BC3_UNORM_BLOCK;
 	case Format::BC3_UNORM_SRGB:
 		return VK_FORMAT_BC3_SRGB_BLOCK;
+	case Format::BC5_UNORM:
+		return VK_FORMAT_BC5_UNORM_BLOCK;
 	case Format::BC7_UNORM:
 		return VK_FORMAT_BC7_UNORM_BLOCK;
 	case Format::BC7_UNORM_SRGB:
@@ -667,7 +670,85 @@ VkAttachmentLoadOp GetVkLoadOpFrom(LoadOp op)
 		return VK_ATTACHMENT_LOAD_OP_CLEAR;
 	case LoadOp::Load:
 		return VK_ATTACHMENT_LOAD_OP_LOAD;
+	default:
+		ASSERT(false, "LoadOp does not exist");
+		return VK_ATTACHMENT_LOAD_OP_MAX_ENUM;
 	}
+}
+
+uint64_t GetTextureSizeFrom(Format format, Extent3D textureExtent, uint32_t mipCount, uint32_t arrayCount)
+{
+	uint64_t size = 0;
+
+	for (uint32_t i = 0; i < mipCount; ++i)
+	{
+		VkExtent3D extent = { std::max(textureExtent.Width >> i, 1u), std::max(textureExtent.Height >> i, 1u), std::max(textureExtent.Depth >> i, 1u) };
+		uint64_t levelSize = extent.width * extent.height * extent.depth * GetTexelSizeFrom(format);
+
+		size += levelSize * arrayCount;
+	}
+
+	return size;
+}
+
+uint64_t GetTexelSizeFrom(Format format)
+{
+	uint32_t componentCount = 0;
+	uint32_t componentSize = 0;
+	VkDeviceSize blockSize = 16;
+
+	switch (format)
+	{
+
+	case Format::R8_UNORM:
+	case Format::R8_UINT:
+		componentCount = 1;
+		componentSize = 8;
+		break;
+	case Format::B8G8R8A8_UNORM_SRGB:
+	case Format::R8G8B8A8_UNORM_SRGB:
+	case Format::B8G8R8A8_UNORM:
+	case Format::R8G8B8A8_UNORM:
+		componentCount = 4;
+		componentSize = 8;
+		break;
+
+
+	case Format::R16G16B16A16_FLOAT:
+	case Format::R32G32B32A32_FLOAT:
+		componentCount = 4;
+		componentSize = 16;
+		break;
+
+	case Format::D32_SFLOAT:
+	case Format::R32_UINT:
+		componentCount = 1;
+		componentSize = 32;
+		break;
+	case Format::R16G16_FLOAT:
+		componentCount = 2;
+		componentSize = 16;
+		break;
+
+	case Format::BC5_UNORM:
+		componentCount = 4;
+		componentSize = 8;
+		blockSize = 4;
+		break;
+
+	case Format::BC7_UNORM:
+	case Format::BC7_UNORM_SRGB:
+		componentCount = 4;
+		componentSize = 8;
+		blockSize = 4;
+		break;
+
+	default:
+		// unsupported format
+		ASSERT(false, "Unknown format!");
+	}
+
+	return (blockSize / componentCount) * (componentSize / 8);
 }
 
 VkBlendFactor GetVkBlendFactorFrom(const BlendValue blendValue)

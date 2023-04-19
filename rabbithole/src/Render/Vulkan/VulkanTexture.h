@@ -36,7 +36,7 @@ public:
 	uint32_t				GetMipCount() const { return m_Region.Subresource.MipSize; }
 
 private:
-	void CreateResource(VulkanDevice* device, const TextureData* texData, bool generateMips = false);
+	void CreateResource(VulkanDevice* device, const TextureData* texData, ROTextureCreateInfo& createInfo);
 	void CreateResource(VulkanDevice* device, RWTextureCreateInfo& createInfo);
 	void CreateView(VulkanDevice* device, ClearValue value = ClearValue{});
 	void CreateSampler(VulkanDevice* device, SamplerType type, AddressMode addressMode);

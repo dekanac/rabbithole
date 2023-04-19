@@ -195,6 +195,9 @@
     <ClCompile Include="src\Render\Raytracing.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="src\vendor\ddsloader\dds.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\Core\Application.h">
@@ -1221,6 +1224,9 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="src\Render\Raytracing.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\vendor\ddsloader\dds.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

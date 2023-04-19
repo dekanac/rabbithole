@@ -69,7 +69,7 @@ VulkanTexture* ResourceManager::CreateTexture(VulkanDevice& device, std::string 
 	}
 	else
 	{
-		texData = TextureLoading::LoadTexture(path);
+		texData = TextureLoading::LoadTextureFromFile(path);
 	}
 
 	VulkanTexture* newTexture = new VulkanTexture(device, texData, createInfo);

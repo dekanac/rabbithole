@@ -8,6 +8,7 @@
 #include "stb_image/stb_image.h"
 #include <glm/glm.hpp>
 #include <glm/gtc/type_ptr.hpp>
+#include "ddsloader/dds.h"
 
 #include "Render/Renderer.h"
 #include "Render/Vulkan/VulkanDescriptors.h"
@@ -19,6 +20,20 @@
 #define STBI_MSC_SECURE_CRT
 
 #include "tinygltf/tiny_gltf.h"
+
+glm::mat4 ConvertAiMatrixToGlmMatrix(const aiMatrix4x4& aiMatrix)
+{
+	// Create a glm::mat4 from the aiMatrix4x4
+	glm::mat4 glmMatrix(aiMatrix.a1, aiMatrix.b1, aiMatrix.c1, aiMatrix.d1,
+		aiMatrix.a2, aiMatrix.b2, aiMatrix.c2, aiMatrix.d2,
+		aiMatrix.a3, aiMatrix.b3, aiMatrix.c3, aiMatrix.d3,
+		aiMatrix.a4, aiMatrix.b4, aiMatrix.c4, aiMatrix.d4);
+
+	// Transpose the matrix because glm and Assimp have different matrix conventions
+	//glmMatrix = glm::transpose(glmMatrix);
+
+	return glmMatrix;
+}
 
 std::vector<VkVertexInputBindingDescription> Vertex::GetBindingDescriptions()
 {
@@ -55,381 +70,23 @@ std::vector<VkVertexInputAttributeDescription> Vertex::GetAttributeDescriptions(
 	return attributeDescriptions;
 }
 
-BVHNode* Recurse(BBoxEntries& work, int depth)
+//#define OLD_WAY
+
+VulkanglTFModel::VulkanglTFModel(Renderer* renderer, std::string filename, bool flipNormalY)
+	: m_Renderer(renderer)
+	, m_Path(filename)
+	, m_FlipNormalY(flipNormalY)
 {
-	// terminate recursion case: 
-	// if work set has less then 4 elements (triangle bounding boxes), create a leaf node 
-	// and create a list of the triangles contained in the node
-
-	if (work.size() < 4) {
-
-		BVHLeaf* leaf = new BVHLeaf;
-		for (BBoxEntries::iterator it = work.begin(); it != work.end(); it++)
-			leaf->triangles.push_back(it->pTri);
-		return leaf;
-	}
-
-	// else, work size > 4, divide  node further into smaller nodes
-	// start by finding the working list's bounding box (top and bottom)
-
-	rabbitVec3f bottom(FLT_MAX, FLT_MAX, FLT_MAX);
-	rabbitVec3f top(-FLT_MAX, -FLT_MAX, -FLT_MAX);
-
-	// loop over all bboxes in current working list, expanding/growing the working list bbox
-	for (unsigned i = 0; i < work.size(); i++) 
-	{  // meer dan 4 bboxen in work
-		BBoxTmp& v = work[i];
-		bottom = glm::min(bottom, v.bottom);
-		top = glm::max(top, v.top);
-	}
-
-	// SAH, surface area heuristic calculation
-	// find surface area of bounding box by multiplying the dimensions of the working list's bounding box
-	float side1 = top.x - bottom.x;  // length bbox along X-axis
-	float side2 = top.y - bottom.y;  // length bbox along Y-axis
-	float side3 = top.z - bottom.z;  // length bbox along Z-axis
-
-	// the current bbox has a cost of (number of triangles) * surfaceArea of C = N * SA
-	float minCost = work.size() * (side1 * side2 + side2 * side3 + side3 * side1);
-
-	float bestSplit = FLT_MAX; // best split along axis, will indicate no split with better cost found (below)
-
-	int bestAxis = -1;
-
-	// Try all 3 axises X, Y, Z
-	for (int j = 0; j < 3; j++) {  // 0 = X, 1 = Y, 2 = Z axis
-
-		int axis = j;
-
-		// we will try dividing the triangles based on the current axis,
-		// and we will try split values from "start" to "stop", one "step" at a time.
-		float start, stop, step;
-
-		// X-axis
-		if (axis == 0) {
-			start = bottom.x;
-			stop = top.x;
-		}
-		// Y-axis
-		else if (axis == 1) {
-			start = bottom.y;
-			stop = top.y;
-		}
-		// Z-axis
-		else {
-			start = bottom.z;
-			stop = top.z;
-		}
-
-		// In that axis, do the bounding boxes in the work queue "span" across, (meaning distributed over a reasonable distance)?
-		// Or are they all already "packed" on the axis? Meaning that they are too close to each other
-		if (fabsf(stop - start) < 1e-4)
-			// BBox side along this axis too short, we must move to a different axis!
-			continue; // go to next axis
-
-		// Binning: Try splitting at a uniform sampling (at equidistantly spaced planes) that gets smaller the deeper we go:
-		// size of "sampling grid": 1024 (depth 0), 512 (depth 1), etc
-		// each bin has size "step"
-		step = (stop - start) / (1024.f / (depth + 1.f));
-
-		// for each bin (equally spaced bins of size "step"):
-		for (float testSplit = start + step; testSplit < stop - step; testSplit += step) {
-
-			// Create left and right bounding box
-			rabbitVec3f lbottom(FLT_MAX, FLT_MAX, FLT_MAX);
-			rabbitVec3f ltop(-FLT_MAX, -FLT_MAX, -FLT_MAX);
-			rabbitVec3f rbottom(FLT_MAX, FLT_MAX, FLT_MAX);
-			rabbitVec3f rtop(-FLT_MAX, -FLT_MAX, -FLT_MAX);
-
-			// The number of triangles in the left and right bboxes (needed to calculate SAH cost function)
-			int countLeft = 0, countRight = 0;
-
-			// For each test split (or bin), allocate triangles in remaining work list based on their bbox centers
-			// this is a fast O(N) pass, no triangle sorting needed (yet)
-			for (unsigned i = 0; i < work.size(); i++) {
-
-				BBoxTmp& v = work[i];
-
-				// compute bbox center
-				float value;
-				if (axis == 0) value = v.center.x;       // X-axis
-				else if (axis == 1) value = v.center.y;  // Y-axis
-				else value = v.center.z;			   // Z-axis
-
-				if (value < testSplit) {
-					// if center is smaller then testSplit value, put triangle in Left bbox
-					lbottom = glm::min(lbottom, v.bottom);
-					ltop = glm::max(ltop, v.top);
-					countLeft++;
-				}
-				else {
-					// else put triangle in right bbox
-					rbottom = glm::min(rbottom, v.bottom);
-					rtop = glm::max(rtop, v.top);
-					countRight++;
-				}
-			}
-
-			// Now use the Surface Area Heuristic to see if this split has a better "cost"
-
-			// First, check for stupid partitionings, ie bins with 0 or 1 triangles make no sense
-			if (countLeft <= 1 || countRight <= 1) continue;
-
-			// It's a real partitioning, calculate the surface areas
-			float lside1 = ltop.x - lbottom.x;
-			float lside2 = ltop.y - lbottom.y;
-			float lside3 = ltop.z - lbottom.z;
-
-			float rside1 = rtop.x - rbottom.x;
-			float rside2 = rtop.y - rbottom.y;
-			float rside3 = rtop.z - rbottom.z;
-
-			// calculate SurfaceArea of Left and Right BBox
-			float surfaceLeft = lside1 * lside2 + lside2 * lside3 + lside3 * lside1;
-			float surfaceRight = rside1 * rside2 + rside2 * rside3 + rside3 * rside1;
-
-			// calculate total cost by multiplying left and right bbox by number of triangles in each
-			float totalCost = surfaceLeft * countLeft + surfaceRight * countRight;
-
-			// keep track of cheapest split found so far
-			if (totalCost < minCost) {
-				minCost = totalCost;
-				bestSplit = testSplit;
-				bestAxis = axis;
-			}
-		} // end of loop over all bins
-	} // end of loop over all axises
-
-	// at the end of this loop (which runs for every "bin" or "sample location"), 
-	// we should have the best splitting plane, best splitting axis and bboxes with minimal traversal cost
-
-	// If we found no split to improve the cost, create a BVH leaf
-
-	if (bestAxis == -1) {
-
-		BVHLeaf* leaf = new BVHLeaf;
-		for (BBoxEntries::iterator it = work.begin(); it != work.end(); it++)
-			leaf->triangles.push_back(it->pTri); // put triangles of working list in leaf's triangle list
-		return leaf;
-	}
-
-	// Otherwise, create BVH inner node with L and R child nodes, split with the optimal value we found above
-
-	BBoxEntries left;
-	BBoxEntries right;  // BBoxEntries is a vector/list of BBoxTmp 
-
-	rabbitVec3f lbottom(FLT_MAX, FLT_MAX, FLT_MAX);
-	rabbitVec3f ltop(-FLT_MAX, -FLT_MAX, -FLT_MAX);
-	rabbitVec3f rbottom(FLT_MAX, FLT_MAX, FLT_MAX);
-	rabbitVec3f rtop(-FLT_MAX, -FLT_MAX, -FLT_MAX);
-
-	// distribute the triangles in the left or right child nodes
-	// for each triangle in the work set
-	for (int i = 0; i < (int)work.size(); i++) {
-
-		// create temporary bbox for triangle
-		BBoxTmp& v = work[i];
-
-		// compute bbox center 
-		float value;
-		if (bestAxis == 0) value = v.center.x;
-		else if (bestAxis == 1) value = v.center.y;
-		else value = v.center.z;
-
-		if (value < bestSplit) { // add temporary bbox v from work list to left BBoxentries list, 
-			// becomes new working list of triangles in next step
-
-			left.push_back(v);
-			lbottom = glm::min(lbottom, v.bottom);
-			ltop = glm::max(ltop, v.top);
-		}
-		else {
-
-			// Add triangle bbox v from working list to right BBoxentries, 
-			// becomes new working list of triangles in next step  
-			right.push_back(v);
-			rbottom = glm::min(rbottom, v.bottom);
-			rtop = glm::max(rtop, v.top);
-		}
-	} // end loop for each triangle in working set
-
-	// create inner node
-	BVHInner* inner = new BVHInner;
-
-	// recursively build the left child
-	inner->left = Recurse(left, depth + 1);
-	inner->left->bottom = lbottom;
-	inner->left->top = ltop;
-
-	// recursively build the right child
-	inner->right = Recurse(right, depth + 1);
-	inner->right->bottom = rbottom;
-	inner->right->top = rtop;
-
-	return inner;
-}  // end of Recurse() function, returns the rootnode (when all recursion calls have finished)
-
-
-BVHNode* CreateBVH(std::vector<rabbitVec4f>& vertices, std::vector<Triangle>& triangles)
-{
-	/* Summary:
-	1. Create work BBox
-	2. Create BBox for every triangle and compute bounds
-	3. Expand bounds work BBox to fit all triangle bboxes
-	4. Compute triangle bbox centre and add triangle to working list
-	5. Build BVH tree with Recurse()
-	6. Return root node
-	*/
-
-	std::vector<BBoxTmp> work;
-	rabbitVec3f bottom(FLT_MAX, FLT_MAX, FLT_MAX);
-	rabbitVec3f top(-FLT_MAX, -FLT_MAX, -FLT_MAX);
-
-	puts("Gathering bounding box info from all triangles...");
-	// for each triangle
-	for (unsigned j = 0; j < triangles.size(); j++) {
-
-		const Triangle& triangle = triangles[j];
-
-		// create a new temporary bbox per triangle 
-		BBoxTmp b;
-		b.pTri = &triangle;
-
-		// loop over triangle vertices and pick smallest vertex for bottom of triangle bbox
-		b.bottom = glm::min(b.bottom, rabbitVec3f{ vertices[triangle.indices[0]] });  // index of vertex
-		b.bottom = glm::min(b.bottom, rabbitVec3f{ vertices[triangle.indices[1]] });
-		b.bottom = glm::min(b.bottom, rabbitVec3f{ vertices[triangle.indices[2]] });
-																				 
-		// loop over triangle vertices and pick largest vertex for top of triangle bbox
-		b.top = glm::max(b.top, rabbitVec3f{ vertices[triangle.indices[0]] });
-		b.top = glm::max(b.top, rabbitVec3f{ vertices[triangle.indices[1]] });
-		b.top = glm::max(b.top, rabbitVec3f{ vertices[triangle.indices[2]] });
-
-		// expand working list bbox by largest and smallest triangle bbox bounds
-		bottom = glm::min(bottom, b.bottom);
-		top = glm::max(top, b.top);
-
-		// compute triangle bbox center: (bbox top + bbox bottom) * 0.5
-		b.center = (b.top + b.bottom) * 0.5f;
-
-		// add triangle bbox to working list
-		work.push_back(b);
-	}
-
-	// ...and pass it to the recursive function that creates the SAH AABB BVH
-	// (Surface Area Heuristic, Axis-Aligned Bounding Boxes, Bounding Volume Hierarchy)
-
-	BVHNode* root = Recurse(work); // builds BVH and returns root node
-
-	root->bottom = bottom; // bottom is bottom of bbox bounding all triangles in the scene
-	root->top = top;
-
-	return root;
+	LoadModelFromFile(filename);
 }
 
-void CreateCFBVH(const Triangle* triangles, BVHNode* rootBVH, uint32_t** triIndexList, uint32_t* triIndexListNum, CacheFriendlyBVHNode** nodeList, uint32_t* nodeListNum)
+VulkanglTFModel::~VulkanglTFModel()
 {
-
-	unsigned idxTriList = 0;
-	unsigned idxBoxes = 0;
-
-	*triIndexListNum = CountTriangles(rootBVH);
-	*triIndexList = new uint32_t[*triIndexListNum];
-
-	*nodeListNum = CountBoxes(rootBVH);
-	*nodeList = new CacheFriendlyBVHNode[*nodeListNum]; // array
-
-	PopulateCacheFriendlyBVH(&triangles[0], rootBVH, idxBoxes, idxTriList, *triIndexList, *nodeList);
-
-	if ((idxBoxes != *nodeListNum - 1) || (idxTriList != *triIndexListNum)) {
-		puts("Internal bug in CreateCFBVH, please report it..."); fflush(stdout);
-		exit(1);
-	}
-
-	int maxDepth = 0;
-	CountDepth(rootBVH, 0, maxDepth);
-	//if depth is too deep do something TODO
 }
 
-int CountBoxes(BVHNode* root)
-{
-	if (!root->IsLeaf()) {
-		BVHInner* p = dynamic_cast<BVHInner*>(root);
-		return 1 + CountBoxes(p->left) + CountBoxes(p->right);
-	}
-	else
-		return 1;
-}
+uint32_t VulkanglTFModel::ms_CurrentDrawId = 0;
 
-// recursively count triangles
-unsigned CountTriangles(BVHNode* root)
-{
-	if (!root->IsLeaf()) {
-		BVHInner* p = dynamic_cast<BVHInner*>(root);
-		return CountTriangles(p->left) + CountTriangles(p->right);
-	}
-	else {
-		BVHLeaf* p = dynamic_cast<BVHLeaf*>(root);
-		return (unsigned)p->triangles.size();
-	}
-}
-
-// recursively count depth
-void CountDepth(BVHNode* root, int depth, int& maxDepth)
-{
-	if (maxDepth < depth)
-		maxDepth = depth;
-	if (!root->IsLeaf()) {
-		BVHInner* p = dynamic_cast<BVHInner*>(root);
-		CountDepth(p->left, depth + 1, maxDepth);
-		CountDepth(p->right, depth + 1, maxDepth);
-	}
-}
-
-// Writes in the g_pCFBVH and g_triIndexListNo arrays,
-// creating a cache-friendly version of the BVH
-void PopulateCacheFriendlyBVH(
-	const Triangle* pFirstTriangle,
-	BVHNode* root,
-	unsigned& idxBoxes,
-	unsigned& idxTriList,
-	uint32_t* triIndexList,
-	CacheFriendlyBVHNode* nodeList
-	)
-{
-	uint32_t currIdxBoxes = idxBoxes;
-	nodeList[currIdxBoxes].bottom = root->bottom;
-	nodeList[currIdxBoxes].top = root->top;
-
-	//DEPTH FIRST APPROACH (left first until complete)
-	if (!root->IsLeaf()) 
-	{ // inner node
-		BVHInner* p = dynamic_cast<BVHInner*>(root);
-		// recursively populate left and right
-		int idxLeft = ++idxBoxes;
-		PopulateCacheFriendlyBVH(pFirstTriangle, p->left, idxBoxes, idxTriList, triIndexList, nodeList);
-		int idxRight = ++idxBoxes;
-		PopulateCacheFriendlyBVH(pFirstTriangle, p->right, idxBoxes, idxTriList, triIndexList, nodeList);
-		nodeList[currIdxBoxes].u.inner.idxLeft = idxLeft;
-		nodeList[currIdxBoxes].u.inner.idxRight = idxRight;
-
-	}
-
-	else 
-	{ // leaf
-		BVHLeaf* p = dynamic_cast<BVHLeaf*>(root);
-		uint32_t count = (unsigned)p->triangles.size();
-		nodeList[currIdxBoxes].u.leaf.count = 0x80000000 | count;
-		nodeList[currIdxBoxes].u.leaf.startIndexInTriIndexList = idxTriList;
-
-		for (std::list<const Triangle*>::iterator it = p->triangles.begin(); it != p->triangles.end(); it++)
-		{
-			triIndexList[idxTriList++] = static_cast<uint32_t>(*it - pFirstTriangle);
-		}
-	}
-}
-
-void VulkanglTFModel::LoadModelFromFile(std::string filename)
+void VulkanglTFModel::LoadModelFromFile(std::string& filename)
 {
 	tinygltf::Model glTFInput;
 	tinygltf::TinyGLTF gltfContext;
@@ -440,27 +97,31 @@ void VulkanglTFModel::LoadModelFromFile(std::string filename)
 
 	auto name = filename.substr(lastSlash + 1, lastDot - lastSlash - 1);
 
-	bool fileLoaded = gltfContext.LoadASCIIFromFile(&glTFInput, &error, &warning, filename);
-
 	std::vector<uint32_t> indexBuffer;
 	std::vector<Vertex> vertexBuffer;
 
-	if (fileLoaded)
+#if defined(OLD_WAY)
+	bool fileLoaded = gltfContext.LoadASCIIFromFile(&glTFInput, &error, &warning, filename);
+
+	this->LoadImages(glTFInput);
+	this->LoadMaterials(glTFInput);
+	this->LoadTextures(glTFInput);
+	const tinygltf::Scene& scene = glTFInput.scenes[0];
+	for (size_t i = 0; i < scene.nodes.size(); i++)
 	{
-		this->LoadImages(glTFInput);
-		this->LoadMaterials(glTFInput);
-		this->LoadTextures(glTFInput);
-		const tinygltf::Scene& scene = glTFInput.scenes[0];
-		for (size_t i = 0; i < scene.nodes.size(); i++)
-		{
-			const tinygltf::Node node = glTFInput.nodes[scene.nodes[i]];
-			this->LoadNode(node, glTFInput, nullptr, indexBuffer, vertexBuffer);
-		}
+		const tinygltf::Node node = glTFInput.nodes[scene.nodes[i]];
+		this->LoadNode(node, glTFInput, nullptr, indexBuffer, vertexBuffer);
 	}
-	else
-	{
-		ASSERT(false, "Could not open the glTF file");
-	}
+#else
+	Assimp::Importer importer;
+	const aiScene* aiscene = importer.ReadFile(filename, aiProcess_Triangulate | aiProcess_FlipUVs);
+	ASSERT(aiscene != nullptr, "Scene not imported, file doesn't exist!");
+
+	this->LoadMaterials(aiscene);
+	this->LoadNode(aiscene->mRootNode, aiscene, nullptr, indexBuffer, vertexBuffer);
+#endif
+
+	importer.FreeScene();
 
 	size_t vertexBufferSize = vertexBuffer.size() * sizeof(Vertex);
 	size_t indexBufferSize = indexBuffer.size() * sizeof(uint32_t);
@@ -486,23 +147,346 @@ void VulkanglTFModel::LoadModelFromFile(std::string filename)
 	m_IndexBuffer->FillBuffer(indexBuffer.data(), indexBufferSize);
 }
 
-VulkanglTFModel::VulkanglTFModel(Renderer* renderer, std::string filename)
-	: m_Renderer(renderer)
+void VulkanglTFModel::LoadNode(const aiNode* inputNode, const aiScene* inputScene, VulkanglTFModel::Node* parent, std::vector<uint32_t>& indexBuffer, std::vector<Vertex>& vertexBuffer)
 {
-	LoadModelFromFile(filename);
+	VulkanglTFModel::Node node{};
+	node.matrix = glm::mat4(1.0f);
+	node.matrix = ConvertAiMatrixToGlmMatrix(inputNode->mTransformation);
+
+	// Load node's children
+	if (inputNode->mNumChildren > 0)
+	{
+		for (size_t i = 0; i < inputNode->mNumChildren; i++)
+		{
+			LoadNode(inputNode->mChildren[i], inputScene, &node, indexBuffer, vertexBuffer);
+		}
+	}
+
+	// If the node contains mesh data, we load vertices and indices from the buffers
+	// In glTF this is done via accessors and buffer views
+	if (inputNode->mNumMeshes > 0)
+	{
+		for (uint32_t m = 0; m < inputNode->mNumMeshes; m++)
+		{
+			const aiMesh* mesh = inputScene->mMeshes[inputNode->mMeshes[m]];
+			// Iterate through all primitives of this node's mesh
+			ASSERT(mesh->mPrimitiveTypes == aiPrimitiveType_TRIANGLE, "We only support triangles for now!");
+
+			const float* positionBuffer = nullptr;
+			const float* normalsBuffer = nullptr;
+			const float* texCoordsBuffer = nullptr;
+			const float* tangentBuffer = nullptr;
+			uint32_t vertexCount = mesh->mNumVertices;
+
+			// Get buffer data for vertex normals
+			if (mesh->HasPositions())
+			{
+				positionBuffer = reinterpret_cast<const float*>(mesh->mVertices);
+			}
+			// Get buffer data for vertex normals
+			if (mesh->HasNormals())
+			{
+				normalsBuffer = reinterpret_cast<const float*>(mesh->mNormals);
+			}
+			// Get buffer data for vertex texture coordinates
+			// glTF supports multiple sets, we only load the first one
+			if (mesh->HasTextureCoords(0))
+			{
+				texCoordsBuffer = reinterpret_cast<const float*>(mesh->mTextureCoords[0]);
+			}
+
+			if (mesh->HasTangentsAndBitangents())
+			{
+				tangentBuffer = reinterpret_cast<const float*>(mesh->mTangents);
+			}
+
+			uint32_t firstIndex = static_cast<uint32_t>(indexBuffer.size());
+			uint32_t vertexStart = static_cast<uint32_t>(vertexBuffer.size());
+			uint32_t realIndexCount = 0;
+
+			for (size_t v = 0; v < vertexCount; v++)
+			{
+				Vertex vert{};
+				vert.position = glm::make_vec3(&positionBuffer[v * 3]);
+				vert.normal = glm::normalize(glm::vec3(normalsBuffer ? glm::make_vec3(&normalsBuffer[v * 3]) : glm::vec3(0.0f)));
+				if (m_FlipNormalY) { vert.normal.y = -vert.normal.y; }
+				vert.uv = texCoordsBuffer ? glm::make_vec2(&texCoordsBuffer[v * 3]) : glm::vec2(0.0f);
+				vert.tangent = tangentBuffer ? glm::make_vec3(&tangentBuffer[v * 3]) : glm::vec3(0.0f);
+				vertexBuffer.push_back(vert);
+
+				//minPos = glm::min(vert.position, minPos);
+				//maxPos = glm::max(vert.position, maxPos);
+			}
+
+			for (uint32_t i = 0; i < mesh->mNumFaces; i++)
+			{
+				const aiFace primitive = mesh->mFaces[i];
+
+				uint32_t indexCount = primitive.mNumIndices;
+				realIndexCount += indexCount;
+				uint32_t* indices = primitive.mIndices;
+
+				for (uint32_t j = 0; j < indexCount; j++)
+					indexBuffer.push_back(primitive.mIndices[j] + vertexStart);
+
+			}
+
+			Primitive rabbitPrimitive{};
+			rabbitPrimitive.firstIndex = firstIndex;
+			rabbitPrimitive.indexCount = realIndexCount;
+			rabbitPrimitive.materialIndex = mesh->mMaterialIndex;
+			node.mesh.primitives.push_back(rabbitPrimitive);
+		}
+	}
+
+	if (parent)
+	{
+		parent->children.push_back(node);
+	}
+	else
+	{
+		m_Nodes.push_back(node);
+	}
 }
 
-VulkanglTFModel::~VulkanglTFModel()
+void VulkanglTFModel::LoadMaterials(const aiScene* input)
 {
+	uint32_t numOfMaterials = input->mNumMaterials;
+	m_Materials.resize(numOfMaterials);
+
+	for (uint32_t i = 0; i < numOfMaterials; i++)
+	{
+		aiMaterial* currentMaterial = input->mMaterials[i];
+
+		// Get the base color factor
+		aiColor4D baseColor;
+		currentMaterial->Get(AI_MATKEY_BASE_COLOR, baseColor);
+		m_Materials[i].baseColorFactor = rabbitVec4f{ baseColor.r, baseColor.g, baseColor.b, baseColor.a };
+
+		aiColor3D emissiveIntensity;
+		currentMaterial->Get(AI_MATKEY_COLOR_EMISSIVE, emissiveIntensity);
+		m_Materials[i].emissiveColorAndStrenght = rabbitVec4f{ emissiveIntensity.r, emissiveIntensity.b, emissiveIntensity.g, 1.f };
+		// Get base color texture index
+
+		VulkanDevice& device = m_Renderer->GetVulkanDevice();
+
+		uint32_t textureCount = currentMaterial->GetTextureCount(aiTextureType_BASE_COLOR);
+		if (textureCount > 0)
+		{
+			aiString texturePath;
+			currentMaterial->GetTexture(aiTextureType_BASE_COLOR, 0, &texturePath);
+			auto textureAndIndex = input->GetEmbeddedTextureAndIndex(texturePath.C_Str());
+
+			VulkanTexture* baseColorTexture = nullptr;
+			// texture is embedded
+			if (texturePath.length > 0 && texturePath.data[0] == '*')
+			{
+				 TextureLoading::TextureData* textureData = TextureLoading::LoadEmbeddedTexture(input, textureAndIndex.second);
+
+				 baseColorTexture = Renderer::instance().GetResourceManager().CreateTexture(device, textureData, ROTextureCreateInfo{
+						.flags = {TextureFlags::Color | TextureFlags::Read | TextureFlags::TransferDst | TextureFlags::TransferSrc},
+						.format = {Format::R8G8B8A8_UNORM},
+						.name = {std::format("InputTexture_{}", texturePath.C_Str())},
+						.generateMips = true,
+						.samplerType = SamplerType::Anisotropic,
+						.addressMode = AddressMode::Repeat
+					});
+
+				 TextureLoading::FreeTexture(textureData);
+			}
+			// texture is extern
+			else if (texturePath.length > 0)
+			{
+				std::string texturePathStr(texturePath.C_Str());
+				std::string textureExt = texturePathStr.substr(texturePathStr.find_last_of('.') + 1);
+				std::string fullPath = m_Path.substr(0, m_Path.find_last_of('/') + 1) + texturePathStr;
+
+				// if DDS texture
+				if (textureExt == "dds")
+				{
+					TextureLoading::TextureData* textureData = TextureLoading::LoadTextureFromDDSFile(fullPath);
+
+					baseColorTexture = Renderer::instance().GetResourceManager().CreateTexture(device, textureData, ROTextureCreateInfo{
+							.flags = {TextureFlags::Color | TextureFlags::Read | TextureFlags::TransferDst | TextureFlags::TransferSrc},
+							.format = {Format::BC7_UNORM},
+							.name = {std::format("InputTexture_{}", texturePathStr.c_str())},
+							.generateMips = false,
+							.samplerType = {SamplerType::Anisotropic},
+							.addressMode = {AddressMode::Repeat},
+							.mipCount = {textureData->mipCount}
+						});
+
+					TextureLoading::FreeTexture(textureData);
+				}
+
+				else
+				{
+					TextureLoading::TextureData* textureData = TextureLoading::LoadTextureFromFile(fullPath);
+
+					baseColorTexture = Renderer::instance().GetResourceManager().CreateTexture(device, textureData, ROTextureCreateInfo{
+							.flags = {TextureFlags::Color | TextureFlags::Read | TextureFlags::TransferDst | TextureFlags::TransferSrc},
+							.format = {Format::R8G8B8A8_UNORM},
+							.name = {std::format("InputTexture_{}", texturePathStr.c_str())},
+							.generateMips = true,
+							.samplerType = {SamplerType::Anisotropic},
+							.addressMode = {AddressMode::Repeat},
+						});
+
+					TextureLoading::FreeTexture(textureData);
+				}
+
+			}
+
+			ASSERT(baseColorTexture, "Failed to load texture");
+
+			m_Textures.push_back(baseColorTexture);
+			m_Materials[i].baseColorTextureIndex = static_cast<int32_t>(m_Textures.size()) - 1;
+		}
+
+		textureCount = currentMaterial->GetTextureCount(aiTextureType_METALNESS);
+		if (textureCount > 0)
+		{
+			aiString texturePath;
+			currentMaterial->GetTexture(aiTextureType_METALNESS, 0, &texturePath);
+			auto textureAndIndex = input->GetEmbeddedTextureAndIndex(texturePath.C_Str());
+
+			VulkanTexture* metallicRoughnessTexture = nullptr;
+			// texture is embedded
+			if (texturePath.length > 0 && texturePath.data[0] == '*')
+			{
+				TextureLoading::TextureData* textureData = TextureLoading::LoadEmbeddedTexture(input, textureAndIndex.second);
+
+				metallicRoughnessTexture = Renderer::instance().GetResourceManager().CreateTexture(device, textureData, ROTextureCreateInfo{
+					   .flags = {TextureFlags::Color | TextureFlags::Read | TextureFlags::TransferDst | TextureFlags::TransferSrc},
+					   .format = {Format::R8G8B8A8_UNORM},
+					   .name = {std::format("InputTexture_{}", texturePath.C_Str())},
+					   .generateMips = true,
+					   .samplerType = SamplerType::Anisotropic,
+					   .addressMode = AddressMode::Repeat
+					});
+
+				TextureLoading::FreeTexture(textureData);
+			}
+			// texture is extern
+			else if (texturePath.length > 0)
+			{
+				std::string texturePathStr(texturePath.C_Str());
+				std::string textureExt = texturePathStr.substr(texturePathStr.find_last_of('.') + 1);
+				std::string fullPath = m_Path.substr(0, m_Path.find_last_of('/') + 1) + texturePathStr;
+
+				if (textureExt == "dds")
+				{
+					TextureLoading::TextureData* textureData = TextureLoading::LoadTextureFromDDSFile(fullPath);
+
+					metallicRoughnessTexture = Renderer::instance().GetResourceManager().CreateTexture(device, textureData, ROTextureCreateInfo{
+							.flags = {TextureFlags::Color | TextureFlags::Read | TextureFlags::TransferDst | TextureFlags::TransferSrc},
+							.format = {Format::BC7_UNORM},
+							.name = {std::format("InputTexture_{}", texturePathStr.c_str())},
+							.generateMips = false,
+							.samplerType = {SamplerType::Anisotropic},
+							.addressMode = {AddressMode::Repeat},
+							.mipCount = {textureData->mipCount}
+						});
+
+					TextureLoading::FreeTexture(textureData);
+				}
+
+				else
+				{
+					TextureLoading::TextureData* textureData = TextureLoading::LoadTextureFromFile(fullPath);
+
+					metallicRoughnessTexture = Renderer::instance().GetResourceManager().CreateTexture(device, textureData, ROTextureCreateInfo{
+							.flags = {TextureFlags::Color | TextureFlags::Read | TextureFlags::TransferDst | TextureFlags::TransferSrc},
+							.format = {Format::R8G8B8A8_UNORM},
+							.name = {std::format("InputTexture_{}", texturePathStr.c_str())},
+							.generateMips = true,
+							.samplerType = {SamplerType::Anisotropic},
+							.addressMode = {AddressMode::Repeat},
+						});
+
+					TextureLoading::FreeTexture(textureData);
+				}
+
+			}
+
+			ASSERT(metallicRoughnessTexture, "Failed to load texture");
+
+			m_Textures.push_back(metallicRoughnessTexture);
+			m_Materials[i].metallicRoughnessTextureIndex = static_cast<int32_t>(m_Textures.size()) - 1;
+		}
+
+		textureCount = currentMaterial->GetTextureCount(aiTextureType_NORMALS);
+		if (textureCount > 0)
+		{
+			aiString texturePath;
+			currentMaterial->GetTexture(aiTextureType_NORMALS, 0, &texturePath);
+			auto textureAndIndex = input->GetEmbeddedTextureAndIndex(texturePath.C_Str());
+
+			VulkanTexture* normalTexture = nullptr;
+			// texture is embedded
+			if (texturePath.length > 0 && texturePath.data[0] == '*')
+			{
+				TextureLoading::TextureData* textureData = TextureLoading::LoadEmbeddedTexture(input, textureAndIndex.second);
+
+				normalTexture = Renderer::instance().GetResourceManager().CreateTexture(device, textureData, ROTextureCreateInfo{
+					   .flags = {TextureFlags::Color | TextureFlags::Read | TextureFlags::TransferDst | TextureFlags::TransferSrc},
+					   .format = {Format::R8G8B8A8_UNORM},
+					   .name = {std::format("InputTexture_{}", texturePath.C_Str())},
+					   .generateMips = true,
+					   .samplerType = SamplerType::Anisotropic,
+					   .addressMode = AddressMode::Repeat
+					});
+
+				TextureLoading::FreeTexture(textureData);
+			}
+			// texture is extern
+			else if (texturePath.length > 0)
+			{
+				std::string texturePathStr(texturePath.C_Str());
+				std::string textureExt = texturePathStr.substr(texturePathStr.find_last_of('.') + 1);
+				std::string fullPath = m_Path.substr(0, m_Path.find_last_of('/') + 1) + texturePathStr;
+
+				if (textureExt == "dds")
+				{
+					TextureLoading::TextureData* textureData = TextureLoading::LoadTextureFromDDSFile(fullPath);
+
+					normalTexture = Renderer::instance().GetResourceManager().CreateTexture(device, textureData, ROTextureCreateInfo{
+							.flags = {TextureFlags::Color | TextureFlags::Read | TextureFlags::TransferDst | TextureFlags::TransferSrc},
+							.format = {Format::BC5_UNORM},
+							.name = {std::format("InputTexture_{}", texturePathStr.c_str())},
+							.generateMips = false,
+							.samplerType = {SamplerType::Anisotropic},
+							.addressMode = {AddressMode::Repeat},
+							.mipCount = {textureData->mipCount}
+						});
+
+					TextureLoading::FreeTexture(textureData);
+				}
+
+				else
+				{
+					TextureLoading::TextureData* textureData = TextureLoading::LoadTextureFromFile(fullPath);
+
+					normalTexture = Renderer::instance().GetResourceManager().CreateTexture(device, textureData, ROTextureCreateInfo{
+							.flags = {TextureFlags::Color | TextureFlags::Read | TextureFlags::TransferDst | TextureFlags::TransferSrc},
+							.format = {Format::R8G8B8A8_UNORM},
+							.name = {std::format("InputTexture_{}", texturePathStr.c_str())},
+							.generateMips = true,
+							.samplerType = {SamplerType::Anisotropic},
+							.addressMode = {AddressMode::Repeat},
+						});
+
+					TextureLoading::FreeTexture(textureData);
+				}
+			}
+
+			ASSERT(normalTextureIndex, "Failed to load texture");
+
+			m_Textures.push_back(normalTexture);
+			m_Materials[i].normalTextureIndex = static_cast<int32_t>(m_Textures.size()) - 1;
+		}
+	}
 }
-
-uint32_t VulkanglTFModel::ms_CurrentDrawId = 0;
-
-/*
-	glTF loading functions
-
-	The following functions take a glTF input model loaded via tinyglTF and convert all required data into our own structure
-*/
 
 void VulkanglTFModel::LoadImages(tinygltf::Model& input)
 {
@@ -594,13 +578,13 @@ void VulkanglTFModel::LoadMaterials(tinygltf::Model& input)
 		{
 			m_Materials[i].baseColorTextureIndex = glTFMaterial.values["baseColorTexture"].TextureIndex();
 		}
-		// Get metaliic and roughness texture index
+		// Get metallic and roughness texture index
 		if (glTFMaterial.values.find("metallicRoughnessTexture") != glTFMaterial.values.end())
 		{
 			m_Materials[i].metallicRoughnessTextureIndex = glTFMaterial.values["metallicRoughnessTexture"].TextureIndex();
 		}
 		// Get normal texture index
-		m_Materials[i].normalTextureIndex = glTFMaterial.normalTexture.index != -1 ? glTFMaterial.normalTexture.index : UINT32_MAX;
+		m_Materials[i].normalTextureIndex = glTFMaterial.normalTexture.index != -1 ? glTFMaterial.normalTexture.index : -1;
 	}
 }
 
@@ -611,28 +595,28 @@ void VulkanglTFModel::LoadNode(const tinygltf::Node& inputNode, const tinygltf::
 
 	// Get the local node matrix
 	// It's either made up from translation, rotation, scale or a 4x4 matrix
-	if (inputNode.translation.size() == 3) 
+	if (inputNode.translation.size() == 3)
 	{
 		node.matrix = glm::translate(node.matrix, glm::vec3(glm::make_vec3(inputNode.translation.data())));
 	}
-	if (inputNode.rotation.size() == 4) 
+	if (inputNode.rotation.size() == 4)
 	{
 		glm::quat q = glm::make_quat(inputNode.rotation.data());
 		node.matrix *= glm::mat4(q);
 	}
-	if (inputNode.scale.size() == 3) 
+	if (inputNode.scale.size() == 3)
 	{
 		node.matrix = glm::scale(node.matrix, glm::vec3(glm::make_vec3(inputNode.scale.data())));
 	}
-	if (inputNode.matrix.size() == 16) 
+	if (inputNode.matrix.size() == 16)
 	{
 		node.matrix = glm::make_mat4x4(inputNode.matrix.data());
 	};
 
 	// Load node's children
-	if (inputNode.children.size() > 0) 
+	if (inputNode.children.size() > 0)
 	{
-		for (size_t i = 0; i < inputNode.children.size(); i++) 
+		for (size_t i = 0; i < inputNode.children.size(); i++)
 		{
 			LoadNode(input.nodes[inputNode.children[i]], input, &node, indexBuffer, vertexBuffer);
 		}
@@ -640,11 +624,11 @@ void VulkanglTFModel::LoadNode(const tinygltf::Node& inputNode, const tinygltf::
 
 	// If the node contains mesh data, we load vertices and indices from the buffers
 	// In glTF this is done via accessors and buffer views
-	if (inputNode.mesh > -1) 
+	if (inputNode.mesh > -1)
 	{
 		const tinygltf::Mesh mesh = input.meshes[inputNode.mesh];
 		// Iterate through all primitives of this node's mesh
-		for (size_t i = 0; i < mesh.primitives.size(); i++) 
+		for (size_t i = 0; i < mesh.primitives.size(); i++)
 		{
 			const tinygltf::Primitive& glTFPrimitive = mesh.primitives[i];
 			uint32_t firstIndex = static_cast<uint32_t>(indexBuffer.size());
@@ -659,7 +643,7 @@ void VulkanglTFModel::LoadNode(const tinygltf::Node& inputNode, const tinygltf::
 				size_t vertexCount = 0;
 
 				// Get buffer data for vertex normals
-				if (glTFPrimitive.attributes.find("POSITION") != glTFPrimitive.attributes.end()) 
+				if (glTFPrimitive.attributes.find("POSITION") != glTFPrimitive.attributes.end())
 				{
 					const tinygltf::Accessor& accessor = input.accessors[glTFPrimitive.attributes.find("POSITION")->second];
 					const tinygltf::BufferView& view = input.bufferViews[accessor.bufferView];
@@ -667,7 +651,7 @@ void VulkanglTFModel::LoadNode(const tinygltf::Node& inputNode, const tinygltf::
 					vertexCount = accessor.count;
 				}
 				// Get buffer data for vertex normals
-				if (glTFPrimitive.attributes.find("NORMAL") != glTFPrimitive.attributes.end()) 
+				if (glTFPrimitive.attributes.find("NORMAL") != glTFPrimitive.attributes.end())
 				{
 					const tinygltf::Accessor& accessor = input.accessors[glTFPrimitive.attributes.find("NORMAL")->second];
 					const tinygltf::BufferView& view = input.bufferViews[accessor.bufferView];
@@ -675,27 +659,27 @@ void VulkanglTFModel::LoadNode(const tinygltf::Node& inputNode, const tinygltf::
 				}
 				// Get buffer data for vertex texture coordinates
 				// glTF supports multiple sets, we only load the first one
-				if (glTFPrimitive.attributes.find("TEXCOORD_0") != glTFPrimitive.attributes.end()) 
+				if (glTFPrimitive.attributes.find("TEXCOORD_0") != glTFPrimitive.attributes.end())
 				{
 					const tinygltf::Accessor& accessor = input.accessors[glTFPrimitive.attributes.find("TEXCOORD_0")->second];
 					const tinygltf::BufferView& view = input.bufferViews[accessor.bufferView];
 					texCoordsBuffer = reinterpret_cast<const float*>(&(input.buffers[view.buffer].data[accessor.byteOffset + view.byteOffset]));
 				}
 
-				if (glTFPrimitive.attributes.find("TANGENT") != glTFPrimitive.attributes.end()) 
+				if (glTFPrimitive.attributes.find("TANGENT") != glTFPrimitive.attributes.end())
 				{
 					const tinygltf::Accessor& accessor = input.accessors[glTFPrimitive.attributes.find("TANGENT")->second];
 					const tinygltf::BufferView& view = input.bufferViews[accessor.bufferView];
 					tangentBuffer = reinterpret_cast<const float*>(&(input.buffers[view.buffer].data[accessor.byteOffset + view.byteOffset]));
 				}
 
-				// Append data to model's vertex buffer and calculate AABB
-				
+				// Append data to model's vertex buffer and calculate AABB 
+
 				AABB aabb{};
-				rabbitVec3f minPos= { FLT_MAX, FLT_MAX, FLT_MAX };
+				rabbitVec3f minPos = { FLT_MAX, FLT_MAX, FLT_MAX };
 				rabbitVec3f maxPos = { -FLT_MAX, -FLT_MAX, -FLT_MAX };
 
-				for (size_t v = 0; v < vertexCount; v++) 
+				for (size_t v = 0; v < vertexCount; v++)
 				{
 					Vertex vert{};
 					vert.position = glm::make_vec3(&positionBuffer[v * 3]);
@@ -720,19 +704,19 @@ void VulkanglTFModel::LoadNode(const tinygltf::Node& inputNode, const tinygltf::
 				indexCount += static_cast<uint32_t>(accessor.count);
 
 				// glTF supports different component types of indices
-				switch (accessor.componentType) 
+				switch (accessor.componentType)
 				{
-				case TINYGLTF_PARAMETER_TYPE_UNSIGNED_INT: 
+				case TINYGLTF_PARAMETER_TYPE_UNSIGNED_INT:
 				{
 					uint32_t* buf = new uint32_t[accessor.count];
 					memcpy(buf, &buffer.data[accessor.byteOffset + bufferView.byteOffset], accessor.count * sizeof(uint32_t));
-					for (size_t index = 0; index < accessor.count; index++) 
+					for (size_t index = 0; index < accessor.count; index++)
 					{
 						indexBuffer.push_back(buf[index] + vertexStart);
 					}
 					break;
 				}
-				case TINYGLTF_PARAMETER_TYPE_UNSIGNED_SHORT: 
+				case TINYGLTF_PARAMETER_TYPE_UNSIGNED_SHORT:
 				{
 					uint16_t* buf = new uint16_t[accessor.count];
 					memcpy(buf, &buffer.data[accessor.byteOffset + bufferView.byteOffset], accessor.count * sizeof(uint16_t));
@@ -742,7 +726,7 @@ void VulkanglTFModel::LoadNode(const tinygltf::Node& inputNode, const tinygltf::
 					}
 					break;
 				}
-				case TINYGLTF_PARAMETER_TYPE_UNSIGNED_BYTE: 
+				case TINYGLTF_PARAMETER_TYPE_UNSIGNED_BYTE:
 				{
 					uint8_t* buf = new uint8_t[accessor.count];
 					memcpy(buf, &buffer.data[accessor.byteOffset + bufferView.byteOffset], accessor.count * sizeof(uint8_t));
@@ -794,9 +778,9 @@ void VulkanglTFModel::DrawNode(VulkanCommandBuffer& commandBuffer, const VulkanP
 			//TODO: add primitive id
 			pushData.id = ms_CurrentDrawId++;
 			pushData.modelMatrix = nodeMatrix;
-			pushData.useAlbedoMap = (uint32_t)(m_Materials[primitive.materialIndex].baseColorTextureIndex != UINT32_MAX);
-			pushData.useNormalMap = (uint32_t)(m_Materials[primitive.materialIndex].normalTextureIndex != UINT32_MAX);
-			pushData.useMetallicRoughnessMap = (uint32_t)(m_Materials[primitive.materialIndex].metallicRoughnessTextureIndex != UINT32_MAX);
+			pushData.useAlbedoMap = (uint32_t)(m_Materials[primitive.materialIndex].baseColorTextureIndex != -1);
+			pushData.useNormalMap = (uint32_t)(m_Materials[primitive.materialIndex].normalTextureIndex != -1);
+			pushData.useMetallicRoughnessMap = (uint32_t)(m_Materials[primitive.materialIndex].metallicRoughnessTextureIndex != -1);
 			pushData.baseColor = m_Materials[primitive.materialIndex].baseColorFactor;
 			pushData.emmisiveColorAndStrength = m_Materials[primitive.materialIndex].emissiveColorAndStrenght;
 

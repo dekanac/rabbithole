@@ -197,10 +197,10 @@ void VulkanPipeline::CreateRayTracingPipeline()
 
 	auto shaderGroupHandleSize = m_VulkanDevice.GetRayTracingProperties().shaderGroupHandleSize;
 	auto shaderGroupHandleAlignment = m_VulkanDevice.GetRayTracingProperties().shaderGroupHandleAlignment;
-	const uint32_t handleSize = shaderGroupHandleSize;
-	const uint32_t handleSizeAligned = RayTracing::AlignedSize(shaderGroupHandleSize, shaderGroupHandleAlignment);
+	const uint64_t handleSize = shaderGroupHandleSize;
+	const uint64_t handleSizeAligned = RayTracing::AlignedSize(shaderGroupHandleSize, shaderGroupHandleAlignment);
 	const uint32_t groupCount = static_cast<uint32_t>(shaderGroups.size());
-	const uint32_t sbtSize = groupCount * handleSizeAligned;
+	const uint64_t sbtSize = groupCount * handleSizeAligned;
 
 	std::vector<uint8_t> shaderHandleStorage(sbtSize);
 	VULKAN_API_CALL(m_VulkanDevice.pfnGetRayTracingShaderGroupHandlesKHR(m_VulkanDevice.GetGraphicDevice(), m_Pipeline, 0, groupCount, sbtSize, shaderHandleStorage.data()));
