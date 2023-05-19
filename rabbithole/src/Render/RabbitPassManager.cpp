@@ -23,6 +23,7 @@ void RabbitPassManager::SchedulePasses(Renderer& renderer)
 	AddPass(new ShadowDenoiseFilterPass(renderer));
 	AddPass(new SSAOPass(renderer));
 	AddPass(new SSAOBlurPass(renderer));
+	AddPass(new VolumetricShadowsPass(renderer));
 	AddPass(new VolumetricPass(renderer));
 	AddPass(new ComputeScatteringPass(renderer));
 	AddPass(new LightingPass(renderer));

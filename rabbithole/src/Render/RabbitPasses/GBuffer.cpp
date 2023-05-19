@@ -52,14 +52,16 @@ void GBufferPass::DeclareResources()
 			.dimensions = {GetNativeWidth , GetNativeHeight, 1},
 			.flags = {TextureFlags::RenderTarget | TextureFlags::Read | TextureFlags::Storage},
 			.format = {Format::R16G16_FLOAT},
-			.name = {"GBuffer Velocity"}
+			.name = {"GBuffer Velocity"},
+			.samplerType = SamplerType::Point
 		});
 
 	Depth = m_Renderer.GetResourceManager().CreateTexture(m_Renderer.GetVulkanDevice(), RWTextureCreateInfo{
 			.dimensions = {GetNativeWidth , GetNativeHeight, 1},
 			.flags = {TextureFlags::DepthStencil | TextureFlags::Read | TextureFlags::TransferSrc},
 			.format = {Format::D32_SFLOAT},
-			.name = {"GBuffer Depth"}
+			.name = {"GBuffer Depth"},
+			.samplerType = SamplerType::Point
 		});
 }
 
@@ -72,20 +74,19 @@ void GBufferPass::Setup()
 
 	m_Renderer.BindViewport(0, 0, static_cast<float>(GetNativeWidth), static_cast<float>(GetNativeHeight));
 	stateManager.SetRenderPassExtent({ GetNativeWidth , GetNativeHeight });
-
 	stateManager.ShouldCleanColor(LoadOp::Clear);
 	stateManager.ShouldCleanDepth(LoadOp::Clear);
 
 	auto pipelineInfo = stateManager.GetPipelineInfo();
-
-	SetConstantBuffer(0, m_Renderer.GetMainConstBuffer());
-
+	pipelineInfo->SetDepthWriteEnabled(true);
 	pipelineInfo->SetAttachmentCount(5);
 	pipelineInfo->SetColorWriteMask(0, ColorWriteMaskFlags::RGBA);
 	pipelineInfo->SetColorWriteMask(1, ColorWriteMaskFlags::RGBA);
 	pipelineInfo->SetColorWriteMask(2, ColorWriteMaskFlags::RGBA);
 	pipelineInfo->SetColorWriteMask(3, ColorWriteMaskFlags::RGBA);
 	pipelineInfo->SetColorWriteMask(4, ColorWriteMaskFlags::RGBA);
+
+	SetConstantBuffer(0, m_Renderer.GetMainConstBuffer());
 
 	SetRenderTarget(0, GBufferPass::Albedo);
 	SetRenderTarget(1, GBufferPass::Normals);

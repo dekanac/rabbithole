@@ -147,7 +147,7 @@ private:
 	void UpdateUIStateAndFSR2PreDraw();
 	void ImguiProfilerWindow(std::vector<TimeStamp>& timestamps);
 	void ImGuiTextureDebugger();
-	ImVec2 GetScaledSizeWithAspectRatioKept(ImVec2 currentSize);
+	ImVec2 GetScaledSizeWithAspectRatioKept(ImVec2 currentSize, float minWidth = 200.f);
 
 	void RecordCommandBuffer();
 
@@ -208,7 +208,7 @@ public:
 	void CopyToSwapChain();
 	void DrawGeometryGLTF(std::vector<VulkanglTFModel>& bucket);
 	void DrawFullScreenQuad();
-	void TraceRays();
+	void TraceRays(uint32_t x, uint32_t y, uint32_t z);
 	void ClearImage(VulkanTexture* texture, Color clearValue);
 
 	uint32_t	GetCurrentImageIndex() { return m_CurrentImageIndex; }

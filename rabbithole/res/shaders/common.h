@@ -75,6 +75,10 @@ struct VolumetricFogParams
     float depthScale_debug;
     float fogStartDistance;
     float fogDistance;
+    float fogDepthExponent;
+    uint volumetricTexWidth;
+    uint volumetricTexHeight;
+    uint volumetricTexDepth;
 };
 
 float ScalarTriple(vec3 a, vec3 b, vec3 c)

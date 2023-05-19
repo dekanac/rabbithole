@@ -360,3 +360,10 @@ void VulkanStateManager::SetComputeShader(Shader* shader, std::string entryPoint
 	m_PipelineInfo->csEntryPoint = entryPoint.c_str();
 	m_DirtyPipeline = true;
 }
+
+void VulkanStateManager::SetRayTracingShaders(std::array<Shader*, MaxRTShaders> rtShaders)
+{
+	m_CurrentPipelinetype = PipelineType::RayTracing;
+	m_PipelineInfo->rayTracingShaders = rtShaders;
+	m_DirtyPipeline = true;
+}

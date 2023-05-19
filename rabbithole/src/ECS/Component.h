@@ -19,6 +19,7 @@ struct Component
     bool m_Active{ false };
     virtual ~Component() = default;
 
+    ComponentTypeID GetType() { return m_TypeId; }
 private:
     inline static ComponentTypeID m_MaxComponentTypeId = 0;
 

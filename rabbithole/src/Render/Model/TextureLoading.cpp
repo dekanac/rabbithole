@@ -49,6 +49,8 @@ namespace TextureLoading
 		unsigned char* data = stbi_load(apsolutePath.c_str(), &width, &height,
 			&numChannels, forceNumChannels);
 
+		ASSERT(data, "Texture loading failed!");
+
 		if (!data)
 		{
 			// TODO: Move this on some init function and delete if at the engine stop

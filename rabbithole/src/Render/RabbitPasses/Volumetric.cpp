@@ -2,6 +2,7 @@
 
 #include "Render/RabbitPasses/GBuffer.h"
 #include "Render/RabbitPasses/Lighting.h"
+#include "Render/RabbitPasses/Shadows.h"
 
 defineResource(VolumetricPass, MediaDensity, VulkanTexture);
 defineResource(VolumetricPass, ParamsGPU, VulkanBuffer)
@@ -14,10 +15,11 @@ defineResource(ApplyVolumetricFogPass, Output, VulkanTexture);
 void VolumetricPass::DeclareResources()
 {
 	MediaDensity = m_Renderer.GetResourceManager().CreateTexture(m_Renderer.GetVulkanDevice(), RWTextureCreateInfo{
-			.dimensions = {160, 90, 128},
+			.dimensions = {g_VolumetricTexX, g_VolumetricTexY, g_VolumetricTexZ},
 			.flags = {TextureFlags::Read | TextureFlags::TransferSrc | TextureFlags::Storage},
 			.format = {Format::R16G16B16A16_FLOAT},
 			.name = {"Media Density"},
+			.samplerType = {SamplerType::Trilinear}
 		});
 
 	ParamsGPU = m_Renderer.GetResourceManager().CreateBuffer(m_Renderer.GetVulkanDevice(), BufferCreateInfo{
@@ -34,15 +36,12 @@ void VolumetricPass::Setup()
 
 	stateManager.SetComputeShader(m_Renderer.GetShader("CS_Volumetric"));
 
-	SetStorageBufferRead(0, m_Renderer.vertexBuffer);
-	SetStorageBufferRead(1, m_Renderer.trianglesBuffer);
-	SetStorageBufferRead(2, m_Renderer.triangleIndxsBuffer);
-	SetStorageBufferRead(3, m_Renderer.cfbvhNodesBuffer);
 	SetConstantBuffer(4, VolumetricPass::ParamsGPU);
 	SetStorageImageWrite(5, VolumetricPass::MediaDensity);
 	SetCombinedImageSampler(6, m_Renderer.noise3DLUT);
 	SetConstantBuffer(7, LightingPass::LightParamsGPU);
 	SetConstantBuffer(8, m_Renderer.GetMainConstBuffer());
+	SetCombinedImageSampler(9, VolumetricShadowsPass::VolumetricShadows);
 
 	if (m_Renderer.IsImguiReady())
 	{
@@ -50,14 +49,19 @@ void VolumetricPass::Setup()
 
 		auto& fogParams = VolumetricPass::ParamsCPU;
 
-		static bool fogEnabled;
+		static bool fogEnabled = true;
 		ImGui::Checkbox("Enable Fog: ", &fogEnabled);
 		fogParams.isEnabled = (uint32_t)fogEnabled;
 
 		ImGui::SliderFloat("Fog Amount: ", &(fogParams.fogAmount), 0.0001f, 0.1f);
 		ImGui::SliderFloat("Depth Scale Debug: ", &(fogParams.depthScale_debug), 0.1f, 5.f);
-		ImGui::SliderFloat("Fog Start Distance ", &(fogParams.fogStartDistance), 0.01f, 20.f);
-		ImGui::SliderFloat("Fog Distance ", &(fogParams.fogDistance), 10.f, 256.f);
+		ImGui::SliderFloat("Fog Start Distance ", &(fogParams.fogStartDistance), 0.0f, 20.f);
+		ImGui::SliderFloat("Fog Distance ", &(fogParams.fogDistance), 10.f, 128.f);
+		ImGui::SliderFloat("Fog Depth Exponent ", &(fogParams.fogDepthExponent), 0.1f, 10.f);
+
+		fogParams.volumetricTexWidth = g_VolumetricTexX;
+		fogParams.volumetricTexHeight = g_VolumetricTexY;
+		fogParams.volumetricTexDepth = g_VolumetricTexZ;
 
 		ImGui::End();
 	}
@@ -101,10 +105,11 @@ void Create3DNoiseTexturePass::Render()
 void ComputeScatteringPass::DeclareResources()
 {
 	LightScattering = m_Renderer.GetResourceManager().CreateTexture(m_Renderer.GetVulkanDevice(), RWTextureCreateInfo{
-			.dimensions = {160, 90, 64},
+			.dimensions = {g_VolumetricTexX, g_VolumetricTexY, g_VolumetricTexZ},
 			.flags = {TextureFlags::Read | TextureFlags::TransferSrc | TextureFlags::Storage},
 			.format = {Format::R16G16B16A16_FLOAT},
 			.name = {"Scattering Calculation"},
+			.samplerType = {SamplerType::Trilinear}
 		});
 }
 
@@ -115,7 +120,7 @@ void ComputeScatteringPass::Setup()
 
 	stateManager.SetComputeShader(m_Renderer.GetShader("CS_ComputeScattering"));
 
-	SetStorageImageRead(0, VolumetricPass::MediaDensity);
+	SetCombinedImageSampler(0, VolumetricPass::MediaDensity);
 	SetStorageImageWrite(1, ComputeScatteringPass::LightScattering);
 	SetConstantBuffer(2, VolumetricPass::ParamsGPU);
 }

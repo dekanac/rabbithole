@@ -170,7 +170,10 @@ ResourceStage GetResourceStageFrom(const PipelineType pipelineType)
 		return ResourceStage::Graphics;
 	case PipelineType::Compute:
 		return ResourceStage::Compute;
+	case PipelineType::RayTracing:
+		return ResourceStage::RayTracing;
 	default:
+		ASSERT(false, "Not supported Resource Stage");
 		return ResourceStage::Count;
 	}
 }
@@ -599,6 +602,8 @@ VkPipelineStageFlags GetVkPipelineStageFromResourceStageAndState(const ResourceS
 		return VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT; //TODO: fix this, but this should be ok for now
 	case ResourceStage::Transfer:
 		return VK_PIPELINE_STAGE_TRANSFER_BIT;
+	case ResourceStage::RayTracing:
+		return VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR;
 	case ResourceStage::Undefined:
 		return VK_PIPELINE_STAGE_ALL_COMMANDS_BIT;
 	default:

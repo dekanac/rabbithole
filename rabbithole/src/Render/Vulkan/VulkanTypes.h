@@ -125,6 +125,7 @@ enum class ResourceStage : uint8_t
 	Transfer,
 	Graphics,
 	Compute,
+	RayTracing,
 	Undefined,
 
 	Count

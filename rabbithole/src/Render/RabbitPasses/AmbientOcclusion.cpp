@@ -56,11 +56,11 @@ void SSAOPass::DeclareResources()
 
 	//init ssao params
 	ParamsCPU.radius = 0.5f;
-	ParamsCPU.bias = 0.025f;
+	ParamsCPU.bias = 0.035f;
 	ParamsCPU.resWidth = static_cast<float>(GetNativeWidth);
 	ParamsCPU.resHeight = static_cast<float>(GetNativeHeight);
-	ParamsCPU.power = 1.75f;
-	ParamsCPU.kernelSize = 48;
+	ParamsCPU.power = 2.05f;
+	ParamsCPU.kernelSize = 64;
 	ParamsCPU.ssaoOn = true;
 }
 void SSAOPass::Setup()

@@ -17,7 +17,7 @@ static const float MAX_VERTICAL_ANGLE = 85.0f;
 Camera::Camera()
 	: m_Position(0.0f, 0.0f, 0.0f)
 	, m_FieldOfView(45.0f)
-	, m_NearPlane(0.01f)
+	, m_NearPlane(0.1f)
 	, m_FarPlane(1000.0f)
 	, m_Aspect(static_cast<float>(Window::instance().GetExtent().width) / Window::instance().GetExtent().height)
 	, m_Pitch(0.f)
@@ -25,7 +25,7 @@ Camera::Camera()
 	, m_ProjMatrix(rabbitMat4f{ 1.f })
 	, m_ViewMatrix(rabbitMat4f{ 1.f })
 	, m_FocalPoint({ 0.0f, 0.0f, 0.0f })
-	, m_CameraPanSpeed(0.5f)
+	, m_CameraPanSpeed(0.8f)
 	, m_Distance(0.f)
 {
 	UpdateView();
@@ -40,7 +40,7 @@ bool Camera::Init()
 	mainCamera->AddComponent<InputComponent>();
 
 	auto moveComp = mainCamera->GetComponent<MoverComponent>();
-	moveComp->m_MoveSpeed = 4.f; //camera sensitivity 
+	moveComp->m_MoveSpeed = 6.f; //camera sensitivity 
 
 	auto inputComp = mainCamera->GetComponent<InputComponent>();
 	inputComp->inputActions.push_back({ "CameraUp" });
@@ -72,15 +72,10 @@ void Camera::Update(float dt)
 	auto cameraInput = cameraEnt[0]->GetComponent<InputComponent>();
 	auto inputComp = cameraEnt[0]->GetComponent<InputComponent>();
 
-	float cameraSpeed = moveComp->m_MoveSpeed * 0.003f;
+	float cameraSpeed = moveComp->m_MoveSpeed * dt;
 
 	if (InputManager::IsActionActive(cameraInput, "ActivateCameraMove"))
 	{
-		bool moveUpInput = InputManager::IsActionActive(cameraInput, "CameraUp");
-		bool moveDownInput = InputManager::IsActionActive(cameraInput, "CameraDown");
-		bool moveRightInput = InputManager::IsActionActive(cameraInput, "CameraRight");
-		bool moveLeftInput = InputManager::IsActionActive(cameraInput, "CameraLeft");
-
 		glm::vec2 delta = { inputComp->mouse_x * cameraSpeed, inputComp->mouse_y * cameraSpeed };
 
 		if (InputManager::IsActionActive(cameraInput, "ActivateCameraPan"))
@@ -89,17 +84,38 @@ void Camera::Update(float dt)
 			MouseRotate(delta);
 		else if (InputManager::IsActionActive(cameraInput, "ActivateCameraZoom"))
 			MouseZoom(delta.y);
-
-		auto front = GetForwardDirection();
-		auto up = GetUpDirection();
-
-		if (moveUpInput) { m_FocalPoint += cameraSpeed * front; }
-		if (moveDownInput) { m_FocalPoint -= cameraSpeed * front; }
-		if (moveLeftInput) { m_FocalPoint -= glm::normalize(glm::cross(front, up)) * cameraSpeed; }
-		if (moveRightInput) { m_FocalPoint += glm::normalize(glm::cross(front, up)) * cameraSpeed; }
-
-		UpdateView();
 	}
+
+	bool moveUpInput = InputManager::IsActionActive(cameraInput, "CameraUp");
+	bool moveDownInput = InputManager::IsActionActive(cameraInput, "CameraDown");
+	bool moveRightInput = InputManager::IsActionActive(cameraInput, "CameraRight");
+	bool moveLeftInput = InputManager::IsActionActive(cameraInput, "CameraLeft");
+
+	auto front = GetForwardDirection();
+	auto up = GetUpDirection();
+
+	const int32_t upperBound = 130;
+	const int32_t accelerationStep = 5;
+	const int32_t breakStep = 1;
+	static int32_t cameraFrontBackMovePerc = 0;
+	static int32_t cameraLeftRightMovePerc = 0;
+
+	if (moveUpInput) { if (cameraFrontBackMovePerc < upperBound) cameraFrontBackMovePerc += accelerationStep;}
+	else { if (cameraFrontBackMovePerc >= 0) cameraFrontBackMovePerc -= breakStep; }
+	
+	if (moveDownInput) { if (cameraFrontBackMovePerc > -upperBound) cameraFrontBackMovePerc -= accelerationStep; }
+	else { if (cameraFrontBackMovePerc < 0) cameraFrontBackMovePerc += breakStep; }
+
+	if (moveLeftInput) { if (cameraLeftRightMovePerc < upperBound) cameraLeftRightMovePerc += accelerationStep; }
+	else { if (cameraLeftRightMovePerc >= 0) cameraLeftRightMovePerc -= breakStep; }
+
+	if (moveRightInput) { if (cameraLeftRightMovePerc > -upperBound) cameraLeftRightMovePerc -= accelerationStep; }
+	else { if (cameraLeftRightMovePerc < 0) cameraLeftRightMovePerc += breakStep; }
+
+	m_FocalPoint -= glm::normalize(glm::cross(front, up)) * cameraSpeed * (static_cast<float>(cameraLeftRightMovePerc) / upperBound);
+	m_FocalPoint += cameraSpeed * front * (static_cast<float>(cameraFrontBackMovePerc) / upperBound);
+
+	UpdateView();
 }
 
 rabbitMat4f Camera::GetMatrix() const
@@ -202,8 +218,8 @@ void Camera::UpdateView()
 
 void Camera::MousePan(const glm::vec2& delta)
 {
-	m_FocalPoint += -GetRightDirection() * delta.x * m_Distance * m_CameraPanSpeed;
-	m_FocalPoint += GetUpDirection() * delta.y * m_Distance * m_CameraPanSpeed;
+	m_FocalPoint += -GetRightDirection() * delta.x * m_CameraPanSpeed;
+	m_FocalPoint += GetUpDirection() * delta.y * m_CameraPanSpeed;
 }
 
 void Camera::MouseRotate(const glm::vec2& delta)
@@ -218,7 +234,7 @@ void Camera::MouseZoom(float delta)
 	m_Distance -= delta;
 	if (m_Distance < 1.0f)
 	{
-		m_FocalPoint += GetForwardDirection();
+		m_FocalPoint += delta * glm::normalize(GetForwardDirection());
 		m_Distance = 1.0f;
 	}
 }

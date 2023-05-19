@@ -8,6 +8,12 @@ BEGIN_DECLARE_RABBITPASS(RTShadowsPass);
 	static uint32_t ShadowResX;
 	static uint32_t ShadowResY;
 
+	END_DECLARE_RABBITPASS
+
+BEGIN_DECLARE_RABBITPASS(VolumetricShadowsPass);
+
+	declareResource(VolumetricShadows, VulkanTexture);
+	
 END_DECLARE_RABBITPASS
 
 BEGIN_DECLARE_RABBITPASS(ShadowDenoisePrePass);

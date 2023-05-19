@@ -72,7 +72,6 @@ void InputManager::Update(float dt)
     offset_x = curr_mouse_x - LAST_MOUSE_POS_X;
     offset_y = curr_mouse_y - LAST_MOUSE_POS_Y;
 
-
     // Update entities
     auto inputComponents = EntityManager::instance().GetAllComponentInstances<InputComponent>();
 

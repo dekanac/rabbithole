@@ -82,8 +82,10 @@ bool Application::Init()
 
 void Application::Run()
 {
-	auto previousFrameTime = glfwGetTimerValue();
-	auto previousOutputTime = glfwGetTimerValue();
+    double previousFrameTime = glfwGetTime();
+    double previousOutputTime = glfwGetTime();
+    double deltaTime = 0;
+    uint64_t timerFrequency = glfwGetTimerFrequency();
 
 	while (m_IsRunning)
 	{
@@ -92,14 +94,15 @@ void Application::Run()
 			m_IsRunning = false;
 		}
 
-		auto frameTime = glfwGetTimerValue();
-		float deltaTime = (frameTime - previousFrameTime)  / static_cast<float>(glfwGetTimerFrequency());
-		
+		double currentFrameTime = glfwGetTime();
+        deltaTime = (currentFrameTime - previousFrameTime);
+		previousFrameTime = currentFrameTime;
+
 #ifdef RABBITHOLE_DEBUG
-		if (frameTime - previousOutputTime > 10000000) 
+		if (currentFrameTime - previousOutputTime > 2)
         {
 			std::cout << "FPS:" << 1.f / deltaTime << std::endl;
-			previousOutputTime = frameTime;
+			previousOutputTime = currentFrameTime;
 		}
 #endif // RABBITHOLE_DEBUG
 		//UPDATE GAME LOOP
@@ -107,9 +110,6 @@ void Application::Run()
 		RenderSystem::instance().Update(deltaTime);
 
 		glfwPollEvents();
-		
-		previousFrameTime = frameTime;
-
 	}
 
 }

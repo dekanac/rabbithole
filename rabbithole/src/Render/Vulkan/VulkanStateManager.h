@@ -52,6 +52,7 @@ public:
 	void SetVertexShader(Shader* shader, std::string entryPoint = "main");
 	void SetPixelShader(Shader* shader, std::string entryPoint = "main");
 	void SetComputeShader(Shader* shader, std::string entryPoint = "main");
+	void SetRayTracingShaders(std::array<Shader*, MaxRTShaders> rayTracingShaders);
 	void EnableWireframe(bool enable);
 	void SetCullMode(const CullMode mode);
 	void SetWindingOrder(const WindingOrder wo);

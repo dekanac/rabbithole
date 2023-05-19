@@ -17,6 +17,16 @@ struct ComputePipelineKey
 	bool operator == (const ComputePipelineKey& k) const;
 };
 
+struct RayTracingPipelineKey
+{
+	RayTracingPipelineKey() { memset(this, 0, sizeof(RayTracingPipelineKey)); }
+
+	uint32_t rayTracingShaderCRCs[MaxRTShaders] = { 0 };
+
+	bool operator < (const RayTracingPipelineKey& k) const;
+	bool operator == (const RayTracingPipelineKey& k) const;
+};
+
 struct GraphicsPipelineKey
 {
 	GraphicsPipelineKey() { memset(this, 0, sizeof(GraphicsPipelineKey)); }
@@ -73,6 +83,15 @@ template<>
 struct std::hash<ComputePipelineKey>
 {
 	inline uint32_t operator()(const ComputePipelineKey& x) const
+	{
+		return (uint32_t)crc32_fast((const void*)&x, sizeof(x));
+	}
+};
+
+template<>
+struct std::hash<RayTracingPipelineKey>
+{
+	inline uint32_t operator()(const RayTracingPipelineKey& x) const
 	{
 		return (uint32_t)crc32_fast((const void*)&x, sizeof(x));
 	}
@@ -143,6 +162,7 @@ public:
 private:
 	std::unordered_map<GraphicsPipelineKey, GraphicsPipeline*>					m_GraphicPipelines;
 	std::unordered_map<ComputePipelineKey, ComputePipeline*>					m_ComputePipelines;
+	std::unordered_map<RayTracingPipelineKey, RayTracingPipeline*>				m_RayTracingPipelines;
 	std::unordered_map<RenderPassKey, RenderPass*>								m_RenderPasses;
 	std::unordered_map<DescriptorSetKey, VulkanDescriptorSet*, VectorHasher>	m_DescriptorSets;
 	std::unordered_map<DescriptorKey, VulkanDescriptor*, VectorHasher>			m_Descriptors;
@@ -150,6 +170,7 @@ private:
 public:
 	VulkanPipeline*			FindOrCreateGraphicsPipeline(VulkanDevice& device, PipelineInfo& pipelineInfo);
 	VulkanPipeline*			FindOrCreateComputePipeline(VulkanDevice& device, PipelineInfo& pipelineInfo);
+	VulkanPipeline*			FindOrCreateRayTracingPipeline(VulkanDevice& device, PipelineInfo& pipelineInfo);
 	RenderPass*				FindOrCreateRenderPass(VulkanDevice& device, const std::vector<VulkanImageView*>& renderTargets, const VulkanImageView* depthStencil, RenderPassInfo& renderPassInfo);
 	VulkanDescriptorSet*	FindOrCreateDescriptorSet(VulkanDevice& device, const VulkanDescriptorPool* desciptorPool, const VulkanDescriptorSetLayout* descriptorSetLayout, const std::vector<VulkanDescriptor*>& descriptors);
 	

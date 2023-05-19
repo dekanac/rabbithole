@@ -480,7 +480,7 @@ void VulkanglTFModel::LoadMaterials(const aiScene* input)
 				}
 			}
 
-			ASSERT(normalTextureIndex, "Failed to load texture");
+			ASSERT(normalTexture, "Failed to load texture");
 
 			m_Textures.push_back(normalTexture);
 			m_Materials[i].normalTextureIndex = static_cast<int32_t>(m_Textures.size()) - 1;

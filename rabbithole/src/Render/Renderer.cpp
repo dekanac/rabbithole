@@ -21,6 +21,7 @@
 #include <GLFW/glfw3.h>
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
+#include <glm/gtc/matrix_inverse.hpp>
 
 #include <cmath>
 #include <filesystem>
@@ -70,12 +71,6 @@ bool Renderer::Init()
 	CreateAccelerationStructure();
 	ConstructBVH();
 	InitLights();
-
-	PipelineInfo rtPipeInfo{};
-	rtPipeInfo.rayTracingShaders[0] = GetShader("RS_RTShadowRaygen");
-	rtPipeInfo.rayTracingShaders[1] = GetShader("HS_RTShadowClosestHit");
-
-	tmpRTPipeline = new RayTracingPipeline(GetVulkanDevice(), rtPipeInfo);
 
 	return true;
 }
@@ -346,7 +341,7 @@ void Renderer::DrawFullScreenQuad()
 }
 
 
-void Renderer::TraceRays()
+void Renderer::TraceRays(uint32_t x, uint32_t y, uint32_t z)
 {
 #if defined(VULKAN_HWRT)
 	BindPipeline<RayTracingPipeline>();
@@ -359,9 +354,9 @@ void Renderer::TraceRays()
 		&bindingTables.miss.stridedDeviceAddressRegion,
 		&bindingTables.hit.stridedDeviceAddressRegion,
 		&emptySbtEntry,
-		GetNativeWidth,
-		GetNativeHeight,
-		4);
+		x,
+		y,
+		z);
 #endif
 }
 
@@ -462,7 +457,7 @@ void Renderer::BindCameraMatrices(Camera* camera)
 	m_CurrentCameraState.CameraPosition = camera->GetPosition();
 	m_StateManager.UpdateUBOElement(UBOElement::CameraPosition, 1, &m_CurrentCameraState.CameraPosition);
 	
-	m_CurrentCameraState.ViewInverseMatrix = glm::inverse(view);
+	m_CurrentCameraState.ViewInverseMatrix = glm::affineInverse(view);
 	m_StateManager.UpdateUBOElement(UBOElement::ViewInverse, 4, &m_CurrentCameraState.ViewInverseMatrix);
 
 	m_CurrentCameraState.ProjectionInverseMatrix = glm::inverse(projection);
@@ -966,25 +961,25 @@ void Renderer::InitLights()
 			.position = { 70.0f, 200.0f, -100.0f },
 			.radius = {1.f},
 			.color = {1.f, 0.6f, 0.2f},
-			.intensity = {2.f},
+			.intensity = {3.f},
 			.type = {LightType::LightType_Directional},
-			.size = {5.f}
+			.size = {1.f}
 		});
 
 	lights.push_back(
 		LightParams{
-			.position = { 7.f, 2.f, -10.0f },
-			.radius = {0.f},
-			.color = {1.f, 0.6f, 0.2f},
+			.position = { -10.f, 1.2f, -3.0f },
+			.radius = {12.f},
+			.color = {1.f, 0.1f, 0.1f},
 			.intensity = {1.f},
 			.type = {LightType::LightType_Point},
-			.size = {5.f}
+			.size = {1.f}
 		});
 
 	lights.push_back(
 		LightParams{
-			.position = {-10.0f, 10.0f, -10.0f},
-			.radius = {0.f},
+			.position = {-9.6f, 0.4f, 2.3f},
+			.radius = {12.f},
 			.color = { 0.f, 0.732f, 0.36f },
 			.intensity = {0.6f},
 			.type = {LightType::LightType_Point},
@@ -993,10 +988,10 @@ void Renderer::InitLights()
 
 	lights.push_back(
 		LightParams{
-			.position = {5.0f, 20.0f, -1.0f},
+			.position = {-8.6f, 5.4f, 3.6f},
 			.radius = {0.f},
-			.color = {1.f, 0.6f, 0.2f},
-			.intensity = {1.f},
+			.color = {0.f, 0.3f, 0.9f},
+			.intensity = {1.7f},
 			.type = {LightType::LightType_Point},
 			.size = {1.f},
 		});
@@ -1287,24 +1282,24 @@ void Renderer::ImGuiTextureDebugger()
 		debugTextureParams.showA = a;
 
 		auto textureDebugerSize = ImGui::GetWindowSize();
-		const float minTextureHeight = 230.f;
+		const float minTextureHeight = 600.f;
 		const float textureInfoOffset = 100.f;
 
 		float textureWidth = static_cast<float>(currentSelectedTexture->GetWidth());
 		float textureHeight = static_cast<float>(currentSelectedTexture->GetHeight());
 
-		ImGui::Image(m_ImGuiManager.GetImGuiTextureFrom(TextureDebugPass::Output), GetScaledSizeWithAspectRatioKept(ImVec2(textureWidth, textureHeight)));
+		ImGui::Image(m_ImGuiManager.GetImGuiTextureFrom(TextureDebugPass::Output), GetScaledSizeWithAspectRatioKept(ImVec2(textureWidth, textureHeight), 800.f));
 	}
 
 	ImGui::End();
 }
 
-ImVec2 Renderer::GetScaledSizeWithAspectRatioKept(ImVec2 currentSize)
+ImVec2 Renderer::GetScaledSizeWithAspectRatioKept(ImVec2 currentSize, float minWidth)
 {
-	float texWidth = currentSize.x;
-	float texHeight = currentSize.y;
+	float inverseAspectRatio = (currentSize.y / float(currentSize.x));
 
-	float inverseAspectRatio = (texHeight / float(texWidth));
+	float texWidth = std::max(currentSize.x, minWidth);
+	float texHeight = texWidth * inverseAspectRatio;
 
 	ImVec2 currentWindowSize = ImGui::GetWindowSize();
 
@@ -1503,9 +1498,15 @@ void Renderer::BindPipeline<RayTracingPipeline>()
 {
 	m_ResourceStateTrackingManager.CommitBarriers(*this);
 
-	m_StateManager.SetPipeline(tmpRTPipeline);
+	PipelineInfo* pipelineInfo = m_StateManager.GetPipelineInfo();
 
-	tmpRTPipeline->Bind(GetCurrentCommandBuffer());
+	VulkanPipeline* rayTracingPipeline = m_StateManager.GetPipelineDirty()
+		? m_PipelineManager.FindOrCreateRayTracingPipeline(m_VulkanDevice, *pipelineInfo)
+		: m_StateManager.GetPipeline();
+
+	m_StateManager.SetPipeline(rayTracingPipeline);
+
+	rayTracingPipeline->Bind(GetCurrentCommandBuffer());
 
 	BindDescriptorSets();
 

@@ -54,6 +54,7 @@ public:
 	VkSurfaceKHR				GetPresentingSurface() const { return m_PresetingSurface; }
 	VkQueue						GetGraphicsQueue() const { return m_GraphicsQueue; }
 	VkQueue						GetPresentQueue() const { return m_PresentQueue; }
+	VkInstance					GetInstance() const { return m_Instance; }
 	VmaAllocator				GetVmaAllocator() const { return m_VmaAllocator; }
 	VkPhysicalDevice			GetPhysicalDevice() const { return m_PhysicalDevice; }
 	VkPhysicalDeviceProperties2	GetPhysicalDeviceProperties() const { return m_Properties; }

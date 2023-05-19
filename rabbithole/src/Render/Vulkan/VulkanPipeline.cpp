@@ -91,8 +91,8 @@ void VulkanPipeline::DefaultPipelineInfo(PipelineInfo*& pipelineInfo, uint32_t w
 	pipelineInfo->colorBlendInfo.blendConstants[3] = 0.0f;  // Optional
 
 	pipelineInfo->depthStencilInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
-	pipelineInfo->depthStencilInfo.depthTestEnable = VK_TRUE;
-	pipelineInfo->depthStencilInfo.depthWriteEnable = VK_TRUE;
+	pipelineInfo->depthStencilInfo.depthTestEnable = VK_FALSE;
+	pipelineInfo->depthStencilInfo.depthWriteEnable = VK_FALSE;
 	pipelineInfo->depthStencilInfo.depthCompareOp = VK_COMPARE_OP_LESS_OR_EQUAL;
 	pipelineInfo->depthStencilInfo.depthBoundsTestEnable = VK_FALSE;
 	pipelineInfo->depthStencilInfo.minDepthBounds = 0.0f;  // Optional
@@ -463,8 +463,8 @@ void PipelineInfo::SetWindingOrder(const WindingOrder winding)
 	 colorBlendInfo.blendConstants[3] = 0.0f;  // Optional
 
 	 depthStencilInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
-	 depthStencilInfo.depthTestEnable = VK_TRUE;
-	 depthStencilInfo.depthWriteEnable = VK_TRUE;
+	 depthStencilInfo.depthTestEnable = VK_FALSE;
+	 depthStencilInfo.depthWriteEnable = VK_FALSE;
 	 depthStencilInfo.depthCompareOp = VK_COMPARE_OP_LESS;
 	 depthStencilInfo.depthBoundsTestEnable = VK_FALSE;
 	 depthStencilInfo.minDepthBounds = 0.0f;  // Optional

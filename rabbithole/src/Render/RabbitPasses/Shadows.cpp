@@ -2,10 +2,15 @@
 
 #include "Render/RabbitPasses/GBuffer.h"
 #include "Render/RabbitPasses/Lighting.h"
+#include "Render/RabbitPasses/Volumetric.h"
+#include "Render/Raytracing.h"
+
 
 defineResource(RTShadowsPass, ShadowMask, VulkanTexture);
 uint32_t RTShadowsPass::ShadowResX = 0;
 uint32_t RTShadowsPass::ShadowResY = 0;
+
+defineResource(VolumetricShadowsPass, VolumetricShadows, VulkanTexture);
 
 defineResource(ShadowDenoisePrePass, BufferDimensions, VulkanBuffer);
 defineResourceArray(ShadowDenoisePrePass, ShadowData, VulkanBuffer, MAX_NUM_OF_LIGHTS);
@@ -20,6 +25,58 @@ defineResource(ShadowDenoiseTileClassificationPass, ReprojectionInfo, VulkanBuff
 
 defineResource(ShadowDenoiseFilterPass, FilterData, VulkanBuffer);
 defineResource(ShadowDenoiseFilterPass, ShadowMask, VulkanTexture);
+
+void VolumetricShadowsPass::DeclareResources() 
+{
+	VolumetricShadows = m_Renderer.GetResourceManager().CreateTexture(m_Renderer.GetVulkanDevice(), RWTextureCreateInfo{
+			.dimensions = {g_VolumetricTexX, g_VolumetricTexY, g_VolumetricTexZ},
+			.flags = {TextureFlags::Read | TextureFlags::Storage},
+			.format = {Format::R8_UNORM},
+			.name = {"Volumetric Shadows"},
+			.samplerType = {SamplerType::Trilinear}
+		});
+}
+void VolumetricShadowsPass::Setup() 
+{
+	VulkanStateManager& stateManager = m_Renderer.GetStateManager();
+#if defined(VULKAN_HWRT)
+	std::array<Shader*, MaxRTShaders> rayTracingShaders = { 0 };
+	rayTracingShaders[0] = m_Renderer.GetShader("RS_RTVolumetricShadow");
+	rayTracingShaders[1] = m_Renderer.GetShader("HS_RTShadowClosestHit");
+
+	stateManager.SetRayTracingShaders(rayTracingShaders);
+
+	SetAccelerationStructure(0, &m_Renderer.TLAS);
+	SetStorageImageReadWrite(1, VolumetricShadows);
+	SetConstantBuffer(2, m_Renderer.GetMainConstBuffer());
+	SetConstantBuffer(3, LightingPass::LightParamsGPU);
+	SetConstantBuffer(4, VolumetricPass::ParamsGPU);
+#else
+	stateManager.SetComputeShader(m_Renderer.GetShader("CS_VolumetricShadowsCalculate"));
+
+	SetStorageBufferRead(0, m_Renderer.vertexBuffer);
+	SetStorageBufferRead(1, m_Renderer.trianglesBuffer);
+	SetStorageBufferRead(2, m_Renderer.triangleIndxsBuffer);
+	SetStorageBufferRead(3, m_Renderer.cfbvhNodesBuffer);
+	SetConstantBuffer(4, VolumetricPass::ParamsGPU);
+	SetConstantBuffer(7, LightingPass::LightParamsGPU);
+	SetConstantBuffer(8, m_Renderer.GetMainConstBuffer());
+	SetStorageImageWrite(10, VolumetricShadowsPass::VolumetricShadows);
+
+#endif
+}
+void VolumetricShadowsPass::Render() 
+{
+	uint32_t x = VolumetricShadowsPass::VolumetricShadows->GetWidth();
+	uint32_t y = VolumetricShadowsPass::VolumetricShadows->GetHeight();
+	uint32_t z = VolumetricShadowsPass::VolumetricShadows->GetDepth();
+
+#if defined(VULKAN_HWRT)
+	m_Renderer.TraceRays(x, y, z);
+#else
+	m_Renderer.Dispatch(x, y, z);
+#endif
+}
 
 void RTShadowsPass::DeclareResources()
 {
@@ -40,6 +97,14 @@ void RTShadowsPass::DeclareResources()
 void RTShadowsPass::Setup()
 {
 #if defined(VULKAN_HWRT)
+	VulkanStateManager& stateManager = m_Renderer.GetStateManager();
+
+	std::array<Shader*, MaxRTShaders> rayTracingShaders = { 0 };
+	rayTracingShaders[0] = m_Renderer.GetShader("RS_RTShadowRaygen");
+	rayTracingShaders[1] = m_Renderer.GetShader("HS_RTShadowClosestHit");
+
+	stateManager.SetRayTracingShaders(rayTracingShaders);
+
 	SetAccelerationStructure(0, &m_Renderer.TLAS);
 	SetStorageImageReadWrite(1, ShadowMask);
 	SetConstantBuffer(2, m_Renderer.GetMainConstBuffer());
@@ -68,7 +133,7 @@ void RTShadowsPass::Setup()
 void RTShadowsPass::Render()
 {
 #if defined(VULKAN_HWRT)
-	m_Renderer.TraceRays();
+	m_Renderer.TraceRays(GetNativeWidth, GetNativeHeight, MAX_NUM_OF_LIGHTS);
 #else
 	constexpr int threadGroupWorkRegionDim = 8;
 	

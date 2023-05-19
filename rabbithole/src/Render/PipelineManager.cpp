@@ -26,6 +26,16 @@ bool ComputePipelineKey::operator==(const ComputePipelineKey& k) const
 	return memcmp(this, &k, sizeof(ComputePipelineKey)) == 0;
 }
 
+bool RayTracingPipelineKey::operator<(const RayTracingPipelineKey& k) const
+{
+	return memcmp(this, &k, sizeof(RayTracingPipelineKey)) < 0;
+}
+
+bool RayTracingPipelineKey::operator==(const RayTracingPipelineKey& k) const
+{
+	return memcmp(this, &k, sizeof(RayTracingPipelineKey)) == 0;
+}
+
 bool RenderPassKey::operator<(const RenderPassKey& k) const
 {
 	return memcmp(this, &k, sizeof(RenderPassKey)) < 0;
@@ -94,6 +104,32 @@ VulkanPipeline* PipelineManager::FindOrCreateComputePipeline(VulkanDevice& devic
 		LOG_WARNING("If you're seeing this every frame, you're doing something wrong! Check ComputePipelineKey!");
 		ComputePipeline* newPipeline = new ComputePipeline(device, pipelineInfo);
 		m_ComputePipelines[key] = newPipeline;
+		return newPipeline;
+	}
+}
+
+VulkanPipeline* PipelineManager::FindOrCreateRayTracingPipeline(VulkanDevice& device, PipelineInfo& pipelineInfo)
+{
+	//for now the key is only CRCs of ray tracing shaders
+	RayTracingPipelineKey key{};
+	auto& rtShaders = pipelineInfo.rayTracingShaders;
+
+	for (uint32_t i = 0; i < MaxRTShaders; i++)
+	{
+		key.rayTracingShaderCRCs[i] = rtShaders[i] != nullptr ? rtShaders[i]->GetHash() : 0;
+	}
+
+	auto pipeline = m_RayTracingPipelines.find(key);
+
+	if (pipeline != m_RayTracingPipelines.end())
+	{
+		return pipeline->second;
+	}
+	else
+	{
+		LOG_WARNING("If you're seeing this every frame, you're doing something wrong! Check RayTracingPipelineKey!");
+		RayTracingPipeline* newPipeline = new RayTracingPipeline(device, pipelineInfo);
+		m_RayTracingPipelines[key] = newPipeline;
 		return newPipeline;
 	}
 }

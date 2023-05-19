@@ -13,7 +13,8 @@ glslc.exe -g -fshader-stage=fragment FS_SSAOBlur.glsl -o FS_SSAOBlur.spv
 glslc.exe -g -fshader-stage=compute CS_RayTracingShadows.glsl -o CS_RayTracingShadows.spv
 glslc.exe -g -fshader-stage=vertex VS_SimpleGeometry.glsl -o VS_SimpleGeometry.spv
 glslc.exe -g -fshader-stage=fragment FS_SimpleGeometry.glsl -o FS_SimpleGeometry.spv
-glslc.exe -g -fshader-stage=compute CS_Volumetric.glsl -o CS_Volumetric.spv
+glslc.exe -g -fshader-stage=compute -DMEDIA_DENSITY_CALCULATION CS_Volumetric.glsl -o CS_Volumetric.spv
+glslc.exe -g -fshader-stage=compute -DCOMPUTE_VOLUMETRIC_SHADOWS CS_Volumetric.glsl -o CS_VolumetricShadowsCalculate.spv
 glslc.exe -g -fshader-stage=compute CS_3DNoiseLUT.glsl -o CS_3DNoiseLUT.spv
 glslc.exe -g -fshader-stage=compute CS_ComputeScattering.glsl -o CS_ComputeScattering.spv
 glslc.exe -g -fshader-stage=fragment FS_ApplyVolumetricFog.glsl -o FS_ApplyVolumetricFog.spv
@@ -27,6 +28,7 @@ dxc.exe -Zpc -Zi -Qembed_debug -enable-16bit-types -T cs_6_5 -E main -spirv -fsp
 dxc.exe -Zpc -Zi -Qembed_debug -enable-16bit-types -T cs_6_5  -E Pass0 -spirv -fspv-target-env=vulkan1.2 CS_FilterSoftShadows.hlsl -Fo CS_FilterSoftShadowsPass0.spv
 dxc.exe -Zpc -Zi -Qembed_debug -enable-16bit-types -T cs_6_5  -E Pass1 -spirv -fspv-target-env=vulkan1.2 CS_FilterSoftShadows.hlsl -Fo CS_FilterSoftShadowsPass1.spv
 dxc.exe -Zpc -Zi -Qembed_debug -enable-16bit-types -T cs_6_5  -E Pass2 -spirv -fspv-target-env=vulkan1.2 CS_FilterSoftShadows.hlsl -Fo CS_FilterSoftShadowsPass2.spv
+dxc.exe -E main -T lib_6_3 -spirv -fspv-target-env=vulkan1.2 RS_RTVolumetricShadow.hlsl -Fo RS_RTVolumetricShadow.spv
 dxc.exe -E main -T lib_6_3 -spirv -fspv-target-env=vulkan1.2 RS_RTShadowRaygen.hlsl -Fo RS_RTShadowRaygen.spv
 dxc.exe -E main -T lib_6_3 -spirv -fspv-target-env=vulkan1.2 HS_RTShadowClosestHit.hlsl -Fo HS_RTShadowClosestHit.spv
 
