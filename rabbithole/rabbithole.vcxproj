@@ -69,7 +69,14 @@
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
   </ImportGroup>
   <PropertyGroup Label="UserMacros" />
-  <PropertyGroup />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <CustomBuildAfterTargets>
+    </CustomBuildAfterTargets>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <CustomBuildAfterTargets>
+    </CustomBuildAfterTargets>
+  </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
       <WarningLevel>Level3</WarningLevel>
@@ -89,12 +96,20 @@
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
       <PrecompiledHeaderFile>precomp.h</PrecompiledHeaderFile>
       <LanguageStandard_C>stdc17</LanguageStandard_C>
+      <DisableSpecificWarnings>4996</DisableSpecificWarnings>
     </ClCompile>
     <Link>
       <AdditionalDependencies>vulkan-1.lib;glfw3.lib;VkLayer_utils.lib;ffx_fsr2_api_vk_x64d.lib;assimp-vc142-mtd.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalLibraryDirectories>$(ProjectDir)extern\assimp\lib\Debug;$(ProjectDir)extern\FSR2.0\lib;$(ProjectDir)extern\glfw\lib-vc2017;$(VK_SDK_PATH)\Lib;$(VK_SDK_PATH)\Bin;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <SubSystem>Console</SubSystem>
     </Link>
+    <CustomBuildStep>
+      <RootFolder>
+      </RootFolder>
+    </CustomBuildStep>
+    <PostBuildEvent>
+      <Command>xcopy /y /d  "$(ProjectDir)Extern\Assimp\dll\Debug\*.dll" "$(OutDir)"</Command>
+    </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <ClCompile>
@@ -126,6 +141,7 @@
       <LanguageStandard_C>stdc17</LanguageStandard_C>
       <WholeProgramOptimization>true</WholeProgramOptimization>
       <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
+      <DisableSpecificWarnings>4996</DisableSpecificWarnings>
     </ClCompile>
     <Link>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
@@ -134,6 +150,14 @@
       <AdditionalLibraryDirectories>$(ProjectDir)extern\assimp\lib\Release;$(ProjectDir)extern\FSR2.0\lib;$(ProjectDir)extern\glfw\lib-vc2017;$(VK_SDK_PATH)\Lib;$(VK_SDK_PATH)\Bin;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <SubSystem>Console</SubSystem>
     </Link>
+    <CustomBuildStep>
+      <RootFolder>
+      </RootFolder>
+      <Message />
+    </CustomBuildStep>
+    <PostBuildEvent>
+      <Command>xcopy /y /d  "$(ProjectDir)Extern\Assimp\dll\Release\*.dll" "$(OutDir)"</Command>
+    </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="src\Render\BVH.cpp" />
