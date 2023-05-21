@@ -176,42 +176,42 @@ RenderPass* PipelineManager::FindOrCreateRenderPass(VulkanDevice& device, const 
 
 }
 
-VulkanDescriptorSet* PipelineManager::FindOrCreateDescriptorSet(VulkanDevice& device, const VulkanDescriptorPool* desciptorPool, const VulkanDescriptorSetLayout* descriptorSetLayout, const std::vector<VulkanDescriptor*>& descriptors)
+VulkanDescriptorSet* PipelineManager::FindOrCreateDescriptorSet(VulkanDevice& device, const VulkanDescriptorPool* desciptorPool, const VulkanDescriptorSetLayout* descriptorSetLayout, const std::vector<VulkanDescriptor>& descriptors)
 {
 	DescriptorSetKey key;
 
 	for (size_t i = 0; i < descriptors.size(); i++)
 	{
-		switch (descriptors[i]->GetDescriptorInfo().Type)
+		switch (descriptors[i].GetDescriptorInfo().Type)
 		{
 		case DescriptorType::UniformBuffer:
-			key.push_back(descriptors[i]->GetDescriptorInfo().buffer->GetID());
-			key.push_back((uint32_t)descriptors[i]->GetDescriptorInfo().Type);
+			key.push_back(descriptors[i].GetDescriptorInfo().buffer->GetID());
+			key.push_back((uint32_t)descriptors[i].GetDescriptorInfo().Type);
 			break;
 		case DescriptorType::CombinedSampler:
-			key.push_back(descriptors[i]->GetDescriptorInfo().imageView->GetID());
-			key.push_back((uint32_t)descriptors[i]->GetDescriptorInfo().Type);
+			key.push_back(descriptors[i].GetDescriptorInfo().imageView->GetID());
+			key.push_back((uint32_t)descriptors[i].GetDescriptorInfo().Type);
 			break;
 		case DescriptorType::SampledImage:
-			key.push_back(descriptors[i]->GetDescriptorInfo().imageView->GetID());
-			key.push_back((uint32_t)descriptors[i]->GetDescriptorInfo().Type);
+			key.push_back(descriptors[i].GetDescriptorInfo().imageView->GetID());
+			key.push_back((uint32_t)descriptors[i].GetDescriptorInfo().Type);
 			break;
 		case DescriptorType::Sampler:
-			key.push_back(descriptors[i]->GetDescriptorInfo().imageSampler->GetID());
-			key.push_back((uint32_t)descriptors[i]->GetDescriptorInfo().Type);
+			key.push_back(descriptors[i].GetDescriptorInfo().imageSampler->GetID());
+			key.push_back((uint32_t)descriptors[i].GetDescriptorInfo().Type);
 			break;
 		case DescriptorType::StorageImage:
-			key.push_back(descriptors[i]->GetDescriptorInfo().imageView->GetID());
-			key.push_back((uint32_t)descriptors[i]->GetDescriptorInfo().Type);
+			key.push_back(descriptors[i].GetDescriptorInfo().imageView->GetID());
+			key.push_back((uint32_t)descriptors[i].GetDescriptorInfo().Type);
 			break;
 		case DescriptorType::StorageBuffer:
-			key.push_back(descriptors[i]->GetDescriptorInfo().buffer->GetID());
-			key.push_back((uint32_t)descriptors[i]->GetDescriptorInfo().Type);
+			key.push_back(descriptors[i].GetDescriptorInfo().buffer->GetID());
+			key.push_back((uint32_t)descriptors[i].GetDescriptorInfo().Type);
 			break;
 #if defined(VULKAN_HWRT)
 		case DescriptorType::AccelerationStructure:
-			key.push_back(descriptors[i]->GetDescriptorInfo().accelerationStructure->GetID());
-			key.push_back((uint32_t)descriptors[i]->GetDescriptorInfo().Type);
+			key.push_back(descriptors[i].GetDescriptorInfo().accelerationStructure->GetID());
+			key.push_back((uint32_t)descriptors[i].GetDescriptorInfo().Type);
 			break;
 #endif
 		}

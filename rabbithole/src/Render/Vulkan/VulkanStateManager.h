@@ -116,7 +116,7 @@ private:
 	RenderPass*				m_RenderPass;
 	UniformBufferObject*    m_UBO;
 
-	std::vector<VulkanDescriptor*>	m_Descriptors;
+	std::vector<VulkanDescriptor>	m_Descriptors;
 	VulkanDescriptorSet*			m_DescriptorSet;
 
 	bool m_DirtyPipeline = true;

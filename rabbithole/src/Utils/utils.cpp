@@ -11,15 +11,21 @@
 
 namespace Utils
 {
-	long long SetStartTime()
+	long long ProfileSetStartTime()
 	{
 		return std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
 	}
 
-	void SetEndtimeAndPrint(long long start, std::string label)
+	void ProfileSetEndTimeAndPrint(long long start, std::string label)
 	{
 		auto endtime = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
 		std::cout << label << ": " << endtime - start << " us" << std::endl;
+	}
+	
+	long long ProfileGetEndTime(long long start)
+	{
+		auto endtime = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
+		return endtime - start;
 	}
 
 	void PrintMatrix(const rabbitMat4f& matrix)

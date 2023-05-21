@@ -93,7 +93,7 @@ public:
 		const VulkanDevice* device,
 		const VulkanDescriptorPool* desciptorPool,
 		const VulkanDescriptorSetLayout* descriptorSetLayout,
-		const std::vector<VulkanDescriptor*>& descriptors,
+		const std::vector<VulkanDescriptor>& descriptors,
 		const char* name);
 
 public:

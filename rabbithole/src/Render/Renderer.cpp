@@ -126,7 +126,9 @@ void Renderer::DrawFrame()
 		return;
 	}
 
+	auto startTime = Utils::ProfileSetStartTime();
 	RecordCommandBuffer();
+	m_CurrentCPUTimeInMS = Utils::ProfileGetEndTime(startTime) / 1000.f;
 
 	result = m_VulkanSwapchain->SubmitCommandBufferAndPresent(GetCurrentCommandBuffer(), &m_CurrentImageIndex);
 
@@ -141,12 +143,12 @@ void Renderer::CreateGeometryDescriptors(std::vector<VulkanglTFModel>& models, u
 {
 	VulkanDescriptorSetLayout descrSetLayout(&m_VulkanDevice, { GetShader("VS_GBuffer"), GetShader("FS_GBuffer") }, "GeometryDescSetLayout");
 
-	VulkanDescriptorInfo descriptorinfo{};
-	descriptorinfo.Type = DescriptorType::UniformBuffer;
-	descriptorinfo.Binding = 0;
-	descriptorinfo.buffer = m_MainConstBuffer[imageIndex];
+	VulkanDescriptorInfo uboDescriptorInfo{};
+	uboDescriptorInfo.Type = DescriptorType::UniformBuffer;
+	uboDescriptorInfo.Binding = 0;
+	uboDescriptorInfo.buffer = m_MainConstBuffer[imageIndex];
 
-	VulkanDescriptor* bufferDescr = new VulkanDescriptor(descriptorinfo);
+	VulkanDescriptor uboDescriptor(uboDescriptorInfo);
 
 	for (auto& model : models)
 	{
@@ -156,52 +158,45 @@ void Renderer::CreateGeometryDescriptors(std::vector<VulkanglTFModel>& models, u
 			auto& modelTextures = model.GetTextures();
 
 			//albedo
-			VulkanTexture* albedo;
-			if (modelMaterial.baseColorTextureIndex != -1 && modelTextures.size() > 0)
-				albedo = modelTextures[modelMaterial.baseColorTextureIndex];
-			else
-				albedo = g_DefaultWhiteTexture;
+			VulkanTexture* albedo = modelMaterial.baseColorTextureIndex != -1 && modelTextures.size() > 0
+				? modelTextures[modelMaterial.baseColorTextureIndex]
+				: g_DefaultWhiteTexture;
 
-			VulkanDescriptorInfo descriptorinfo2{};
-			descriptorinfo2.Type = DescriptorType::CombinedSampler;
-			descriptorinfo2.Binding = 1;
-			descriptorinfo2.imageView = albedo->GetView();
-			descriptorinfo2.imageSampler = albedo->GetSampler();
+			VulkanDescriptorInfo albedoDescriptorInfo{};
+			albedoDescriptorInfo.Type = DescriptorType::CombinedSampler;
+			albedoDescriptorInfo.Binding = 1;
+			albedoDescriptorInfo.imageView = albedo->GetView();
+			albedoDescriptorInfo.imageSampler = albedo->GetSampler();
 
-			VulkanDescriptor* cisDescr = new VulkanDescriptor(descriptorinfo2);
+			VulkanDescriptor albedoDescriptor(albedoDescriptorInfo);
 
 			//normal
-			//TODO: do something with useNormalMap bool in shaders
-			VulkanTexture* normal;
-			if (modelMaterial.normalTextureIndex != -1 && modelTextures.size() > 0)
-				normal = modelTextures[modelMaterial.normalTextureIndex];
-			else
-				normal = g_DefaultWhiteTexture;
+			VulkanTexture* normal = modelMaterial.normalTextureIndex != -1 && modelTextures.size() > 0
+				? modelTextures[modelMaterial.normalTextureIndex]
+				: g_DefaultWhiteTexture;
 
-			VulkanDescriptorInfo descriptorinfo3{};
-			descriptorinfo3.Type = DescriptorType::CombinedSampler;
-			descriptorinfo3.Binding = 2;
-			descriptorinfo3.imageView = normal->GetView();
-			descriptorinfo3.imageSampler = normal->GetSampler();
+			VulkanDescriptorInfo normalDescriptorInfo{};
+			normalDescriptorInfo.Type = DescriptorType::CombinedSampler;
+			normalDescriptorInfo.Binding = 2;
+			normalDescriptorInfo.imageView = normal->GetView();
+			normalDescriptorInfo.imageSampler = normal->GetSampler();
 
-			VulkanDescriptor* cis2Descr = new VulkanDescriptor(descriptorinfo3);
+			VulkanDescriptor normalDescriptor(normalDescriptorInfo);
 
 			//metallicRoughness
-			VulkanTexture* metallicRoughness;
-			if (modelMaterial.metallicRoughnessTextureIndex != -1 && modelTextures.size() > 0)
-				metallicRoughness = modelTextures[modelMaterial.metallicRoughnessTextureIndex];
-			else
-				metallicRoughness = g_DefaultWhiteTexture;
+			VulkanTexture* metallicRoughness = modelMaterial.metallicRoughnessTextureIndex != -1 && modelTextures.size() > 0
+				? modelTextures[modelMaterial.metallicRoughnessTextureIndex]
+				: g_DefaultWhiteTexture;
 
-			VulkanDescriptorInfo descriptorinfo4{};
-			descriptorinfo4.Type = DescriptorType::CombinedSampler;
-			descriptorinfo4.Binding = 3;
-			descriptorinfo4.imageView = metallicRoughness->GetView();
-			descriptorinfo4.imageSampler = metallicRoughness->GetSampler();
+			VulkanDescriptorInfo metallicRoughnessDescriptorInfo{};
+			metallicRoughnessDescriptorInfo.Type = DescriptorType::CombinedSampler;
+			metallicRoughnessDescriptorInfo.Binding = 3;
+			metallicRoughnessDescriptorInfo.imageView = metallicRoughness->GetView();
+			metallicRoughnessDescriptorInfo.imageSampler = metallicRoughness->GetSampler();
 
-			VulkanDescriptor* cis3Descr = new VulkanDescriptor(descriptorinfo4);
+			VulkanDescriptor metallicRoughnessDescriptor(metallicRoughnessDescriptorInfo);
 
-			VulkanDescriptorSet* descriptorSet = m_PipelineManager.FindOrCreateDescriptorSet(m_VulkanDevice, m_DescriptorPool.get(), &descrSetLayout, { bufferDescr, cisDescr, cis2Descr, cis3Descr });
+			VulkanDescriptorSet* descriptorSet = m_PipelineManager.FindOrCreateDescriptorSet(m_VulkanDevice, m_DescriptorPool.get(), &descrSetLayout, { uboDescriptor, albedoDescriptor, normalDescriptor, metallicRoughnessDescriptor });
 
 			modelMaterial.materialDescriptorSet[imageIndex] = descriptorSet;
 		}
@@ -1185,6 +1180,7 @@ void Renderer::ImguiProfilerWindow(std::vector<TimeStamp>& timeStamps)
 	float numOfTriangles = m_TriangleCount / 1000.f;
 
 	ImGui::Text("FPS        : %d (%.2f ms)", fps, frameTime_ms);
+	ImGui::Text("CPU        :     (%.2f ms)", m_CurrentCPUTimeInMS);
 	ImGui::Text("Num of triangles   : %.2fk", numOfTriangles);
 
 	if (ImGui::CollapsingHeader("GPU Timings", ImGuiTreeNodeFlags_DefaultOpen))

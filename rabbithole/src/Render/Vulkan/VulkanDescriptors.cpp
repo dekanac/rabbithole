@@ -140,7 +140,7 @@ VulkanDescriptorSetLayout::~VulkanDescriptorSetLayout()
 	vkDestroyDescriptorSetLayout(m_Device->GetGraphicDevice(), m_Layout, nullptr);
 }
 
-VulkanDescriptorSet::VulkanDescriptorSet(const VulkanDevice* device,const VulkanDescriptorPool* desciptorPool,const VulkanDescriptorSetLayout* descriptorSetLayout, const std::vector<VulkanDescriptor*>& descriptors, const char* name)
+VulkanDescriptorSet::VulkanDescriptorSet(const VulkanDevice* device,const VulkanDescriptorPool* desciptorPool,const VulkanDescriptorSetLayout* descriptorSetLayout, const std::vector<VulkanDescriptor>& descriptors, const char* name)
 {
 	VkDescriptorSetAllocateInfo descriptorSetAllocateInfo = { VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO };
 	descriptorSetAllocateInfo.pSetLayouts = descriptorSetLayout->GetLayout();
@@ -154,42 +154,42 @@ VulkanDescriptorSet::VulkanDescriptorSet(const VulkanDevice* device,const Vulkan
 		VkWriteDescriptorSet& writeDescriptorSet = writeDescriptorSets[i];
 		writeDescriptorSet = { VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET };
 		writeDescriptorSet.dstSet = m_DescriptorSet;
-		writeDescriptorSet.dstBinding = descriptors[i]->GetDescriptorInfo().Binding;
+		writeDescriptorSet.dstBinding = descriptors[i].GetDescriptorInfo().Binding;
 		writeDescriptorSet.dstArrayElement = 0;
 		writeDescriptorSet.descriptorCount = 1;
 
 		//TODORT: see what to do with this
 		VkWriteDescriptorSetAccelerationStructureKHR* descriptorAccelerationStructureInfo = new VkWriteDescriptorSetAccelerationStructureKHR{ VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET_ACCELERATION_STRUCTURE_KHR };
 
-		switch (descriptors[i]->GetDescriptorInfo().Type)
+		switch (descriptors[i].GetDescriptorInfo().Type)
 		{
 		case DescriptorType::CombinedSampler:
  			writeDescriptorSet.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
- 			writeDescriptorSet.pImageInfo = new VkDescriptorImageInfo(descriptors[i]->GetDescriptorResourceInfo().m_ResourceInfo.ImageInfo);
+ 			writeDescriptorSet.pImageInfo = new VkDescriptorImageInfo(descriptors[i].GetDescriptorResourceInfo().m_ResourceInfo.ImageInfo);
 			break;
 		case DescriptorType::SampledImage:
 			writeDescriptorSet.descriptorType = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE;
-			writeDescriptorSet.pImageInfo = new VkDescriptorImageInfo(descriptors[i]->GetDescriptorResourceInfo().m_ResourceInfo.ImageInfo);
+			writeDescriptorSet.pImageInfo = new VkDescriptorImageInfo(descriptors[i].GetDescriptorResourceInfo().m_ResourceInfo.ImageInfo);
 			break;
 		case DescriptorType::Sampler:
 			writeDescriptorSet.descriptorType = VK_DESCRIPTOR_TYPE_SAMPLER;
-			writeDescriptorSet.pImageInfo = new VkDescriptorImageInfo(descriptors[i]->GetDescriptorResourceInfo().m_ResourceInfo.ImageInfo);
+			writeDescriptorSet.pImageInfo = new VkDescriptorImageInfo(descriptors[i].GetDescriptorResourceInfo().m_ResourceInfo.ImageInfo);
 			break;
 		case DescriptorType::UniformBuffer:
 			writeDescriptorSet.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-			writeDescriptorSet.pBufferInfo = new VkDescriptorBufferInfo(descriptors[i]->GetDescriptorResourceInfo().m_ResourceInfo.BufferInfo);
+			writeDescriptorSet.pBufferInfo = new VkDescriptorBufferInfo(descriptors[i].GetDescriptorResourceInfo().m_ResourceInfo.BufferInfo);
 			break;
 		case DescriptorType::StorageImage:
 			writeDescriptorSet.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
-			writeDescriptorSet.pImageInfo = new VkDescriptorImageInfo(descriptors[i]->GetDescriptorResourceInfo().m_ResourceInfo.ImageInfo);
+			writeDescriptorSet.pImageInfo = new VkDescriptorImageInfo(descriptors[i].GetDescriptorResourceInfo().m_ResourceInfo.ImageInfo);
 			break;
 		case DescriptorType::StorageBuffer:
 			writeDescriptorSet.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-			writeDescriptorSet.pBufferInfo = new VkDescriptorBufferInfo(descriptors[i]->GetDescriptorResourceInfo().m_ResourceInfo.BufferInfo);
+			writeDescriptorSet.pBufferInfo = new VkDescriptorBufferInfo(descriptors[i].GetDescriptorResourceInfo().m_ResourceInfo.BufferInfo);
 			break;
 		case DescriptorType::AccelerationStructure:
 			descriptorAccelerationStructureInfo->accelerationStructureCount = 1;
-			descriptorAccelerationStructureInfo->pAccelerationStructures = new VkAccelerationStructureKHR(descriptors[i]->GetDescriptorResourceInfo().m_ResourceInfo.AccelerationStructureHandle);
+			descriptorAccelerationStructureInfo->pAccelerationStructures = new VkAccelerationStructureKHR(descriptors[i].GetDescriptorResourceInfo().m_ResourceInfo.AccelerationStructureHandle);
 			writeDescriptorSet.pNext = descriptorAccelerationStructureInfo;
 			writeDescriptorSet.descriptorType = VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR;
 			break;
@@ -199,7 +199,5 @@ VulkanDescriptorSet::VulkanDescriptorSet(const VulkanDevice* device,const Vulkan
 		}
 	}
 
-	uint32_t descriptorWriteCount = static_cast<uint32_t>(writeDescriptorSets.size());
-	VkWriteDescriptorSet* descriptorWrites = writeDescriptorSets.data();
-	vkUpdateDescriptorSets(device->GetGraphicDevice(), descriptorWriteCount, descriptorWrites, 0, nullptr);
+	vkUpdateDescriptorSets(device->GetGraphicDevice(), static_cast<uint32_t>(writeDescriptorSets.size()), writeDescriptorSets.data(), 0, nullptr);
 }

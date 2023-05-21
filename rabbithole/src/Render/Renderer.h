@@ -270,6 +270,7 @@ private:
 	void CreateGeometryDescriptors(std::vector<VulkanglTFModel>& models, uint32_t imageIndex);
 	void InitDefaultTextures();
 	float m_CurrentDeltaTime;
+	float m_CurrentCPUTimeInMS;
 
 public:
 	//Don't ask, Imgui init wants swapchain renderpass to be ready, but its not. So basically we need 2 init phases..

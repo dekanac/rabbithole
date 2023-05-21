@@ -10,9 +10,9 @@
 	#define RABBITHOLE_DEBUG
 #endif
 
-#define PROFILE_CODE(code) auto start = Utils::SetStartTime(); \
+#define PROFILE_CODE(code) auto start = Utils::ProfileSetStartTime(); \
 	code \
-	Utils::SetEndtimeAndPrint(start);
+	Utils::ProfileSetEndTimeAndPrint(start);
 
 #define SingletonClass(className) \
 public: \

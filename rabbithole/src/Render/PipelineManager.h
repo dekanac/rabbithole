@@ -165,14 +165,11 @@ private:
 	std::unordered_map<RayTracingPipelineKey, RayTracingPipeline*>				m_RayTracingPipelines;
 	std::unordered_map<RenderPassKey, RenderPass*>								m_RenderPasses;
 	std::unordered_map<DescriptorSetKey, VulkanDescriptorSet*, VectorHasher>	m_DescriptorSets;
-	std::unordered_map<DescriptorKey, VulkanDescriptor*, VectorHasher>			m_Descriptors;
 
 public:
 	VulkanPipeline*			FindOrCreateGraphicsPipeline(VulkanDevice& device, PipelineInfo& pipelineInfo);
 	VulkanPipeline*			FindOrCreateComputePipeline(VulkanDevice& device, PipelineInfo& pipelineInfo);
 	VulkanPipeline*			FindOrCreateRayTracingPipeline(VulkanDevice& device, PipelineInfo& pipelineInfo);
 	RenderPass*				FindOrCreateRenderPass(VulkanDevice& device, const std::vector<VulkanImageView*>& renderTargets, const VulkanImageView* depthStencil, RenderPassInfo& renderPassInfo);
-	VulkanDescriptorSet*	FindOrCreateDescriptorSet(VulkanDevice& device, const VulkanDescriptorPool* desciptorPool, const VulkanDescriptorSetLayout* descriptorSetLayout, const std::vector<VulkanDescriptor*>& descriptors);
-	
-	std::unordered_map<DescriptorKey, VulkanDescriptor*, VectorHasher>& GetDescriptors() { return m_Descriptors; }
+	VulkanDescriptorSet*	FindOrCreateDescriptorSet(VulkanDevice& device, const VulkanDescriptorPool* desciptorPool, const VulkanDescriptorSetLayout* descriptorSetLayout, const std::vector<VulkanDescriptor>& descriptors);
 };
