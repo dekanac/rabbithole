@@ -71,7 +71,7 @@ namespace RayTracing
 
 	VkStridedDeviceAddressRegionKHR GetSbtEntryStridedDeviceAddressRegion(VulkanDevice& device, VulkanBuffer* buffer, uint32_t handleCount)
 	{
-		const uint32_t handleSizeAligned = AlignedSize(device.GetRayTracingProperties().shaderGroupHandleSize, device.GetRayTracingProperties().shaderGroupHandleAlignment);
+		const uint64_t handleSizeAligned = AlignedSize(device.GetRayTracingProperties().shaderGroupHandleSize, device.GetRayTracingProperties().shaderGroupHandleAlignment);
 		VkStridedDeviceAddressRegionKHR stridedDeviceAddressRegionKHR{};
 		stridedDeviceAddressRegionKHR.deviceAddress = GetBufferDeviceAddress(device, buffer);
 		stridedDeviceAddressRegionKHR.stride = handleSizeAligned;

@@ -86,6 +86,7 @@ public:
 	PFN_vkCreateRayTracingPipelinesKHR pfnCreateRayTracingPipelinesKHR;
 	PFN_vkGetRayTracingShaderGroupHandlesKHR pfnGetRayTracingShaderGroupHandlesKHR;
 	PFN_vkCmdTraceRaysKHR pfnCmdTraceRaysKHR;
+	PFN_vkDestroyAccelerationStructureKHR pfnDestroyAccelerationStructureKHR;
 
 private:
 	void CreateInstance();

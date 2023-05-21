@@ -65,11 +65,12 @@ bool Renderer::Init()
 	
 #if defined(VULKAN_HWRT)
 	RayTracing::InitRTFunctions(m_VulkanDevice);
-#endif
-
 	//init acceleration structure
 	CreateAccelerationStructure();
+#else
 	ConstructBVH();
+#endif
+
 	InitLights();
 
 	return true;
@@ -78,6 +79,11 @@ bool Renderer::Init()
 bool Renderer::Shutdown()
 {
 	VULKAN_API_CALL(vkDeviceWaitIdle(m_VulkanDevice.GetGraphicDevice()));
+
+#if defined(VULKAN_HWRT)
+	m_VulkanDevice.pfnDestroyAccelerationStructureKHR(m_VulkanDevice.GetGraphicDevice(), TLAS.accelerationStructure, nullptr);
+	m_VulkanDevice.pfnDestroyAccelerationStructureKHR(m_VulkanDevice.GetGraphicDevice(), BLAS.accelerationStructure, nullptr);
+#endif
 
 	delete(m_GeometryIndirectDrawBuffer);
 	gltfModels.clear();
@@ -561,6 +567,8 @@ void Renderer::CreateAccelerationStructure()
 		indexBufferDeviceAddress.deviceAddress = RayTracing::GetBufferDeviceAddress(m_VulkanDevice, sceneIndexBuffer);
 
 		uint32_t numTriangles = static_cast<uint32_t>(sceneIndexBuffer->GetSize() / sizeof(uint32_t)) / 3;
+		m_TriangleCount = numTriangles;
+
 		uint32_t maxVertex = static_cast<uint32_t>(sceneVertexBuffer->GetSize() / sizeof(rabbitVec4f));
 
 		VkAccelerationStructureGeometryKHR accelerationStructureGeometry{ VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_KHR };
@@ -629,7 +637,7 @@ void Renderer::CreateAccelerationStructure()
 
 		commandBuffer.EndAndSubmitCommandBuffer();
 
-		delete scratchBuffer.buffer;
+		m_ResourceManager.DeleteBuffer(scratchBuffer.buffer);
 	}
 	//TLAS
 	{
@@ -725,8 +733,8 @@ void Renderer::CreateAccelerationStructure()
 
 		commandBuffer.EndAndSubmitCommandBuffer();
 
-		delete scratchBufferTLAS.buffer;
-		delete instancesBuffer;
+		m_ResourceManager.DeleteBuffer(scratchBufferTLAS.buffer);
+		m_ResourceManager.DeleteBuffer(instancesBuffer);
 	}
 #endif
 }
@@ -1128,6 +1136,8 @@ void Renderer::ConstructBVH()
 	triangleIndxsBuffer->FillBuffer(triIndices, indicesNum * sizeof(uint32_t));
 	cfbvhNodesBuffer->FillBuffer(root, nodeNum * sizeof(BVH::CacheFriendlyBVHNode));
 
+	m_TriangleCount = static_cast<uint32_t>(trianglesBuffer->GetSize() / sizeof(BVH::Triangle));
+
 	RABBIT_FREE(triIndices);
 	RABBIT_FREE(root);
 }
@@ -1172,7 +1182,7 @@ void Renderer::ImguiProfilerWindow(std::vector<TimeStamp>& timeStamps)
 
 	uint32_t fps = static_cast<uint32_t>(1.f / m_CurrentDeltaTime);
 	float frameTime_ms = m_CurrentDeltaTime * 1000.f;
-	float numOfTriangles = static_cast<float>(trianglesBuffer->GetSize()) / static_cast<float>(sizeof(BVH::Triangle)) / 1000.f;
+	float numOfTriangles = m_TriangleCount / 1000.f;
 
 	ImGui::Text("FPS        : %d (%.2f ms)", fps, frameTime_ms);
 	ImGui::Text("Num of triangles   : %.2fk", numOfTriangles);

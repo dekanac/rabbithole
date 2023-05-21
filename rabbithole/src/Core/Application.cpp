@@ -82,9 +82,9 @@ bool Application::Init()
 
 void Application::Run()
 {
-    double previousFrameTime = glfwGetTime();
-    double previousOutputTime = glfwGetTime();
-    double deltaTime = 0;
+    float previousFrameTime = static_cast<float>(glfwGetTime());
+    float previousOutputTime = previousFrameTime;
+    float deltaTime = 0;
     uint64_t timerFrequency = glfwGetTimerFrequency();
 
 	while (m_IsRunning)
@@ -94,7 +94,7 @@ void Application::Run()
 			m_IsRunning = false;
 		}
 
-		double currentFrameTime = glfwGetTime();
+		float currentFrameTime = static_cast<float>(glfwGetTime());
         deltaTime = (currentFrameTime - previousFrameTime);
 		previousFrameTime = currentFrameTime;
 
@@ -132,7 +132,7 @@ void Application::Shutdown()
     {
         LOG_INFO("RenderSystem successfully shutdown!");
     }
-    if (!Window      ::instance().Shutdown())
+    if (!Window::instance().Shutdown())
     {
         LOG_CRITICAL("Window failed to shutdown!");
     }

@@ -258,6 +258,7 @@ public:
     bool m_FramebufferResized = false;
 	bool m_RenderTAA = false;
 	bool m_RecordGPUTimeStamps = true;
+	uint32_t m_TriangleCount = 0;
 
 	bool Init();
 	bool Shutdown();

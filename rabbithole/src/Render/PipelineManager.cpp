@@ -50,6 +50,7 @@ void PipelineManager::Destroy()
 {
 	for (auto object : m_GraphicPipelines) { delete object.second; }
 	for (auto object : m_ComputePipelines) { delete object.second; }
+	for (auto object : m_RayTracingPipelines) { delete object.second; }
 	for (auto object : m_RenderPasses) { delete object.second; }
 }
 

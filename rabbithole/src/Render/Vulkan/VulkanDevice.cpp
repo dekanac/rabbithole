@@ -495,7 +495,7 @@ void VulkanDevice::InitializeFunctionsThroughProcAddr()
 	pfnCreateRayTracingPipelinesKHR = reinterpret_cast<PFN_vkCreateRayTracingPipelinesKHR>(vkGetDeviceProcAddr(m_Device, "vkCreateRayTracingPipelinesKHR"));
 	pfnGetRayTracingShaderGroupHandlesKHR = reinterpret_cast<PFN_vkGetRayTracingShaderGroupHandlesKHR>(vkGetDeviceProcAddr(m_Device, "vkGetRayTracingShaderGroupHandlesKHR"));
 	pfnCmdTraceRaysKHR = reinterpret_cast<PFN_vkCmdTraceRaysKHR>(vkGetDeviceProcAddr(m_Device, "vkCmdTraceRaysKHR"));
-
+	pfnDestroyAccelerationStructureKHR = reinterpret_cast<PFN_vkDestroyAccelerationStructureKHR>(vkGetDeviceProcAddr(m_Device, "vkDestroyAccelerationStructureKHR"));
 }
 
 VkFormat VulkanDevice::FindSupportedFormat(const std::vector<VkFormat>& candidates, VkImageTiling tiling, VkFormatFeatureFlags features) 
@@ -566,7 +566,7 @@ void VulkanDevice::CopyBufferToImage(VulkanCommandBuffer& commandBuffer, VulkanB
 		regions[i].imageOffset = { 0, 0, 0 };
 		regions[i].imageExtent = { width >> i, height >> i, 1 };
 
-		offset += GetTextureSizeFrom(texture->GetFormat(), { width >> i ,height >> i, 1}, 1, 1);
+		offset += static_cast<uint32_t>(GetTextureSizeFrom(texture->GetFormat(), { width >> i ,height >> i, 1}, 1, 1));
 	}
 
 	vkCmdCopyBufferToImage(
