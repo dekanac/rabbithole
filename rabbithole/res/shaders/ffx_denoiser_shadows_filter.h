@@ -244,7 +244,7 @@ void FFX_DNSR_Shadows_ReadTileMetaData(uint2 gid, out bool is_cleared, out bool 
 }
 
 
-float2 FFX_DNSR_Shadows_FilterSoftShadowsPass(uint2 gid, uint2 gtid, uint2 did, out bool bWriteResults, uint const pass, uint const stepsize)
+float2 FFX_DNSR_Shadows_FilterSoftShadowsPass(uint2 gid, uint2 gtid, uint2 did, out bool bWriteResults, const uint pass, const uint stepsize)
 {
     bool is_cleared;
     bool all_in_light;

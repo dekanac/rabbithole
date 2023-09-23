@@ -116,7 +116,6 @@ void BloomCompute::Setup()
 
 		SetCombinedImageSampler(0, BloomCompute::m_DownsampledMipChain[i]);
 		SetStorageImageReadWrite(1, m_DownsampledMipChain[i-1]);
-		SetConstantBuffer(2, BloomCompute::BloomParamsGPU);
 
 		uint32_t isLastPass = i == 1;
 		m_Renderer.BindPushConst(isLastPass);

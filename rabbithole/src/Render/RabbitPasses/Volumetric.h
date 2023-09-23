@@ -46,3 +46,28 @@ BEGIN_DECLARE_RABBITPASS(ApplyVolumetricFogPass);
 	declareResource(Output, VulkanTexture);
 
 END_DECLARE_RABBITPASS
+
+BEGIN_DECLARE_RABBITPASS(VolumetricCloudsPass);
+	
+	struct VolumetricCloudsParams
+	{
+		float SunPhaseValue = 0.8f;
+		float VolumeLightAbsorption = 0.3f;
+		float ApproxFadeDistance = 50.f;
+		float CurveAggressivness = 25.f;
+		float EdgeGradient = 0.5f;
+		float LightMarchSteps = 1.f;
+		float SomeParam1 = 1.f;
+		float SomeParam2 = 0.1f;
+		float SomeParam3 = 1.f;
+		float SomeParam4 = 1.f;
+		float SomeParam5 = 1.f;
+		float SomeParam6 = 1.f;
+	};
+
+	declareResource(Output, VulkanTexture);
+	declareResource(ParamsGPU, VulkanBuffer);
+
+	static VolumetricCloudsParams ParamsCPU;
+
+END_DECLARE_RABBITPASS;

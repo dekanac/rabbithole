@@ -20,7 +20,6 @@ class Shader : public AllocatedResource
 public:
 	friend class ResourceManager; // Resource Manager will take care of creation and deletion of shaders
 
-private:
 	Shader(VulkanDevice& device,
 		size_t byteCodeSize,
 		const char* byteCode,

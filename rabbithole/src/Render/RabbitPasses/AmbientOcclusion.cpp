@@ -67,6 +67,8 @@ void SSAOPass::Setup()
 {
 	VulkanStateManager& stateManager = m_Renderer.GetStateManager();
 
+	stateManager.SetComputeShader(m_Renderer.GetShader("CS_SSAO"));
+
 	//fill params buffer
 	if (m_Renderer.IsImguiReady())
 	{
@@ -83,45 +85,21 @@ void SSAOPass::Setup()
 	}
 
     ParamsGPU->FillBuffer(&ParamsCPU, sizeof(SSAOParams));
+	SetConstantBuffer(0, m_Renderer.GetMainConstBuffer());
+	SetStorageImageRead(1, CopyDepthPass::DepthR32);
+	SetStorageImageRead(2, GBufferPass::Normals);
 	SetConstantBuffer(3, SSAOPass::Samples);
 	SetConstantBuffer(4, SSAOPass::ParamsGPU);
+	SetStorageImageWrite(5, SSAOPass::Output);
 
-    if (ComputeSSAO)
-    {
-		stateManager.SetComputeShader(m_Renderer.GetShader("CS_SSAO"));
-
-		SetConstantBuffer(0, m_Renderer.GetMainConstBuffer());
-		SetStorageImageRead(1, CopyDepthPass::DepthR32);
-		SetStorageImageRead(2, GBufferPass::Normals);
-
-		SetStorageImageWrite(5, SSAOPass::Output);
-	}
-	else
-	{
-		stateManager.SetVertexShader(m_Renderer.GetShader("VS_PassThrough"));
-		stateManager.SetPixelShader(m_Renderer.GetShader("FS_SSAO"));
-
-		SetConstantBuffer(0, m_Renderer.GetMainConstBuffer());
-		SetCombinedImageSampler(1, CopyDepthPass::DepthR32);
-		SetCombinedImageSampler(2, GBufferPass::Normals);
-
-		SetRenderTarget(0, SSAOPass::Output);
-	}
 }
 void SSAOPass::Render()
 {
-	if (ComputeSSAO)
-	{
-		constexpr uint32_t dispatchThreadSize = 8;
-		const uint32_t dispatchX = GetCSDispatchCount(GetNativeWidth, dispatchThreadSize);
-		const uint32_t dispatchY = GetCSDispatchCount(GetNativeHeight, dispatchThreadSize);
-
-		m_Renderer.Dispatch(dispatchX, dispatchY, 1);
-	}
-	else
-	{
-		m_Renderer.DrawFullScreenQuad();
-	}
+	constexpr uint32_t dispatchThreadSize = 8;
+	const uint32_t dispatchX = GetCSDispatchCount(GetNativeWidth, dispatchThreadSize);
+	const uint32_t dispatchY = GetCSDispatchCount(GetNativeHeight, dispatchThreadSize);
+	
+	m_Renderer.Dispatch(dispatchX, dispatchY, 1);
 }
 void SSAOBlurPass::DeclareResources()
 {

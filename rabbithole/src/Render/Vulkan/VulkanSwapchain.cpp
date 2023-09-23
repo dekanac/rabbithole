@@ -4,6 +4,8 @@
 #include "Render/SuperResolutionManager.h"
 #include "Render/Window.h"
 
+#include <optick.h>
+
 #include <array>
 #include <cstdlib>
 #include <cstring>
@@ -29,7 +31,7 @@ VulkanSwapchain::~VulkanSwapchain()
 	}
 
 	// cleanup synchronization objects
-	for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) 
+	for (size_t i = 0; i < GetImageCount(); i++) 
 	{
 		vkDestroySemaphore(m_VulkanDevice.GetGraphicDevice(), m_RenderFinishedSemaphores[i], nullptr);
 		vkDestroySemaphore(m_VulkanDevice.GetGraphicDevice(), m_ImageAvailableSemaphores[i], nullptr);
@@ -41,6 +43,8 @@ VulkanSwapchain::~VulkanSwapchain()
 
 VkResult VulkanSwapchain::AcquireNextImage(uint32_t* imageIndex) 
 {
+	OPTICK_EVENT();
+
 	vkWaitForFences(m_VulkanDevice.GetGraphicDevice(), 1, &m_InFlightFences[m_CurrentFrame], VK_TRUE, std::numeric_limits<uint64_t>::max());
 
 	VkResult result = vkAcquireNextImageKHR(
@@ -56,6 +60,8 @@ VkResult VulkanSwapchain::AcquireNextImage(uint32_t* imageIndex)
 
 VkResult VulkanSwapchain::SubmitCommandBufferAndPresent(VulkanCommandBuffer& buffer, uint32_t* imageIndex)
 {
+	OPTICK_EVENT();
+
 	if (m_ImagesInFlight[*imageIndex] != VK_NULL_HANDLE) 
 	{
 		vkWaitForFences(m_VulkanDevice.GetGraphicDevice(), 1, &m_ImagesInFlight[*imageIndex], VK_TRUE, UINT64_MAX);
@@ -94,9 +100,12 @@ VkResult VulkanSwapchain::SubmitCommandBufferAndPresent(VulkanCommandBuffer& buf
 
 	presentInfo.pImageIndices = imageIndex;
 
+	OPTICK_GPU_FLIP(m_SwapChain);
+	OPTICK_CATEGORY("Present", Optick::Category::Wait);
+
 	auto result = vkQueuePresentKHR(m_VulkanDevice.GetPresentQueue(), &presentInfo);
 
-	m_CurrentFrame = (m_CurrentFrame + 1) % MAX_FRAMES_IN_FLIGHT;
+	m_CurrentFrame = (m_CurrentFrame + 1) % GetImageCount();
 
 	return result;
 }

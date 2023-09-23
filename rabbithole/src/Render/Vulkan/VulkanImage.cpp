@@ -67,20 +67,18 @@ VulkanImageView::VulkanImageView(const VulkanDevice* device, const VulkanImageVi
 	: m_VulkanDevice(device)
 	, m_Info(info)
 {
-	m_Image = m_Info.Resource;
-
 	VkImageViewCreateInfo imageViewCreateInfo = { VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO };
 	imageViewCreateInfo.format = GetVkFormatFrom(m_Info.Format);
 
-	if (IsFlagSet(m_Image->GetInfo().Flags & ImageFlags::CubeMap))
+	if (IsFlagSet(info.Resource->GetInfo().Flags & ImageFlags::CubeMap))
 	{
 		imageViewCreateInfo.viewType = VK_IMAGE_VIEW_TYPE_CUBE;
 	}
-	else if (m_Image->GetImageType() == VK_IMAGE_TYPE_2D)
+	else if (info.Resource->GetImageType() == VK_IMAGE_TYPE_2D)
 	{
-		imageViewCreateInfo.viewType = m_Image->GetInfo().ArraySize > 1 ? VK_IMAGE_VIEW_TYPE_2D_ARRAY : VK_IMAGE_VIEW_TYPE_2D;
+		imageViewCreateInfo.viewType = info.Resource->GetInfo().ArraySize > 1 ? VK_IMAGE_VIEW_TYPE_2D_ARRAY : VK_IMAGE_VIEW_TYPE_2D;
 	}
-	else if (m_Image->GetImageType() == VK_IMAGE_TYPE_3D)
+	else if (info.Resource->GetImageType() == VK_IMAGE_TYPE_3D)
 	{
 		imageViewCreateInfo.viewType = VK_IMAGE_VIEW_TYPE_3D;
 	}
@@ -95,7 +93,7 @@ VulkanImageView::VulkanImageView(const VulkanDevice* device, const VulkanImageVi
 	imageViewCreateInfo.subresourceRange.baseArrayLayer = m_Info.Subresource.ArraySlice;
 	imageViewCreateInfo.subresourceRange.layerCount = m_Info.Subresource.ArraySize;
 	imageViewCreateInfo.components = { VK_COMPONENT_SWIZZLE_R, VK_COMPONENT_SWIZZLE_G, VK_COMPONENT_SWIZZLE_B, VK_COMPONENT_SWIZZLE_A };
-	imageViewCreateInfo.image = GET_VK_HANDLE_PTR(m_Image);
+	imageViewCreateInfo.image = GET_VK_HANDLE_PTR(info.Resource);
 
 	VULKAN_API_CALL(vkCreateImageView(m_VulkanDevice->GetGraphicDevice(), &imageViewCreateInfo, nullptr, &m_ImageView));
 }

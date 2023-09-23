@@ -756,6 +756,28 @@ uint64_t GetTexelSizeFrom(Format format)
 	return (blockSize / componentCount) * (componentSize / 8);
 }
 
+ShaderType GetShaderStageFrom(const std::string& name)
+{
+	switch (name[0])
+	{
+	case 'C':
+		return ShaderType::Compute;
+	case 'V':
+		return ShaderType::Vertex;
+	case 'F':
+		return ShaderType::Fragment;
+	case 'R':
+		return ShaderType::RayGen;
+	case 'H':
+		return ShaderType::ClosestHit;
+	case 'M':
+		return ShaderType::Miss;
+	default:
+		LOG_ERROR("Unrecognized shader stage! Should be CS, VS, FS, HS, MS or RS");
+		return ShaderType::Count;
+	}
+}
+
 VkBlendFactor GetVkBlendFactorFrom(const BlendValue blendValue)
 {
 	switch (blendValue)

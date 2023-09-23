@@ -73,7 +73,6 @@ public:
 private:
 	const VulkanDevice*			m_VulkanDevice;
 	const VulkanImageViewInfo	m_Info;
-	const VulkanImage*			m_Image;
 
 	VkImageView m_ImageView;
 };

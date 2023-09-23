@@ -136,8 +136,8 @@ float2 FFX_DNSR_Shadows_GetClosestVelocity(int2 did, float depth)
     float2 closest_velocity = FFX_DNSR_Shadows_ReadVelocity(did);
     float closest_depth = depth;
 
-    float new_depth = QuadReadAcrossX(closest_depth);
-    float2 new_velocity = float2(QuadReadAcrossX(closest_velocity));
+    float new_depth = (closest_depth);
+    float2 new_velocity = float2((closest_velocity));
 #ifdef INVERTED_DEPTH_RANGE
     if (new_depth > closest_depth)
 #else
@@ -148,8 +148,8 @@ float2 FFX_DNSR_Shadows_GetClosestVelocity(int2 did, float depth)
         closest_velocity = new_velocity;
     }
 
-    new_depth = QuadReadAcrossY(closest_depth);
-    new_velocity = QuadReadAcrossY(closest_velocity);
+    new_depth = (closest_depth);
+    new_velocity = (closest_velocity);
 #ifdef INVERTED_DEPTH_RANGE
     if (new_depth > closest_depth)
 #else
@@ -398,9 +398,9 @@ void FFX_DNSR_Shadows_TileClassification(uint group_index, uint2 gid)
             shadow_clamped = clamp(shadow_previous, nmin, nmax);
 
             // Reduce history weighting
-            float const sigma = 20.0f;
-            float const temporal_discontinuity = (shadow_previous - mean) / max(0.5f * std_deviation, 0.001f);
-            float const sample_counter_damper = exp(-temporal_discontinuity * temporal_discontinuity / sigma);
+            const float sigma = 20.0f;
+            const float temporal_discontinuity = (shadow_previous - mean) / max(0.5f * std_deviation, 0.001f);
+            const float sample_counter_damper = exp(-temporal_discontinuity * temporal_discontinuity / sigma);
             moments_current.z *= sample_counter_damper;
 
             // Boost variance on first frames

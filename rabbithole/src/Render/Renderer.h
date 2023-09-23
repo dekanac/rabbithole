@@ -12,6 +12,7 @@
 #include "Render/ResourceManager.h"
 #include "Render/ResourceStateTracking.h"
 #include "Render/RabbitPassManager.h"
+#include "Render/ShaderCompiler.h"
 #include "Render/SuperResolutionManager.h"
 #include "Render/Vulkan/Include/VulkanWrapper.h"
 #include "Render/Window.h"
@@ -118,6 +119,7 @@ private:
 	RabbitPassManager									m_RabbitPassManager{};
 	PipelineManager										m_PipelineManager{};
 	ImGuiManager										m_ImGuiManager{};
+	ShaderCompiler										m_ShaderCompiler{};
 
 	std::unique_ptr<VulkanSwapchain>					m_VulkanSwapchain;
 	std::unique_ptr<VulkanDescriptorPool>				m_DescriptorPool;
@@ -148,7 +150,7 @@ private:
 	void ImguiProfilerWindow(std::vector<TimeStamp>& timestamps);
 	void ImGuiTextureDebugger();
 	ImVec2 GetScaledSizeWithAspectRatioKept(ImVec2 currentSize, float minWidth = 200.f);
-
+	void CompileShader(const std::string& name, const std::string& entryPoint = "main", std::vector<const char*> defines = std::vector<const char*>());
 	void RecordCommandBuffer();
 
 	void BindPushConstInternal();
@@ -173,7 +175,8 @@ public:
 	inline VulkanImageView*					GetSwapchainImage() { return m_VulkanSwapchain->GetImageView(m_CurrentImageIndex); }
 	inline VulkanDescriptorPool&			GetDescriptorPool() { return *m_DescriptorPool; }
 	inline VulkanBuffer*					GetVertexUploadBuffer() { return m_VertexUploadBuffer; }
-	inline VulkanBuffer*					GetMainConstBuffer() { return m_MainConstBuffer[m_CurrentImageIndex]; }
+	inline VulkanBuffer* GetMainConstBuffer() { return m_MainConstBuffer[m_CurrentImageIndex]; }
+	inline VulkanBuffer* GetMainConstBufferByIndex(uint32_t imageIndex) { return m_MainConstBuffer[imageIndex]; }
 
 	void ResourceBarrier(VulkanTexture* texture, ResourceState oldLayout, ResourceState newLayout, ResourceStage srcStage, ResourceStage dstStage, uint32_t mipLevel = 0, uint32_t mipCount = UINT32_MAX);
 	void ResourceBarrier(VulkanBuffer* buffer, ResourceState oldLayout, ResourceState newLayout, ResourceStage srcStage, ResourceStage dstStage);
@@ -207,6 +210,7 @@ public:
 	void Dispatch(uint32_t x, uint32_t y, uint32_t z);
 	void CopyToSwapChain();
 	void DrawGeometryGLTF(std::vector<VulkanglTFModel>& bucket);
+	void DrawClouds(std::vector<VulkanglTFModel>& bucket);
 	void DrawFullScreenQuad();
 	void TraceRays(uint32_t x, uint32_t y, uint32_t z);
 	void ClearImage(VulkanTexture* texture, Color clearValue);
@@ -225,6 +229,8 @@ public:
 	std::vector<VulkanglTFModel> gltfModels;
 	std::vector<LightParams> lights;
 
+	std::vector<VulkanglTFModel> cloudMeshes;
+
 	//default textures;
 	VulkanTexture* g_DefaultWhiteTexture;
 	VulkanTexture* g_DefaultBlackTexture;
@@ -233,6 +239,7 @@ public:
 
 	//geometry
 	IndexedIndirectBuffer* m_GeometryIndirectDrawBuffer;
+	IndexedIndirectBuffer* m_IndirectCloudDrawBuffer;
 
 	//debug texture
 	std::string currentTextureSelectedName = "Choose texture to debug: ";
@@ -267,10 +274,10 @@ public:
     void DrawFrame();
 
 private:
-	void CreateGeometryDescriptors(std::vector<VulkanglTFModel>& models, uint32_t imageIndex);
 	void InitDefaultTextures();
 	float m_CurrentDeltaTime;
 	float m_CurrentCPUTimeInMS;
+	float m_TimeWhenRendererStarted;
 
 public:
 	//Don't ask, Imgui init wants swapchain renderpass to be ready, but its not. So basically we need 2 init phases..

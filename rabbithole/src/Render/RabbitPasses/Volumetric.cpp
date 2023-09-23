@@ -12,6 +12,11 @@ defineResource(ComputeScatteringPass, LightScattering, VulkanTexture);
 
 defineResource(ApplyVolumetricFogPass, Output, VulkanTexture);
 
+defineResource(VolumetricCloudsPass, Output, VulkanTexture);
+VolumetricCloudsPass::VolumetricCloudsParams VolumetricCloudsPass::ParamsCPU = {};
+defineResource(VolumetricCloudsPass, ParamsGPU, VulkanBuffer)
+
+
 void VolumetricPass::DeclareResources()
 {
 	MediaDensity = m_Renderer.GetResourceManager().CreateTexture(m_Renderer.GetVulkanDevice(), RWTextureCreateInfo{
@@ -34,7 +39,7 @@ void VolumetricPass::Setup()
 {
 	VulkanStateManager& stateManager = m_Renderer.GetStateManager();
 
-	stateManager.SetComputeShader(m_Renderer.GetShader("CS_Volumetric"));
+	stateManager.SetComputeShader(m_Renderer.GetShader("CS_Volumetric_CalculateDensity"));
 
 	SetConstantBuffer(4, VolumetricPass::ParamsGPU);
 	SetStorageImageWrite(5, VolumetricPass::MediaDensity);
@@ -45,7 +50,7 @@ void VolumetricPass::Setup()
 
 	if (m_Renderer.IsImguiReady())
 	{
-		ImGui::Begin("Volumetric Fog:");
+		ImGui::Begin("Volumetric Fog");
 
 		auto& fogParams = VolumetricPass::ParamsCPU;
 
@@ -92,13 +97,16 @@ void Create3DNoiseTexturePass::Setup()
 
 	stateManager.SetComputeShader(m_Renderer.GetShader("CS_3DNoiseLUT"));
 
-	SetCombinedImageSampler(0, m_Renderer.noise2DTexture);
 	SetStorageImageWrite(1, m_Renderer.noise3DLUT);
 }
 
 void Create3DNoiseTexturePass::Render()
 {
-	m_Renderer.Dispatch(256, 256, 256);
+	auto width = m_Renderer.noise3DLUT->GetWidth();
+	auto height = m_Renderer.noise3DLUT->GetHeight();
+	auto depth = m_Renderer.noise3DLUT->GetDepth();
+
+	m_Renderer.Dispatch(GetCSDispatchCount(width, 8), GetCSDispatchCount(height, 8), GetCSDispatchCount(depth, 8));
 }
 
 
@@ -120,7 +128,7 @@ void ComputeScatteringPass::Setup()
 
 	stateManager.SetComputeShader(m_Renderer.GetShader("CS_ComputeScattering"));
 
-	SetCombinedImageSampler(0, VolumetricPass::MediaDensity);
+	SetStorageImageRead(0, VolumetricPass::MediaDensity);
 	SetStorageImageWrite(1, ComputeScatteringPass::LightScattering);
 	SetConstantBuffer(2, VolumetricPass::ParamsGPU);
 }
@@ -165,6 +173,86 @@ void ApplyVolumetricFogPass::Setup()
 }
 
 void ApplyVolumetricFogPass::Render()
+{
+	m_Renderer.DrawFullScreenQuad();
+}
+
+void VolumetricCloudsPass::DeclareResources() 
+{
+	Output = m_Renderer.GetResourceManager().CreateTexture(m_Renderer.GetVulkanDevice(), RWTextureCreateInfo{
+			.dimensions = {GetNativeWidth, GetNativeHeight, 1},
+			.flags = {TextureFlags::RenderTarget | TextureFlags::Read | TextureFlags::TransferSrc},
+			.format = {Format::R16G16B16A16_FLOAT},
+			.name = {"Volumetric Clouds Output"},
+		});
+
+	ParamsGPU = m_Renderer.GetResourceManager().CreateBuffer(m_Renderer.GetVulkanDevice(), BufferCreateInfo{
+			.flags = {BufferUsageFlags::UniformBuffer},
+			.memoryAccess = {MemoryAccess::CPU2GPU},
+			.size = {sizeof(VolumetricCloudsParams)},
+			.name = {"Volumetric Clouds Params"}
+		});
+}
+
+void VolumetricCloudsPass::Setup()
+{
+	VulkanStateManager& stateManager = m_Renderer.GetStateManager();
+
+	stateManager.SetVertexShader(m_Renderer.GetShader("VS_PassThrough"));
+	stateManager.SetPixelShader(m_Renderer.GetShader("FS_VolumetricClouds"));
+
+	m_Renderer.BindViewport(0, 0, static_cast<float>(GetNativeWidth), static_cast<float>(GetNativeHeight));
+	stateManager.SetRenderPassExtent({ GetNativeWidth , GetNativeHeight });
+
+	auto pipelineInfo = stateManager.GetPipelineInfo();
+	pipelineInfo->SetColorWriteMask(0, ColorWriteMaskFlags::RGBA);
+	pipelineInfo->SetDepthTestEnabled(true);
+
+	//alpha blending
+	pipelineInfo->SetAlphaBlendEnabled(0, true);
+	pipelineInfo->SetAlphaBlendFunction(0, BlendValue::SrcAlpha, BlendValue::InvSrcAlpha);
+	pipelineInfo->SetAlphaBlendOperation(0, BlendOperation::Add);
+
+	auto renderPassInfo = stateManager.GetRenderPassInfo();
+	renderPassInfo->InitialRenderTargetState = ResourceState::RenderTarget;
+	renderPassInfo->FinalRenderTargetState = ResourceState::RenderTarget;
+
+	SetConstantBuffer(0, m_Renderer.GetMainConstBuffer());
+	SetCombinedImageSampler(1, m_Renderer.noise3DLUT);
+	SetCombinedImageSampler(2, CopyDepthPass::DepthR32);
+	SetConstantBuffer(3, ParamsGPU);
+	SetConstantBuffer(4, LightingPass::LightParamsGPU);
+
+	SetRenderTarget(0, LightingPass::MainLighting);
+	SetDepthStencil(GBufferPass::Depth);
+
+	if (m_Renderer.IsImguiReady())
+	{
+		ImGui::Begin("Volumetric Clouds");
+
+		auto& fogParams = VolumetricCloudsPass::ParamsCPU;
+
+		ImGui::SliderFloat("SunPhaseValue: ", &(fogParams.SunPhaseValue), 0.1f, 2.0f);
+		ImGui::SliderFloat("VolumeLightAbsorption: ", &(fogParams.VolumeLightAbsorption), 0.1f, 1.f);
+		ImGui::SliderFloat("ApproxFadeDistance: ", &(fogParams.ApproxFadeDistance), 0.0f, 150.f);
+		ImGui::SliderFloat("CurveAggressivness: ", &(fogParams.CurveAggressivness), 1.f, 100.f);
+		ImGui::SliderFloat("EdgeGradient: ", &(fogParams.EdgeGradient), 0.01f, 8.f);
+		ImGui::SliderFloat("LightTransmittance: ", &(fogParams.LightMarchSteps), 1.f, 10.f);
+		ImGui::SliderFloat("SomeParam1: ", &(fogParams.SomeParam1), 0.1f, 10.f);
+		ImGui::SliderFloat("SomeParam2: ", &(fogParams.SomeParam2), 0.1f, 10.f);
+		ImGui::SliderFloat("SomeParam3: ", &(fogParams.SomeParam3), 0.1f, 10.f);
+		ImGui::SliderFloat("SomeParam4: ", &(fogParams.SomeParam4), 0.1f, 10.f);
+		ImGui::SliderFloat("SomeParam5: ", &(fogParams.SomeParam5), 0.1f, 10.f);
+		ImGui::SliderFloat("SomeParam6: ", &(fogParams.SomeParam6), 0.1f, 10.f);
+
+		ImGui::End();
+	}
+
+	VolumetricCloudsPass::ParamsGPU->FillBuffer(&VolumetricCloudsPass::ParamsCPU);
+
+}
+
+void VolumetricCloudsPass::Render() 
 {
 	m_Renderer.DrawFullScreenQuad();
 }

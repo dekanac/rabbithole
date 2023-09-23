@@ -2,6 +2,7 @@
 
 #include <vector>
 #include <unordered_map>
+#include <optick.h>
 
 #include "Render/Renderer.h"
 
@@ -15,6 +16,7 @@ public:
 	virtual void DeclareResources() = 0;
 	virtual void Setup() = 0;
 	virtual void Render() = 0;
+	virtual void ExecutePass() = 0;
 	virtual const char* GetName() = 0;
 
 protected:
@@ -48,6 +50,7 @@ public: \
 	virtual void DeclareResources() override; \
 	virtual void Setup() override; \
 	virtual void Render() override; \
+	virtual void ExecutePass() override { OPTICK_EVENT(m_PassName); Setup(); Render(); } \
 	virtual const char* GetName() override { return m_PassName; } \
 private: \
 	const char* m_PassName = #name; \

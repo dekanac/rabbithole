@@ -1,5 +1,7 @@
 #include "RabbitPassManager.h"
 
+#include <optick.h>
+
 #include "Render/RabbitPass.h"
 #include "Render/RabbitPasses/AmbientOcclusion.h"
 #include "Render/RabbitPasses/GBuffer.h"
@@ -27,6 +29,7 @@ void RabbitPassManager::SchedulePasses(Renderer& renderer)
 	AddPass(new VolumetricPass(renderer));
 	AddPass(new ComputeScatteringPass(renderer));
 	AddPass(new LightingPass(renderer));
+	//AddPass(new VolumetricCloudsPass(renderer));
 	AddPass(new ApplyVolumetricFogPass(renderer));
 	AddPass(new TextureDebugPass(renderer));
 	AddPass(new FSR2Pass(renderer));
@@ -49,9 +52,7 @@ void RabbitPassManager::ExecutePasses(Renderer& renderer)
 	{
 		renderer.BeginLabel(pass->GetName());
 
-		pass->Setup();
-
-		pass->Render();
+		pass->ExecutePass();
 
 		renderer.RecordGPUTimeStamp(pass->GetName());
 
@@ -65,9 +66,7 @@ void RabbitPassManager::ExecuteOneTimePasses(Renderer& renderer)
 	{
 		renderer.BeginLabel(pass->GetName());
 
-		pass->Setup();
-
-		pass->Render();
+		pass->ExecutePass();
 
 		renderer.RecordGPUTimeStamp(pass->GetName());
 

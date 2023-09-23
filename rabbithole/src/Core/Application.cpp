@@ -7,6 +7,7 @@
 #include "Render/Window.h"
 
 #include <GLFW/glfw3.h>
+#include <optick.h>
 
 #include <iostream>
 #include <fstream>
@@ -33,8 +34,8 @@ bool Application::Init()
 
     WindowData wd{ 
         .title = "Rabbithole3D",
-        .width = 1600, 
-        .height = 900, 
+        .width = 2160, 
+        .height = 1080, 
         .vsync = false };
 
     if (!Window::instance().Init(wd))
@@ -89,6 +90,8 @@ void Application::Run()
 
 	while (m_IsRunning)
 	{
+        OPTICK_FRAME("MainThread");
+
 		if (glfwWindowShouldClose(Window::instance().GetNativeWindowHandle())) 
         {
 			m_IsRunning = false;

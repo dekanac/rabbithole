@@ -81,8 +81,6 @@ void LightingPass::Setup()
 	SetConstantBuffer(3, m_Renderer.GetMainConstBuffer());
 	SetConstantBuffer(4, LightingPass::LightParamsGPU);
 	SetCombinedImageSampler(5, SSAOBlurPass::BluredOutput);
-	SetCombinedImageSampler(6, RTShadowsPass::ShadowMask);
-	SetCombinedImageSampler(7, GBufferPass::Velocity);
 	SetCombinedImageSampler(8, CopyDepthPass::DepthR32);
 	SetCombinedImageSampler(9, ShadowDenoiseFilterPass::ShadowMask);
 	SetCombinedImageSampler(10, GBufferPass::Emissive);

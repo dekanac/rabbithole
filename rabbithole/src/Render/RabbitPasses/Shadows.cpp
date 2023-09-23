@@ -52,7 +52,7 @@ void VolumetricShadowsPass::Setup()
 	SetConstantBuffer(3, LightingPass::LightParamsGPU);
 	SetConstantBuffer(4, VolumetricPass::ParamsGPU);
 #else
-	stateManager.SetComputeShader(m_Renderer.GetShader("CS_VolumetricShadowsCalculate"));
+	stateManager.SetComputeShader(m_Renderer.GetShader("CS_Volumetric_CalculateVolumetricShadows"));
 
 	SetStorageBufferRead(0, m_Renderer.vertexBuffer);
 	SetStorageBufferRead(1, m_Renderer.trianglesBuffer);
@@ -376,7 +376,7 @@ void ShadowDenoiseFilterPass::RenderFilterPass0(uint32_t shadowSlice)
 {
 	VulkanStateManager& stateManager = m_Renderer.GetStateManager();
 
-	stateManager.SetComputeShader(m_Renderer.GetShader("CS_FilterSoftShadowsPass0"), "Pass0");
+	stateManager.SetComputeShader(m_Renderer.GetShader("CS_FilterSoftShadows_Pass0"));
 
 	SetConstantBuffer(0, ShadowDenoiseFilterPass::FilterData);
 	SetSampledImage(1, CopyDepthPass::DepthR32);
@@ -397,7 +397,7 @@ void ShadowDenoiseFilterPass::RenderFilterPass1(uint32_t shadowSlice)
 {
 	VulkanStateManager& stateManager = m_Renderer.GetStateManager();
 
-	stateManager.SetComputeShader(m_Renderer.GetShader("CS_FilterSoftShadowsPass1"), "Pass1");
+	stateManager.SetComputeShader(m_Renderer.GetShader("CS_FilterSoftShadows_Pass1"));
 
 	SetConstantBuffer(0, ShadowDenoiseFilterPass::FilterData);
 	SetSampledImage(1, CopyDepthPass::DepthR32);
@@ -418,7 +418,7 @@ void ShadowDenoiseFilterPass::RenderFilterPass2(uint32_t shadowSlice)
 {
 	VulkanStateManager& stateManager = m_Renderer.GetStateManager();
 
-	stateManager.SetComputeShader(m_Renderer.GetShader("CS_FilterSoftShadowsPass2"), "Pass2");
+	stateManager.SetComputeShader(m_Renderer.GetShader("CS_FilterSoftShadows_Pass2"));
 
 	m_Renderer.BindPushConst(shadowSlice);
 

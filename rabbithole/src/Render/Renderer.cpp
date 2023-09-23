@@ -22,6 +22,7 @@
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/matrix_inverse.hpp>
+#include <optick.h>
 
 #include <cmath>
 #include <filesystem>
@@ -36,32 +37,38 @@
 #include <vector>
 #include <cstdio>
 
+
 bool Renderer::Init()
 {
+	m_TimeWhenRendererStarted = static_cast<float>(glfwGetTime());
+
 	m_MainCamera.Init();
 	SuperResolutionManager::instance().Init(&m_VulkanDevice);
 
-	InitDefaultTextures();
-	LoadModels();
-	LoadAndCreateShaders();
 	RecreateSwapchain();
-
 	CreateUniformBuffers();
 	CreateDescriptorPool();
 	CreateCommandBuffers();
+	LoadAndCreateShaders();
+
+	// initialize Optick gpu
+	auto graphicsQueue = m_VulkanDevice.GetGraphicsQueue();
+	auto graphicsDevice = m_VulkanDevice.GetGraphicDevice();
+	auto physicalDevice = m_VulkanDevice.GetPhysicalDevice();
+	auto graphicsFamily = m_VulkanDevice.FindPhysicalQueueFamilies().graphicsFamily;
+	OPTICK_GPU_INIT_VULKAN(&graphicsDevice, &physicalDevice, &graphicsQueue, &graphicsFamily, 1, nullptr);
+
+	InitDefaultTextures();
+	LoadModels();
 
 	m_RabbitPassManager.SchedulePasses(*this);
 	m_RabbitPassManager.DeclareResources();
 
 	m_GPUTimeStamps.OnCreate(&m_VulkanDevice, m_VulkanSwapchain->GetImageCount());
 
-	for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
-	{
-		CreateGeometryDescriptors(gltfModels, i);
-	}
-
 	//for now max 10240 commands
 	m_GeometryIndirectDrawBuffer = new IndexedIndirectBuffer(m_VulkanDevice, 10240);
+	m_IndirectCloudDrawBuffer = new IndexedIndirectBuffer(m_VulkanDevice, 10240);
 	
 #if defined(VULKAN_HWRT)
 	RayTracing::InitRTFunctions(m_VulkanDevice);
@@ -86,6 +93,7 @@ bool Renderer::Shutdown()
 #endif
 
 	delete(m_GeometryIndirectDrawBuffer);
+	delete(m_IndirectCloudDrawBuffer);
 	gltfModels.clear();
 	m_GPUTimeStamps.OnDestroy();
 	SuperResolutionManager::instance().Destroy();
@@ -97,6 +105,7 @@ bool Renderer::Shutdown()
 void Renderer::Clear() const
 {
 	m_GeometryIndirectDrawBuffer->Reset();
+	m_IndirectCloudDrawBuffer->Reset();
 }
 
 void Renderer::Draw(float dt)
@@ -114,6 +123,8 @@ void Renderer::Draw(float dt)
 
 void Renderer::DrawFrame()
 {
+	OPTICK_EVENT();
+
 	auto result = m_VulkanSwapchain->AcquireNextImage(&m_CurrentImageIndex);
 	if (result != VK_SUCCESS && result != VK_SUBOPTIMAL_KHR) 
 	{
@@ -126,6 +137,16 @@ void Renderer::DrawFrame()
 		return;
 	}
 
+	std::string shaderChanged;
+	if (m_ShaderCompiler.Update(shaderChanged))
+	{
+		// if shaderChanged is slang file
+		auto foundLastDot = shaderChanged.find_last_of('.');
+		auto fileExtension = shaderChanged.substr(foundLastDot + 1);
+		if (fileExtension.compare("slang") == 0)
+			CompileShader(shaderChanged);
+	}
+
 	auto startTime = Utils::ProfileSetStartTime();
 	RecordCommandBuffer();
 	m_CurrentCPUTimeInMS = Utils::ProfileGetEndTime(startTime) / 1000.f;
@@ -136,70 +157,6 @@ void Renderer::DrawFrame()
 	{
 		m_FramebufferResized = false;
 		RecreateSwapchain();
-	}
-}
-
-void Renderer::CreateGeometryDescriptors(std::vector<VulkanglTFModel>& models, uint32_t imageIndex)
-{
-	VulkanDescriptorSetLayout descrSetLayout(&m_VulkanDevice, { GetShader("VS_GBuffer"), GetShader("FS_GBuffer") }, "GeometryDescSetLayout");
-
-	VulkanDescriptorInfo uboDescriptorInfo{};
-	uboDescriptorInfo.Type = DescriptorType::UniformBuffer;
-	uboDescriptorInfo.Binding = 0;
-	uboDescriptorInfo.buffer = m_MainConstBuffer[imageIndex];
-
-	VulkanDescriptor uboDescriptor(uboDescriptorInfo);
-
-	for (auto& model : models)
-	{
-		for (size_t i = 0; i < model.GetMaterials().size(); i++)
-		{
-			VulkanglTFModel::Material& modelMaterial = model.GetMaterials()[i];
-			auto& modelTextures = model.GetTextures();
-
-			//albedo
-			VulkanTexture* albedo = modelMaterial.baseColorTextureIndex != -1 && modelTextures.size() > 0
-				? modelTextures[modelMaterial.baseColorTextureIndex]
-				: g_DefaultWhiteTexture;
-
-			VulkanDescriptorInfo albedoDescriptorInfo{};
-			albedoDescriptorInfo.Type = DescriptorType::CombinedSampler;
-			albedoDescriptorInfo.Binding = 1;
-			albedoDescriptorInfo.imageView = albedo->GetView();
-			albedoDescriptorInfo.imageSampler = albedo->GetSampler();
-
-			VulkanDescriptor albedoDescriptor(albedoDescriptorInfo);
-
-			//normal
-			VulkanTexture* normal = modelMaterial.normalTextureIndex != -1 && modelTextures.size() > 0
-				? modelTextures[modelMaterial.normalTextureIndex]
-				: g_DefaultWhiteTexture;
-
-			VulkanDescriptorInfo normalDescriptorInfo{};
-			normalDescriptorInfo.Type = DescriptorType::CombinedSampler;
-			normalDescriptorInfo.Binding = 2;
-			normalDescriptorInfo.imageView = normal->GetView();
-			normalDescriptorInfo.imageSampler = normal->GetSampler();
-
-			VulkanDescriptor normalDescriptor(normalDescriptorInfo);
-
-			//metallicRoughness
-			VulkanTexture* metallicRoughness = modelMaterial.metallicRoughnessTextureIndex != -1 && modelTextures.size() > 0
-				? modelTextures[modelMaterial.metallicRoughnessTextureIndex]
-				: g_DefaultWhiteTexture;
-
-			VulkanDescriptorInfo metallicRoughnessDescriptorInfo{};
-			metallicRoughnessDescriptorInfo.Type = DescriptorType::CombinedSampler;
-			metallicRoughnessDescriptorInfo.Binding = 3;
-			metallicRoughnessDescriptorInfo.imageView = metallicRoughness->GetView();
-			metallicRoughnessDescriptorInfo.imageSampler = metallicRoughness->GetSampler();
-
-			VulkanDescriptor metallicRoughnessDescriptor(metallicRoughnessDescriptorInfo);
-
-			VulkanDescriptorSet* descriptorSet = m_PipelineManager.FindOrCreateDescriptorSet(m_VulkanDevice, m_DescriptorPool.get(), &descrSetLayout, { uboDescriptor, albedoDescriptor, normalDescriptor, metallicRoughnessDescriptor });
-
-			modelMaterial.materialDescriptorSet[imageIndex] = descriptorSet;
-		}
 	}
 }
 
@@ -245,9 +202,9 @@ void Renderer::InitDefaultTextures()
 		});
 
 	noise3DLUT = m_ResourceManager.CreateTexture(m_VulkanDevice, RWTextureCreateInfo{
-			.dimensions = {256, 256, 256},
+			.dimensions = {64, 64, 64},
 			.flags = {TextureFlags::Color | TextureFlags::Read | TextureFlags::Storage},
-			.format = {Format::R32_SFLOAT},
+			.format = {Format::R8G8B8A8_UNORM},
 			.name = {"Noise 3D LUT"}
 		});
 }
@@ -284,10 +241,16 @@ void Renderer::CalculateMatrices(VulkanglTFModel::Node* node, Vertex* vertexBuff
 
 void Renderer::LoadModels()
 {
-	//gltfModels.emplace_back(this, "res/meshes/separateObjects.gltf");
-	//gltfModels.emplace_back(this, "res/meshes/cottage.gltf");
-	gltfModels.emplace_back(this, "res/meshes/sponza/sponza.gltf");
-	//gltfModels.emplace_back(this, "res/meshes/sponzaNovaOpti.gltf", true);
+	//gltfModels.emplace_back(this, "res/meshes/untitled.gltf");
+	//gltfModels.emplace_back(this, "res/meshes/separateObjects.gltf", RenderingContext::GBuffer_Opaque);
+	//gltfModels.emplace_back(this, "res/meshes/cottage.gltf", RenderingContext::GBuffer_Opaque);
+	gltfModels.emplace_back(this, "res/meshes/sponza/sponza.gltf", RenderingContext::GBuffer_Opaque);
+	//gltfModels.emplace_back(this, "res/meshes/sponzanew/scene.gltf", RenderingContext::GBuffer_Opaque, true);
+	//gltfModels.emplace_back(this, "res/meshes/bistro/BistroExterior.fbx");
+
+	//cloudMeshes.emplace_back(this, "res/meshes/simpleShapes/sphere.gltf", RenderingContext::Clouds_Transparent);
+	//cloudMeshes.emplace_back(this, "res/meshes/simpleShapes/box.obj", RenderingContext::Clouds_Transparent);
+	//cloudMeshes[0].GetNodes()[0].matrix = glm::translate(rabbitMat4f{ 1.f }, rabbitVec3f{ 3.f, 6.f, 3.f });
 }
 
 void Renderer::BeginLabel(const char* name)
@@ -308,7 +271,32 @@ void Renderer::RecordGPUTimeStamp(const char* label)
 
 void Renderer::DrawGeometryGLTF(std::vector<VulkanglTFModel>& bucket)
 {
-	BindPipeline<GraphicsPipeline>();
+	m_ResourceStateTrackingManager.CommitBarriers(*this);
+
+	//renderpass
+	std::vector<VulkanImageView*>& attachments = m_StateManager.GetRenderTargets();
+	VulkanImageView* depthStencil = m_StateManager.GetDepthStencil();
+	RenderPassInfo* renderPassInfo = m_StateManager.GetRenderPassInfo();
+
+	RenderPass* renderpass =
+		m_StateManager.GetRenderPassDirty()
+		? m_PipelineManager.FindOrCreateRenderPass(m_VulkanDevice, attachments, depthStencil, *renderPassInfo)
+		: m_StateManager.GetRenderPass();
+
+	m_StateManager.SetRenderPass(renderpass);
+
+	//pipeline
+	PipelineInfo* pipelineInfo = m_StateManager.GetPipelineInfo();
+
+	pipelineInfo->renderPass = &m_StateManager.GetRenderPass()->GetVulkanRenderPass();
+	VulkanPipeline* pipeline =
+		m_StateManager.GetPipelineDirty()
+		? m_PipelineManager.FindOrCreateGraphicsPipeline(m_VulkanDevice, *pipelineInfo)
+		: m_StateManager.GetPipeline();
+
+	m_StateManager.SetPipeline(pipeline);
+
+	pipeline->Bind(GetCurrentCommandBuffer());
 
 	m_StateManager.GetRenderPass()->BeginRenderPass(GetCurrentCommandBuffer());
 
@@ -322,6 +310,26 @@ void Renderer::DrawGeometryGLTF(std::vector<VulkanglTFModel>& bucket)
 	}
 
 	m_GeometryIndirectDrawBuffer->SubmitToGPU();
+
+	m_StateManager.GetRenderPass()->EndRenderPass(GetCurrentCommandBuffer());
+
+	m_StateManager.Reset();
+}
+
+void Renderer::DrawClouds(std::vector<VulkanglTFModel>& bucket)
+{
+	BindPipeline<GraphicsPipeline>();
+
+	m_StateManager.GetRenderPass()->BeginRenderPass(GetCurrentCommandBuffer());
+
+	for (auto& model : bucket)
+	{
+		model.BindBuffers(GetCurrentCommandBuffer());
+
+		model.Draw(GetCurrentCommandBuffer(), m_StateManager.GetPipeline()->GetPipelineLayout(), m_CurrentImageIndex, m_IndirectCloudDrawBuffer);
+	}
+
+	m_IndirectCloudDrawBuffer->SubmitToGPU();
 
 	m_StateManager.GetRenderPass()->EndRenderPass(GetCurrentCommandBuffer());
 
@@ -749,6 +757,30 @@ void Renderer::BindDescriptorSets()
 		nullptr);
 }
 
+void Renderer::CompileShader(const std::string& name, const std::string& entryPoint, std::vector<const char*>defines)
+{
+	void* data = nullptr;
+	size_t size;
+	
+	bool success = m_ShaderCompiler.CompileShader(name, entryPoint, &data, &size, defines);
+	if (!success) return;
+
+	std::string fileNameFinal = name.substr(0, name.find_last_of('.'));
+	
+	ShaderInfo createInfo{};
+	createInfo.CodeEntry = entryPoint.c_str();
+	createInfo.Type = GetShaderStageFrom(name);
+
+	if (entryPoint.compare("main"))
+	{
+		fileNameFinal += "_" + entryPoint;
+	}
+
+	m_ResourceManager.CreateShader(m_VulkanDevice, createInfo, reinterpret_cast<const char*>(data), size, fileNameFinal.c_str());
+	
+	free(data);
+}
+
 void Renderer::LoadAndCreateShaders()
 {
 	//TODO: implement real shader compiler and stuff
@@ -775,40 +807,46 @@ void Renderer::LoadAndCreateShaders()
 					std::string fileNameFinal = fileNameWithExt.substr(0, foundLastDot);
 
 					auto shaderCode = Utils::ReadFile(filePath);
-					
+
 					ShaderInfo createInfo{};
 					createInfo.CodeEntry = nullptr;
+					createInfo.Type = GetShaderStageFrom(fileNameFinal);
 
-					switch (fileNameFinal[0])
-					{
-					case 'C':
-						createInfo.Type = ShaderType::Compute;
-						break;
-					case 'V':
-						createInfo.Type = ShaderType::Vertex;
-						break;
-					case 'F':
-						createInfo.Type = ShaderType::Fragment;
-						break;
-					case 'R':
-						createInfo.Type = ShaderType::RayGen;
-						break;
-					case 'H':
-						createInfo.Type = ShaderType::ClosestHit;
-						break;
-					case 'M':
-						createInfo.Type = ShaderType::Miss;
-						break;
-					default:
-						LOG_ERROR("Unrecognized shader stage! Should be CS, VS, FS, HS, MS or RS");
-						break;
-					}
-
-					m_ResourceManager.CreateShader(m_VulkanDevice, createInfo, shaderCode, fileNameFinal.c_str());
+					m_ResourceManager.CreateShader(m_VulkanDevice, createInfo, shaderCode.data(), shaderCode.size(), fileNameFinal.c_str());
 				}
 			}
 		}
 	}
+
+	CompileShader("CS_FilterSoftShadows.slang", "Pass0");
+	CompileShader("CS_FilterSoftShadows.slang", "Pass1");
+	CompileShader("CS_FilterSoftShadows.slang", "Pass2");
+	CompileShader("CS_PrepareShadowMask.slang");
+	CompileShader("CS_TileClassification.slang");
+	CompileShader("FS_VolumetricClouds.slang");
+	CompileShader("VS_PassThrough.slang");
+	CompileShader("FS_PassThrough.slang");
+	CompileShader("VS_GBuffer.slang");
+	CompileShader("VS_Skybox.slang");
+	CompileShader("FS_PBR.slang");
+	CompileShader("FS_CopyDepth.slang");
+	CompileShader("FS_GBuffer.slang");
+	CompileShader("FS_Skybox.slang");
+	CompileShader("CS_SSAO.slang");
+	CompileShader("FS_SSAOBlur.slang");
+	CompileShader("CS_RayTracingShadows.slang");
+	CompileShader("CS_Volumetric.slang", "CalculateDensity");
+	CompileShader("CS_Volumetric.slang", "CalculateVolumetricShadows");
+	CompileShader("CS_3DNoiseLUT.slang");
+	CompileShader("CS_ComputeScattering.slang");
+	CompileShader("FS_ApplyVolumetricFog.slang");
+	CompileShader("FS_Tonemap.slang");
+	CompileShader("FS_ApplyBloom.slang");
+	CompileShader("FS_TextureDebug.slang");
+	CompileShader("CS_Downsample.slang");
+	CompileShader("CS_Upsample.slang");
+	CompileShader("FS_SSAOBlur.slang");
+	//CompileShader("RS_RTShadowRaygen.slang");
 }
 
 void Renderer::CreateCommandBuffers() 
@@ -852,7 +890,11 @@ void Renderer::ResourceBarrier(VulkanBuffer* buffer, ResourceState oldLayout, Re
 
 void Renderer::RecordCommandBuffer()
 {
+	OPTICK_EVENT();
+
 	GetCurrentCommandBuffer().BeginCommandBuffer();
+
+	OPTICK_GPU_CONTEXT(GET_VK_HANDLE(GetCurrentCommandBuffer()));
 
 	std::vector<TimeStamp> timeStamps{};
 	if (m_RecordGPUTimeStamps)
@@ -899,7 +941,7 @@ void Renderer::RecordCommandBuffer()
 
 void Renderer::CreateUniformBuffers()
 {
-	for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
+	for (uint32_t i = 0; i < m_VulkanSwapchain->GetImageCount(); i++)
 	{
 		m_MainConstBuffer[i] = m_ResourceManager.CreateBuffer(m_VulkanDevice, BufferCreateInfo{
 				.flags = {BufferUsageFlags::UniformBuffer},
@@ -1149,6 +1191,8 @@ void Renderer::UpdateConstantBuffer()
 
 	rabbitVec4f frameInfo{};
 	frameInfo.x = static_cast<float>(m_CurrentFrameIndex);
+	frameInfo.y = static_cast<float>(glfwGetTime()) - m_TimeWhenRendererStarted;
+	frameInfo.z = m_CurrentDeltaTime;
 
 	m_StateManager.UpdateUBOElement(UBOElement::CurrentFrameInfo, 1, &frameInfo);
 }
@@ -1497,7 +1541,6 @@ void Renderer::BindPipeline<ComputePipeline>()
 
 	BindPushConstInternal();
 }
-
 
 template<>
 void Renderer::BindPipeline<RayTracingPipeline>()

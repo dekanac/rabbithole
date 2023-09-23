@@ -1,49 +1,22 @@
 // Copyright 2020 Google LLC
 
-RaytracingAccelerationStructure rs : register(t0);
-RWTexture2DArray<float4> image : register(u1);
+#define HLSL
 
-RWTexture2D<float4> gbufferPosition : register(u3);
-RWTexture2D<float4> gbufferNormal : register(u4);
-RWTexture2D<float4> noiseTexture : register(u6);
+#include "common.h"
 
-struct UniformBufferObject
-{
-	float4x4 view;
-	float4x4 proj;
-	float3 cameraPosition;
-	float3 debugOption;
-	float4x4 viewProjInverse;
-	float4x4 viewProjMatrix;
-	float4x4 prevViewProjMatrix;
-	float4x4 viewInverse;
-	float4x4 projInverse;
-	float4 frustrumInfo; //x = width, y = height, z = nearPlane, w = farPlane 
-	float4 eyeXAxis;
-	float4 eyeYAxis;
-	float4 eyeZAxis;
-	float4x4 projJittered;
-	float4 currentFrameInfo; //x = current frame index
-};
+[[vk::binding(0)]] RaytracingAccelerationStructure rs;
+[[vk::binding(1)]] RWTexture2DArray<float4> image;
 
-cbuffer UBO : register(b2) 
+[[vk::binding(3)]] RWTexture2D<float4> gbufferPosition;
+[[vk::binding(4)]] RWTexture2D<float4> gbufferNormal;
+[[vk::binding(6)]] RWTexture2D<float4> noiseTexture;
+
+[[vk::binding(2)]] cbuffer UniformBufferObjectBuffer 
 { 
-	UniformBufferObject UBO; 
+	UniformBufferObject UBO;
 };
 
-struct Light
-{
-	float3 position;
-	float radius;
-	float3 color;
-	float intensity;
-	uint type;
-	float size;
-	float outerConeCos;
-	float innerConeCos;
-};
-
-cbuffer Light : register(b5)
+[[vk::binding(5)]] cbuffer Light
 {
 	Light lights[4];
 };
@@ -53,10 +26,7 @@ struct Payload
 	[[vk::location(0)]] float3 shadowMask;
 };
 
-static const float PI = 3.14159265f;
-static const int LightType_Directional = 0;
-static const int LightType_Point = 1;
-static const int LightType_Spot = 2;
+#define PI (3.14159265f)
 
 float2 GetNoiseFromTexture(uint2 aPixel, uint aSeed)
 {

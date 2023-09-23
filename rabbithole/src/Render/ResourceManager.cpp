@@ -108,10 +108,21 @@ VulkanBuffer* ResourceManager::CreateBuffer(VulkanDevice& device, BufferCreateIn
 	return newBuffer;
 }
 
-void ResourceManager::CreateShader(VulkanDevice& device, ShaderInfo& createInfo, const std::vector<char>& code, const char* name)
+void ResourceManager::CreateShader(VulkanDevice& device, ShaderInfo& createInfo, const char* code, size_t codeSize, const char* name)
 {
-	Shader* shader = new Shader(device, code.size(), code.data(), createInfo, name);
-	m_Shaders[{name}] = shader;
+	Shader* shader = new Shader(device, codeSize, code, createInfo, name);
+	
+	std::string shaderName(name);
+	if (m_Shaders.find(shaderName) == m_Shaders.end())
+	{
+		m_Shaders[shaderName] = shader;
+	}
+	else
+	{
+		m_Shaders.erase(shaderName);
+		m_Shaders[shaderName] = shader;
+	}
+
 	AddAllocatedResource(shader);
 }
 

@@ -84,10 +84,16 @@ struct std::hash<Vertex>
 
 using TextureData = TextureLoading::TextureData;
 
+enum RenderingContext
+{
+	GBuffer_Opaque,
+	Clouds_Transparent
+};
+
 class VulkanglTFModel
 {
 public:
-	VulkanglTFModel(Renderer* renderer, std::string filename, bool flipNormalY = false);
+	VulkanglTFModel(Renderer* renderer, std::string filename, RenderingContext context, bool flipNormalY = false);
 	~VulkanglTFModel();
 
 	static uint32_t ms_CurrentDrawId;
@@ -95,9 +101,10 @@ public:
 	VulkanglTFModel(const VulkanglTFModel& other) = delete;
 	VulkanglTFModel(VulkanglTFModel&& other) = default;
 private:
-	Renderer*		m_Renderer;
-	std::string		m_Path;
-	bool			m_FlipNormalY;
+	Renderer*			m_Renderer;
+	std::string			m_Path;
+	bool				m_FlipNormalY;
+	RenderingContext	m_RenderingContext;
 
 	VulkanBuffer*	m_VertexBuffer;
 	VulkanBuffer*	m_IndexBuffer;
@@ -165,6 +172,7 @@ private:
 	void LoadMaterials(tinygltf::Model& input);
 	void LoadNode(const tinygltf::Node& inputNode, const tinygltf::Model& input, VulkanglTFModel::Node* parent, std::vector<uint32_t>& indexBuffer, std::vector<Vertex>& vertexBuffer);
 	void LoadModelFromFile(std::string& filename);
+	void CreateDescriptorSet(uint32_t imageIndex);
 
 public:
 	void DrawNode(VulkanCommandBuffer& commandBuffer, const VulkanPipelineLayout* pipelineLayout, VulkanglTFModel::Node node, uint8_t backBufferIndex, IndexedIndirectBuffer* indirectBuffer);

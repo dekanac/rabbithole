@@ -72,10 +72,11 @@ std::vector<VkVertexInputAttributeDescription> Vertex::GetAttributeDescriptions(
 
 //#define OLD_WAY
 
-VulkanglTFModel::VulkanglTFModel(Renderer* renderer, std::string filename, bool flipNormalY)
+VulkanglTFModel::VulkanglTFModel(Renderer* renderer, std::string filename, RenderingContext context, bool flipNormalY)
 	: m_Renderer(renderer)
 	, m_Path(filename)
 	, m_FlipNormalY(flipNormalY)
+	, m_RenderingContext(context)
 {
 	LoadModelFromFile(filename);
 }
@@ -117,8 +118,8 @@ void VulkanglTFModel::LoadModelFromFile(std::string& filename)
 	const aiScene* aiscene = importer.ReadFile(filename, aiProcess_Triangulate | aiProcess_FlipUVs);
 	ASSERT(aiscene != nullptr, "Scene not imported, file doesn't exist!");
 
-	this->LoadMaterials(aiscene);
-	this->LoadNode(aiscene->mRootNode, aiscene, nullptr, indexBuffer, vertexBuffer);
+	LoadMaterials(aiscene);
+	LoadNode(aiscene->mRootNode, aiscene, nullptr, indexBuffer, vertexBuffer);
 #endif
 
 	importer.FreeScene();
@@ -145,6 +146,11 @@ void VulkanglTFModel::LoadModelFromFile(std::string& filename)
 			.name = {std::format("ModelIndexBuffer_{}", name)}
 		});
 	m_IndexBuffer->FillBuffer(indexBuffer.data(), indexBufferSize);
+
+	for (uint32_t i = 0; i < m_Renderer->GetSwapchain()->GetImageCount(); i++)
+	{
+		CreateDescriptorSet(i);
+	}
 }
 
 void VulkanglTFModel::LoadNode(const aiNode* inputNode, const aiScene* inputScene, VulkanglTFModel::Node* parent, std::vector<uint32_t>& indexBuffer, std::vector<Vertex>& vertexBuffer)
@@ -204,6 +210,10 @@ void VulkanglTFModel::LoadNode(const aiNode* inputNode, const aiScene* inputScen
 			uint32_t vertexStart = static_cast<uint32_t>(vertexBuffer.size());
 			uint32_t realIndexCount = 0;
 
+			AABB aabb{};
+			rabbitVec3f minPos = { FLT_MAX, FLT_MAX, FLT_MAX };
+			rabbitVec3f maxPos = { -FLT_MAX, -FLT_MAX, -FLT_MAX };
+
 			for (size_t v = 0; v < vertexCount; v++)
 			{
 				Vertex vert{};
@@ -214,9 +224,12 @@ void VulkanglTFModel::LoadNode(const aiNode* inputNode, const aiScene* inputScen
 				vert.tangent = tangentBuffer ? glm::make_vec3(&tangentBuffer[v * 3]) : glm::vec3(0.0f);
 				vertexBuffer.push_back(vert);
 
-				//minPos = glm::min(vert.position, minPos);
-				//maxPos = glm::max(vert.position, maxPos);
+				minPos = glm::min(vert.position, minPos);
+				maxPos = glm::max(vert.position, maxPos);
 			}
+
+			aabb = { minPos, maxPos };
+			node.bbox = aabb;
 
 			for (uint32_t i = 0; i < mesh->mNumFaces; i++)
 			{
@@ -825,4 +838,94 @@ void VulkanglTFModel::BindBuffers(VulkanCommandBuffer& commandBuffer)
 	VkBuffer vertexBuffer = GET_VK_HANDLE_PTR(m_VertexBuffer);
 	vkCmdBindVertexBuffers(GET_VK_HANDLE(commandBuffer), 0, 1, &vertexBuffer, offsets);
 	vkCmdBindIndexBuffer(GET_VK_HANDLE(commandBuffer), GET_VK_HANDLE_PTR(m_IndexBuffer), 0, VK_INDEX_TYPE_UINT32);
+}
+
+void VulkanglTFModel::CreateDescriptorSet(uint32_t imageIndex)
+{
+	VulkanDevice& device = m_Renderer->GetVulkanDevice();
+	VulkanDescriptorPool& pool = m_Renderer->GetDescriptorPool();
+	PipelineManager& pipelineManager = m_Renderer->GetPipelineManager();
+
+	if (m_RenderingContext == RenderingContext::GBuffer_Opaque)
+	{
+
+		VulkanDescriptorSetLayout descrSetLayout(&device, { m_Renderer->GetShader("VS_GBuffer"), m_Renderer->GetShader("FS_GBuffer") }, "GeometryDescSetLayout");
+
+		VulkanDescriptorInfo uboDescriptorInfo{};
+		uboDescriptorInfo.Type = DescriptorType::UniformBuffer;
+		uboDescriptorInfo.Binding = 0;
+		uboDescriptorInfo.buffer = m_Renderer->GetMainConstBufferByIndex(imageIndex);
+
+		VulkanDescriptor uboDescriptor(uboDescriptorInfo);
+
+		for (size_t i = 0; i < m_Materials.size(); i++)
+		{
+			VulkanglTFModel::Material& modelMaterial = m_Materials[i];
+
+			//albedo
+			VulkanTexture* albedo = modelMaterial.baseColorTextureIndex != -1 && m_Textures.size() > 0
+				? m_Textures[modelMaterial.baseColorTextureIndex]
+				: m_Renderer->g_DefaultWhiteTexture;
+
+			VulkanDescriptorInfo albedoDescriptorInfo{};
+			albedoDescriptorInfo.Type = DescriptorType::CombinedSampler;
+			albedoDescriptorInfo.Binding = 1;
+			albedoDescriptorInfo.imageView = albedo->GetView();
+			albedoDescriptorInfo.imageSampler = albedo->GetSampler();
+
+			VulkanDescriptor albedoDescriptor(albedoDescriptorInfo);
+
+			//normal
+			VulkanTexture* normal = modelMaterial.normalTextureIndex != -1 && m_Textures.size() > 0
+				? m_Textures[modelMaterial.normalTextureIndex]
+				: m_Renderer->g_DefaultWhiteTexture;
+
+			VulkanDescriptorInfo normalDescriptorInfo{};
+			normalDescriptorInfo.Type = DescriptorType::CombinedSampler;
+			normalDescriptorInfo.Binding = 2;
+			normalDescriptorInfo.imageView = normal->GetView();
+			normalDescriptorInfo.imageSampler = normal->GetSampler();
+
+			VulkanDescriptor normalDescriptor(normalDescriptorInfo);
+
+			//metallicRoughness
+			VulkanTexture* metallicRoughness = modelMaterial.metallicRoughnessTextureIndex != -1 && m_Textures.size() > 0
+				? m_Textures[modelMaterial.metallicRoughnessTextureIndex]
+				: m_Renderer->g_DefaultWhiteTexture;
+
+			VulkanDescriptorInfo metallicRoughnessDescriptorInfo{};
+			metallicRoughnessDescriptorInfo.Type = DescriptorType::CombinedSampler;
+			metallicRoughnessDescriptorInfo.Binding = 3;
+			metallicRoughnessDescriptorInfo.imageView = metallicRoughness->GetView();
+			metallicRoughnessDescriptorInfo.imageSampler = metallicRoughness->GetSampler();
+
+			VulkanDescriptor metallicRoughnessDescriptor(metallicRoughnessDescriptorInfo);
+
+			VulkanDescriptorSet* descriptorSet = pipelineManager.FindOrCreateDescriptorSet(device, &pool, &descrSetLayout, { uboDescriptor, albedoDescriptor, normalDescriptor, metallicRoughnessDescriptor });
+
+			modelMaterial.materialDescriptorSet[imageIndex] = descriptorSet;
+		}
+	}
+	else if (m_RenderingContext == RenderingContext::Clouds_Transparent)
+	{
+
+		VulkanDescriptorSetLayout descrSetLayout(&device, { m_Renderer->GetShader("VS_VolumetricClouds"), m_Renderer->GetShader("FS_VolumetricClouds") }, "GeometryDescSetLayout");
+
+		VulkanDescriptorInfo uboDescriptorInfo{};
+		uboDescriptorInfo.Type = DescriptorType::UniformBuffer;
+		uboDescriptorInfo.Binding = 0;
+		uboDescriptorInfo.buffer = m_Renderer->GetMainConstBufferByIndex(imageIndex);
+
+		VulkanDescriptor uboDescriptor(uboDescriptorInfo);
+
+		for (size_t i = 0; i < m_Materials.size(); i++)
+		{
+			VulkanglTFModel::Material& modelMaterial = m_Materials[i];
+
+			VulkanDescriptorSet* descriptorSet = pipelineManager.FindOrCreateDescriptorSet(device, &pool, &descrSetLayout, { uboDescriptor });
+
+			modelMaterial.materialDescriptorSet[imageIndex] = descriptorSet;
+		}
+	}
+
 }
