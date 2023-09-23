@@ -135,19 +135,8 @@ void MonitorChangesThread(HANDLE change, HANDLE changeEvent)
 				WideCharToMultiByte(CP_ACP, 0, wideFilename, -1, filename, MAX_PATH, NULL, NULL);
 				g_ChangedFilename = filename;
 			}
-			else
-			{
-				LOG_CRITICAL("Error reading directory changes!");
-			}
 
 			SetEvent(changeEvent);
-
-			// Reset the notification to continue monitoring
-			if (!FindNextChangeNotification(change))
-			{
-				LOG_CRITICAL("Error finding next change notification");
-				break;
-			}
 		}
 		else
 		{
