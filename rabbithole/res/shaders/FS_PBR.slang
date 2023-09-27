@@ -1,5 +1,3 @@
-#define HLSL
-
 #include "common.h"
 
 struct PS_IN
@@ -207,7 +205,7 @@ PS_OUT main(PS_IN input)
 {		
     float4 normalRoughness = textureNormal.Sample(input.inUV);
     float4 positionMetallic = texturePosition.Sample(input.inUV);
-    float3 albedo = pow(textureAlbedo.Sample(input.inUV).rgb, float3(2.2, 2.2, 2.2));
+    float3 albedo = pow(textureAlbedo.Sample(input.inUV).rgb, float3(2.2));
     float2 velocity = textureVelocity.Sample(input.inUV).rg; 
     float ssao = textureSSAO.Sample(input.inUV).r;
 
@@ -220,7 +218,7 @@ PS_OUT main(PS_IN input)
     float3 N = normalRoughness.rgb;
     float3 V = normalize(UBO.cameraPosition - position);
 
-    float3 F0 = float3(0.04, 0.04, 0.04);
+    float3 F0 = float3(0.04);
     F0 = lerp(F0, albedo, metallic);
 
     SceneInfo sceneInfo;
@@ -231,7 +229,7 @@ PS_OUT main(PS_IN input)
 
     float3 LightingPBR = DoPBRLighting(sceneInfo, albedo, F0, roughness);
     
-    float3 ambient = float3(0.03, 0.03, 0.03) * albedo * ssao;
+    float3 ambient = float3(0.02) * albedo * ssao;
 
     float3 color = ambient + LightingPBR;
     

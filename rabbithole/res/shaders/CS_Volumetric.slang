@@ -1,5 +1,3 @@
-#define HLSL
-
 #include "common.h"
 
 [[vk::binding(4)]] cbuffer VolumetricFogParamsBuffer
@@ -10,15 +8,15 @@
 [[vk::binding(7)]] cbuffer LightBuffer
 {
     Light lights[lightCount];
-}
+};
 
 [[vk::binding(8)]] cbuffer UniformBufferObjectBuffer
 {
     UniformBufferObject UBO;
-}
+};
 
 [[vk::binding(5)]] RWTexture3D<float4> mediaDensity3DLUT;
-[[vk::binding(6)]] Sampler3D<float> samplerNoise3DLUT;
+[[vk::binding(6)]] Sampler3D<float4> samplerNoise3DLUT;
 [[vk::binding(9)]] Sampler3D<float> samplerVolumetricShadows;
 
 [numthreads(8, 4, 8)]

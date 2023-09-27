@@ -834,7 +834,7 @@ void Renderer::LoadAndCreateShaders()
 	CompileShader("FS_Skybox.slang");
 	CompileShader("CS_SSAO.slang");
 	CompileShader("FS_SSAOBlur.slang");
-	CompileShader("CS_RayTracingShadows.slang");
+	CompileShader("CS_RayTracingShadows.slang", "main", {"SOFT_SHADOWS"});
 	CompileShader("CS_Volumetric.slang", "CalculateDensity");
 	CompileShader("CS_Volumetric.slang", "CalculateVolumetricShadows");
 	CompileShader("CS_3DNoiseLUT.slang");

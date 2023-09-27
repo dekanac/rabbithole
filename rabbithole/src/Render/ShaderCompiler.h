@@ -23,8 +23,8 @@ public:
 
 private:
 	std::thread* m_MonitorThread = nullptr;
-	HANDLE m_hChangeEvent;
-	HANDLE m_hChange;
+	HANDLE m_hChangeEvent = nullptr;
+	HANDLE m_hChange = nullptr;
 };
 
 class ShaderCompiler

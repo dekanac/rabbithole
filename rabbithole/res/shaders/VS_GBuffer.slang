@@ -1,5 +1,3 @@
-#define HLSL
-
 #include "common.h"
 
 struct VS_OUT
@@ -34,28 +32,6 @@ struct PushConstants
     float4 emissiveColorAndStrenght;
 };
 
-float3x3 Invert3x3(float3x3 mat)
-{
-    // Calculate the determinant of the matrix
-    float det = dot(mat[0], cross(mat[1], mat[2]));
-
-    if (abs(det) < 1e-6)
-    {
-        // Matrix is singular, cannot invert
-        return mat; // Or you can return some default value or handle the singularity differently
-    }
-
-    // Calculate the adjugate of the matrix
-    float3x3 adjugate = float3x3(
-        cross(mat[1], mat[2]),
-        cross(mat[2], mat[0]),
-        cross(mat[0], mat[1])
-    );
-
-    // Calculate the inverse by dividing the adjugate by the determinant
-    return adjugate / det;
-}
-
 [[vk::push_constant]] PushConstants Push;
 
 VS_OUT main(in float3 position : TEXCOORD0,
@@ -69,10 +45,8 @@ VS_OUT main(in float3 position : TEXCOORD0,
     vs_out.FragPos = worldPosition;
     vs_out.FragUV = uv;
 
-    float3x3 mNormal = transpose(Invert3x3((float3x3)Push.model));
-
-    vs_out.FragNormal = normalize(mul(mNormal, normalize(normal)));
-    vs_out.FragTangent = normalize(mul(mNormal, normalize(tangent)));
+    vs_out.FragNormal = normalize(mul((float3x3)Push.model, normalize(normal)));
+    vs_out.FragTangent = normalize(mul((float3x3)Push.model, normalize(tangent)));
 
     float3 N = vs_out.FragNormal;
     float3 T = vs_out.FragTangent;
@@ -86,13 +60,13 @@ VS_OUT main(in float3 position : TEXCOORD0,
     vs_out.FragEmissive = Push.emissiveColorAndStrenght;
 
     // TODO: this works only for non-moving objects, need to provide previous model matrix as well
-    float4 currentPos = mul(UBO.viewProjMatrix, float4(worldPosition, 1));
-    float4 previousPos = mul(UBO.prevViewProjMatrix, float4(worldPosition, 1));
+    float4 currentPos = mul(UBO.viewProjMatrix, float4(worldPosition, 1.f));
+    float4 previousPos = mul(UBO.prevViewProjMatrix, float4(worldPosition, 1.f));
 
     float2 motionVector = (currentPos.xy / currentPos.w) - (previousPos.xy / previousPos.w);
     vs_out.FragVelocity = motionVector * 0.5f;
 
     vs_out.FragId = Push.id;
-    vs_out.FinalPos = mul(mul(UBO.projJittered, UBO.view), float4(worldPosition, 1.0));
+    vs_out.FinalPos = mul(mul(UBO.projJittered, UBO.view), float4(worldPosition, 1.f));
     return vs_out;
 }

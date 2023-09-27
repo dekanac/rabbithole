@@ -1,5 +1,3 @@
-#define HLSL
-
 #include "common.h"
 
 [[vk::binding(0)]] cbuffer DebugTextureParams

@@ -1,5 +1,3 @@
-#define HLSL
-
 #include "common.h"
 
 [[vk::binding(0)]] RaytracingAccelerationStructure rs;
@@ -51,13 +49,10 @@ void ComputeAxes(float3 forward, out float3 right, out float3 up)
 float3 GetPointInDisk(float3 center, float r, float3 forward, float2 noise)
 {
 	const float theta = noise.x * 2.0f * PI;
-
 	const float cr = sqrt(r * noise.y);
-
 	float3 right;
 	float3 up;
 	ComputeAxes(forward, right, up);
-
 	const float x = cr * cos(theta);
 	const float y = cr * sin(theta);
 

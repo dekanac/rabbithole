@@ -1,7 +1,3 @@
-// Copyright 2020 Google LLC
-
-#define HLSL
-
 #include "common.h"
 
 [[vk::binding(0)]] RaytracingAccelerationStructure rs;
@@ -65,7 +61,6 @@ float3 GetPointInDisk(float3 center, float r, float3 forward, float2 noise)
 
 	return center + (right * x) + (up * y);
 }
-
 
 [shader("raygeneration")]
 void main()

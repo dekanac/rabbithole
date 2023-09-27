@@ -1,5 +1,3 @@
-#define HLSL
-
 #include "common.h"
 
 layout(binding = 0) cbuffer UniformBufferObjectBuffer 

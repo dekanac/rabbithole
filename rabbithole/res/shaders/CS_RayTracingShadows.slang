@@ -1,24 +1,19 @@
-#define HLSL
-
 #include "common.h"
 #include "common_raytracing.h"
-
-#define SOFT_SHADOWS
 
 [[vk::binding(4)]] Texture2D<float4> positionGbuffer;
 [[vk::binding(5)]] Texture2D<float4> normalGbuffer;
 [[vk::binding(6)]] RWTexture2DArray<float> outTexture;
 
-[[vk::binding(7)]] cbuffer LightBuffer
-{
-    Light lights[lightCount];
+[[vk::binding(7)]] cbuffer LightBuffer 
+{ 
+    Light lights[lightCount]; 
 }
-
 [[vk::binding(8)]] Texture2D<float4> noiseTexture;
 
-[[vk::binding(9)]] cbuffer UniformBufferObjectBuffer
-{
-    UniformBufferObject UBO;
+[[vk::binding(9)]] cbuffer UniformBufferObjectBuffer 
+{ 
+    UniformBufferObject UBO; 
 }
 
 #define PI (3.14159265359)
@@ -71,17 +66,14 @@ float CalculateShadowForLight(float3 positionOfOrigin, float3 normalOfOrigin, Li
         return shadow;
     }
 
-    float3 lightVec;
+    float3 lightVec = normalize(light.position - positionOfOrigin);
+    float pointToLightDistance = distance(light.position.xyz, positionOfOrigin);
 
 #ifdef SOFT_SHADOWS
     float2 noise = GetNoiseFromTexture(uv, (uint)UBO.currentFrameInfo.x);
-    noise = frac(noise + UBO.currentFrameInfo.x * PI);
-    printf("drama %f-%f", noise);
+    noise = frac(noise + (uint(UBO.currentFrameInfo.x)) * PI);
     lightVec = normalize(GetPointInDisk(light.position.xyz, light.size, -lightVec, noise) - positionOfOrigin);
-#else
-    lightVec = normalize(light.position - positionOfOrigin);
 #endif
-    float pointToLightDistance = distance(light.position.xyz, positionOfOrigin);
 
     // If position is not facing the light.
     if (dot(normalOfOrigin, lightVec) < 0)

@@ -1,5 +1,3 @@
-#define HLSL
-
 #include "common.h"
 
 struct VS_INPUT
