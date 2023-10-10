@@ -32,7 +32,7 @@ void FSR2Pass::Render()
 
 	const auto& cameraState = m_Renderer.GetCameraState();
 
-	fsrSetup.cameraSetup.cameraPos = rabbitVec4f{ cameraState.CameraPosition, 1.0f };
+	fsrSetup.cameraSetup.cameraPos = Vector4f{ cameraState.CameraPosition, 1.0f };
 	fsrSetup.cameraSetup.cameraProj = cameraState.ProjectionMatrix;
 	fsrSetup.cameraSetup.cameraView = cameraState.ViewMatrix;
 	fsrSetup.cameraSetup.cameraViewInv = cameraState.ViewInverseMatrix;

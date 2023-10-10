@@ -14,11 +14,11 @@ class ResourceManager;
 class FileChangeMonitor
 {
 public:
-	FileChangeMonitor();
-	~FileChangeMonitor();
+	FileChangeMonitor() {}
+	~FileChangeMonitor() {}
 
 	bool CheckForChanges(std::string& inputString);
-	bool Init();
+	bool Init(const std::string& shadersDir);
 	bool Shutdown();
 
 private:
@@ -41,5 +41,5 @@ private:
 
 	SlangSession* m_Session = nullptr;
 	FileChangeMonitor m_FileChangeMonitor;
-	std::string m_ShadersDir = "res/shaders/";
+	std::string m_ShadersDir = "";
 };

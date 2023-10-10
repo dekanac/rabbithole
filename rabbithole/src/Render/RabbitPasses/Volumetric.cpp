@@ -43,7 +43,6 @@ void VolumetricPass::Setup()
 
 	SetConstantBuffer(4, VolumetricPass::ParamsGPU);
 	SetStorageImageWrite(5, VolumetricPass::MediaDensity);
-	SetCombinedImageSampler(6, m_Renderer.noise3DLUT);
 	SetConstantBuffer(7, LightingPass::LightParamsGPU);
 	SetConstantBuffer(8, m_Renderer.GetMainConstBuffer());
 	SetCombinedImageSampler(9, VolumetricShadowsPass::VolumetricShadows);

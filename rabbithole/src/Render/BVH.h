@@ -14,8 +14,8 @@ namespace BVH
 
 	struct BVHNode
 	{
-		rabbitVec3f bottom;
-		rabbitVec3f top;
+		Vector3f bottom;
+		Vector3f top;
 		virtual bool IsLeaf() = 0;
 	};
 
@@ -34,9 +34,9 @@ namespace BVH
 
 	struct BBoxTmp
 	{
-		rabbitVec3f bottom;
-		rabbitVec3f top;
-		rabbitVec3f center;
+		Vector3f bottom;
+		Vector3f top;
+		Vector3f center;
 
 		const Triangle* pTri;
 
@@ -49,13 +49,13 @@ namespace BVH
 	typedef std::vector<BBoxTmp> BBoxEntries;  // vector of triangle bounding boxes needed during BVH construction
 
 	BVHNode* Recurse(BBoxEntries& work, int depth = 0);
-	BVHNode* CreateBVH(std::vector<rabbitVec4f>& vertices, std::vector<Triangle>& triangles);
+	BVHNode* CreateBVH(std::vector<Vector4f>& vertices, std::vector<Triangle>& triangles);
 
 	struct CacheFriendlyBVHNode
 	{
 		// bounding box
-		rabbitVec3f bottom;
-		rabbitVec3f top;
+		Vector3f bottom;
+		Vector3f top;
 
 		// parameters for leafnodes and innernodes occupy same space (union) to save memory
 		// top bit discriminates between leafnode and innernode

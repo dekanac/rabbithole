@@ -184,7 +184,7 @@ float skyboxVertices[] = {
 
 void SkyboxPass::DeclareResources()
 {
-	Main = m_Renderer.GetResourceManager().CreateTexture(m_Renderer.GetVulkanDevice(), "res/textures/skybox/skybox.jpg", ROTextureCreateInfo{
+	Main = m_Renderer.GetResourceManager().CreateTexture(m_Renderer.GetVulkanDevice(), m_Renderer.GetResFolderPath() + "\\textures\\skybox\\skybox.jpg", ROTextureCreateInfo{
 			.flags = {TextureFlags::Color | TextureFlags::Read | TextureFlags::CubeMap | TextureFlags::TransferDst},
 			.format = {Format::R8G8B8A8_UNORM_SRGB},
 			.name = {"Skybox"}
@@ -220,6 +220,6 @@ void SkyboxPass::Render()
 {
 	//TODO: dont do like this, make one big DEVICE LOCAL buffer and calculate offsets
 	m_Renderer.GetVertexUploadBuffer()->FillBuffer(skyboxVertices, 396 * sizeof(float));
-	m_Renderer.BindVertexData(0);
+	m_Renderer.BindVertexData();
 	m_Renderer.DrawVertices(36);
 }

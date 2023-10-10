@@ -17,14 +17,8 @@
 mono_crash.*
 
 # Build results
-x64/
-x86/
-[Aa][Rr][Mm]/
-[Aa][Rr][Mm]64/
-bld/
-[Oo]bj/
+[Bb]uild/
 [Ll]og/
-[Ll]ogs/
 
 # Visual Studio 2015/2017 cache/options directory
 .vs/

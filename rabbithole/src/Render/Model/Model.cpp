@@ -5,6 +5,10 @@
 #include <stddef.h>
 #include <iostream>
 
+#define STB_IMAGE_IMPLEMENTATION
+#define STB_IMAGE_WRITE_IMPLEMENTATION
+#define STBI_MSC_SECURE_CRT
+
 #include "stb_image/stb_image.h"
 #include <glm/glm.hpp>
 #include <glm/gtc/type_ptr.hpp>
@@ -13,24 +17,14 @@
 #include "Render/Renderer.h"
 #include "Render/Vulkan/VulkanDescriptors.h"
 #include "Render/Vulkan/VulkanTexture.h"
+#include "Render/Vulkan/VulkanBuffer.h"
 
-#define TINYGLTF_IMPLEMENTATION
-#define STB_IMAGE_IMPLEMENTATION
-#define STB_IMAGE_WRITE_IMPLEMENTATION
-#define STBI_MSC_SECURE_CRT
-
-#include "tinygltf/tiny_gltf.h"
-
-glm::mat4 ConvertAiMatrixToGlmMatrix(const aiMatrix4x4& aiMatrix)
+Matrix44f ConvertAiMatrixToGlmMatrix(const aiMatrix4x4& aiMatrix)
 {
-	// Create a glm::mat4 from the aiMatrix4x4
-	glm::mat4 glmMatrix(aiMatrix.a1, aiMatrix.b1, aiMatrix.c1, aiMatrix.d1,
+	Matrix44f glmMatrix(aiMatrix.a1, aiMatrix.b1, aiMatrix.c1, aiMatrix.d1,
 		aiMatrix.a2, aiMatrix.b2, aiMatrix.c2, aiMatrix.d2,
 		aiMatrix.a3, aiMatrix.b3, aiMatrix.c3, aiMatrix.d3,
 		aiMatrix.a4, aiMatrix.b4, aiMatrix.c4, aiMatrix.d4);
-
-	// Transpose the matrix because glm and Assimp have different matrix conventions
-	//glmMatrix = glm::transpose(glmMatrix);
 
 	return glmMatrix;
 }
@@ -89,11 +83,7 @@ uint32_t VulkanglTFModel::ms_CurrentDrawId = 0;
 
 void VulkanglTFModel::LoadModelFromFile(std::string& filename)
 {
-	tinygltf::Model glTFInput;
-	tinygltf::TinyGLTF gltfContext;
-	std::string error, warning;
-
-	auto lastSlash = filename.find_last_of('/');
+	auto lastSlash = filename.find_last_of('\\');
 	auto lastDot = filename.find_last_of('.');
 
 	auto name = filename.substr(lastSlash + 1, lastDot - lastSlash - 1);
@@ -101,26 +91,12 @@ void VulkanglTFModel::LoadModelFromFile(std::string& filename)
 	std::vector<uint32_t> indexBuffer;
 	std::vector<Vertex> vertexBuffer;
 
-#if defined(OLD_WAY)
-	bool fileLoaded = gltfContext.LoadASCIIFromFile(&glTFInput, &error, &warning, filename);
-
-	this->LoadImages(glTFInput);
-	this->LoadMaterials(glTFInput);
-	this->LoadTextures(glTFInput);
-	const tinygltf::Scene& scene = glTFInput.scenes[0];
-	for (size_t i = 0; i < scene.nodes.size(); i++)
-	{
-		const tinygltf::Node node = glTFInput.nodes[scene.nodes[i]];
-		this->LoadNode(node, glTFInput, nullptr, indexBuffer, vertexBuffer);
-	}
-#else
 	Assimp::Importer importer;
 	const aiScene* aiscene = importer.ReadFile(filename, aiProcess_Triangulate | aiProcess_FlipUVs);
 	ASSERT(aiscene != nullptr, "Scene not imported, file doesn't exist!");
 
 	LoadMaterials(aiscene);
 	LoadNode(aiscene->mRootNode, aiscene, nullptr, indexBuffer, vertexBuffer);
-#endif
 
 	importer.FreeScene();
 
@@ -156,7 +132,7 @@ void VulkanglTFModel::LoadModelFromFile(std::string& filename)
 void VulkanglTFModel::LoadNode(const aiNode* inputNode, const aiScene* inputScene, VulkanglTFModel::Node* parent, std::vector<uint32_t>& indexBuffer, std::vector<Vertex>& vertexBuffer)
 {
 	VulkanglTFModel::Node node{};
-	node.matrix = glm::mat4(1.0f);
+	node.matrix = Matrix44f(1.0f);
 	node.matrix = ConvertAiMatrixToGlmMatrix(inputNode->mTransformation);
 
 	// Load node's children
@@ -211,17 +187,17 @@ void VulkanglTFModel::LoadNode(const aiNode* inputNode, const aiScene* inputScen
 			uint32_t realIndexCount = 0;
 
 			AABB aabb{};
-			rabbitVec3f minPos = { FLT_MAX, FLT_MAX, FLT_MAX };
-			rabbitVec3f maxPos = { -FLT_MAX, -FLT_MAX, -FLT_MAX };
+			Vector3f minPos = { FLT_MAX, FLT_MAX, FLT_MAX };
+			Vector3f maxPos = { -FLT_MAX, -FLT_MAX, -FLT_MAX };
 
 			for (size_t v = 0; v < vertexCount; v++)
 			{
 				Vertex vert{};
 				vert.position = glm::make_vec3(&positionBuffer[v * 3]);
-				vert.normal = glm::normalize(glm::vec3(normalsBuffer ? glm::make_vec3(&normalsBuffer[v * 3]) : glm::vec3(0.0f)));
+				vert.normal = glm::normalize(Vector3f(normalsBuffer ? glm::make_vec3(&normalsBuffer[v * 3]) : Vector3f(0.0f)));
 				if (m_FlipNormalY) { vert.normal.y = -vert.normal.y; }
-				vert.uv = texCoordsBuffer ? glm::make_vec2(&texCoordsBuffer[v * 3]) : glm::vec2(0.0f);
-				vert.tangent = tangentBuffer ? glm::make_vec3(&tangentBuffer[v * 3]) : glm::vec3(0.0f);
+				vert.uv = texCoordsBuffer ? glm::make_vec2(&texCoordsBuffer[v * 3]) : Vector2f(0.0f);
+				vert.tangent = tangentBuffer ? glm::make_vec3(&tangentBuffer[v * 3]) : Vector3f(0.0f);
 				vertexBuffer.push_back(vert);
 
 				minPos = glm::min(vert.position, minPos);
@@ -274,11 +250,11 @@ void VulkanglTFModel::LoadMaterials(const aiScene* input)
 		// Get the base color factor
 		aiColor4D baseColor;
 		currentMaterial->Get(AI_MATKEY_BASE_COLOR, baseColor);
-		m_Materials[i].baseColorFactor = rabbitVec4f{ baseColor.r, baseColor.g, baseColor.b, baseColor.a };
+		m_Materials[i].baseColorFactor = Vector4f{ baseColor.r, baseColor.g, baseColor.b, baseColor.a };
 
 		aiColor3D emissiveIntensity;
 		currentMaterial->Get(AI_MATKEY_COLOR_EMISSIVE, emissiveIntensity);
-		m_Materials[i].emissiveColorAndStrenght = rabbitVec4f{ emissiveIntensity.r, emissiveIntensity.b, emissiveIntensity.g, 1.f };
+		m_Materials[i].emissiveColorAndStrenght = Vector4f{ emissiveIntensity.r, emissiveIntensity.b, emissiveIntensity.g, 1.f };
 		// Get base color texture index
 
 		VulkanDevice& device = m_Renderer->GetVulkanDevice();
@@ -312,42 +288,22 @@ void VulkanglTFModel::LoadMaterials(const aiScene* input)
 			{
 				std::string texturePathStr(texturePath.C_Str());
 				std::string textureExt = texturePathStr.substr(texturePathStr.find_last_of('.') + 1);
-				std::string fullPath = m_Path.substr(0, m_Path.find_last_of('/') + 1) + texturePathStr;
+				std::string fullPath = m_Path.substr(0, m_Path.find_last_of('\\') + 1) + texturePathStr;
 
 				// if DDS texture
-				if (textureExt == "dds")
-				{
-					TextureLoading::TextureData* textureData = TextureLoading::LoadTextureFromDDSFile(fullPath);
+				TextureLoading::TextureData* textureData = TextureLoading::LoadTextureFromFile(fullPath);
 
-					baseColorTexture = Renderer::instance().GetResourceManager().CreateTexture(device, textureData, ROTextureCreateInfo{
-							.flags = {TextureFlags::Color | TextureFlags::Read | TextureFlags::TransferDst | TextureFlags::TransferSrc},
-							.format = {Format::BC7_UNORM},
-							.name = {std::format("InputTexture_{}", texturePathStr.c_str())},
-							.generateMips = false,
-							.samplerType = {SamplerType::Anisotropic},
-							.addressMode = {AddressMode::Repeat},
-							.mipCount = {textureData->mipCount}
-						});
+				baseColorTexture = Renderer::instance().GetResourceManager().CreateTexture(device, textureData, ROTextureCreateInfo{
+						.flags = {TextureFlags::Color | TextureFlags::Read | TextureFlags::TransferDst | TextureFlags::TransferSrc},
+						.format = {Format::BC7_UNORM},
+						.name = {std::format("InputTexture_{}", texturePathStr.c_str())},
+						.generateMips = false,
+						.samplerType = {SamplerType::Anisotropic},
+						.addressMode = {AddressMode::Repeat},
+						.mipCount = {textureData->mipCount}
+					});
 
-					TextureLoading::FreeTexture(textureData);
-				}
-
-				else
-				{
-					TextureLoading::TextureData* textureData = TextureLoading::LoadTextureFromFile(fullPath);
-
-					baseColorTexture = Renderer::instance().GetResourceManager().CreateTexture(device, textureData, ROTextureCreateInfo{
-							.flags = {TextureFlags::Color | TextureFlags::Read | TextureFlags::TransferDst | TextureFlags::TransferSrc},
-							.format = {Format::R8G8B8A8_UNORM},
-							.name = {std::format("InputTexture_{}", texturePathStr.c_str())},
-							.generateMips = true,
-							.samplerType = {SamplerType::Anisotropic},
-							.addressMode = {AddressMode::Repeat},
-						});
-
-					TextureLoading::FreeTexture(textureData);
-				}
-
+				TextureLoading::FreeTexture(textureData);
 			}
 
 			ASSERT(baseColorTexture, "Failed to load texture");
@@ -384,42 +340,21 @@ void VulkanglTFModel::LoadMaterials(const aiScene* input)
 			else if (texturePath.length > 0)
 			{
 				std::string texturePathStr(texturePath.C_Str());
-				std::string textureExt = texturePathStr.substr(texturePathStr.find_last_of('.') + 1);
-				std::string fullPath = m_Path.substr(0, m_Path.find_last_of('/') + 1) + texturePathStr;
+				std::string fullPath = m_Path.substr(0, m_Path.find_last_of('\\') + 1) + texturePathStr;
 
-				if (textureExt == "dds")
-				{
-					TextureLoading::TextureData* textureData = TextureLoading::LoadTextureFromDDSFile(fullPath);
+				TextureLoading::TextureData* textureData = TextureLoading::LoadTextureFromFile(fullPath);
 
-					metallicRoughnessTexture = Renderer::instance().GetResourceManager().CreateTexture(device, textureData, ROTextureCreateInfo{
-							.flags = {TextureFlags::Color | TextureFlags::Read | TextureFlags::TransferDst | TextureFlags::TransferSrc},
-							.format = {Format::BC7_UNORM},
-							.name = {std::format("InputTexture_{}", texturePathStr.c_str())},
-							.generateMips = false,
-							.samplerType = {SamplerType::Anisotropic},
-							.addressMode = {AddressMode::Repeat},
-							.mipCount = {textureData->mipCount}
-						});
+				metallicRoughnessTexture = Renderer::instance().GetResourceManager().CreateTexture(device, textureData, ROTextureCreateInfo{
+						.flags = {TextureFlags::Color | TextureFlags::Read | TextureFlags::TransferDst | TextureFlags::TransferSrc},
+						.format = {textureData->format},
+						.name = {std::format("InputTexture_{}", texturePathStr.c_str())},
+						.generateMips = false,
+						.samplerType = {SamplerType::Anisotropic},
+						.addressMode = {AddressMode::Repeat},
+						.mipCount = {textureData->mipCount}
+					});
 
-					TextureLoading::FreeTexture(textureData);
-				}
-
-				else
-				{
-					TextureLoading::TextureData* textureData = TextureLoading::LoadTextureFromFile(fullPath);
-
-					metallicRoughnessTexture = Renderer::instance().GetResourceManager().CreateTexture(device, textureData, ROTextureCreateInfo{
-							.flags = {TextureFlags::Color | TextureFlags::Read | TextureFlags::TransferDst | TextureFlags::TransferSrc},
-							.format = {Format::R8G8B8A8_UNORM},
-							.name = {std::format("InputTexture_{}", texturePathStr.c_str())},
-							.generateMips = true,
-							.samplerType = {SamplerType::Anisotropic},
-							.addressMode = {AddressMode::Repeat},
-						});
-
-					TextureLoading::FreeTexture(textureData);
-				}
-
+				TextureLoading::FreeTexture(textureData);
 			}
 
 			ASSERT(metallicRoughnessTexture, "Failed to load texture");
@@ -457,40 +392,21 @@ void VulkanglTFModel::LoadMaterials(const aiScene* input)
 			{
 				std::string texturePathStr(texturePath.C_Str());
 				std::string textureExt = texturePathStr.substr(texturePathStr.find_last_of('.') + 1);
-				std::string fullPath = m_Path.substr(0, m_Path.find_last_of('/') + 1) + texturePathStr;
+				std::string fullPath = m_Path.substr(0, m_Path.find_last_of('\\') + 1) + texturePathStr;
 
-				if (textureExt == "dds")
-				{
-					TextureLoading::TextureData* textureData = TextureLoading::LoadTextureFromDDSFile(fullPath);
+				TextureLoading::TextureData* textureData = TextureLoading::LoadTextureFromFile(fullPath);
 
-					normalTexture = Renderer::instance().GetResourceManager().CreateTexture(device, textureData, ROTextureCreateInfo{
-							.flags = {TextureFlags::Color | TextureFlags::Read | TextureFlags::TransferDst | TextureFlags::TransferSrc},
-							.format = {Format::BC5_UNORM},
-							.name = {std::format("InputTexture_{}", texturePathStr.c_str())},
-							.generateMips = false,
-							.samplerType = {SamplerType::Anisotropic},
-							.addressMode = {AddressMode::Repeat},
-							.mipCount = {textureData->mipCount}
-						});
+				normalTexture = Renderer::instance().GetResourceManager().CreateTexture(device, textureData, ROTextureCreateInfo{
+						.flags = {TextureFlags::Color | TextureFlags::Read | TextureFlags::TransferDst | TextureFlags::TransferSrc},
+						.format = {textureData->format},
+						.name = {std::format("InputTexture_{}", texturePathStr.c_str())},
+						.generateMips = false,
+						.samplerType = {SamplerType::Anisotropic},
+						.addressMode = {AddressMode::Repeat},
+						.mipCount = {textureData->mipCount}
+					});
 
-					TextureLoading::FreeTexture(textureData);
-				}
-
-				else
-				{
-					TextureLoading::TextureData* textureData = TextureLoading::LoadTextureFromFile(fullPath);
-
-					normalTexture = Renderer::instance().GetResourceManager().CreateTexture(device, textureData, ROTextureCreateInfo{
-							.flags = {TextureFlags::Color | TextureFlags::Read | TextureFlags::TransferDst | TextureFlags::TransferSrc},
-							.format = {Format::R8G8B8A8_UNORM},
-							.name = {std::format("InputTexture_{}", texturePathStr.c_str())},
-							.generateMips = true,
-							.samplerType = {SamplerType::Anisotropic},
-							.addressMode = {AddressMode::Repeat},
-						});
-
-					TextureLoading::FreeTexture(textureData);
-				}
+				TextureLoading::FreeTexture(textureData);
 			}
 
 			ASSERT(normalTexture, "Failed to load texture");
@@ -501,282 +417,13 @@ void VulkanglTFModel::LoadMaterials(const aiScene* input)
 	}
 }
 
-void VulkanglTFModel::LoadImages(tinygltf::Model& input)
-{
-	// Images can be stored inside the glTF (which is the case for the sample model), so instead of directly
-	// loading them from disk, we fetch them from the glTF loader and upload the buffers
-	m_Textures.resize(input.images.size());
-	for (size_t i = 0; i < input.images.size(); i++) 
-	{
-		tinygltf::Image& glTFImage = input.images[i];
-		// Get the image data from the glTF loader
-		unsigned char* buffer = nullptr;
-		VkDeviceSize bufferSize = 0;
-		bool deleteBuffer = false;
-		// We convert RGB-only images to RGBA, as most devices don't support RGB-formats in Vulkan
-		if (glTFImage.component == 3) 
-		{
-			bufferSize = glTFImage.width * glTFImage.height * 4;
-			buffer = new unsigned char[bufferSize];
-			unsigned char* rgba = buffer;
-			unsigned char* rgb = &glTFImage.image[0];
-			for (size_t i = 0; i < glTFImage.width * glTFImage.height; ++i) 
-			{
-				memcpy(rgba, rgb, sizeof(unsigned char) * 3);
-				rgba += 4;
-				rgb += 3;
-			}
-			deleteBuffer = true;
-		}
-		else 
-		{
-			buffer = &glTFImage.image[0];
-			bufferSize = glTFImage.image.size();
-		}
-
-		TextureData textureData{};
-		textureData.bpp = 4;
-		textureData.height = input.images[i].height;
-		textureData.width = input.images[i].width;
-		textureData.pData = buffer;
-
-		ResourceManager& resourceManager = m_Renderer->GetResourceManager();
-		VulkanDevice& device = m_Renderer->GetVulkanDevice();
-		
-		m_Textures[i] = Renderer::instance().GetResourceManager().CreateTexture(device, &textureData, ROTextureCreateInfo{
-				.flags = {TextureFlags::Color | TextureFlags::Read | TextureFlags::TransferDst | TextureFlags::TransferSrc},
-				.format = {Format::R8G8B8A8_UNORM},
-				.name = {std::format("InputTexture_{}", glTFImage.name)},
-				.generateMips = true,
-				.samplerType = SamplerType::Anisotropic,
-				.addressMode = AddressMode::Repeat
-			});
-
-		if (deleteBuffer) 
-		{
-			delete buffer;
-		}
-	}
-}
-
-void VulkanglTFModel::LoadTextures(tinygltf::Model& input)
-{
-	m_TextureIndices.resize(input.textures.size());
-	for (size_t i = 0; i < input.textures.size(); i++) 
-	{
-		m_TextureIndices[i] = input.textures[i].source;
-	}
-}
-
-void VulkanglTFModel::LoadMaterials(tinygltf::Model& input)
-{
-	m_Materials.resize(input.materials.size());
-	for (size_t i = 0; i < input.materials.size(); i++) 
-	{
-		// We only read the most basic properties required for our sample
-		tinygltf::Material glTFMaterial = input.materials[i];
-		// Get the base color factor
-		if (glTFMaterial.values.find("baseColorFactor") != glTFMaterial.values.end()) 
-		{
-			m_Materials[i].baseColorFactor = glm::make_vec4(glTFMaterial.values["baseColorFactor"].ColorFactor().data());
-		}
-		// Get Emissive Color and Strength
-		//if (glTFMaterial.values.find("emissiveFactor") != glTFMaterial.values.end())
-		{
-			glm::vec3 emis = glm::make_vec3(glTFMaterial.emissiveFactor.data());
-			m_Materials[i].emissiveColorAndStrenght = glm::vec4(emis.x, emis.y, emis.z, 1.f);
-		}
-		// Get base color texture index
-		if (glTFMaterial.values.find("baseColorTexture") != glTFMaterial.values.end()) 
-		{
-			m_Materials[i].baseColorTextureIndex = glTFMaterial.values["baseColorTexture"].TextureIndex();
-		}
-		// Get metallic and roughness texture index
-		if (glTFMaterial.values.find("metallicRoughnessTexture") != glTFMaterial.values.end())
-		{
-			m_Materials[i].metallicRoughnessTextureIndex = glTFMaterial.values["metallicRoughnessTexture"].TextureIndex();
-		}
-		// Get normal texture index
-		m_Materials[i].normalTextureIndex = glTFMaterial.normalTexture.index != -1 ? glTFMaterial.normalTexture.index : -1;
-	}
-}
-
-void VulkanglTFModel::LoadNode(const tinygltf::Node& inputNode, const tinygltf::Model& input, VulkanglTFModel::Node* parent, std::vector<uint32_t>& indexBuffer, std::vector<Vertex>& vertexBuffer)
-{
-	VulkanglTFModel::Node node{};
-	node.matrix = glm::mat4(1.0f);
-
-	// Get the local node matrix
-	// It's either made up from translation, rotation, scale or a 4x4 matrix
-	if (inputNode.translation.size() == 3)
-	{
-		node.matrix = glm::translate(node.matrix, glm::vec3(glm::make_vec3(inputNode.translation.data())));
-	}
-	if (inputNode.rotation.size() == 4)
-	{
-		glm::quat q = glm::make_quat(inputNode.rotation.data());
-		node.matrix *= glm::mat4(q);
-	}
-	if (inputNode.scale.size() == 3)
-	{
-		node.matrix = glm::scale(node.matrix, glm::vec3(glm::make_vec3(inputNode.scale.data())));
-	}
-	if (inputNode.matrix.size() == 16)
-	{
-		node.matrix = glm::make_mat4x4(inputNode.matrix.data());
-	};
-
-	// Load node's children
-	if (inputNode.children.size() > 0)
-	{
-		for (size_t i = 0; i < inputNode.children.size(); i++)
-		{
-			LoadNode(input.nodes[inputNode.children[i]], input, &node, indexBuffer, vertexBuffer);
-		}
-	}
-
-	// If the node contains mesh data, we load vertices and indices from the buffers
-	// In glTF this is done via accessors and buffer views
-	if (inputNode.mesh > -1)
-	{
-		const tinygltf::Mesh mesh = input.meshes[inputNode.mesh];
-		// Iterate through all primitives of this node's mesh
-		for (size_t i = 0; i < mesh.primitives.size(); i++)
-		{
-			const tinygltf::Primitive& glTFPrimitive = mesh.primitives[i];
-			uint32_t firstIndex = static_cast<uint32_t>(indexBuffer.size());
-			uint32_t vertexStart = static_cast<uint32_t>(vertexBuffer.size());
-			uint32_t indexCount = 0;
-			// Vertices
-			{
-				const float* positionBuffer = nullptr;
-				const float* normalsBuffer = nullptr;
-				const float* texCoordsBuffer = nullptr;
-				const float* tangentBuffer = nullptr;
-				size_t vertexCount = 0;
-
-				// Get buffer data for vertex normals
-				if (glTFPrimitive.attributes.find("POSITION") != glTFPrimitive.attributes.end())
-				{
-					const tinygltf::Accessor& accessor = input.accessors[glTFPrimitive.attributes.find("POSITION")->second];
-					const tinygltf::BufferView& view = input.bufferViews[accessor.bufferView];
-					positionBuffer = reinterpret_cast<const float*>(&(input.buffers[view.buffer].data[accessor.byteOffset + view.byteOffset]));
-					vertexCount = accessor.count;
-				}
-				// Get buffer data for vertex normals
-				if (glTFPrimitive.attributes.find("NORMAL") != glTFPrimitive.attributes.end())
-				{
-					const tinygltf::Accessor& accessor = input.accessors[glTFPrimitive.attributes.find("NORMAL")->second];
-					const tinygltf::BufferView& view = input.bufferViews[accessor.bufferView];
-					normalsBuffer = reinterpret_cast<const float*>(&(input.buffers[view.buffer].data[accessor.byteOffset + view.byteOffset]));
-				}
-				// Get buffer data for vertex texture coordinates
-				// glTF supports multiple sets, we only load the first one
-				if (glTFPrimitive.attributes.find("TEXCOORD_0") != glTFPrimitive.attributes.end())
-				{
-					const tinygltf::Accessor& accessor = input.accessors[glTFPrimitive.attributes.find("TEXCOORD_0")->second];
-					const tinygltf::BufferView& view = input.bufferViews[accessor.bufferView];
-					texCoordsBuffer = reinterpret_cast<const float*>(&(input.buffers[view.buffer].data[accessor.byteOffset + view.byteOffset]));
-				}
-
-				if (glTFPrimitive.attributes.find("TANGENT") != glTFPrimitive.attributes.end())
-				{
-					const tinygltf::Accessor& accessor = input.accessors[glTFPrimitive.attributes.find("TANGENT")->second];
-					const tinygltf::BufferView& view = input.bufferViews[accessor.bufferView];
-					tangentBuffer = reinterpret_cast<const float*>(&(input.buffers[view.buffer].data[accessor.byteOffset + view.byteOffset]));
-				}
-
-				// Append data to model's vertex buffer and calculate AABB 
-
-				AABB aabb{};
-				rabbitVec3f minPos = { FLT_MAX, FLT_MAX, FLT_MAX };
-				rabbitVec3f maxPos = { -FLT_MAX, -FLT_MAX, -FLT_MAX };
-
-				for (size_t v = 0; v < vertexCount; v++)
-				{
-					Vertex vert{};
-					vert.position = glm::make_vec3(&positionBuffer[v * 3]);
-					vert.normal = glm::normalize(glm::vec3(normalsBuffer ? glm::make_vec3(&normalsBuffer[v * 3]) : glm::vec3(0.0f)));
-					vert.uv = texCoordsBuffer ? glm::make_vec2(&texCoordsBuffer[v * 2]) : glm::vec2(0.0f);
-					vert.tangent = tangentBuffer ? glm::make_vec3(&tangentBuffer[v * 3]) : glm::vec3(0.0f);
-					vertexBuffer.push_back(vert);
-
-					minPos = glm::min(vert.position, minPos);
-					maxPos = glm::max(vert.position, maxPos);
-				}
-
-				aabb = { minPos, maxPos };
-				node.bbox = aabb;
-			}
-			// Indices
-			{
-				const tinygltf::Accessor& accessor = input.accessors[glTFPrimitive.indices];
-				const tinygltf::BufferView& bufferView = input.bufferViews[accessor.bufferView];
-				const tinygltf::Buffer& buffer = input.buffers[bufferView.buffer];
-
-				indexCount += static_cast<uint32_t>(accessor.count);
-
-				// glTF supports different component types of indices
-				switch (accessor.componentType)
-				{
-				case TINYGLTF_PARAMETER_TYPE_UNSIGNED_INT:
-				{
-					uint32_t* buf = new uint32_t[accessor.count];
-					memcpy(buf, &buffer.data[accessor.byteOffset + bufferView.byteOffset], accessor.count * sizeof(uint32_t));
-					for (size_t index = 0; index < accessor.count; index++)
-					{
-						indexBuffer.push_back(buf[index] + vertexStart);
-					}
-					break;
-				}
-				case TINYGLTF_PARAMETER_TYPE_UNSIGNED_SHORT:
-				{
-					uint16_t* buf = new uint16_t[accessor.count];
-					memcpy(buf, &buffer.data[accessor.byteOffset + bufferView.byteOffset], accessor.count * sizeof(uint16_t));
-					for (size_t index = 0; index < accessor.count; index++)
-					{
-						indexBuffer.push_back(buf[index] + vertexStart);
-					}
-					break;
-				}
-				case TINYGLTF_PARAMETER_TYPE_UNSIGNED_BYTE:
-				{
-					uint8_t* buf = new uint8_t[accessor.count];
-					memcpy(buf, &buffer.data[accessor.byteOffset + bufferView.byteOffset], accessor.count * sizeof(uint8_t));
-					for (size_t index = 0; index < accessor.count; index++)
-					{
-						indexBuffer.push_back(buf[index] + vertexStart);
-					}
-					break;
-				}
-				default:
-					std::cerr << "Index component type " << accessor.componentType << " not supported!" << std::endl;
-					return;
-				}
-			}
-			Primitive primitive{};
-			primitive.firstIndex = firstIndex;
-			primitive.indexCount = indexCount;
-			primitive.materialIndex = glTFPrimitive.material;
-			node.mesh.primitives.push_back(primitive);
-		}
-	}
-
-	if (parent) {
-		parent->children.push_back(node);
-	}
-	else {
-		m_Nodes.push_back(node);
-	}
-}
-
 void VulkanglTFModel::DrawNode(VulkanCommandBuffer& commandBuffer, const VulkanPipelineLayout* pipelineLayout, VulkanglTFModel::Node node, uint8_t backBufferIndex, IndexedIndirectBuffer* indirectBuffer)
 {
 	if (node.mesh.primitives.size() > 0) 
 	{
 		// Pass the node's matrix via push constants
 		// Traverse the node hierarchy to the top-most parent to get the final matrix of the current node
-		glm::mat4 nodeMatrix = node.matrix;
+		Matrix44f nodeMatrix = node.matrix;
 		VulkanglTFModel::Node* currentParent = node.parent;
 		while (currentParent) 
 		{
@@ -787,7 +434,7 @@ void VulkanglTFModel::DrawNode(VulkanCommandBuffer& commandBuffer, const VulkanP
 
 		for (VulkanglTFModel::Primitive& primitive : node.mesh.primitives) 
 		{
-			SimplePushConstantData pushData{};
+			ModelDrawData pushData{};
 			//TODO: add primitive id
 			pushData.id = ms_CurrentDrawId++;
 			pushData.modelMatrix = nodeMatrix;
@@ -797,7 +444,7 @@ void VulkanglTFModel::DrawNode(VulkanCommandBuffer& commandBuffer, const VulkanP
 			pushData.baseColor = m_Materials[primitive.materialIndex].baseColorFactor;
 			pushData.emmisiveColorAndStrength = m_Materials[primitive.materialIndex].emissiveColorAndStrenght;
 
-			vkCmdPushConstants(GET_VK_HANDLE(commandBuffer), GET_VK_HANDLE_PTR(pipelineLayout), VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(SimplePushConstantData), &pushData);
+			vkCmdPushConstants(GET_VK_HANDLE(commandBuffer), GET_VK_HANDLE_PTR(pipelineLayout), VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(ModelDrawData), &pushData);
 
 			//TODO: decrease num of descriptor set binding to number of different materials
 			//sort primitives by materialIndexNumber

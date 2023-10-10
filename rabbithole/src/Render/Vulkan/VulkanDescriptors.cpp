@@ -1,7 +1,6 @@
 #include "precomp.h"
 
 #include "Render/Converters.h"
-#include "Render/Model/Model.h"
 #include "Render/Shader.h"
 
 
@@ -33,7 +32,7 @@ VulkanDescriptor::VulkanDescriptor(const VulkanDescriptorInfo& info)
 	{
 		m_ResourceInfo.m_ResourceInfo.BufferInfo.buffer = GET_VK_HANDLE_PTR(m_Info.buffer);
 		m_ResourceInfo.m_ResourceInfo.BufferInfo.offset = 0;
-		m_ResourceInfo.m_ResourceInfo.BufferInfo.range = m_Info.buffer->GetInfo().size;
+		m_ResourceInfo.m_ResourceInfo.BufferInfo.range = m_Info.buffer->GetSize();
 		break;
 	}
 	case DescriptorType::StorageImage:
@@ -46,7 +45,7 @@ VulkanDescriptor::VulkanDescriptor(const VulkanDescriptorInfo& info)
 	{
 		m_ResourceInfo.m_ResourceInfo.BufferInfo.buffer = GET_VK_HANDLE_PTR(m_Info.buffer);
 		m_ResourceInfo.m_ResourceInfo.BufferInfo.offset = 0;
-		m_ResourceInfo.m_ResourceInfo.BufferInfo.range = m_Info.buffer->GetInfo().size;
+		m_ResourceInfo.m_ResourceInfo.BufferInfo.range = m_Info.buffer->GetSize();
 		break;
 	}
 #if defined(VULKAN_HWRT)

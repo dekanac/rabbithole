@@ -1,4 +1,6 @@
 #pragma once
+
+#include "common.h"
 #include "Input/InputAction.h"
 
 #include <glm/glm.hpp>
@@ -39,8 +41,8 @@ public:
 struct TransformComponent : public Component {
 
     float rotationAngle;
-    glm::vec3 rotationPosition;
-    glm::vec3 position;
+    Vector3f rotationPosition;
+    Vector3f position;
 
 };
 
@@ -56,9 +58,9 @@ struct InputComponent : public Component
 
 struct CameraComponent : public Component {
 
-    glm::mat4 m_View;
-    glm::mat4 m_Projection;
-    glm::vec3 m_Position;
+    Matrix44f m_View;
+    Matrix44f m_Projection;
+    Vector3f m_Position;
 };
 
 struct MoverComponent : public Component {
@@ -69,7 +71,7 @@ struct MoverComponent : public Component {
 
 struct MaterialComponent : public Component {
 
-    glm::vec3 m_diffuse;
-    glm::vec3 m_ambient;
-    glm::vec3 m_specular;
+    Vector3f m_diffuse;
+    Vector3f m_ambient;
+    Vector3f m_specular;
 };

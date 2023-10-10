@@ -2,7 +2,7 @@
 
 #include <utility>
 
-#include <fsr2.0/ffx_fsr2.h>
+#include <ffx_fsr2.h>
 
 class VulkanDevice;
 class VulkanTexture;
@@ -17,10 +17,10 @@ public:
 
 	typedef struct
 	{
-		rabbitMat4f   cameraView;
-		rabbitMat4f   cameraProj;
-		rabbitMat4f   cameraViewInv;
-		rabbitVec4f   cameraPos;
+		Matrix44f   cameraView;
+		Matrix44f   cameraProj;
+		Matrix44f   cameraViewInv;
+		Vector4f   cameraPos;
 	} FfxCameraSetup;
 
 	typedef struct

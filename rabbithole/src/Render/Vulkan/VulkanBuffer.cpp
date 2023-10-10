@@ -3,44 +3,15 @@
 #include "vk_mem_alloc.h"
 #include "Render/Converters.h"
 
-VulkanBuffer::VulkanBuffer(VulkanDevice& device, BufferUsageFlags flags, MemoryAccess access, uint64_t size, const char* name)
+VulkanBuffer::VulkanBuffer(VulkanDevice& device, BufferCreateInfo createInfo)
 	: ManagableResource(ResourceType::Buffer)
-	, m_Name(name)
 	, m_Device(device)
-	, m_Size(size)
+	, m_Info(createInfo)
 {
-	m_Info.memoryAccess = access;
-	m_Info.size = size;
-	m_Info.usageFlags = flags;
-
 	if (m_Info.memoryAccess == MemoryAccess::GPU)
 	{
 		//if the access is only gpu we need to copy from staging buffer
-		m_Info.usageFlags = m_Info.usageFlags | BufferUsageFlags::TransferDst;
-	}
-
-	CreateBufferResource();
-
-	device.SetObjectName((uint64_t)m_Buffer, VK_OBJECT_TYPE_BUFFER, name);
-
-	m_CurrentResourceState = ResourceState::None;
-}
-
-
-VulkanBuffer::VulkanBuffer(VulkanDevice& device, BufferCreateInfo& createInfo)
-	: ManagableResource(ResourceType::Buffer)
-	, m_Name(createInfo.name)
-	, m_Device(device)
-	, m_Size(createInfo.size)
-{
-	m_Info.memoryAccess = createInfo.memoryAccess;
-	m_Info.size = createInfo.size;
-	m_Info.usageFlags = createInfo.flags;
-
-	if (m_Info.memoryAccess == MemoryAccess::GPU)
-	{
-		//if the access is only gpu we need to copy from staging buffer
-		m_Info.usageFlags = m_Info.usageFlags | BufferUsageFlags::TransferDst;
+		m_Info.flags = m_Info.flags | BufferUsageFlags::TransferDst;
 	}
 	
 	CreateBufferResource();
@@ -79,7 +50,7 @@ void VulkanBuffer::Unmap()
 
 void VulkanBuffer::FillBuffer(void* inputData, uint64_t size, uint64_t offset)
 {
-	ASSERT(offset + size <= m_Size, "Trying to reach outside buffer's bounds!");
+	ASSERT(offset + size <= m_Info.size, "Trying to reach outside buffer's bounds!");
 
 	if (size > 0)
 	{
@@ -91,7 +62,12 @@ void VulkanBuffer::FillBuffer(void* inputData, uint64_t size, uint64_t offset)
 		}
 		else
 		{
-			VulkanBuffer stagingBuffer = VulkanBuffer(m_Device, BufferUsageFlags::TransferSrc, MemoryAccess::CPU, size, "StagingBuffer");
+			VulkanBuffer stagingBuffer(m_Device, BufferCreateInfo{
+					.flags = BufferUsageFlags::TransferSrc,
+					.memoryAccess = MemoryAccess::CPU,
+					.size = size,
+					.name = "StagingBuffer"
+				});
 
 			stagingBuffer.FillBuffer(inputData);
 
@@ -116,7 +92,7 @@ void VulkanBuffer::CreateBufferResource()
 	VkBufferCreateInfo bufferInfo{};
 	bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
 	bufferInfo.size = m_Info.size;
-	bufferInfo.usage = GetVkBufferUsageFlags(m_Info.usageFlags);
+	bufferInfo.usage = GetVkBufferUsageFlags(m_Info.flags);
 	bufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 
 	VmaAllocationCreateInfo allocationCreateInfo = {};

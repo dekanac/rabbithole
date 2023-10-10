@@ -384,7 +384,7 @@ RABBITHOLE_FLAG_TYPE_SETUP(TextureFlags)
 
 struct Color
 {
-	rabbitVec4f value;
+	Vector4f value;
 };
 
 struct Extent3D

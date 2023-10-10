@@ -1,28 +1,16 @@
 #pragma once
 
-#include "Render/Vulkan/VulkanDevice.h"
-#include "Render/Vulkan/VulkanBuffer.h"
-
-#define GLM_FORCE_RADIANS
-#define GLM_FORCE_DEPTH_ZERO_TO_ONE
+#include "Render/Model/TextureLoading.h"
+#include "Render/Vulkan/VulkanCommandBuffer.h"
 
 #include <vector>
 #include <type_traits>
 #include <unordered_map>
 #include <glm/gtx/hash.hpp>
-#include "tinygltf/tiny_gltf.h"
 
-#include <Assimp/Importer.hpp>
-#include <Assimp/scene.h>
-#include <Assimp/postprocess.h>
-
-#include "TextureLoading.h"
-
-class VulkanImage;
-class VulkanImageView;
-class VulkanImageSampler;
 class VulkanDescriptorSet;
 class VulkanPipelineLayout;
+class VulkanBuffer;
 struct IndexedIndirectBuffer;
 class Renderer;
 
@@ -35,23 +23,23 @@ struct IndexIndirectDrawData
 	uint32_t    firstInstance;
 };
 
-struct SimplePushConstantData
+struct ModelDrawData
 {
-	rabbitMat4f modelMatrix;
+	Matrix44f	modelMatrix;
 	uint32_t	id;
 	uint32_t	useAlbedoMap;
 	uint32_t	useNormalMap;
 	uint32_t	useMetallicRoughnessMap;
-	rabbitVec4f baseColor;
-	rabbitVec4f emmisiveColorAndStrength;
+	Vector4f	baseColor;
+	Vector4f	emmisiveColorAndStrength;
 };
 
 struct Vertex
 {
-	rabbitVec3f position;
-	rabbitVec3f normal;
-	rabbitVec3f tangent;
-	rabbitVec2f uv;
+	Vector3f position;
+	Vector3f normal;
+	Vector3f tangent;
+	Vector2f uv;
 
 	static std::vector<VkVertexInputBindingDescription>		GetBindingDescriptions();
 	static std::vector<VkVertexInputAttributeDescription>	GetAttributeDescriptions();
@@ -62,27 +50,19 @@ struct Vertex
 	}
 };
 
-struct AABB
-{
-	rabbitVec3f bounds[2];
-	inline rabbitVec3f centroid() const { return (bounds[0] + bounds[1]) * 0.5f; }
-};
-
 template <>
 struct std::hash<Vertex>
 {
 	size_t operator()(const Vertex& k) const
 	{
 		size_t res = 17;
-		res = res * 31 + std::hash<rabbitVec3f>()(k.position);
-		res = res * 31 + std::hash<rabbitVec3f>()(k.normal);
-		res = res * 31 + std::hash<rabbitVec2f>()(k.tangent);
-		res = res * 31 + std::hash<rabbitVec2f>()(k.uv);
+		res = res * 31 + std::hash<Vector3f>()(k.position);
+		res = res * 31 + std::hash<Vector3f>()(k.normal);
+		res = res * 31 + std::hash<Vector2f>()(k.tangent);
+		res = res * 31 + std::hash<Vector2f>()(k.uv);
 		return res;
 	}
 };
-
-using TextureData = TextureLoading::TextureData;
 
 enum RenderingContext
 {
@@ -93,6 +73,12 @@ enum RenderingContext
 class VulkanglTFModel
 {
 public:
+	struct AABB
+	{
+		Vector3f bounds[2];
+		inline Vector3f centroid() const { return (bounds[0] + bounds[1]) * 0.5f; }
+	};
+
 	VulkanglTFModel(Renderer* renderer, std::string filename, RenderingContext context, bool flipNormalY = false);
 	~VulkanglTFModel();
 
@@ -135,14 +121,14 @@ public:
 		Node* parent;
 		std::vector<Node> children;
 		Mesh mesh;
-		glm::mat4 matrix;
+		Matrix44f matrix;
 		AABB bbox;
 	};
 
 	struct Material 
 	{
-		glm::vec4	baseColorFactor = glm::vec4(1.0f);
-		glm::vec4   emissiveColorAndStrenght = glm::vec4(0.0f);
+		Vector4f	baseColorFactor = Vector4f(1.0f);
+		Vector4f   emissiveColorAndStrenght = Vector4f(0.0f);
 		int32_t		baseColorTextureIndex = -1;
 		int32_t		normalTextureIndex = -1;
 		int32_t		metallicRoughnessTextureIndex = -1;
@@ -166,11 +152,6 @@ public:
 private:
 	void LoadNode(const aiNode* inputNode, const aiScene* input, VulkanglTFModel::Node* parent, std::vector<uint32_t>& indexBuffer, std::vector<Vertex>& vertexBuffer);
 	void LoadMaterials(const aiScene* input);
-
-	void LoadImages(tinygltf::Model& input);
-	void LoadTextures(tinygltf::Model& input);
-	void LoadMaterials(tinygltf::Model& input);
-	void LoadNode(const tinygltf::Node& inputNode, const tinygltf::Model& input, VulkanglTFModel::Node* parent, std::vector<uint32_t>& indexBuffer, std::vector<Vertex>& vertexBuffer);
 	void LoadModelFromFile(std::string& filename);
 	void CreateDescriptorSet(uint32_t imageIndex);
 

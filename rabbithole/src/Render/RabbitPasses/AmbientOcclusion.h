@@ -13,7 +13,7 @@ BEGIN_DECLARE_RABBITPASS(SSAOPass);
 	
 	struct SSAOSamples
 	{
-		rabbitVec3f samples[64];
+		Vector3f samples[64];
 	};
 	
 	struct SSAOParams

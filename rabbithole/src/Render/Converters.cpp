@@ -700,7 +700,7 @@ uint64_t GetTexelSizeFrom(Format format)
 {
 	uint32_t componentCount = 0;
 	uint32_t componentSize = 0;
-	VkDeviceSize blockSize = 16;
+	uint64_t blockSize = 16;
 
 	switch (format)
 	{
@@ -775,6 +775,50 @@ ShaderType GetShaderStageFrom(const std::string& name)
 	default:
 		LOG_ERROR("Unrecognized shader stage! Should be CS, VS, FS, HS, MS or RS");
 		return ShaderType::Count;
+	}
+}
+
+Format GetFormatFrom(DXGI_FORMAT format)
+{
+	switch (format)
+	{
+	case DXGI_FORMAT_R32G32B32A32_TYPELESS:
+	case DXGI_FORMAT_R32G32B32A32_FLOAT:
+		return Format::R32G32B32A32_FLOAT;
+	case DXGI_FORMAT_R32G32B32_TYPELESS:
+	case DXGI_FORMAT_R32G32B32_FLOAT:
+		return Format::R32G32B32_FLOAT;
+	case DXGI_FORMAT_R16G16B16A16_TYPELESS:
+	case DXGI_FORMAT_R16G16B16A16_FLOAT:
+		return Format::R16G16B16A16_FLOAT;
+	case DXGI_FORMAT_R16G16B16A16_UNORM:
+		return Format::R16G16B16A16_UNORM;
+	case DXGI_FORMAT_R32G32_TYPELESS:
+	case DXGI_FORMAT_R32G32_FLOAT:
+		return Format::R32G32_FLOAT;
+	case DXGI_FORMAT_R8G8B8A8_UNORM:
+		return Format::R8G8B8A8_UNORM;
+	case DXGI_FORMAT_R8G8B8A8_UNORM_SRGB:
+		return Format::R8G8B8A8_UNORM_SRGB;
+	case DXGI_FORMAT_R16G16_TYPELESS:
+	case DXGI_FORMAT_R16G16_FLOAT:
+		return Format::R16G16_FLOAT;
+	case DXGI_FORMAT_R32_TYPELESS:
+	case DXGI_FORMAT_R32_FLOAT:
+		return Format::R32_SFLOAT;
+	case DXGI_FORMAT_D32_FLOAT:
+		return Format::D32_SFLOAT;
+	case DXGI_FORMAT_BC5_UNORM:
+		return Format::BC5_UNORM;
+	
+	case DXGI_FORMAT_BC7_UNORM:
+		return Format::BC7_UNORM;
+	case DXGI_FORMAT_BC7_UNORM_SRGB:
+		return Format::BC7_UNORM_SRGB;
+	case DXGI_FORMAT_UNKNOWN:
+	default:
+		LOG_ERROR("Unrecognized DDS format!");
+		return Format::UNDEFINED;
 	}
 }
 
@@ -867,18 +911,18 @@ ClearValue GetClearColorValueFor(const Format format)
 	case Format::R16G16B16A16_FLOAT:
 	case Format::R16G16B16A16_UNORM:
 	case Format::R32G32B32A32_FLOAT:
-		return ClearValue{ rabbitVec4f(0.5f, 0.5f, 0.5f, 1.0f) };
+		return ClearValue{ Vector4f(0.5f, 0.5f, 0.5f, 1.0f) };
 	case Format::R8_UNORM:
 	case Format::R32_SFLOAT:
-		return ClearValue{ rabbitVec4f(1.0f) };
+		return ClearValue{ Vector4f(1.0f) };
 	case Format::R32G32B32_FLOAT:
 	case Format::R11G11B10_FLOAT:
-		return ClearValue{ rabbitVec4f(0.0f, 0.0f, 0.0f, 0.0f) };
+		return ClearValue{ Vector4f(0.0f, 0.0f, 0.0f, 0.0f) };
 	case Format::R32G32_FLOAT:
 	case Format::R16G16_FLOAT:
-		return ClearValue{ rabbitVec4f(0.0f, 0.0f, 0.0f, 0.f) };
+		return ClearValue{ Vector4f(0.0f, 0.0f, 0.0f, 0.f) };
 	case Format::R32_UINT:
-		return ClearValue{ rabbitVec4f(0.0f) };
+		return ClearValue{ Vector4f(0.0f) };
 	case Format::D32_SFLOAT:
 	case Format::D32_SFLOAT_S8_UINT:
 	{
@@ -889,7 +933,7 @@ ClearValue GetClearColorValueFor(const Format format)
 	}
 	default:
 		ASSERT(false, "Not supported format.");
-		return ClearValue{ rabbitVec4f(0.0f) };
+		return ClearValue{ Vector4f(0.0f) };
 	}
 }
 

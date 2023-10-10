@@ -10,9 +10,9 @@
 #include <set>
 #include <unordered_set>
 
-std::vector<rabbitVec4f> g_Colors = { YELLOW_COLOR, RED_COLOR, BLUE_COLOR, PUPRPLE_COLOR, GREEN_COLOR };
+std::vector<Vector4f> g_Colors = { YELLOW_COLOR, RED_COLOR, BLUE_COLOR, PUPRPLE_COLOR, GREEN_COLOR };
 
-rabbitVec4f GetNextColor()
+Vector4f GetNextColor()
 {
 	static int i = 0;
 
@@ -681,7 +681,7 @@ void VulkanDevice::SetObjectName(uint64_t object, VkObjectType objectType, const
 void VulkanDevice::BeginLabel(VulkanCommandBuffer& commandBuffer, const char* name)
 {
 #ifdef RABBITHOLE_DEBUG
-	glm::vec4 color = GetNextColor();
+	Vector4f color = GetNextColor();
 	VkDebugUtilsLabelEXT labelInfo{};
 	labelInfo.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_LABEL_EXT;
 	labelInfo.color[0] = color[0];

@@ -6,13 +6,9 @@
 #include "Render/Vulkan/VulkanTexture.h"
 #include "Render/Vulkan/VulkanBuffer.h"
 
-#include <set>
+#include <unordered_set>
 
 using TextureData = TextureLoading::TextureData;
-
-bool operator<(const AllocatedResource& lhs, const AllocatedResource& rhs);
-
-bool operator==(const AllocatedResource& lhs, const AllocatedResource& rhs);
 
 class ResourceManager
 {
@@ -61,5 +57,5 @@ private:
 	std::unordered_map<std::string, Shader*>		m_Shaders;
 	std::unordered_map<uint32_t, VulkanTexture*>	m_Textures;
 	std::unordered_map<uint32_t, VulkanBuffer*>		m_Buffers;
-	std::set<AllocatedResource*>					m_AllocatedResources;
+	std::unordered_set<AllocatedResource*>			m_AllocatedResources;
 };

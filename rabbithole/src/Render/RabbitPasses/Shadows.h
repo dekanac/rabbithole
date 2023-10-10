@@ -34,13 +34,13 @@ BEGIN_DECLARE_RABBITPASS(ShadowDenoiseTileClassificationPass);
 
 	struct DenoiseShadowData
 	{
-		rabbitVec3f		Eye;
+		Vector3f		Eye;
 		int				FirstFrame;
 		int32_t			BufferDimensions[2];
 		float			InvBufferDimensions[2];
-		rabbitMat4f		ProjectionInverse;
-		rabbitMat4f		ReprojectionMatrix;
-		rabbitMat4f		ViewProjectionInverse;
+		Matrix44f		ProjectionInverse;
+		Matrix44f		ReprojectionMatrix;
+		Matrix44f		ViewProjectionInverse;
 	};
 	
 	uint32_t GetCurrentIDFromFrameIndex(uint32_t id) { return (m_Renderer.GetCurrentFrameIndex() + id) % 2; }
@@ -61,7 +61,7 @@ BEGIN_DECLARE_RABBITPASS(ShadowDenoiseFilterPass);
 
 	struct DenoiseShadowFilterData
 	{
-		rabbitMat4f ProjectionInverse;
+		Matrix44f ProjectionInverse;
 		int32_t     BufferDimensions[2];
 		float		InvBufferDimensions[2];
 		float		DepthSimilaritySigma;

@@ -1,20 +1,16 @@
 #include "TextureLoading.h"
 
-#include "Render/ResourceManager.h"
-#include "Render/Renderer.h"
-#include "Render/Vulkan/VulkanTexture.h"
 #include "Logger/Logger.h"
-#include "Utils/utils.h"
+#include "Render/Converters.h"
+#include "Utils/Utils.h"
 
 #include <stb_image/stb_image.h>
 #include <ddsloader/dds.h>
 
 #include <string>
 
-
 namespace TextureLoading
 {
-	TextureData* TextureData::INVALID = nullptr;
 	static std::string s_CurrentPath = ""; // TODO: Make this mtr
 
 	std::string FormatPath(const std::string& path)
@@ -41,8 +37,30 @@ namespace TextureLoading
 		return path.substr(0, 1 + path.find_last_of("\\/"));
 	}
 
+	TextureData* LoadTextureFromDDSFile(const std::string& path)
+	{
+		DDSFile* dds = dds_load(path.c_str());
+
+		TextureData* textureData = new TextureData();
+		textureData->size = static_cast<uint32_t>(
+			GetTexelSizeFrom(GetFormatFrom(dds->ddsHeaderDx10->dxgiFormat))
+			* dds->dwHeight
+			* dds->dwWidth);
+		textureData->height = dds->dwHeight;
+		textureData->width = dds->dwWidth;
+		textureData->pData = dds->blBuffer;
+		textureData->mipCount = dds->dwMipMapCount;
+		textureData->format = GetFormatFrom(dds->ddsHeaderDx10->dxgiFormat);
+		dds_free(dds);
+
+		return textureData;
+	}
+
 	TextureData* LoadTextureFromFile(const std::string& path, bool flipY)
 	{
+		if (path.substr(path.find_last_of('.') + 1) == "dds")
+			return LoadTextureFromDDSFile(path);
+
 		std::string apsolutePath = GetAbsolutePath(path);
 		int width, height, numChannels;
 		int forceNumChannels = 4;
@@ -51,18 +69,13 @@ namespace TextureLoading
 
 		ASSERT(data, "Texture loading failed!");
 
-		if (!data)
-		{
-			// TODO: Move this on some init function and delete if at the engine stop
-			if (!TextureData::INVALID)
-			{
-				unsigned char invalid_color[] = { 0xff, 0x00, 0x33, 0xff };
-				TextureData::INVALID = new TextureData{ invalid_color, 1, 1, 4 };
-			}
-			return TextureData::INVALID;
-		}
-
-		return new TextureData{ data, width, height, numChannels };
+		return new TextureData{
+			.pData = data,
+			.width = static_cast<uint32_t>(width),
+			.height = static_cast<uint32_t>(height),
+			.size = static_cast<uint32_t>(width * height * forceNumChannels),
+			.format = Format::R8G8B8A8_UNORM
+		};
 	}
 
 	CubemapData* LoadCubemap(const std::string& path)
@@ -89,41 +102,23 @@ namespace TextureLoading
 		return output;
 	}
 
-	TextureData* LoadTextureFromDDSFile(const std::string& path)
-	{
-		DDSFile* dds = dds_load(path.c_str());
-
-		TextureData* textureData = new TextureData();
-		textureData->bpp = 4;
-		textureData->height = dds->dwHeight;
-		textureData->width = dds->dwWidth;
-		textureData->pData = dds->blBuffer;
-		textureData->mipCount = dds->dwMipMapCount;
-
-		dds_free(dds);
-
-		return textureData;
-	}
-
 	TextureData* LoadEmbeddedTexture(const aiScene* scene, uint32_t index)
 	{
 		const unsigned char* data = reinterpret_cast<const unsigned char*>(scene->mTextures[index]->pcData);
 		int width, height, channels;
 		unsigned char* image = stbi_load_from_memory(data, scene->mTextures[index]->mWidth, &width, &height, &channels, STBI_rgb_alpha);
 
-		TextureData* textureData = new TextureData();
-		textureData->bpp = channels;
-		textureData->height = height;
-		textureData->width = width;
-		textureData->pData = image;
-
-		return textureData;
+		return new TextureData{
+			.pData = image,
+			.width = static_cast<uint32_t>(width),
+			.height = static_cast<uint32_t>(height),
+			.size = static_cast<uint32_t>(width * height * channels),
+			.format = Format::R8G8B8A8_UNORM
+		};
 	}
 
 	void FreeTexture(TextureData* textureData)
 	{
-		if (textureData == TextureData::INVALID) return;
-
 		RABBIT_FREE(textureData->pData);
 		delete textureData;
 	}

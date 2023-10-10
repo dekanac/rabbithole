@@ -1,9 +1,5 @@
 #include "Renderer.h"
 
-#include "Core/Application.h"
-#include "ECS/EntityManager.h"
-#include "Input/InputManager.h"
-#include "Model/Model.h"
 #include "Render/BVH.h"
 #include "Render/Camera.h"
 #include "Render/Converters.h"
@@ -14,15 +10,12 @@
 #include "Render/Shader.h"
 #include "Render/SuperResolutionManager.h"
 #include "Render/Window.h"
-
-#include "Utils/utils.h"
+#include "Utils/Utils.h"
 #include "Vulkan/Include/VulkanWrapper.h"
 
-#include <GLFW/glfw3.h>
-#include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/matrix_inverse.hpp>
-#include <optick.h>
+#include <optick/src/optick.h>
 
 #include <cmath>
 #include <filesystem>
@@ -37,9 +30,9 @@
 #include <vector>
 #include <cstdio>
 
-
 bool Renderer::Init()
 {
+	m_ResFolder = Utils::FindResFolder().string();
 	m_TimeWhenRendererStarted = static_cast<float>(glfwGetTime());
 
 	m_MainCamera.Init();
@@ -162,13 +155,13 @@ void Renderer::DrawFrame()
 
 void Renderer::InitDefaultTextures()
 {
-	g_DefaultWhiteTexture = m_ResourceManager.CreateTexture(m_VulkanDevice, "res/textures/default_white.png", ROTextureCreateInfo{
+	g_DefaultWhiteTexture = m_ResourceManager.CreateTexture(m_VulkanDevice, m_ResFolder + "\\textures\\default_white.png", ROTextureCreateInfo{
 			.flags = {TextureFlags::Color | TextureFlags::Read | TextureFlags::TransferDst},
 			.format = {Format::R8G8B8A8_UNORM_SRGB},
 			.name = {"Default White"}
 		});
 	
-	g_DefaultBlackTexture = m_ResourceManager.CreateTexture(m_VulkanDevice, "res/textures/default_black.png", ROTextureCreateInfo{
+	g_DefaultBlackTexture = m_ResourceManager.CreateTexture(m_VulkanDevice, m_ResFolder + "\\textures\\default_black.png", ROTextureCreateInfo{
 			.flags = {TextureFlags::Color | TextureFlags::Read | TextureFlags::TransferDst},
 			.format = {Format::R8G8B8A8_UNORM_SRGB},
 			.name = {"Default Black"}
@@ -189,13 +182,13 @@ void Renderer::InitDefaultTextures()
 			.arraySize = {4}
 		});
 
-	noise2DTexture = m_ResourceManager.CreateTexture(m_VulkanDevice, "res/textures/noise3.png", ROTextureCreateInfo{
+	noise2DTexture = m_ResourceManager.CreateTexture(m_VulkanDevice, m_ResFolder + "\\textures\\noise3.png", ROTextureCreateInfo{
 			.flags = {TextureFlags::Color | TextureFlags::Read | TextureFlags::TransferDst},
 			.format = {Format::B8G8R8A8_UNORM},
 			.name = {"Noise2D"}
 		});
 
-	blueNoise2DTexture = m_ResourceManager.CreateTexture(m_VulkanDevice, "res/textures/noise.png", ROTextureCreateInfo{
+	blueNoise2DTexture = m_ResourceManager.CreateTexture(m_VulkanDevice, m_ResFolder + "\\textures\\noise.png", ROTextureCreateInfo{
 			.flags = {TextureFlags::Color | TextureFlags::Read | TextureFlags::TransferDst | TextureFlags::Storage},
 			.format = {Format::B8G8R8A8_UNORM},
 			.name = {"BlueNoise2D"}
@@ -211,7 +204,7 @@ void Renderer::InitDefaultTextures()
 
 void Renderer::CalculateMatrices(VulkanglTFModel::Node* node, Vertex* vertexBufferCpu, uint32_t* indexBufferCpu, std::vector<bool>& verticesMultipliedWithMatrix)
 {
-	glm::mat4 nodeMatrix = node->matrix;
+	Matrix44f nodeMatrix = node->matrix;
 	VulkanglTFModel::Node* currentParent = node->parent;
 
 	while (currentParent)
@@ -227,7 +220,7 @@ void Renderer::CalculateMatrices(VulkanglTFModel::Node* node, Vertex* vertexBuff
 			auto currentIndex = indexBufferCpu[i];
 			if (!verticesMultipliedWithMatrix[currentIndex])
 			{
-				vertexBufferCpu[currentIndex].position = nodeMatrix * rabbitVec4f{ vertexBufferCpu[currentIndex].position, 1 };
+				vertexBufferCpu[currentIndex].position = nodeMatrix * Vector4f{ vertexBufferCpu[currentIndex].position, 1 };
 				verticesMultipliedWithMatrix[currentIndex] = true;
 			}
 		}
@@ -241,16 +234,13 @@ void Renderer::CalculateMatrices(VulkanglTFModel::Node* node, Vertex* vertexBuff
 
 void Renderer::LoadModels()
 {
-	//gltfModels.emplace_back(this, "res/meshes/untitled.gltf");
-	//gltfModels.emplace_back(this, "res/meshes/separateObjects.gltf", RenderingContext::GBuffer_Opaque);
-	//gltfModels.emplace_back(this, "res/meshes/cottage.gltf", RenderingContext::GBuffer_Opaque);
-	gltfModels.emplace_back(this, "res/meshes/sponza/sponza.gltf", RenderingContext::GBuffer_Opaque);
-	//gltfModels.emplace_back(this, "res/meshes/sponzanew/scene.gltf", RenderingContext::GBuffer_Opaque, true);
-	//gltfModels.emplace_back(this, "res/meshes/bistro/BistroExterior.fbx");
+	//gltfModels.emplace_back(this, m_ResFolder + "\\meshes\\separateObjects.gltf", RenderingContext::GBuffer_Opaque);
+	//gltfModels.emplace_back(this,  m_ResFolder + "\\meshes\\cottage.gltf", RenderingContext::GBuffer_Opaque);
+	gltfModels.emplace_back(this, m_ResFolder + "\\meshes\\sponza\\sponza.gltf", RenderingContext::GBuffer_Opaque);
+	//gltfModels.emplace_back(this, m_ResFolder + "\\meshes\\sponzaNew\\MainSponza.gltf", RenderingContext::GBuffer_Opaque);
 
-	//cloudMeshes.emplace_back(this, "res/meshes/simpleShapes/sphere.gltf", RenderingContext::Clouds_Transparent);
-	//cloudMeshes.emplace_back(this, "res/meshes/simpleShapes/box.obj", RenderingContext::Clouds_Transparent);
-	//cloudMeshes[0].GetNodes()[0].matrix = glm::translate(rabbitMat4f{ 1.f }, rabbitVec3f{ 3.f, 6.f, 3.f });
+	//cloudMeshes.emplace_back(this, m_ResFolder + "\\meshes\\simpleShapes\\sphere.gltf", RenderingContext::Clouds_Transparent);
+	//cloudMeshes.emplace_back(this, m_ResFolder + "\\meshes\\simpleShapes\\box.obj", RenderingContext::Clouds_Transparent);
 }
 
 void Renderer::BeginLabel(const char* name)
@@ -384,26 +374,6 @@ void Renderer::BindPushConstInternal()
 	}
 }
 
-void Renderer::UpdateEntityPickId()
-{
-	////steal input comp from camera to retrieve mouse pos
-	//auto cameras = EntityManager::instance().GetAllEntitiesWithComponent<CameraComponent>();
-	//auto inputComponent = cameras[0]->GetComponent<InputComponent>();
-	//auto x = inputComponent->mouse_current_x;
-	//auto y = inputComponent->mouse_current_y;
-	//
-	//if (!(x >= 0 && y >= 0 && x <= GetNativeWidth && y <= GetNativeHeight))
-	//{
-	//	x = 0; //TODO: fix this. not a great solution but ok
-	//	y = 0;
-	//}
-	//
-	//PushMousePos push{};
-	//push.x = static_cast<uint32_t>(x);
-	//push.y = static_cast<uint32_t>(y);
-	////BindPushConst(push); //TODO: fix this
-}
-
 void Renderer::CopyToSwapChain()
 {
 	BindPipeline<GraphicsPipeline>();
@@ -478,9 +448,9 @@ void Renderer::BindCameraMatrices(Camera* camera)
 	float width = projection[0][0];
 	float height = projection[1][1];
 
-	m_CurrentCameraState.EyeXAxis = m_CurrentCameraState.ViewInverseMatrix * rabbitVec4f(-1.0 / width, 0, 0, 0);
-	m_CurrentCameraState.EyeYAxis = m_CurrentCameraState.ViewInverseMatrix * rabbitVec4f(0, -1.0 / height, 0, 0);
-	m_CurrentCameraState.EyeZAxis = m_CurrentCameraState.ViewInverseMatrix * rabbitVec4f(0, 0, 1.f, 0);
+	m_CurrentCameraState.EyeXAxis = m_CurrentCameraState.ViewInverseMatrix * Vector4f(-1.0 / width, 0, 0, 0);
+	m_CurrentCameraState.EyeYAxis = m_CurrentCameraState.ViewInverseMatrix * Vector4f(0, -1.0 / height, 0, 0);
+	m_CurrentCameraState.EyeZAxis = m_CurrentCameraState.ViewInverseMatrix * Vector4f(0, 0, 1.f, 0);
 
 	m_StateManager.UpdateUBOElement(UBOElement::EyeXAxis, 1, &m_CurrentCameraState.EyeXAxis);
 	m_StateManager.UpdateUBOElement(UBOElement::EyeYAxis, 1, &m_CurrentCameraState.EyeYAxis);
@@ -508,7 +478,7 @@ void Renderer::BindUBO()
 void Renderer::CreateAccelerationStructure()
 {
 #if defined(VULKAN_HWRT)
-	std::vector<rabbitVec4f> verticesFinal;
+	std::vector<Vector4f> verticesFinal;
 
 	uint32_t vertexOffset = 0;
 
@@ -523,14 +493,25 @@ void Renderer::CreateAccelerationStructure()
 		VulkanCommandBuffer tempCommandBuffer(m_VulkanDevice, "Temp command buffer");
 		tempCommandBuffer.BeginCommandBuffer();
 
-		VulkanBuffer stagingBuffer(m_VulkanDevice, BufferUsageFlags::TransferDst, MemoryAccess::CPU, modelVertexBuffer->GetSize(), "StagingBuffer");
+		VulkanBuffer stagingBuffer(m_VulkanDevice, BufferCreateInfo{
+			.flags = BufferUsageFlags::TransferDst,
+			.memoryAccess = MemoryAccess::CPU,
+			.size = modelVertexBuffer->GetSize(),
+			.name = "StagingBuffer"
+		});
 		m_VulkanDevice.CopyBuffer(tempCommandBuffer, *modelVertexBuffer, stagingBuffer, modelVertexBuffer->GetSize());
 
 		Vertex* vertexBufferCpu = (Vertex*)stagingBuffer.Map();
 		uint32_t vertexCount = static_cast<uint32_t>(modelVertexBuffer->GetSize() / sizeof(Vertex));
 		verticesMultipliedWithMatrix.resize(vertexCount);
 
-		VulkanBuffer stagingBuffer2(m_VulkanDevice, BufferUsageFlags::TransferDst, MemoryAccess::CPU, modelIndexBuffer->GetSize(), "StagingBuffer");
+		VulkanBuffer stagingBuffer2(m_VulkanDevice, BufferCreateInfo{
+			.flags = BufferUsageFlags::TransferDst,
+			.memoryAccess = MemoryAccess::CPU,
+			.size = modelIndexBuffer->GetSize(),
+			.name = "StagingBuffer"
+		}); 
+		
 		m_VulkanDevice.CopyBuffer(tempCommandBuffer, *modelIndexBuffer, stagingBuffer2, modelIndexBuffer->GetSize());
 
 		tempCommandBuffer.EndAndSubmitCommandBuffer();
@@ -545,7 +526,7 @@ void Renderer::CreateAccelerationStructure()
 
 		for (uint32_t k = 0; k < vertexCount; k++)
 		{
-			rabbitVec4f position = rabbitVec4f{ vertexBufferCpu[k].position, 1.f };
+			Vector4f position = Vector4f{ vertexBufferCpu[k].position, 1.f };
 			verticesFinal.push_back(position);
 		}
 
@@ -559,10 +540,10 @@ void Renderer::CreateAccelerationStructure()
 		VulkanBuffer* sceneVertexBuffer = m_ResourceManager.CreateBuffer(m_VulkanDevice, BufferCreateInfo{
 			.flags = {BufferUsageFlags::StorageBuffer | BufferUsageFlags::ShaderDeviceAddress | BufferUsageFlags::AccelerationStructureBuild },
 			.memoryAccess = {MemoryAccess::GPU},
-			.size = {static_cast<uint32_t>(verticesFinal.size() * sizeof(rabbitVec4f))},
+			.size = {static_cast<uint32_t>(verticesFinal.size() * sizeof(Vector4f))},
 			.name = {"VertexBuffer"}
 			});
-		sceneVertexBuffer->FillBuffer(verticesFinal.data(), static_cast<uint32_t>(verticesFinal.size()) * sizeof(rabbitVec4f));
+		sceneVertexBuffer->FillBuffer(verticesFinal.data(), static_cast<uint32_t>(verticesFinal.size()) * sizeof(Vector4f));
 
 		VulkanBuffer* sceneIndexBuffer = gltfModels[0].GetIndexBuffer();
 
@@ -572,7 +553,7 @@ void Renderer::CreateAccelerationStructure()
 		uint32_t numTriangles = static_cast<uint32_t>(sceneIndexBuffer->GetSize() / sizeof(uint32_t)) / 3;
 		m_TriangleCount = numTriangles;
 
-		uint32_t maxVertex = static_cast<uint32_t>(sceneVertexBuffer->GetSize() / sizeof(rabbitVec4f));
+		uint32_t maxVertex = static_cast<uint32_t>(sceneVertexBuffer->GetSize() / sizeof(Vector4f));
 
 		VkAccelerationStructureGeometryKHR accelerationStructureGeometry{ VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_KHR };
 		accelerationStructureGeometry.flags = VK_GEOMETRY_OPAQUE_BIT_KHR;
@@ -581,7 +562,7 @@ void Renderer::CreateAccelerationStructure()
 		accelerationStructureGeometry.geometry.triangles.vertexFormat = VK_FORMAT_R32G32B32_SFLOAT;
 		accelerationStructureGeometry.geometry.triangles.vertexData = vertexBufferDeviceAddress;
 		accelerationStructureGeometry.geometry.triangles.maxVertex = maxVertex;
-		accelerationStructureGeometry.geometry.triangles.vertexStride = sizeof(rabbitVec4f);
+		accelerationStructureGeometry.geometry.triangles.vertexStride = sizeof(Vector4f);
 		accelerationStructureGeometry.geometry.triangles.indexType = VK_INDEX_TYPE_UINT32;
 		accelerationStructureGeometry.geometry.triangles.indexData = indexBufferDeviceAddress;
 		accelerationStructureGeometry.geometry.triangles.transformData.deviceAddress = 0;
@@ -784,8 +765,8 @@ void Renderer::CompileShader(const std::string& name, const std::string& entryPo
 void Renderer::LoadAndCreateShaders()
 {
 	//TODO: implement real shader compiler and stuff
-	std::filesystem::path currentPath = std::filesystem::current_path();
-	currentPath += "\\res\\shaders";
+	std::filesystem::path currentPath = Utils::FindResFolder();
+	currentPath += "\\shaders";
 
 	for (const auto& file : std::filesystem::directory_iterator(currentPath))
 	{
@@ -846,7 +827,6 @@ void Renderer::LoadAndCreateShaders()
 	CompileShader("CS_Downsample.slang");
 	CompileShader("CS_Upsample.slang");
 	CompileShader("FS_SSAOBlur.slang");
-	//CompileShader("RS_RTShadowRaygen.slang");
 }
 
 void Renderer::CreateCommandBuffers() 
@@ -1045,7 +1025,7 @@ void Renderer::InitLights()
 void Renderer::ConstructBVH()
 {
 	std::vector<BVH::Triangle> triangles;
-	std::vector<rabbitVec4f> verticesFinal;
+	std::vector<Vector4f> verticesFinal;
 
 	uint32_t vertexOffset = 0;
 
@@ -1060,14 +1040,24 @@ void Renderer::ConstructBVH()
 		VulkanCommandBuffer tempCommandBuffer(m_VulkanDevice, "Temp command buffer");
 		tempCommandBuffer.BeginCommandBuffer();
 
-		VulkanBuffer stagingBuffer(m_VulkanDevice, BufferUsageFlags::TransferDst, MemoryAccess::CPU, modelVertexBuffer->GetSize(), "StagingBuffer");
+		VulkanBuffer stagingBuffer(m_VulkanDevice, BufferCreateInfo{ 
+			.flags = BufferUsageFlags::TransferDst,
+			.memoryAccess = MemoryAccess::CPU, 
+			.size = modelVertexBuffer->GetSize(), 
+			.name = "StagingBuffer" 
+		});
 		m_VulkanDevice.CopyBuffer(tempCommandBuffer, *modelVertexBuffer, stagingBuffer, modelVertexBuffer->GetSize());
 
 		Vertex* vertexBufferCpu = (Vertex*)stagingBuffer.Map();
 		uint32_t vertexCount = static_cast<uint32_t>(modelVertexBuffer->GetSize() / sizeof(Vertex));
 		verticesMultipliedWithMatrix.resize(vertexCount);
 
-		VulkanBuffer stagingBuffer2(m_VulkanDevice, BufferUsageFlags::TransferDst, MemoryAccess::CPU, modelIndexBuffer->GetSize(), "StagingBuffer");
+		VulkanBuffer stagingBuffer2(m_VulkanDevice, BufferCreateInfo{
+			.flags = BufferUsageFlags::TransferDst,
+			.memoryAccess = MemoryAccess::CPU,
+			.size = modelIndexBuffer->GetSize(),
+			.name = "StagingBuffer"
+		});
 		m_VulkanDevice.CopyBuffer(tempCommandBuffer, *modelIndexBuffer, stagingBuffer2, modelIndexBuffer->GetSize());
 
 		tempCommandBuffer.EndAndSubmitCommandBuffer();
@@ -1082,7 +1072,7 @@ void Renderer::ConstructBVH()
 
 		for (uint32_t k = 0; k < vertexCount; k++)
 		{
-			rabbitVec4f position = rabbitVec4f{ vertexBufferCpu[k].position, 1.f };
+			Vector4f position = Vector4f{ vertexBufferCpu[k].position, 1.f };
 			verticesFinal.push_back(position);
 		}
 
@@ -1115,7 +1105,7 @@ void Renderer::ConstructBVH()
 		CreateCFBVH(triangles.data(), node, &triIndices, &indicesNum, &root, &nodeNum);
 
 		FILE* dat;
-		fopen_s(&dat, "res/bvhdata/separateObjects.bin", "wb");
+		fopen_s(&dat, (m_ResFolder + "\\bvhdata\\separateObjects.bin").c_str(), "wb");
 
 		std::fwrite(&indicesNum, sizeof(uint32_t), 1, dat);
 		std::fwrite(triIndices, sizeof(uint32_t) * indicesNum, 1, dat);
@@ -1128,7 +1118,7 @@ void Renderer::ConstructBVH()
 	{
 		//load BVH data from file
 		FILE* dat;
-		fopen_s(&dat, "res/bvhdata/sponza.bin", "rb");
+		fopen_s(&dat, (m_ResFolder + "\\bvhdata\\sponza.bin").c_str(), "rb");
 
 		std::fread(&indicesNum, sizeof uint32_t, 1, dat);
 		triIndices = RABBIT_ALLOC(uint32_t, indicesNum);
@@ -1143,7 +1133,7 @@ void Renderer::ConstructBVH()
 	vertexBuffer = m_ResourceManager.CreateBuffer(m_VulkanDevice, BufferCreateInfo{
 			.flags = {BufferUsageFlags::StorageBuffer},
 			.memoryAccess = {MemoryAccess::GPU},
-			.size = {static_cast<uint32_t>(verticesFinal.size() * sizeof(rabbitVec4f))},
+			.size = {static_cast<uint32_t>(verticesFinal.size() * sizeof(Vector4f))},
 			.name = {"VertexBuffer"}
 		});
 
@@ -1168,7 +1158,7 @@ void Renderer::ConstructBVH()
 			.name = {"CfbvhNodes"}
 		});
    
-	vertexBuffer->FillBuffer(verticesFinal.data(), static_cast<uint32_t>(verticesFinal.size()) * sizeof(rabbitVec4f));
+	vertexBuffer->FillBuffer(verticesFinal.data(), static_cast<uint32_t>(verticesFinal.size()) * sizeof(Vector4f));
 	trianglesBuffer->FillBuffer(triangles.data(), static_cast<uint32_t>(triangles.size()) * sizeof(BVH::Triangle));
 	triangleIndxsBuffer->FillBuffer(triIndices, indicesNum * sizeof(uint32_t));
 	cfbvhNodesBuffer->FillBuffer(root, nodeNum * sizeof(BVH::CacheFriendlyBVHNode));
@@ -1181,7 +1171,7 @@ void Renderer::ConstructBVH()
 
 void Renderer::UpdateConstantBuffer()
 {
-	rabbitVec4f frustrumInfo{};
+	Vector4f frustrumInfo{};
 	frustrumInfo.x = static_cast<float>(GetNativeWidth);
 	frustrumInfo.y = static_cast<float>(GetNativeHeight);
     frustrumInfo.z = m_MainCamera.GetNearPlane();
@@ -1189,7 +1179,7 @@ void Renderer::UpdateConstantBuffer()
 
     m_StateManager.UpdateUBOElement(UBOElement::FrustrumInfo, 1, &frustrumInfo);
 
-	rabbitVec4f frameInfo{};
+	Vector4f frameInfo{};
 	frameInfo.x = static_cast<float>(m_CurrentFrameIndex);
 	frameInfo.y = static_cast<float>(glfwGetTime()) - m_TimeWhenRendererStarted;
 	frameInfo.z = m_CurrentDeltaTime;
@@ -1458,7 +1448,11 @@ void Renderer::CopyBuffer(VulkanBuffer& src, VulkanBuffer& dst, uint64_t size /*
 }
 
 IndexedIndirectBuffer::IndexedIndirectBuffer(VulkanDevice& device, uint32_t numCommands)
-	: gpuBuffer(device, BufferUsageFlags::IndirectBuffer | BufferUsageFlags::TransferSrc, MemoryAccess::CPU2GPU, sizeof(IndexIndirectDrawData)* numCommands, "GeomDataIndirectDraw")
+	: gpuBuffer(device, BufferCreateInfo{
+		.flags = BufferUsageFlags::IndirectBuffer | BufferUsageFlags::TransferSrc,
+		.memoryAccess = MemoryAccess::CPU2GPU,
+		.size = sizeof(IndexIndirectDrawData) * numCommands,
+		.name = "GeomDataIndirectDraw" })
 {
 	localBuffer = RABBIT_ALLOC(IndexIndirectDrawData, numCommands);
 }
@@ -1476,7 +1470,12 @@ void IndexedIndirectBuffer::SubmitToGPU()
 
 void IndexedIndirectBuffer::AddIndirectDrawCommand(VulkanCommandBuffer& commandBuffer, IndexIndirectDrawData& drawData)
 {
-    vkCmdDrawIndexedIndirect(GET_VK_HANDLE(commandBuffer), GET_VK_HANDLE(gpuBuffer), currentOffset * sizeof(IndexIndirectDrawData), 1, sizeof(IndexIndirectDrawData));
+    vkCmdDrawIndexedIndirect(
+		GET_VK_HANDLE(commandBuffer), 
+		GET_VK_HANDLE(gpuBuffer), 
+		currentOffset * sizeof(IndexIndirectDrawData), 
+		1, 
+		sizeof(IndexIndirectDrawData));
 	
 	localBuffer[currentOffset] = drawData;
 	currentOffset++;

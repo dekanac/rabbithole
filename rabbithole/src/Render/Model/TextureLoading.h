@@ -8,31 +8,24 @@
 
 #include <string>
 
-class VulkanTexture;
-
 namespace TextureLoading
 {
 	struct TextureData
 	{
-		unsigned char* pData;
-		int32_t width;
-		int32_t height;
-		int32_t bpp;
-		uint32_t mipCount;
-
-		static TextureData* INVALID;
+		unsigned char* pData = nullptr;
+		uint32_t width = 0;
+		uint32_t height = 0;
+		uint32_t size = 0;
+		uint32_t mipCount = 1;
+		Format format = Format::UNDEFINED;
 	};
 
 	struct CubemapData
 	{
 		TextureData* pData[6];
 	};
-}
 
-namespace TextureLoading
-{
 	TextureData* LoadTextureFromFile(const std::string& path, bool flipY = true);
-	TextureData* LoadTextureFromDDSFile(const std::string& path);
 	TextureData* LoadEmbeddedTexture(const aiScene* scene, uint32_t index);
 	CubemapData* LoadCubemap(const std::string& path);
 	

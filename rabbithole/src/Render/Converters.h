@@ -3,6 +3,7 @@
 
 #include <vulkan/vulkan.h>
 #include <vma/vk_mem_alloc.h>
+#include <ddsloader/dds.h>
 
 VkBufferUsageFlags			GetVkBufferUsageFlags(const BufferUsageFlags usageFlags);
 VmaMemoryUsage				GetVmaMemoryUsageFrom(const MemoryAccess memoryAccess);
@@ -40,3 +41,4 @@ VkAttachmentLoadOp			GetVkLoadOpFrom(LoadOp op);
 uint64_t					GetTextureSizeFrom(Format format, Extent3D textureExtent, uint32_t mipCount, uint32_t arrayCount);
 uint64_t					GetTexelSizeFrom(Format format);
 ShaderType					GetShaderStageFrom(const std::string& name);
+Format						GetFormatFrom(DXGI_FORMAT format);

@@ -4,8 +4,8 @@
 #include "Render/Converters.h"
 
 #include <imgui/imgui.h>
-#include <imgui/backends/imgui_impl_glfw.h>
-#include <imgui/backends/imgui_impl_vulkan.h>
+#include <imgui/imgui_impl_glfw.h>
+#include <imgui/imgui_impl_vulkan.h>
 
 ImGuiManager::~ImGuiManager()
 {
@@ -67,7 +67,7 @@ void ImGuiManager::Init(Renderer& renderer)
 
 	VulkanCommandBuffer tempCommandBuffer(device, "Temp Imgui Command Buffer");
 	tempCommandBuffer.BeginCommandBuffer(true);
-	io.Fonts->AddFontFromFileTTF("res/fonts/Cousine-Regular.ttf", 14.f);
+	io.Fonts->AddFontFromFileTTF((renderer.GetResFolderPath() + "\\fonts\\Cousine-Regular.ttf").c_str(), 14.f);
 	ImGui_ImplVulkan_CreateFontsTexture(GET_VK_HANDLE(tempCommandBuffer));
 	tempCommandBuffer.EndAndSubmitCommandBuffer();
 

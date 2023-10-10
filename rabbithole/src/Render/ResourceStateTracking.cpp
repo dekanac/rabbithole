@@ -18,27 +18,32 @@ void ResourceStateTrackingManager::CommitBarriers(Renderer& renderer)
 			if (resource->GetType() == ResourceType::Texture)
 			{
 				VulkanTexture* textureResource = static_cast<VulkanTexture*>(resource);
-				uint32_t mipSlice = textureResource->GetRegion().Subresource.MipSlice;
-				uint32_t mipCount = textureResource->GetRegion().Subresource.MipSize;
 
-				renderer.ResourceBarrier(textureResource, resourceState, resourceShouldBe, resourcePreviousStage, resourceCurrentStage, mipSlice,mipCount);
+				renderer.ResourceBarrier(
+					textureResource, 
+					resourceState, 
+					resourceShouldBe, 
+					resourcePreviousStage, 
+					resourceCurrentStage, 
+					textureResource->GetRegion().Subresource.MipSlice,
+					textureResource->GetRegion().Subresource.MipSize);
 			}
 			else if (resource->GetType() == ResourceType::Buffer)
 			{
-				renderer.ResourceBarrier(static_cast<VulkanBuffer*>(resource), resourceState, resourceShouldBe, resourcePreviousStage, resourceCurrentStage);
+				renderer.ResourceBarrier(
+					static_cast<VulkanBuffer*>(resource), 
+					resourceState, 
+					resourceShouldBe, 
+					resourcePreviousStage, 
+					resourceCurrentStage);
 			}
 		}
 	}
 
-	Reset();
+	m_ResourcesForTransition.clear();
 }
 
 void ResourceStateTrackingManager::AddResourceForTransition(ManagableResource* resource)
 {
 	m_ResourcesForTransition.push_back(resource);
-}
-
-void ResourceStateTrackingManager::Reset()
-{
-	m_ResourcesForTransition.clear();
 }

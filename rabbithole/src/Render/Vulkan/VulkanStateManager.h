@@ -12,6 +12,7 @@ struct PushConstant
 {
 	PushConstant() : data(malloc(128)), size(0) {}
 	~PushConstant() { free(data); }
+	
 	void* data;
 	uint32_t size;
 };
@@ -42,17 +43,19 @@ public:
 	VulkanStateManager();
 	~VulkanStateManager();
 
-	//pipeline
+	// pipeline
 	PipelineInfo*		GetPipelineInfo() const { return m_PipelineInfo; }
 	VulkanPipeline*		GetPipeline() const { return m_Pipeline; }
 	void SetPipeline(VulkanPipeline* pipeline) { m_Pipeline = pipeline; m_DirtyPipeline = false; }
 	bool GetPipelineDirty() { return m_DirtyPipeline; }
 	void SetPipelineDirty(bool dirty) { m_DirtyPipeline = dirty; }
+	PipelineType GetCurrentPipelineType() { return m_CurrentPipelinetype; }
 
 	void SetVertexShader(Shader* shader, std::string entryPoint = "main");
 	void SetPixelShader(Shader* shader, std::string entryPoint = "main");
 	void SetComputeShader(Shader* shader, std::string entryPoint = "main");
 	void SetRayTracingShaders(std::array<Shader*, MaxRTShaders> rayTracingShaders);
+
 	void EnableWireframe(bool enable);
 	void SetCullMode(const CullMode mode);
 	void SetWindingOrder(const WindingOrder wo);
@@ -71,7 +74,7 @@ public:
 	bool GetDescriptorSetDirty() { return m_DirtyDescriptorSet; }
 	void SetDescriptorSetDirty(bool dirty) { m_DirtyDescriptorSet = dirty; }
 
-	//uniform buffer
+	// uniform buffer
 	UniformBufferObject* GetUBO() const { return m_UBO; }
 	void UpdateUBOElement(UBOElement element, uint32_t count, void* data);
 	void SetUBODirty(bool dirty) { m_DirtyUBO = dirty; }
@@ -104,8 +107,6 @@ public:
 	uint8_t GetRenderTargetCount();
 	bool HasDepthStencil() { return m_DepthStencil ? true : false; }
 
-	PipelineType GetCurrentPipelineType() { return m_CurrentPipelinetype; }
-
 	void Reset();
 	void UpdateResourceStage(ManagableResource* texture);
 
@@ -115,21 +116,20 @@ private:
     RenderPassInfo*			m_RenderPassInfo;
 	RenderPass*				m_RenderPass;
 	UniformBufferObject*    m_UBO;
+	PipelineType			m_CurrentPipelinetype;
 
 	std::vector<VulkanDescriptor>	m_Descriptors;
 	VulkanDescriptorSet*			m_DescriptorSet;
 
-	bool m_DirtyPipeline = true;
-	bool m_DirtyRenderPass = true;
-	bool m_DirtyDescriptorSet = true;
-	bool m_DirtyUBO = true;
+	bool							m_DirtyPipeline = true;
+	bool							m_DirtyRenderPass = true;
+	bool							m_DirtyDescriptorSet = true;
+	bool							m_DirtyUBO = true;
 
 	std::vector<VulkanImageView*>	m_RenderTargets;
     VulkanImageView*				m_DepthStencil = nullptr;
 
 	PushConstant					m_PushConst;
 	bool							m_ShouldBindPushConst = false;
-
-	PipelineType m_CurrentPipelinetype;
 };
 

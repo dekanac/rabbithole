@@ -5,6 +5,7 @@
 #include <limits>
 
 #define VULKAN_HWRT
+#define USE_OPTICK 0
 
 #ifdef _DEBUG
 	#define RABBITHOLE_DEBUG
@@ -50,25 +51,26 @@ public: \
 
 #define GET_MIP_LEVELS_FROM_RES(width, height) (static_cast<uint32_t>(std::floor(std::log2(std::max(width, height)))) + 1)
 //move this to separate math lib
-typedef glm::vec4 rabbitVec4f;
-typedef glm::vec3 rabbitVec3f;
-typedef glm::vec2 rabbitVec2f;
-typedef glm::mat4 rabbitMat4f;
+typedef glm::vec4 Vector4f;
+typedef glm::vec3 Vector3f;
+typedef glm::vec2 Vector2f;
+typedef glm::mat4 Matrix44f;
+typedef glm::quat Quaternion;
 
-#define ZERO_VEC3f rabbitVec3f{0.0, 0.0, 0.0}
-#define ZERO_MAT4f rabbitMat4f{1.f}
+#define GLM_FORCE_RADIANS
+#define GLM_FORCE_DEPTH_ZERO_TO_ONE
 
-#define YELLOW_COLOR	rabbitVec4f{1.f, 1.f, 0.f, 1.f}
-#define RED_COLOR		rabbitVec4f{1.f, 0.f, 0.f, 1.f}
-#define BLUE_COLOR		rabbitVec4f{0.f, 0.f, 1.f, 1.f}
-#define PUPRPLE_COLOR	rabbitVec4f{1.f, 0.f, 1.f, 1.f}
-#define GREEN_COLOR		rabbitVec4f{0.f, 1.f, 0.f, 1.f}
-#define BLACK_COLOR		rabbitVec4f{0.f, 0.f, 0.f, 1.f}
+#define YELLOW_COLOR	Vector4f{1.f, 1.f, 0.f, 1.f}
+#define RED_COLOR		Vector4f{1.f, 0.f, 0.f, 1.f}
+#define BLUE_COLOR		Vector4f{0.f, 0.f, 1.f, 1.f}
+#define PUPRPLE_COLOR	Vector4f{1.f, 0.f, 1.f, 1.f}
+#define GREEN_COLOR		Vector4f{0.f, 1.f, 0.f, 1.f}
+#define BLACK_COLOR		Vector4f{0.f, 0.f, 0.f, 1.f}
 
 #define MB_16 16777216
 #define MB_64 67108864
 
-#define MAX_FRAMES_IN_FLIGHT (2)
+#define MAX_FRAMES_IN_FLIGHT (3)
 
 #define GetCSDispatchCount(A, B) (((A) + ((B) - 1)) / (B))
 

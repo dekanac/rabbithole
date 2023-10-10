@@ -4,6 +4,7 @@
 #include "Render/Shader.h"
 #include "Render/ResourceManager.h"
 #include "Render/Renderer.h"
+#include "Utils/Utils.h"
 #include <iostream>
 
 static std::atomic<bool> g_QuitRequested = false;
@@ -12,8 +13,9 @@ static std::string g_ChangedFilename = "";
 
 ShaderCompiler::ShaderCompiler()
 {
+	m_ShadersDir = Utils::FindResFolder().string() + "\\shaders\\";
 	m_Session = spCreateSession();
-	m_FileChangeMonitor.Init();
+	m_FileChangeMonitor.Init(m_ShadersDir);
 	m_Session->setDefaultDownstreamCompiler(SLANG_SOURCE_LANGUAGE_HLSL, SLANG_PASS_THROUGH_DXC);
 }
 
@@ -39,11 +41,6 @@ bool ShaderCompiler::CompileShader(const std::string& shaderName, const std::str
 	request->setDebugInfoLevel(SLANG_DEBUG_INFO_LEVEL_STANDARD);
 
 	SlangSourceLanguage srcLanguage = SLANG_SOURCE_LANGUAGE_SLANG;
-	if (shaderExt == "hlsl")
-	{
-		srcLanguage = SLANG_SOURCE_LANGUAGE_HLSL;
-		request->setPassThrough(SLANG_PASS_THROUGH_DXC);
-	}
 
 	auto translationUnitIdx = request->addTranslationUnit(srcLanguage, "");
 	request->addTranslationUnitSourceFile(translationUnitIdx, shaderPath.c_str());
@@ -99,17 +96,6 @@ SlangStage ShaderCompiler::GetStageFromShaderName(const std::string& shaderName)
 		return SLANG_STAGE_NONE;
 	}
 }
-
-FileChangeMonitor::FileChangeMonitor()
-{
-
-}
-
-FileChangeMonitor::~FileChangeMonitor()
-{
-
-}
-
 // Function that the separate thread will execute
 void MonitorChangesThread(HANDLE change, HANDLE changeEvent)
 {
@@ -160,10 +146,10 @@ bool FileChangeMonitor::CheckForChanges(std::string& inputString)
 	return false;
 }
 
-bool FileChangeMonitor::Init()
+bool FileChangeMonitor::Init(const std::string& shadersDir)
 {
 	// Specify the directory to monitor and the type of changes to track
-	LPCSTR directoryPath = "D:\\vsprojects\\rabbithole3d\\rabbithole\\res\\shaders\\";
+	LPCSTR directoryPath = shadersDir.c_str();
 	DWORD notifyFilter = FILE_NOTIFY_CHANGE_LAST_WRITE;  // Track changes to file names
 
 	// Start watching for changes

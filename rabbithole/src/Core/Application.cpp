@@ -1,4 +1,5 @@
 #include "Application.h"
+
 #include "ECS/EntityManager.h"
 #include "Input/InputManager.h"
 #include "Logger/Logger.h"
@@ -7,7 +8,9 @@
 #include "Render/Window.h"
 
 #include <GLFW/glfw3.h>
-#include <optick.h>
+
+#include <optick/src/optick.config.h>
+#include <optick/src/optick.h>
 
 #include <iostream>
 #include <fstream>

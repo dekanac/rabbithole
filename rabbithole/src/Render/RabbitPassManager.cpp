@@ -1,6 +1,6 @@
 #include "RabbitPassManager.h"
 
-#include <optick.h>
+#include <optick/src/optick.h>
 
 #include "Render/RabbitPass.h"
 #include "Render/RabbitPasses/AmbientOcclusion.h"

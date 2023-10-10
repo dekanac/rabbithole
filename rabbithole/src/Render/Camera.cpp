@@ -22,8 +22,8 @@ Camera::Camera()
 	, m_Aspect(static_cast<float>(Window::instance().GetExtent().width) / Window::instance().GetExtent().height)
 	, m_Pitch(0.f)
 	, m_Yaw(0.f)
-	, m_ProjMatrix(rabbitMat4f{ 1.f })
-	, m_ViewMatrix(rabbitMat4f{ 1.f })
+	, m_ProjMatrix(Matrix44f{ 1.f })
+	, m_ViewMatrix(Matrix44f{ 1.f })
 	, m_FocalPoint({ 0.0f, 0.0f, 0.0f })
 	, m_CameraPanSpeed(0.8f)
 	, m_Distance(0.f)
@@ -76,7 +76,7 @@ void Camera::Update(float dt)
 
 	if (InputManager::IsActionActive(cameraInput, "ActivateCameraMove"))
 	{
-		glm::vec2 delta = { inputComp->mouse_x * cameraSpeed, inputComp->mouse_y * cameraSpeed };
+		Vector2f delta = { inputComp->mouse_x * cameraSpeed, inputComp->mouse_y * cameraSpeed };
 
 		if (InputManager::IsActionActive(cameraInput, "ActivateCameraPan"))
 			MousePan(delta);
@@ -118,27 +118,27 @@ void Camera::Update(float dt)
 	UpdateView();
 }
 
-rabbitMat4f Camera::GetMatrix() const
+Matrix44f Camera::GetMatrix() const
 {
 	return m_ProjMatrix * m_ViewMatrix;
 }
 
-rabbitMat4f Camera::Projection() const
+Matrix44f Camera::Projection() const
 {
 	return m_ProjMatrix;
 }
 
-rabbitMat4f Camera::ProjectionJittered() const
+Matrix44f Camera::ProjectionJittered() const
 {
 	return m_ProjMatrixJittered;
 }
 
-rabbitMat4f Camera::View() const
+Matrix44f Camera::View() const
 {
 	return m_ViewMatrix;
 }
 
-const rabbitVec3f Camera::GetPosition() const 
+const Vector3f Camera::GetPosition() const 
 {
 	return CalculatePosition();
 }
@@ -183,46 +183,46 @@ void Camera::SetViewportAspectRatio(float vpaspect)
 	m_Aspect = vpaspect;
 }
 
-glm::quat Camera::GetOrientation() const
+Quaternion Camera::GetOrientation() const
 {
-	return glm::quat(glm::vec3(-m_Pitch, -m_Yaw, 0.0f));
+	return Quaternion(Vector3f(-m_Pitch, -m_Yaw, 0.0f));
 }
 
-glm::vec3 Camera::GetUpDirection() const
+Vector3f Camera::GetUpDirection() const
 {
-	return glm::rotate(GetOrientation(), glm::vec3(0.0f, 1.0f, 0.0f));
+	return glm::rotate(GetOrientation(), Vector3f(0.0f, 1.0f, 0.0f));
 }
 
-glm::vec3 Camera::CalculatePosition() const
+Vector3f Camera::CalculatePosition() const
 {
 	return m_FocalPoint - GetForwardDirection() * m_Distance;
 }
 
-glm::vec3 Camera::GetRightDirection() const
+Vector3f Camera::GetRightDirection() const
 {
-	return glm::rotate(GetOrientation(), glm::vec3(1.0f, 0.0f, 0.0f));
+	return glm::rotate(GetOrientation(), Vector3f(1.0f, 0.0f, 0.0f));
 }
 
-glm::vec3 Camera::GetForwardDirection() const
+Vector3f Camera::GetForwardDirection() const
 {
-	return glm::rotate(GetOrientation(), glm::vec3(0.0f, 0.0f, -1.0f));
+	return glm::rotate(GetOrientation(), Vector3f(0.0f, 0.0f, -1.0f));
 }
 
 void Camera::UpdateView()
 {
 	m_Position = CalculatePosition();
-	glm::quat orientation = GetOrientation();
-	m_ViewMatrix = glm::translate(glm::mat4(1.0f), m_Position) * glm::toMat4(orientation);
+	Quaternion orientation = GetOrientation();
+	m_ViewMatrix = glm::translate(Matrix44f(1.0f), m_Position) * glm::toMat4(orientation);
 	m_ViewMatrix = glm::inverse(m_ViewMatrix);
 }
 
-void Camera::MousePan(const glm::vec2& delta)
+void Camera::MousePan(const Vector2f& delta)
 {
 	m_FocalPoint += -GetRightDirection() * delta.x * m_CameraPanSpeed;
 	m_FocalPoint += GetUpDirection() * delta.y * m_CameraPanSpeed;
 }
 
-void Camera::MouseRotate(const glm::vec2& delta)
+void Camera::MouseRotate(const Vector2f& delta)
 {
 	float yawSign = GetUpDirection().y < 0 ? -1.0f : 1.0f;
 	m_Yaw += yawSign * delta.x;

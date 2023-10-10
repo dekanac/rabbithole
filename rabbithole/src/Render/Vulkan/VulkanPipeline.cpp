@@ -1,7 +1,7 @@
 #include "precomp.h"
 
+#include "Logger/Logger.h"
 #include "Render/Converters.h"
-#include "Render/Model/Model.h"
 #include "Render/Renderer.h"
 #include "Render/Shader.h"
 #include "Render/SuperResolutionManager.h"

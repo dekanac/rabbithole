@@ -1,12 +1,12 @@
 #pragma once
 
-#include <vector>
-#include <unordered_map>
-#include <optick.h>
-
 #include "Render/Renderer.h"
 
-class Renderer;
+#include <optick/src/optick.h>
+
+#include <vector>
+#include <unordered_map>
+
 class VulkanTexture;
 class VulkanBuffer;
 

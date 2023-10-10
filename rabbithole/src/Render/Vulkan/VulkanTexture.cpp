@@ -1,7 +1,6 @@
 #include "precomp.h"
 
 #include "Render/Converters.h"
-#include "Render/Model/Model.h"
 #include "Render/Model/TextureLoading.h"
 
 VulkanTexture::VulkanTexture(VulkanDevice& device, RWTextureCreateInfo& createInfo)
@@ -101,7 +100,12 @@ void VulkanTexture::CreateResource(VulkanDevice* device, const TextureData* texD
 
 	uint64_t textureSize = GetTextureSizeFrom(m_Format, textureExtent, generateMipsLater ? 1 : mipCount, arraySize);
 
-	VulkanBuffer stagingBuffer(*device, BufferUsageFlags::TransferSrc, MemoryAccess::CPU, textureSize, "StagingBuffer");
+	VulkanBuffer stagingBuffer(*device, BufferCreateInfo{
+		.flags = BufferUsageFlags::TransferSrc,
+		.memoryAccess = MemoryAccess::CPU,
+		.size = textureSize,
+		.name = "StagingBuffer" 
+	});
 	stagingBuffer.FillBuffer(texData->pData, textureSize);
 
 	VulkanImageInfo textureResourceInfo;
@@ -177,7 +181,7 @@ void VulkanTexture::CreateResource(VulkanDevice* device, RWTextureCreateInfo& cr
 	textureResourceInfo.UsageFlags = 
 		(IsFlagSet(m_Flags & TextureFlags::TransferDst) ? ImageUsageFlags::TransferDst : ImageUsageFlags::None) |
 		(IsFlagSet(m_Flags & TextureFlags::TransferSrc) ? ImageUsageFlags::TransferSrc : ImageUsageFlags::None) |
-		(IsFlagSet(m_Flags & TextureFlags::DepthStencil) ? ImageUsageFlags::DepthStencil : ImageUsageFlags::None) | //TODO: investigate this storage flag
+		(IsFlagSet(m_Flags & TextureFlags::DepthStencil) ? ImageUsageFlags::DepthStencil : ImageUsageFlags::None) |
 		(IsFlagSet(m_Flags & TextureFlags::Read) ? ImageUsageFlags::Resource : ImageUsageFlags::None) |
 		(IsFlagSet(m_Flags & TextureFlags::RenderTarget) ? ImageUsageFlags::RenderTarget : ImageUsageFlags::None) |
 		(IsFlagSet(m_Flags & TextureFlags::Storage) ? ImageUsageFlags::Storage : ImageUsageFlags::None);

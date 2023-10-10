@@ -2,7 +2,6 @@
 
 #include "Logger/Logger.h"
 
-#include <vector>
 #include <fstream>
 #include <iostream>
 #include <chrono>
@@ -28,7 +27,7 @@ namespace Utils
 		return endtime - start;
 	}
 
-	void PrintMatrix(const rabbitMat4f& matrix)
+	void PrintMatrix(const Matrix44f& matrix)
 	{
 		std::cout << std::setprecision(2) << std::fixed;
 		for (int i = 0; i < matrix.length(); i++)
@@ -72,6 +71,26 @@ namespace Utils
 	{
 		ASSERT(ptr != nullptr, "Free failed!");
 		free(ptr);
+	}
+
+	// Function to search for the "res" folder recursively in parent directories
+	std::filesystem::path FindResFolder(const std::filesystem::path& currentDir) 
+	{
+		std::filesystem::path resDir = currentDir / "res";
+
+		// Check if the "res" folder exists in the current directory
+		if (std::filesystem::exists(resDir) && std::filesystem::is_directory(resDir)) {
+			return resDir;
+		}
+
+		// If not found, check parent directory
+		std::filesystem::path parentDir = currentDir.parent_path();
+		if (!parentDir.empty()) {
+			return FindResFolder(parentDir);
+		}
+
+		// If we reach the root directory and still haven't found "res," return an empty path
+		return "";
 	}
 
 }

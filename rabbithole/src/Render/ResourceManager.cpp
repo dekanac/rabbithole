@@ -1,17 +1,7 @@
 #include "ResourceManager.h"
 
 #include "Logger/Logger.h"
-#include "Utils/utils.h"
-
-bool operator<(const AllocatedResource& lhs, const AllocatedResource& rhs)
-{
-	return lhs.GetID() < rhs.GetID();
-}
-
-bool operator==(const AllocatedResource& lhs, const AllocatedResource& rhs)
-{
-	return lhs.GetID() == rhs.GetID();
-}
+#include "Utils/Utils.h"
 
 ResourceManager::ResourceManager()
 {
@@ -20,10 +10,8 @@ ResourceManager::ResourceManager()
 
 ResourceManager::~ResourceManager()
 {
-	uint32_t i = 0;
 	for (AllocatedResource* allocatedResource : m_AllocatedResources) 
 	{ 
-		i++;
 		if (allocatedResource) 
 			delete(allocatedResource); 
 	}
@@ -53,16 +41,13 @@ VulkanTexture* ResourceManager::CreateTexture(VulkanDevice& device, std::string 
 		auto cubeMapData = TextureLoading::LoadCubemap(path);
 
 		texData = new TextureData{};
-		texData->bpp = cubeMapData->pData[0]->bpp;
 		texData->width = cubeMapData->pData[0]->width;
 		texData->height = cubeMapData->pData[0]->height;
-
-		size_t imageSize = texData->height * texData->width * 4;
-
-		texData->pData = RABBIT_ALLOC(unsigned char, imageSize * 6);
+		texData->size = texData->height * texData->width * 4 * 6;
+		texData->pData = RABBIT_ALLOC(unsigned char, texData->size);
 		for (int i = 0; i < 6; i++)
 		{
-			memcpy(texData->pData + i * imageSize, cubeMapData->pData[i]->pData, imageSize);
+			memcpy(texData->pData + i * texData->size / 6, cubeMapData->pData[i]->pData, texData->size / 6);
 		}
 
 		TextureLoading::FreeCubemap(cubeMapData);

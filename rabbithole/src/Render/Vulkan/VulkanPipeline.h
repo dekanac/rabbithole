@@ -4,8 +4,6 @@
 #include "VulkanPipeline.h"
 #include "VulkanCommandBuffer.h"
 
-#include "Logger/Logger.h"
-
 #include <string>
 #include <vector>
 
@@ -26,7 +24,7 @@ public:
 	VulkanPipelineLayout(VulkanDevice& device, std::vector<VulkanDescriptorSetLayout*>& descriptorSetLayouts, const std::vector<VkPushConstantRange>& pushConsts);
 	~VulkanPipelineLayout();
 
-	inline const VkPipelineLayout GetVkHandle() const { return m_PipelineLayout; }
+	const VkPipelineLayout GetVkHandle() const { return m_PipelineLayout; }
 
 private:
 	VulkanDevice& m_Device;
@@ -61,23 +59,23 @@ public:
 	void SetColorWriteMask(const uint32_t mrtIndex, const ColorWriteMaskFlags mask);
 	void SetColorWriteMask(const uint32_t mrtIndex, const uint32_t mrtCount, const ColorWriteMaskFlags masks[]);
 
-	Shader*									vertexShader;
+	Shader*									vertexShader = nullptr;
 	std::string								vsEntryPoint = "main";
-	Shader*									pixelShader;
+	Shader*									pixelShader = nullptr;
 	std::string								psEntryPoint = "main";
-	Shader*									computeShader;
+	Shader*									computeShader = nullptr;
 	std::string								csEntryPoint = "main";
 	std::array<Shader*, MaxRTShaders>		rayTracingShaders = { nullptr };
 
-	VkViewport								viewport;
-	VkRect2D								scissor;
-	VkPipelineViewportStateCreateInfo		viewportInfo;
-	VkPipelineInputAssemblyStateCreateInfo	inputAssemblyInfo;
-	VkPipelineRasterizationStateCreateInfo	rasterizationInfo;
-	VkPipelineMultisampleStateCreateInfo	multisampleInfo;
-	VkPipelineColorBlendAttachmentState		colorBlendAttachment[MaxRenderTargetCount];
-	VkPipelineColorBlendStateCreateInfo		colorBlendInfo;
-	VkPipelineDepthStencilStateCreateInfo	depthStencilInfo;
+	VkViewport								viewport{};
+	VkRect2D								scissor{};
+	VkPipelineViewportStateCreateInfo		viewportInfo{};
+	VkPipelineInputAssemblyStateCreateInfo	inputAssemblyInfo{};
+	VkPipelineRasterizationStateCreateInfo	rasterizationInfo{};
+	VkPipelineMultisampleStateCreateInfo	multisampleInfo{};
+	VkPipelineColorBlendAttachmentState		colorBlendAttachment[MaxRenderTargetCount]{};
+	VkPipelineColorBlendStateCreateInfo		colorBlendInfo{};
+	VkPipelineDepthStencilStateCreateInfo	depthStencilInfo{};
 	VkPipelineLayout						pipelineLayout = nullptr;
 	VulkanRenderPass*						renderPass = nullptr;
 	uint32_t								subpass = 0;

@@ -74,21 +74,21 @@ enum LightType : uint32_t
 //keep in sync with UBOElement in VulkanStatemanager
 struct UniformBufferObject
 {
-	rabbitMat4f view;
-	rabbitMat4f proj;
-	rabbitVec4f cameraPos;
-	rabbitVec4f debugOption;
-	rabbitMat4f viewProjInverse;
-	rabbitMat4f viewProjMatrix;
-	rabbitMat4f prevViewProjMatrix;
-	rabbitMat4f viewInverse;
-	rabbitMat4f projInverse;
-    rabbitVec4f frustrumInfo;
-	rabbitVec4f eyeXAxis;
-	rabbitVec4f eyeYAxis;
-	rabbitVec4f eyeZAxis;
-	rabbitMat4f projJittered;
-	rabbitVec4f currentFrameInfo;
+	Matrix44f view;
+	Matrix44f proj;
+	Vector4f cameraPos;
+	Vector4f debugOption;
+	Matrix44f viewProjInverse;
+	Matrix44f viewProjMatrix;
+	Matrix44f prevViewProjMatrix;
+	Matrix44f viewInverse;
+	Matrix44f projInverse;
+    Vector4f frustrumInfo;
+	Vector4f eyeXAxis;
+	Vector4f eyeYAxis;
+	Vector4f eyeZAxis;
+	Matrix44f projJittered;
+	Vector4f currentFrameInfo;
 };
 
 struct IndexedIndirectBuffer
@@ -185,14 +185,13 @@ public:
 	void CopyImage(VulkanTexture* src, VulkanTexture* dst);
 	void CopyBuffer(VulkanBuffer& src, VulkanBuffer& dst, uint64_t size = UINT64_MAX, uint64_t srcOffset = 0, uint64_t dstOffset = 0);
 
-	inline Shader*			GetShader(const std::string& name) { return m_ResourceManager.GetShader(name); }
-	inline VulkanTexture*	GetTextureWithID(uint32_t textureId) { return m_ResourceManager.GetTextures()[textureId]; }
-	inline Camera&			GetCamera() { return m_MainCamera; }
-	inline UIState&			GetUIState() { return m_CurrentUIState; }
-	inline CameraState&		GetCameraState() { return m_CurrentCameraState; }
-	inline bool				IsImguiReady() { return m_ImGuiManager.IsInitialized() && m_ImGuiManager.IsReady(); }
-
-	void UpdateEntityPickId();
+	inline Shader*				GetShader(const std::string& name) { return m_ResourceManager.GetShader(name); }
+	inline VulkanTexture*		GetTextureWithID(uint32_t textureId) { return m_ResourceManager.GetTextures()[textureId]; }
+	inline Camera&				GetCamera() { return m_MainCamera; }
+	inline UIState&				GetUIState() { return m_CurrentUIState; }
+	inline CameraState&			GetCameraState() { return m_CurrentCameraState; }
+	inline bool					IsImguiReady() { return m_ImGuiManager.IsInitialized() && m_ImGuiManager.IsReady(); }
+	inline const std::string&	GetResFolderPath() { return m_ResFolder; }
 
 	template<typename T>
 	void BindPushConst(T& data)
@@ -205,7 +204,7 @@ public:
 		m_StateManager.SetShouldBindPushConst(true);
 	}
 	void BindViewport(float x, float y, float width, float height);
-	void BindVertexData(size_t offset);
+	void BindVertexData(size_t offset = 0);
 	void DrawVertices(uint32_t count);
 	void Dispatch(uint32_t x, uint32_t y, uint32_t z);
 	void CopyToSwapChain();
@@ -256,7 +255,7 @@ public:
 	RayTracing::AccelerationStructure TLAS;
 #endif
 
-	//frustrum 3d map
+	// noise textures
 	VulkanTexture* noise3DLUT;
 	VulkanTexture* noise2DTexture;
 	VulkanTexture* blueNoise2DTexture;
@@ -278,6 +277,8 @@ private:
 	float m_CurrentDeltaTime;
 	float m_CurrentCPUTimeInMS;
 	float m_TimeWhenRendererStarted;
+
+	std::string m_ResFolder = "";
 
 public:
 	//Don't ask, Imgui init wants swapchain renderpass to be ready, but its not. So basically we need 2 init phases..

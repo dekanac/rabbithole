@@ -94,7 +94,7 @@ struct BufferCreateInfo
 {
 	BufferUsageFlags	flags = BufferUsageFlags::None;
 	MemoryAccess		memoryAccess = MemoryAccess::CPU;
-	uint32_t			size = 0;
+	uint64_t			size = 0;
 	std::string			name = "Buffer";
 };
 

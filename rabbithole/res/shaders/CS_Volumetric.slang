@@ -16,7 +16,6 @@
 };
 
 [[vk::binding(5)]] RWTexture3D<float4> mediaDensity3DLUT;
-[[vk::binding(6)]] Sampler3D<float4> samplerNoise3DLUT;
 [[vk::binding(9)]] Sampler3D<float> samplerVolumetricShadows;
 
 [numthreads(8, 4, 8)]
@@ -53,7 +52,7 @@ void CalculateDensity(uint3 dispatchThreadId: SV_DispatchThreadID)
     float sunlightIntensity = lights[0].intensity;
     // TODO: deal with shadows here and update densityVal
     float shadowedSunlight = 1.0f;
-    float noiseDensity = samplerNoise3DLUT.Sample(uv).r * 0.005f;
+    float noiseDensity = 0.005f;
     float shadow = samplerVolumetricShadows.Sample(uv).r;
 
     if (sunlightIntensity > 0.f)

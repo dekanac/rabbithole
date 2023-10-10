@@ -9,8 +9,8 @@
 #include "Render/Window.h"
 #include "Utils/utils.h"
 
-#include <fsr2.0/ffx_fsr2.h>
-#include <fsr2.0/vk/ffx_fsr2_vk.h>
+#include <ffx_fsr2.h>
+#include <vk/ffx_fsr2_vk.h>
 #include <vulkan/vulkan.h>
 
 void SuperResolutionManager::Init(VulkanDevice* device)

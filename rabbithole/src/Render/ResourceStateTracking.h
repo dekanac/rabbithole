@@ -10,7 +10,6 @@ class ResourceStateTrackingManager
 public:
 	void CommitBarriers(Renderer& renderer);
 	void AddResourceForTransition(ManagableResource* resource);
-	void Reset();
 
 private:
 

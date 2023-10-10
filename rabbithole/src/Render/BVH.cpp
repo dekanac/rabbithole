@@ -23,8 +23,8 @@ namespace BVH
 		// else, work size > 4, divide  node further into smaller nodes
 		// start by finding the working list's bounding box (top and bottom)
 
-		rabbitVec3f bottom(FLT_MAX, FLT_MAX, FLT_MAX);
-		rabbitVec3f top(-FLT_MAX, -FLT_MAX, -FLT_MAX);
+		Vector3f bottom(FLT_MAX, FLT_MAX, FLT_MAX);
+		Vector3f top(-FLT_MAX, -FLT_MAX, -FLT_MAX);
 
 		// loop over all bboxes in current working list, expanding/growing the working list bbox
 		for (unsigned i = 0; i < work.size(); i++)
@@ -87,10 +87,10 @@ namespace BVH
 			for (float testSplit = start + step; testSplit < stop - step; testSplit += step) {
 
 				// Create left and right bounding box
-				rabbitVec3f lbottom(FLT_MAX, FLT_MAX, FLT_MAX);
-				rabbitVec3f ltop(-FLT_MAX, -FLT_MAX, -FLT_MAX);
-				rabbitVec3f rbottom(FLT_MAX, FLT_MAX, FLT_MAX);
-				rabbitVec3f rtop(-FLT_MAX, -FLT_MAX, -FLT_MAX);
+				Vector3f lbottom(FLT_MAX, FLT_MAX, FLT_MAX);
+				Vector3f ltop(-FLT_MAX, -FLT_MAX, -FLT_MAX);
+				Vector3f rbottom(FLT_MAX, FLT_MAX, FLT_MAX);
+				Vector3f rtop(-FLT_MAX, -FLT_MAX, -FLT_MAX);
 
 				// The number of triangles in the left and right bboxes (needed to calculate SAH cost function)
 				int countLeft = 0, countRight = 0;
@@ -169,10 +169,10 @@ namespace BVH
 		BBoxEntries left;
 		BBoxEntries right;  // BBoxEntries is a vector/list of BBoxTmp 
 
-		rabbitVec3f lbottom(FLT_MAX, FLT_MAX, FLT_MAX);
-		rabbitVec3f ltop(-FLT_MAX, -FLT_MAX, -FLT_MAX);
-		rabbitVec3f rbottom(FLT_MAX, FLT_MAX, FLT_MAX);
-		rabbitVec3f rtop(-FLT_MAX, -FLT_MAX, -FLT_MAX);
+		Vector3f lbottom(FLT_MAX, FLT_MAX, FLT_MAX);
+		Vector3f ltop(-FLT_MAX, -FLT_MAX, -FLT_MAX);
+		Vector3f rbottom(FLT_MAX, FLT_MAX, FLT_MAX);
+		Vector3f rtop(-FLT_MAX, -FLT_MAX, -FLT_MAX);
 
 		// distribute the triangles in the left or right child nodes
 		// for each triangle in the work set
@@ -221,7 +221,7 @@ namespace BVH
 	}  // end of Recurse() function, returns the rootnode (when all recursion calls have finished)
 
 
-	BVHNode* CreateBVH(std::vector<rabbitVec4f>& vertices, std::vector<Triangle>& triangles)
+	BVHNode* CreateBVH(std::vector<Vector4f>& vertices, std::vector<Triangle>& triangles)
 	{
 		/* Summary:
 		1. Create work BBox
@@ -233,8 +233,8 @@ namespace BVH
 		*/
 
 		std::vector<BBoxTmp> work;
-		rabbitVec3f bottom(FLT_MAX, FLT_MAX, FLT_MAX);
-		rabbitVec3f top(-FLT_MAX, -FLT_MAX, -FLT_MAX);
+		Vector3f bottom(FLT_MAX, FLT_MAX, FLT_MAX);
+		Vector3f top(-FLT_MAX, -FLT_MAX, -FLT_MAX);
 
 		puts("Gathering bounding box info from all triangles...");
 		// for each triangle
@@ -247,14 +247,14 @@ namespace BVH
 			b.pTri = &triangle;
 
 			// loop over triangle vertices and pick smallest vertex for bottom of triangle bbox
-			b.bottom = glm::min(b.bottom, rabbitVec3f{ vertices[triangle.indices[0]] });  // index of vertex
-			b.bottom = glm::min(b.bottom, rabbitVec3f{ vertices[triangle.indices[1]] });
-			b.bottom = glm::min(b.bottom, rabbitVec3f{ vertices[triangle.indices[2]] });
+			b.bottom = glm::min(b.bottom, Vector3f{ vertices[triangle.indices[0]] });  // index of vertex
+			b.bottom = glm::min(b.bottom, Vector3f{ vertices[triangle.indices[1]] });
+			b.bottom = glm::min(b.bottom, Vector3f{ vertices[triangle.indices[2]] });
 
 			// loop over triangle vertices and pick largest vertex for top of triangle bbox
-			b.top = glm::max(b.top, rabbitVec3f{ vertices[triangle.indices[0]] });
-			b.top = glm::max(b.top, rabbitVec3f{ vertices[triangle.indices[1]] });
-			b.top = glm::max(b.top, rabbitVec3f{ vertices[triangle.indices[2]] });
+			b.top = glm::max(b.top, Vector3f{ vertices[triangle.indices[0]] });
+			b.top = glm::max(b.top, Vector3f{ vertices[triangle.indices[1]] });
+			b.top = glm::max(b.top, Vector3f{ vertices[triangle.indices[2]] });
 
 			// expand working list bbox by largest and smallest triangle bbox bounds
 			bottom = glm::min(bottom, b.bottom);

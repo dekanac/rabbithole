@@ -4,7 +4,7 @@
 #include "Render/SuperResolutionManager.h"
 #include "Render/Window.h"
 
-#include <optick.h>
+#include <optick/src/optick.h>
 
 #include <array>
 #include <cstdlib>
@@ -248,6 +248,7 @@ VkPresentModeKHR VulkanSwapchain::ChooseSwapPresentMode(const std::vector<VkPres
 {
 	if (Window::instance().GetVSyncEnabled())
 	{
+		LOG_INFO("Present mode: V - Sync");
 		return VK_PRESENT_MODE_FIFO_KHR;
 	}
 
@@ -269,8 +270,7 @@ VkPresentModeKHR VulkanSwapchain::ChooseSwapPresentMode(const std::vector<VkPres
 		}
 	}
 
-	LOG_INFO("Present mode: V - Sync");
-	return VK_PRESENT_MODE_FIFO_KHR;
+	return VK_PRESENT_MODE_IMMEDIATE_KHR;
 }
 
 VkExtent2D VulkanSwapchain::ChooseSwapExtent(const VkSurfaceCapabilitiesKHR& capabilities) 

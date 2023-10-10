@@ -73,9 +73,7 @@ void OutlineEntityPass::Setup()
 	stateManager.SetPixelShader(m_Renderer.GetShader("FS_OutlineEntity"));
 
 	stateManager.ShouldCleanColor(LoadOp::Load);
-
-	m_Renderer.UpdateEntityPickId();
-
+	// TODO: add missing logic on cpu side
 	auto pipelineInfo = stateManager.GetPipelineInfo();
 	pipelineInfo->SetAttachmentCount(1);
 	pipelineInfo->SetColorWriteMask(0, ColorWriteMaskFlags::RGBA);

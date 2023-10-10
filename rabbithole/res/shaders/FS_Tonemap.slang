@@ -64,10 +64,8 @@ float4 main(in float2 inUV : VPOS)
     float3 color = samplerInputTexture.Sample(inUV).rgb;
     // HDR tonemapping
     color = color / (color + float3(1.0, 1.0, 1.0));
-
     // tonemap
     color = AMDTonemapper(color);
-
     // gamma correct
     color = pow(color, float3(1.0 / 2.2));
 
