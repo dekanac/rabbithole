@@ -17,7 +17,7 @@ class VulkanTexture;
 
 class VulkanSwapchain {
 public:
-	VulkanSwapchain(VulkanDevice& deviceRef, VkExtent2D windowExtent);
+	VulkanSwapchain(VulkanDevice& deviceRef, VkExtent2D windowExtent, VkSwapchainKHR oldSwapchain = VK_NULL_HANDLE);
 	~VulkanSwapchain();
 
 	NonCopyableAndMovable(VulkanSwapchain);
@@ -34,9 +34,9 @@ public:
 
 	VkResult		AcquireNextImage(uint32_t* imageIndex);
 	VkResult		SubmitCommandBufferAndPresent(VulkanCommandBuffer& buffer, uint32_t* imageIndex);
-
+	VkSwapchainKHR  GetVkHandle() { return m_SwapChain; }
 private:
-	void CreateSwapChain();
+	void CreateSwapChain(VkSwapchainKHR oldSwapChain = VK_NULL_HANDLE);
 	void CreateImageViews();
 	void CreateSyncObjects();
 

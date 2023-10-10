@@ -38,7 +38,7 @@ bool Renderer::Init()
 	m_MainCamera.Init();
 	SuperResolutionManager::instance().Init(&m_VulkanDevice);
 
-	RecreateSwapchain();
+	CreateSwapchain();
 	CreateUniformBuffers();
 	CreateDescriptorPool();
 	CreateCommandBuffers();
@@ -53,6 +53,14 @@ bool Renderer::Init()
 
 	InitDefaultTextures();
 	LoadModels();
+	InitLights();
+#if defined(VULKAN_HWRT)
+	RayTracing::InitRTFunctions(m_VulkanDevice);
+	//init acceleration structure
+	CreateAccelerationStructure();
+#else
+	ConstructBVH();
+#endif
 
 	m_RabbitPassManager.SchedulePasses(*this);
 	m_RabbitPassManager.DeclareResources();
@@ -62,16 +70,6 @@ bool Renderer::Init()
 	//for now max 10240 commands
 	m_GeometryIndirectDrawBuffer = new IndexedIndirectBuffer(m_VulkanDevice, 10240);
 	m_IndirectCloudDrawBuffer = new IndexedIndirectBuffer(m_VulkanDevice, 10240);
-	
-#if defined(VULKAN_HWRT)
-	RayTracing::InitRTFunctions(m_VulkanDevice);
-	//init acceleration structure
-	CreateAccelerationStructure();
-#else
-	ConstructBVH();
-#endif
-
-	InitLights();
 
 	return true;
 }
@@ -234,9 +232,9 @@ void Renderer::CalculateMatrices(VulkanglTFModel::Node* node, Vertex* vertexBuff
 
 void Renderer::LoadModels()
 {
-	//gltfModels.emplace_back(this, m_ResFolder + "\\meshes\\separateObjects.gltf", RenderingContext::GBuffer_Opaque);
+	gltfModels.emplace_back(this, m_ResFolder + "\\meshes\\separateObjects.gltf", RenderingContext::GBuffer_Opaque);
 	//gltfModels.emplace_back(this,  m_ResFolder + "\\meshes\\cottage.gltf", RenderingContext::GBuffer_Opaque);
-	gltfModels.emplace_back(this, m_ResFolder + "\\meshes\\sponza\\sponza.gltf", RenderingContext::GBuffer_Opaque);
+	//gltfModels.emplace_back(this, m_ResFolder + "\\meshes\\sponza\\sponza.gltf", RenderingContext::GBuffer_Opaque);
 	//gltfModels.emplace_back(this, m_ResFolder + "\\meshes\\sponzaNew\\MainSponza.gltf", RenderingContext::GBuffer_Opaque);
 
 	//cloudMeshes.emplace_back(this, m_ResFolder + "\\meshes\\simpleShapes\\sphere.gltf", RenderingContext::Clouds_Transparent);
@@ -839,7 +837,7 @@ void Renderer::CreateCommandBuffers()
 	}
 }
 
-void Renderer::RecreateSwapchain()
+void Renderer::CreateSwapchain()
 {
 	auto nativeWindowHandle = Window::instance().GetNativeWindowHandle();
 
@@ -856,6 +854,25 @@ void Renderer::RecreateSwapchain()
 	VULKAN_API_CALL(vkDeviceWaitIdle(m_VulkanDevice.GetGraphicDevice()));
 
 	m_VulkanSwapchain = std::make_unique<VulkanSwapchain>(m_VulkanDevice, Extent2D{ static_cast<uint32_t>(currentWidth), static_cast<uint32_t>(currentHeight) });
+}
+
+void Renderer::RecreateSwapchain()
+{
+	auto nativeWindowHandle = Window::instance().GetNativeWindowHandle();
+
+	int currentWidth = Window::instance().GetExtent().width;
+	int currentHeight = Window::instance().GetExtent().height;
+
+	/* handles minimization of a window ? */
+	while (currentWidth == 0 || currentHeight == 0)
+	{
+		glfwGetFramebufferSize(nativeWindowHandle, &currentWidth, &currentHeight);
+		glfwWaitEvents();
+	}
+
+	VULKAN_API_CALL(vkDeviceWaitIdle(m_VulkanDevice.GetGraphicDevice()));
+
+	m_VulkanSwapchain = std::make_unique<VulkanSwapchain>(m_VulkanDevice, Extent2D{ static_cast<uint32_t>(currentWidth), static_cast<uint32_t>(currentHeight) }, GET_VK_HANDLE_PTR(m_VulkanSwapchain.get()));
 }
 
 void Renderer::ResourceBarrier(VulkanTexture* texture, ResourceState oldLayout, ResourceState newLayout, ResourceStage srcStage, ResourceStage dstStage, uint32_t mipLevel, uint32_t mipCount)

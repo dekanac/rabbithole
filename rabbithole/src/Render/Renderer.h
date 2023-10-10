@@ -138,6 +138,7 @@ private:
 	void LoadModels();
 	void LoadAndCreateShaders();
 	void CreateCommandBuffers();
+	void CreateSwapchain();
 	void RecreateSwapchain();
 	void CreateUniformBuffers();
 	void CreateDescriptorPool();

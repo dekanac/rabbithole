@@ -14,10 +14,10 @@
 #include <set>
 #include <stdexcept>
 
-VulkanSwapchain::VulkanSwapchain(VulkanDevice& deviceRef, VkExtent2D extent)
+VulkanSwapchain::VulkanSwapchain(VulkanDevice& deviceRef, VkExtent2D extent, VkSwapchainKHR oldSwapchain)
 	: m_VulkanDevice{ deviceRef }, m_WindowExtent{ extent } 
 {
-	CreateSwapChain();
+	CreateSwapChain(oldSwapchain);
 	CreateImageViews();
 	CreateSyncObjects();
 }
@@ -110,7 +110,7 @@ VkResult VulkanSwapchain::SubmitCommandBufferAndPresent(VulkanCommandBuffer& buf
 	return result;
 }
 
-void VulkanSwapchain::CreateSwapChain() 
+void VulkanSwapchain::CreateSwapChain(VkSwapchainKHR oldSwapChain)
 {
 	SwapChainSupportDetails swapChainSupport = m_VulkanDevice.GetSwapChainSupport();
 
@@ -158,7 +158,7 @@ void VulkanSwapchain::CreateSwapChain()
 	createInfo.presentMode = presentMode;
 	createInfo.clipped = VK_TRUE;
 
-	createInfo.oldSwapchain = VK_NULL_HANDLE;
+	createInfo.oldSwapchain = oldSwapChain;
 
 	VULKAN_API_CALL(vkCreateSwapchainKHR(m_VulkanDevice.GetGraphicDevice(), &createInfo, nullptr, &m_SwapChain));
 
