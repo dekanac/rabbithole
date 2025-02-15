@@ -1,4 +1,3 @@
-
 #define lightCount 4
 
 struct CFBVHNode
@@ -31,6 +30,7 @@ struct UniformBufferObject
 	float4 eyeZAxis;
 	float4x4 projJittered;
     float4 currentFrameInfo; //x = current frame index, y = timePassedSinceStart, // z = deltaTime
+    float4x4 viewProjJittered;
 };
 
 struct SSAOParams

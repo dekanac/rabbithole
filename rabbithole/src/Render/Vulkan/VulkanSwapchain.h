@@ -1,14 +1,14 @@
 #pragma once
 
-#include "VulkanDevice.h"
-
-// vulkan headers
+#include <common.h>
 #include <vulkan/vulkan.h>
 
-// std lib headers
-#include <string>
+#include "VulkanTypes.h"
+
 #include <vector>
 
+class VulkanCommandBuffer;
+class VulkanDevice;
 class VulkanImage;
 class VulkanImageView;
 class VulkanRenderPass;

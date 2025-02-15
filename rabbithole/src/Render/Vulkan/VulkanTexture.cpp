@@ -1,7 +1,13 @@
-#include "precomp.h"
+#include "VulkanTexture.h"
 
+#include "VulkanBuffer.h"
+#include "VulkanCommandBuffer.h"
+
+#include "Logger/Logger.h"
 #include "Render/Converters.h"
 #include "Render/Model/TextureLoading.h"
+
+#include <format>
 
 VulkanTexture::VulkanTexture(VulkanDevice& device, RWTextureCreateInfo& createInfo)
 	: ManagableResource(ResourceType::Texture)

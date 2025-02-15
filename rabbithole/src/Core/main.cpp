@@ -1,9 +1,6 @@
-#define VMA_IMPLEMENTATION
-
-#include "common.h"
-
 #include "Core/Application.h"
-#include "Render/Renderer.h"
+
+#include <memory>
 
 int main() 
 {

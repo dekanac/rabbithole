@@ -1,8 +1,8 @@
+#include "Vulkan/VulkanDevice.h"
+
 #include "Render/Vulkan/VulkanTypes.h"
 #include "Render/Vulkan/spirv-reflect/spirv_reflect.h"
 
-#include <vulkan/vulkan.h>
-#include <vma/vk_mem_alloc.h>
 #include <ddsloader/dds.h>
 
 VkBufferUsageFlags			GetVkBufferUsageFlags(const BufferUsageFlags usageFlags);

@@ -1,6 +1,8 @@
-#include "precomp.h"
-
 #include "VulkanCommandBuffer.h"
+
+#include "Logger/Logger.h"
+
+#include "VulkanDevice.h"
 
 VulkanCommandBuffer::VulkanCommandBuffer(const VulkanDevice& device, const char* name)
 	: m_Device(device)

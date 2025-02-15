@@ -7,8 +7,8 @@
 #define VULKAN_HWRT
 #define USE_OPTICK 0
 
-#ifdef _DEBUG
-	#define RABBITHOLE_DEBUG
+#if DEBUG || RELWITHDEBINFO
+#define RABBITHOLE_DEBUG
 #endif
 
 #define PROFILE_CODE(code) auto start = Utils::ProfileSetStartTime(); \
@@ -70,7 +70,7 @@ typedef glm::quat Quaternion;
 #define MB_16 16777216
 #define MB_64 67108864
 
-#define MAX_FRAMES_IN_FLIGHT (3)
+#define MAX_FRAMES_IN_FLIGHT (4)
 
 #define GetCSDispatchCount(A, B) (((A) + ((B) - 1)) / (B))
 

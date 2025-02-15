@@ -1,7 +1,7 @@
 #pragma once
 
 #include "common.h"
-
+#include "signal.h"
 #include <spdlog/spdlog.h>
 #include <memory>
 
@@ -26,7 +26,7 @@ private:
     do \
     { \
          ::Logger::GetLogger().critical(__VA_ARGS__); \
-         __debugbreak(); \
+         raise(SIGTRAP); \
     } \
     while (0)
 
@@ -34,7 +34,7 @@ private:
     do \
     { \
          ::Logger::GetLogger().error(__VA_ARGS__); \
-         __debugbreak(); \
+         raise(SIGTRAP); \
     } \
     while (0)
 
@@ -58,7 +58,7 @@ private:
         if(!(x)) \
         { \
             ::Logger::GetLogger().critical(__VA_ARGS__); \
-            __debugbreak(); \
+            raise(SIGTRAP); \
         } \
     } \
     while (0)

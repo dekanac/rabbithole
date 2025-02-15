@@ -1,11 +1,10 @@
 #include "ResourceManager.h"
 
 #include "Logger/Logger.h"
-#include "Utils/Utils.h"
+#include "Utils/utils.h"
 
 ResourceManager::ResourceManager()
 {
-
 }
 
 ResourceManager::~ResourceManager()
@@ -93,10 +92,11 @@ VulkanBuffer* ResourceManager::CreateBuffer(VulkanDevice& device, BufferCreateIn
 	return newBuffer;
 }
 
-void ResourceManager::CreateShader(VulkanDevice& device, ShaderInfo& createInfo, const char* code, size_t codeSize, const char* name)
+bool ResourceManager::CreateShader(VulkanDevice& device, ShaderInfo& createInfo, const char* code, size_t codeSize, const char* name)
 {
-	Shader* shader = new Shader(device, codeSize, code, createInfo, name);
-	
+	Shader* shader = new Shader(device, codeSize, code, createInfo, name);	
+	ASSERT(shader, "Shader %s is not created properly!");
+
 	std::string shaderName(name);
 	if (m_Shaders.find(shaderName) == m_Shaders.end())
 	{
@@ -109,6 +109,8 @@ void ResourceManager::CreateShader(VulkanDevice& device, ShaderInfo& createInfo,
 	}
 
 	AddAllocatedResource(shader);
+
+	return shader;
 }
 
 void ResourceManager::DeleteBuffer(VulkanBuffer* buffer)

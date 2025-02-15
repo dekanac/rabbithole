@@ -1,6 +1,12 @@
-#include "precomp.h"
+#include "VulkanImage.h"
+
+#include "Logger/Logger.h"
+#include "VulkanDevice.h"
+#include "VulkanSwapchain.h"
 
 #include "Render/Converters.h"
+
+#include <vma/vk_mem_alloc.h>
 
 VulkanImage::VulkanImage(const VulkanDevice* device, const VulkanImageInfo& info, const char* name)
 	: m_VulkanDevice(device)

@@ -2,6 +2,7 @@
 
 #include "Render/Converters.h"
 #include "Render/Vulkan/VulkanCommandBuffer.h"
+#include "Vulkan/VulkanImage.h"
 
 RenderPass::RenderPass(VulkanDevice& device, const std::vector<VulkanImageView*> renderTargetViews, const VulkanImageView* depthStencilView, const RenderPassInfo& info, const char* name)
 	: m_Device(device)

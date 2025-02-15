@@ -1,11 +1,10 @@
 #pragma once
-#include "common.h"
+#include <common.h>
 
-#include "vk_mem_alloc.h"
+#include <vma/vk_mem_alloc.h>
 #include "spirv-reflect/spirv_reflect.h"
 #include <imgui/imgui_impl_vulkan.h>
 
-#include <unordered_map>
 #include "VulkanTypes.h"
 
 class VulkanTexture;

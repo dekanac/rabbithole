@@ -2,9 +2,9 @@
 
 #include "Render/Vulkan/VulkanTypes.h"
 
-#include <Assimp/Importer.hpp>
-#include <Assimp/scene.h>
-#include <Assimp/postprocess.h>
+#include <assimp/Importer.hpp>
+#include <assimp/scene.h>
+#include <assimp/postprocess.h>
 
 #include <string>
 

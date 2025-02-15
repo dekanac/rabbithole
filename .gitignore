@@ -19,6 +19,7 @@ mono_crash.*
 # Build results
 [Bb]uild/
 [Ll]og/
+[Ll]ogs/
 
 # Visual Studio 2015/2017 cache/options directory
 .vs/
@@ -340,3 +341,8 @@ rabbithole/rabbithole.vcxproj
 *.vcxproj
 *.spv
 JSON/
+
+# Some more bullshit
+tags
+compile_commands.json
+

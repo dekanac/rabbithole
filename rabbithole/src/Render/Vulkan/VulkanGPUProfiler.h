@@ -1,8 +1,12 @@
 #pragma once
 
+#include <common.h>
+#include <vulkan/vulkan.h>
+
 #include <vector>
 #include <string>
 
+class VulkanCommandBuffer;
 class VulkanDevice;
 
 struct TimeStamp

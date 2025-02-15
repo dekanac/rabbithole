@@ -4,7 +4,13 @@
 
 #include <unordered_map>
 
-#include "Render/Vulkan/Include/VulkanWrapper.h"
+#include <cstring>
+
+#include "Vulkan/VulkanPipeline.h"
+
+class VulkanImageView;
+class RenderPass;
+class RenderPassInfo;
 
 struct ComputePipelineKey
 {

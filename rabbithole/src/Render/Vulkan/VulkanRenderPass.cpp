@@ -1,5 +1,6 @@
-#include "precomp.h"
+#include "VulkanRenderPass.h"
 
+#include "VulkanImage.h"
 #include "Render/Converters.h"
 
 VulkanRenderPass::VulkanRenderPass(

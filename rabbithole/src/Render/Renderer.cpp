@@ -10,8 +10,8 @@
 #include "Render/Shader.h"
 #include "Render/SuperResolutionManager.h"
 #include "Render/Window.h"
-#include "Utils/Utils.h"
-#include "Vulkan/Include/VulkanWrapper.h"
+#include "Vulkan/VulkanImage.h"
+#include "Utils/utils.h"
 
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/matrix_inverse.hpp>
@@ -19,14 +19,7 @@
 
 #include <cmath>
 #include <filesystem>
-#include <format>
-#include <fstream>
 #include <iostream>
-#include <mutex>
-#include <random>
-#include <set>
-#include <sstream>
-#include <thread>
 #include <vector>
 #include <cstdio>
 
@@ -93,6 +86,11 @@ bool Renderer::Shutdown()
     return true;
 }
 
+VulkanImageView* Renderer::GetSwapchainImage() 
+{
+	return m_VulkanSwapchain->GetImageView(m_CurrentImageIndex); 
+}
+
 void Renderer::Clear() const
 {
 	m_GeometryIndirectDrawBuffer->Reset();
@@ -153,13 +151,13 @@ void Renderer::DrawFrame()
 
 void Renderer::InitDefaultTextures()
 {
-	g_DefaultWhiteTexture = m_ResourceManager.CreateTexture(m_VulkanDevice, m_ResFolder + "\\textures\\default_white.png", ROTextureCreateInfo{
+	g_DefaultWhiteTexture = m_ResourceManager.CreateTexture(m_VulkanDevice, m_ResFolder + "/textures/default_white.png", ROTextureCreateInfo{
 			.flags = {TextureFlags::Color | TextureFlags::Read | TextureFlags::TransferDst},
 			.format = {Format::R8G8B8A8_UNORM_SRGB},
 			.name = {"Default White"}
 		});
 	
-	g_DefaultBlackTexture = m_ResourceManager.CreateTexture(m_VulkanDevice, m_ResFolder + "\\textures\\default_black.png", ROTextureCreateInfo{
+	g_DefaultBlackTexture = m_ResourceManager.CreateTexture(m_VulkanDevice, m_ResFolder + "/textures/default_black.png", ROTextureCreateInfo{
 			.flags = {TextureFlags::Color | TextureFlags::Read | TextureFlags::TransferDst},
 			.format = {Format::R8G8B8A8_UNORM_SRGB},
 			.name = {"Default Black"}
@@ -180,13 +178,13 @@ void Renderer::InitDefaultTextures()
 			.arraySize = {4}
 		});
 
-	noise2DTexture = m_ResourceManager.CreateTexture(m_VulkanDevice, m_ResFolder + "\\textures\\noise3.png", ROTextureCreateInfo{
+	noise2DTexture = m_ResourceManager.CreateTexture(m_VulkanDevice, m_ResFolder + "/textures/noise3.png", ROTextureCreateInfo{
 			.flags = {TextureFlags::Color | TextureFlags::Read | TextureFlags::TransferDst},
 			.format = {Format::B8G8R8A8_UNORM},
 			.name = {"Noise2D"}
 		});
 
-	blueNoise2DTexture = m_ResourceManager.CreateTexture(m_VulkanDevice, m_ResFolder + "\\textures\\noise.png", ROTextureCreateInfo{
+	blueNoise2DTexture = m_ResourceManager.CreateTexture(m_VulkanDevice, m_ResFolder + "/textures/noise.png", ROTextureCreateInfo{
 			.flags = {TextureFlags::Color | TextureFlags::Read | TextureFlags::TransferDst | TextureFlags::Storage},
 			.format = {Format::B8G8R8A8_UNORM},
 			.name = {"BlueNoise2D"}
@@ -232,13 +230,13 @@ void Renderer::CalculateMatrices(VulkanglTFModel::Node* node, Vertex* vertexBuff
 
 void Renderer::LoadModels()
 {
-	gltfModels.emplace_back(this, m_ResFolder + "\\meshes\\separateObjects.gltf", RenderingContext::GBuffer_Opaque);
-	//gltfModels.emplace_back(this,  m_ResFolder + "\\meshes\\cottage.gltf", RenderingContext::GBuffer_Opaque);
-	//gltfModels.emplace_back(this, m_ResFolder + "\\meshes\\sponza\\sponza.gltf", RenderingContext::GBuffer_Opaque);
-	//gltfModels.emplace_back(this, m_ResFolder + "\\meshes\\sponzaNew\\MainSponza.gltf", RenderingContext::GBuffer_Opaque);
+	//gltfModels.emplace_back(this, m_ResFolder + "/meshes/separateObjects.gltf", RenderingContext::GBuffer_Opaque);
+	//gltfModels.emplace_back(this,  m_ResFolder + "/meshes/cottage.gltf", RenderingContext::GBuffer_Opaque);
+	gltfModels.emplace_back(this, m_ResFolder + "/meshes/sponza/sponza.gltf", RenderingContext::GBuffer_Opaque);
+	//gltfModels.emplace_back(this, m_ResFolder + "/meshes/sponzaNew/MainSponza.gltf", RenderingContext::GBuffer_Opaque);
 
-	//cloudMeshes.emplace_back(this, m_ResFolder + "\\meshes\\simpleShapes\\sphere.gltf", RenderingContext::Clouds_Transparent);
-	//cloudMeshes.emplace_back(this, m_ResFolder + "\\meshes\\simpleShapes\\box.obj", RenderingContext::Clouds_Transparent);
+	//cloudMeshes.emplace_back(this, m_ResFolder + "/meshes/simpleShapes/sphere.gltf", RenderingContext::Clouds_Transparent);
+	//cloudMeshes.emplace_back(this, m_ResFolder + "/meshes/simpleShapes/box.obj", RenderingContext::Clouds_Transparent);
 }
 
 void Renderer::BeginLabel(const char* name)
@@ -394,7 +392,7 @@ void Renderer::CopyToSwapChain()
 		if (isInEditorMode)
 		{
 			ImGui::Begin("Viewport");
-			ImGui::Image(m_ImGuiManager.GetImGuiTextureFrom(TonemappingPass::Output), GetScaledSizeWithAspectRatioKept(ImVec2(static_cast<float>(GetUpscaledWidth), static_cast<float>(GetUpscaledHeight))));
+			ImGui::Image((ImTextureID)m_ImGuiManager.GetImGuiTextureFrom(TonemappingPass::Output), GetScaledSizeWithAspectRatioKept(ImVec2(static_cast<float>(GetUpscaledWidth), static_cast<float>(GetUpscaledHeight))));
 			ImGui::End();
 		}
 
@@ -419,12 +417,7 @@ void Renderer::BindCameraMatrices(Camera* camera)
 	m_CurrentCameraState.ProjectionMatrix = projection;
 	m_StateManager.UpdateUBOElement(UBOElement::ProjectionMatrix, 4, &m_CurrentCameraState.ProjectionMatrix);
 
-	//todo: double check this, for now I use jittered matrix in VS_Gbuffer and VS_Skybox
-	//disable jitter when camera is moving
-	if (m_CurrentCameraState.HasViewProjMatrixChanged)
-		m_CurrentCameraState.ProjMatrixJittered = camera->Projection();
-	else
-		m_CurrentCameraState.ProjMatrixJittered = camera->ProjectionJittered();
+	m_CurrentCameraState.ProjMatrixJittered = camera->ProjectionJittered();
 
 	m_StateManager.UpdateUBOElement(UBOElement::ProjectionMatrixJittered, 4, &m_CurrentCameraState.ProjMatrixJittered);
 
@@ -443,6 +436,9 @@ void Renderer::BindCameraMatrices(Camera* camera)
 	m_CurrentCameraState.ViewProjInverseMatrix = m_CurrentCameraState.ViewInverseMatrix * m_CurrentCameraState.ProjectionInverseMatrix;
 	m_StateManager.UpdateUBOElement(UBOElement::ViewProjInverse, 4, &m_CurrentCameraState.ViewProjInverseMatrix);
 
+	m_CurrentCameraState.ViewProjJittered = m_CurrentCameraState.ViewMatrix * m_CurrentCameraState.ProjMatrixJittered;
+	m_StateManager.UpdateUBOElement(UBOElement::ViewProjectionJittered, 4, &m_CurrentCameraState.ViewProjJittered);
+	
 	float width = projection[0][0];
 	float height = projection[1][1];
 
@@ -453,11 +449,6 @@ void Renderer::BindCameraMatrices(Camera* camera)
 	m_StateManager.UpdateUBOElement(UBOElement::EyeXAxis, 1, &m_CurrentCameraState.EyeXAxis);
 	m_StateManager.UpdateUBOElement(UBOElement::EyeYAxis, 1, &m_CurrentCameraState.EyeYAxis);
 	m_StateManager.UpdateUBOElement(UBOElement::EyeZAxis, 1, &m_CurrentCameraState.EyeZAxis);
-
-	if (m_CurrentCameraState.ViewProjMatrix == m_CurrentCameraState.PrevViewProjMatrix)
-		m_CurrentCameraState.HasViewProjMatrixChanged = false;
-	else
-		m_CurrentCameraState.HasViewProjMatrixChanged = true;
 
 	m_CurrentCameraState.PrevViewProjMatrix = m_CurrentCameraState.ViewProjMatrix;
 	m_CurrentCameraState.PrevViewMatrix = m_CurrentCameraState.ViewMatrix;
@@ -762,47 +753,12 @@ void Renderer::CompileShader(const std::string& name, const std::string& entryPo
 
 void Renderer::LoadAndCreateShaders()
 {
-	//TODO: implement real shader compiler and stuff
-	std::filesystem::path currentPath = Utils::FindResFolder();
-	currentPath += "\\shaders";
-
-	for (const auto& file : std::filesystem::directory_iterator(currentPath))
-	{
-		std::string filePath = file.path().string();
-		auto foundLastSlash = filePath.find_last_of("/\\");
-
-		if (foundLastSlash)
-		{
-			std::string fileNameWithExt = filePath.substr(foundLastSlash + 1);
-			auto foundLastDot = fileNameWithExt.find_last_of(".");
-
-			if (foundLastDot)
-			{
-				std::string fileExtension = fileNameWithExt.substr(foundLastDot + 1);
-
-				//for spv files create shader modules
-				if (fileExtension.compare("spv") == 0)
-				{
-					std::string fileNameFinal = fileNameWithExt.substr(0, foundLastDot);
-
-					auto shaderCode = Utils::ReadFile(filePath);
-
-					ShaderInfo createInfo{};
-					createInfo.CodeEntry = nullptr;
-					createInfo.Type = GetShaderStageFrom(fileNameFinal);
-
-					m_ResourceManager.CreateShader(m_VulkanDevice, createInfo, shaderCode.data(), shaderCode.size(), fileNameFinal.c_str());
-				}
-			}
-		}
-	}
-
 	CompileShader("CS_FilterSoftShadows.slang", "Pass0");
 	CompileShader("CS_FilterSoftShadows.slang", "Pass1");
 	CompileShader("CS_FilterSoftShadows.slang", "Pass2");
 	CompileShader("CS_PrepareShadowMask.slang");
 	CompileShader("CS_TileClassification.slang");
-	CompileShader("FS_VolumetricClouds.slang");
+	// CompileShader("FS_VolumetricClouds.slang");
 	CompileShader("VS_PassThrough.slang");
 	CompileShader("FS_PassThrough.slang");
 	CompileShader("VS_GBuffer.slang");
@@ -825,6 +781,9 @@ void Renderer::LoadAndCreateShaders()
 	CompileShader("CS_Downsample.slang");
 	CompileShader("CS_Upsample.slang");
 	CompileShader("FS_SSAOBlur.slang");
+	CompileShader("RS_RTShadowRaygen.slang");
+	CompileShader("HS_RTShadowClosestHit.slang");
+	CompileShader("RS_RTVolumetricShadow.slang");
 }
 
 void Renderer::CreateCommandBuffers() 
@@ -924,6 +883,7 @@ void Renderer::RecordCommandBuffer()
 	BindCameraMatrices(&m_MainCamera);
 	BindUBO();
 
+	//TODO add frame graph instead of this bullshit
 	EXECUTE_ONCE(m_RabbitPassManager.ExecuteOneTimePasses(*this));
 	m_RabbitPassManager.ExecutePasses(*this);
 
@@ -1122,7 +1082,7 @@ void Renderer::ConstructBVH()
 		CreateCFBVH(triangles.data(), node, &triIndices, &indicesNum, &root, &nodeNum);
 
 		FILE* dat;
-		fopen_s(&dat, (m_ResFolder + "\\bvhdata\\separateObjects.bin").c_str(), "wb");
+		dat = fopen((m_ResFolder + "/bvhdata/sponza.bin").c_str(), "wb");
 
 		std::fwrite(&indicesNum, sizeof(uint32_t), 1, dat);
 		std::fwrite(triIndices, sizeof(uint32_t) * indicesNum, 1, dat);
@@ -1135,12 +1095,12 @@ void Renderer::ConstructBVH()
 	{
 		//load BVH data from file
 		FILE* dat;
-		fopen_s(&dat, (m_ResFolder + "\\bvhdata\\sponza.bin").c_str(), "rb");
+		dat = fopen((m_ResFolder + "/bvhdata/sponza.bin").c_str(), "rb");
 
-		std::fread(&indicesNum, sizeof uint32_t, 1, dat);
+		std::fread(&indicesNum, sizeof(uint32_t), 1, dat);
 		triIndices = RABBIT_ALLOC(uint32_t, indicesNum);
-		std::fread(triIndices, sizeof uint32_t * indicesNum, 1, dat);
-		std::fread(&nodeNum, sizeof uint32_t, 1, dat);
+		std::fread(triIndices, sizeof(uint32_t)* indicesNum, 1, dat);
+		std::fread(&nodeNum, sizeof(uint32_t), 1, dat);
 		root = RABBIT_ALLOC(BVH::CacheFriendlyBVHNode, nodeNum);
 		std::fread(root, sizeof(BVH::CacheFriendlyBVHNode), nodeNum, dat);
 
@@ -1211,7 +1171,7 @@ void Renderer::UpdateUIStateAndFSR2PreDraw()
 	m_CurrentUIState.renderHeight = static_cast<float>(GetNativeHeight);
 	m_CurrentUIState.renderWidth = static_cast<float>(GetNativeWidth);
 	m_CurrentUIState.sharpness = 0.5f;
-	m_CurrentUIState.reset = m_CurrentCameraState.HasViewProjMatrixChanged;
+	m_CurrentUIState.reset = false;
 	m_CurrentUIState.useRcas = true;
 	m_CurrentUIState.useTaa = true;
 
@@ -1345,7 +1305,7 @@ void Renderer::ImGuiTextureDebugger()
 		float textureWidth = static_cast<float>(currentSelectedTexture->GetWidth());
 		float textureHeight = static_cast<float>(currentSelectedTexture->GetHeight());
 
-		ImGui::Image(m_ImGuiManager.GetImGuiTextureFrom(TextureDebugPass::Output), GetScaledSizeWithAspectRatioKept(ImVec2(textureWidth, textureHeight), 800.f));
+		ImGui::Image((ImTextureID)m_ImGuiManager.GetImGuiTextureFrom(TextureDebugPass::Output), GetScaledSizeWithAspectRatioKept(ImVec2(textureWidth, textureHeight), 800.f));
 	}
 
 	ImGui::End();
@@ -1562,7 +1522,6 @@ template<>
 void Renderer::BindPipeline<RayTracingPipeline>()
 {
 	m_ResourceStateTrackingManager.CommitBarriers(*this);
-
 	PipelineInfo* pipelineInfo = m_StateManager.GetPipelineInfo();
 
 	VulkanPipeline* rayTracingPipeline = m_StateManager.GetPipelineDirty()

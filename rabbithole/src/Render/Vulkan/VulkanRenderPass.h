@@ -1,6 +1,10 @@
 #pragma once
 
-#include "precomp.h"
+#include <common.h>
+#include <vulkan/vulkan.h>
+
+#include "VulkanTypes.h"
+#include "VulkanPipeline.h"
 
 class VulkanDevice;
 class VulkanImageView;

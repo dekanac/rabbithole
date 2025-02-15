@@ -1,6 +1,5 @@
 #include "Postprocessing.h"
 
-#include "Render/RabbitPasses/Lighting.h"
 #include "Render/RabbitPasses/Upscaling.h"
 
 defineResource(TonemappingPass, Output, VulkanTexture);

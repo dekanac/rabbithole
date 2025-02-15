@@ -22,14 +22,10 @@
 #pragma once
 
 #include <stdint.h>
+#include <stdlib.h>
 
-#if defined (FFX_GCC)
 /// FidelityFX exported functions
 #define FFX_API
-#else
-/// FidelityFX exported functions
-#define FFX_API __declspec(dllexport)
-#endif // #if defined (FFX_GCC)
 
 /// Maximum supported number of simultaneously bound SRVs.
 #define FFX_MAX_NUM_SRVS            16

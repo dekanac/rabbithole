@@ -1,5 +1,10 @@
 #pragma once
 
+#include <vulkan/vulkan.h>
+
+#include <common.h>
+#include "VulkanTypes.h"
+
 #include "Render/Raytracing.h"
 
 class VulkanDevice;

@@ -13,10 +13,6 @@
 #include <optick/src/optick.h>
 
 #include <iostream>
-#include <fstream>
-#include <sstream>
-#include <string>
-#include <memory>
 
 void ErrorCallback(int, const char* err_str)
 {
@@ -37,7 +33,7 @@ bool Application::Init()
 
     WindowData wd{ 
         .title = "Rabbithole3D",
-        .width = 2160, 
+        .width = 1920, 
         .height = 1080, 
         .vsync = false };
 
@@ -86,38 +82,40 @@ bool Application::Init()
 
 void Application::Run()
 {
-    float previousFrameTime = static_cast<float>(glfwGetTime());
-    float previousOutputTime = previousFrameTime;
-    float deltaTime = 0;
-    uint64_t timerFrequency = glfwGetTimerFrequency();
+    auto previousFrameTime = std::chrono::high_resolution_clock::now();
+    auto previousOutputTime = previousFrameTime;
 
-	while (m_IsRunning)
-	{
+    while (m_IsRunning)
+    {
         OPTICK_FRAME("MainThread");
 
-		if (glfwWindowShouldClose(Window::instance().GetNativeWindowHandle())) 
+        if (glfwWindowShouldClose(Window::instance().GetNativeWindowHandle()))
         {
-			m_IsRunning = false;
-		}
+            m_IsRunning = false;
+            break;
+        }
 
-		float currentFrameTime = static_cast<float>(glfwGetTime());
-        deltaTime = (currentFrameTime - previousFrameTime);
-		previousFrameTime = currentFrameTime;
+        auto currentFrameTime = std::chrono::high_resolution_clock::now();
+        std::chrono::duration<float> deltaTime = currentFrameTime - previousFrameTime;
+        previousFrameTime = currentFrameTime;
 
 #ifdef RABBITHOLE_DEBUG
-		if (currentFrameTime - previousOutputTime > 2)
+        // Output FPS every 2 seconds
+        std::chrono::duration<float> elapsed = currentFrameTime - previousOutputTime;
+        if (elapsed.count() >= 2.0f)
         {
-			std::cout << "FPS:" << 1.f / deltaTime << std::endl;
-			previousOutputTime = currentFrameTime;
-		}
+            float fps = deltaTime.count() > 0.0f ? (1.0f / deltaTime.count()) : 0.0f;
+            std::cout << std::fixed << std::setprecision(2) << "FPS: " << fps << std::endl;
+            previousOutputTime = currentFrameTime;
+        }
 #endif // RABBITHOLE_DEBUG
-		//UPDATE GAME LOOP
-		InputManager::instance().Update(deltaTime);
-		RenderSystem::instance().Update(deltaTime);
 
-		glfwPollEvents();
-	}
+        // UPDATE GAME LOOP
+        InputManager::instance().Update(deltaTime.count());
+        RenderSystem::instance().Update(deltaTime.count());
 
+        glfwPollEvents();
+    }
 }
 
 void Application::Shutdown()

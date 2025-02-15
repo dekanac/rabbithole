@@ -1,5 +1,3 @@
-#include "Render/Vulkan/precomp.h"
-
 #include "Model.h"
 
 #include <stddef.h>

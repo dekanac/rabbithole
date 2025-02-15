@@ -1,17 +1,24 @@
 #pragma once
 
-#include "VulkanDevice.h"
-#include "VulkanPipeline.h"
-#include "VulkanCommandBuffer.h"
+#include <common.h>
+
+#include "VulkanTypes.h"
+#include "Render/Raytracing.h"
+#include "Logger/Logger.h"
+#include <vulkan/vulkan.h>
 
 #include <string>
 #include <vector>
+#include <array>
 
 #include <crc32/Crc32.h>
 
 const uint8_t MaxRenderTargetCount = 6;
 const uint8_t MaxRTShaders = 8;
 
+class VulkanRenderPass;
+class VulkanDevice;
+class VulkanCommandBuffer;
 class VulkanDescriptorSetLayout;
 class VulkanDescriptorSet;
 class VulkanDescriptorPool;

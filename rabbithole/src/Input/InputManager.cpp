@@ -5,15 +5,22 @@
 #include "ECS/EntityManager.h"
 #include "Render/Window.h"
 
+#include <GLFW/glfw3.h>
 #include <iostream>
 
 static float LAST_MOUSE_POS_Y = Window::instance().GetExtent().height / 2.f;
 static float LAST_MOUSE_POS_X = Window::instance().GetExtent().width / 2.f;
 
-bool KeyDown(KeyboardButton _iKey)
-{   
-    short iState = GetAsyncKeyState(static_cast<int>(_iKey));
-    return (iState & 0x8000) != 0;
+bool KeyDown(KeyboardButton key)
+{
+    GLFWwindow* window = Window::instance().GetNativeWindowHandle();
+    return glfwGetKey(window, static_cast<int>(key)) == GLFW_PRESS;
+}
+
+bool MouseButtonDown(int button)
+{
+    GLFWwindow* window = Window::instance().GetNativeWindowHandle();
+    return glfwGetMouseButton(window, button) == GLFW_PRESS;
 }
 
 bool InputManager::Init()
@@ -24,35 +31,34 @@ bool InputManager::Init()
     return true;
 }
 
-void InputManager::ProcessMousePosition(double& x, double& y) {
-
+void InputManager::ProcessMousePosition(double& x, double& y)
+{
     glfwGetCursorPos(Window::instance().GetNativeWindowHandle(), &x, &y);
 }
 
 void InputManager::ProcessInput()
 {
-
     for (auto& [action, key] : m_InputActions)
     {
-        bool bIsPressed = KeyDown(key);
+        bool isPressed;
+        if (key >= GLFW_MOUSE_BUTTON_1 && key <= GLFW_MOUSE_BUTTON_LAST) {
+            isPressed = MouseButtonDown(key);
+        } else {
+            isPressed = KeyDown(key);
+        }
+
         switch (m_InputActionStates[action])
         {
         case EInputActionState::None:
-        {
-            m_InputActionStates[action] = bIsPressed ? EInputActionState::JustPressed : EInputActionState::None;
+            m_InputActionStates[action] = isPressed ? EInputActionState::JustPressed : EInputActionState::None;
             break;
-        }
         case EInputActionState::JustPressed:
         case EInputActionState::Pressed:
-        {
-            m_InputActionStates[action] = bIsPressed ? EInputActionState::Pressed : EInputActionState::Released;
+            m_InputActionStates[action] = isPressed ? EInputActionState::Pressed : EInputActionState::Released;
             break;
-        }
         case EInputActionState::Released:
-        {
-            m_InputActionStates[action] = bIsPressed ? EInputActionState::JustPressed : EInputActionState::None;
+            m_InputActionStates[action] = isPressed ? EInputActionState::JustPressed : EInputActionState::None;
             break;
-        }
         default:
             ASSERT("Unknown EInputActionState {0}", m_InputActionStates[action]);
             m_InputActionStates[action] = EInputActionState::None;
@@ -64,13 +70,12 @@ void InputManager::ProcessInput()
 void InputManager::Update(float dt)
 {
     ProcessInput();
-	
+
     double curr_mouse_x, curr_mouse_y;
     ProcessMousePosition(curr_mouse_x, curr_mouse_y);
 
-    double offset_x, offset_y;
-    offset_x = curr_mouse_x - LAST_MOUSE_POS_X;
-    offset_y = curr_mouse_y - LAST_MOUSE_POS_Y;
+    double offset_x = curr_mouse_x - LAST_MOUSE_POS_X;
+    double offset_y = curr_mouse_y - LAST_MOUSE_POS_Y;
 
     // Update entities
     auto inputComponents = EntityManager::instance().GetAllComponentInstances<InputComponent>();
@@ -90,7 +95,6 @@ void InputManager::Update(float dt)
 
     LAST_MOUSE_POS_X = static_cast<float>(curr_mouse_x);
     LAST_MOUSE_POS_Y = static_cast<float>(curr_mouse_y);
-  
 }
 
 bool InputManager::Shutdown()
@@ -101,10 +105,11 @@ bool InputManager::Shutdown()
     return true;
 }
 
-bool InputManager::IsButtonActionActive(EInputAction _eAction, EInputActionState _eState) const
+bool InputManager::IsButtonActionActive(EInputAction action, EInputActionState state) const
 {
-    ASSERT(m_InputActionStates.find(_eAction) != m_InputActionStates.end(), "Unknown input action: {}", _eAction);
-    return m_InputActionStates.at(_eAction) == _eState;
+    auto it = m_InputActionStates.find(action);
+    ASSERT(it != m_InputActionStates.end(), "Unknown input action: {0}", action);
+    return it != m_InputActionStates.end() && it->second == state;
 }
 
 void InputManager::InitKeybinds()
@@ -112,20 +117,19 @@ void InputManager::InitKeybinds()
     m_InputActionStates.clear();
     m_InputActions.clear();
 
-    m_InputActions["CameraUp"] = 'W';
-    m_InputActions["CameraLeft"] = 'A';
-    m_InputActions["CameraDown"] = 'S';
-    m_InputActions["CameraRight"] = 'D';
-    m_InputActions["Test"] = 'X';
-	m_InputActions["Debug1"] = '1';
-	m_InputActions["Debug2"] = '2';
-	m_InputActions["Debug3"] = '3';
-	m_InputActions["Debug4"] = '4';
-    m_InputActions["ActivateCameraMove"] = VK_LMENU;
-    m_InputActions["ActivateCameraOrbit"] = VK_LBUTTON;
-	m_InputActions["ActivateCameraZoom"] = VK_RBUTTON;
-	m_InputActions["ActivateCameraPan"] = VK_MBUTTON;
-
+    m_InputActions["CameraUp"] = GLFW_KEY_W;
+    m_InputActions["CameraLeft"] = GLFW_KEY_A;
+    m_InputActions["CameraDown"] = GLFW_KEY_S;
+    m_InputActions["CameraRight"] = GLFW_KEY_D;
+    m_InputActions["Test"] = GLFW_KEY_X;
+    m_InputActions["Debug1"] = GLFW_KEY_1;
+    m_InputActions["Debug2"] = GLFW_KEY_2;
+    m_InputActions["Debug3"] = GLFW_KEY_3;
+    m_InputActions["Debug4"] = GLFW_KEY_4;
+    m_InputActions["ActivateCameraMove"] = GLFW_KEY_LEFT_ALT;
+    m_InputActions["ActivateCameraOrbit"] = GLFW_MOUSE_BUTTON_LEFT;
+    m_InputActions["ActivateCameraZoom"] = GLFW_MOUSE_BUTTON_RIGHT;
+    m_InputActions["ActivateCameraPan"] = GLFW_MOUSE_BUTTON_MIDDLE;
 }
 
 bool InputManager::IsActionActive(InputComponent* inputComponent, EInputAction targetAction)
@@ -133,10 +137,9 @@ bool InputManager::IsActionActive(InputComponent* inputComponent, EInputAction t
     auto found = std::find_if(
         std::begin(inputComponent->inputActions),
         std::end(inputComponent->inputActions),
-        [targetAction](InputAction e)
-    {
-        return e.m_Action == targetAction && e.m_Active == true;
-    });
+        [targetAction](InputAction e) {
+            return e.m_Action == targetAction && e.m_Active;
+        });
 
     return found != std::end(inputComponent->inputActions);
 }

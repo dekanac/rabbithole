@@ -11,9 +11,10 @@ struct VS_OUT
     float3 FragTBN1 : TEXCOORD6;
     float3 FragTBN2 : TEXCOORD7;
     float3 FragTBN3 : TEXCOORD8;
-    float2 FragVelocity : TEXCOORD9;
     float4 FragEmissive : TEXCOORD10;
     float4 FinalPos : SV_POSITION;
+    float4 FragCurrentPos : TEXCOORD11;
+    float4 FragPrevPos : TEXCOORD12;
 };
 
 [[vk::binding(0)]] cbuffer UniformBufferObject_
@@ -60,11 +61,8 @@ VS_OUT main(in float3 position : TEXCOORD0,
     vs_out.FragEmissive = Push.emissiveColorAndStrenght;
 
     // TODO: this works only for non-moving objects, need to provide previous model matrix as well
-    float4 currentPos = mul(UBO.viewProjMatrix, float4(worldPosition, 1.f));
-    float4 previousPos = mul(UBO.prevViewProjMatrix, float4(worldPosition, 1.f));
-
-    float2 motionVector = (currentPos.xy / currentPos.w) - (previousPos.xy / previousPos.w);
-    vs_out.FragVelocity = motionVector * 0.5f;
+    vs_out.FragCurrentPos = mul(UBO.viewProjMatrix, float4(worldPosition, 1.f));
+    vs_out.FragPrevPos = mul(UBO.prevViewProjMatrix, float4(worldPosition, 1.f));
 
     vs_out.FragId = Push.id;
     vs_out.FinalPos = mul(mul(UBO.projJittered, UBO.view), float4(worldPosition, 1.f));

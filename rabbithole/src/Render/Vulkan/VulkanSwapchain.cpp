@@ -1,4 +1,9 @@
-#include "precomp.h"
+#include "VulkanSwapchain.h"
+
+#include "Logger/Logger.h"
+#include "VulkanDevice.h"
+#include "VulkanCommandBuffer.h"
+#include "VulkanImage.h"
 
 #include "Render/Converters.h"
 #include "Render/SuperResolutionManager.h"
@@ -6,13 +11,9 @@
 
 #include <optick/src/optick.h>
 
-#include <array>
 #include <cstdlib>
 #include <cstring>
-#include <iostream>
 #include <limits>
-#include <set>
-#include <stdexcept>
 
 VulkanSwapchain::VulkanSwapchain(VulkanDevice& deviceRef, VkExtent2D extent, VkSwapchainKHR oldSwapchain)
 	: m_VulkanDevice{ deviceRef }, m_WindowExtent{ extent } 
@@ -122,7 +123,12 @@ void VulkanSwapchain::CreateSwapChain(VkSwapchainKHR oldSwapChain)
 	uint32_t imageCount = MAX_FRAMES_IN_FLIGHT;
 	if (swapChainSupport.capabilities.maxImageCount > 0 && imageCount > swapChainSupport.capabilities.maxImageCount) 
 	{
-		imageCount = swapChainSupport.capabilities.maxImageCount;
+    	imageCount = swapChainSupport.capabilities.maxImageCount;
+	}
+
+	if (imageCount < swapChainSupport.capabilities.minImageCount) 
+	{
+    	imageCount = swapChainSupport.capabilities.minImageCount;
 	}
 
 	VkSwapchainCreateInfoKHR createInfo = {};

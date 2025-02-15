@@ -1,7 +1,8 @@
 #pragma once
 
-#include <memory>
 #include "common.h"
+
+#include <vulkan/vulkan.h>
 
 #define RABBITHOLE_FLAG_TYPE_SETUP(flagType) \
     inline flagType operator&(flagType a, flagType b) \
@@ -386,6 +387,8 @@ struct Color
 {
 	Vector4f value;
 };
+
+typedef VkExtent2D Extent2D;
 
 struct Extent3D
 {

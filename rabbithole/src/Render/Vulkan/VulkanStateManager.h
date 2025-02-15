@@ -1,6 +1,12 @@
 #pragma once
 
-class VulkanPipeline;
+#include <common.h>
+#include <vulkan/vulkan.h>
+
+#include "VulkanPipeline.h"
+
+class VulkanImageView;
+class VulkanImageSampler;
 class VulkanRenderPass;
 struct UniformBufferObject;
 class RenderPass;
@@ -34,7 +40,8 @@ enum class UBOElement : uint32_t
 	EyeYAxis = 32,
 	EyeZAxis = 33,
 	ProjectionMatrixJittered = 34,
-	CurrentFrameInfo = 38
+	CurrentFrameInfo = 38,
+	ViewProjectionJittered = 39
 };
 
 class VulkanStateManager

@@ -1,9 +1,8 @@
 #pragma once
 
 #include <slang.h>
-#include <string>
 
-#include <windows.h>
+#include <string>
 #include <thread>
 #include <vector>
 
@@ -14,32 +13,33 @@ class ResourceManager;
 class FileChangeMonitor
 {
 public:
-	FileChangeMonitor() {}
-	~FileChangeMonitor() {}
+    FileChangeMonitor() {}
+    ~FileChangeMonitor() {}
 
-	bool CheckForChanges(std::string& inputString);
-	bool Init(const std::string& shadersDir);
-	bool Shutdown();
+    bool CheckForChanges(std::string& inputString);
+    bool Init(const std::string& shadersDir);
+    bool Shutdown();
 
 private:
-	std::thread* m_MonitorThread = nullptr;
-	HANDLE m_hChangeEvent = nullptr;
-	HANDLE m_hChange = nullptr;
+    std::thread* m_MonitorThread = nullptr;
+    int m_InotifyFd = -1;
+    int m_WatchDescriptor = -1;
 };
 
 class ShaderCompiler
 {
 public:
-	ShaderCompiler();
-	~ShaderCompiler();
+    ShaderCompiler();
+    ~ShaderCompiler();
 
-	bool Update(std::string& fileChanged);
-	bool CompileShader(const std::string& shaderName, const std::string& entryPoint, void** outData, size_t* outDataSize, std::vector<const char*> defines = std::vector<const char*>());
+    bool Update(std::string& fileChanged);
+    bool CompileShader(const std::string& shaderName, const std::string& entryPoint, void** outData, size_t* outDataSize, std::vector<const char*> defines = std::vector<const char*>());
 
 private:
-	SlangStage GetStageFromShaderName(const std::string& shaderName);
+    SlangStage GetStageFromShaderName(const std::string& shaderName);
 
-	SlangSession* m_Session = nullptr;
-	FileChangeMonitor m_FileChangeMonitor;
-	std::string m_ShadersDir = "";
+    SlangSession* m_Session = nullptr;
+    FileChangeMonitor m_FileChangeMonitor;
+    std::string m_ShadersDir = "";
 };
+

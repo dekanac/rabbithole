@@ -1,5 +1,8 @@
 #pragma once
 
+#include <common.h>
+#include <vulkan/vulkan.h>
+
 #include "Render/Model/TextureLoading.h"
 #include "Render/Resource.h"
 #include "Render/Vulkan/VulkanDevice.h"

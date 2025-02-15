@@ -1,6 +1,9 @@
 #pragma once
 
-#include "VulkanDevice.h"
+#include <vulkan/vulkan.h>
+#include <common.h>
+
+class VulkanDevice;
 
 class VulkanCommandBuffer
 {

@@ -1,9 +1,5 @@
 #pragma once
 
-#include "common.h"
-
-#include <memory>
-
 class Application
 {
 private:

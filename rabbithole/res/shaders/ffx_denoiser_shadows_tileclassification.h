@@ -136,8 +136,8 @@ float2 FFX_DNSR_Shadows_GetClosestVelocity(int2 did, float depth)
     float2 closest_velocity = FFX_DNSR_Shadows_ReadVelocity(did);
     float closest_depth = depth;
 
-    float new_depth = (closest_depth);
-    float2 new_velocity = float2((closest_velocity));
+    float new_depth = QuadReadAcrossX(closest_depth);
+    float2 new_velocity = QuadReadAcrossX(closest_velocity);
 #ifdef INVERTED_DEPTH_RANGE
     if (new_depth > closest_depth)
 #else
@@ -148,8 +148,8 @@ float2 FFX_DNSR_Shadows_GetClosestVelocity(int2 did, float depth)
         closest_velocity = new_velocity;
     }
 
-    new_depth = (closest_depth);
-    new_velocity = (closest_velocity);
+    new_depth = QuadReadAcrossY(closest_depth);
+    new_velocity = QuadReadAcrossY(closest_velocity);
 #ifdef INVERTED_DEPTH_RANGE
     if (new_depth > closest_depth)
 #else

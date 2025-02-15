@@ -1,7 +1,6 @@
 #include "Converters.h"
 
 #include "Logger/Logger.h"
-#include "Render/Renderer.h"
 
 VkBufferUsageFlags GetVkBufferUsageFlags(const BufferUsageFlags usageFlags)
 {

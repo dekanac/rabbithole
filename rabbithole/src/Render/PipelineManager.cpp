@@ -1,10 +1,12 @@
 #include "PipelineManager.h"
 
 #include "Logger/Logger.h"
-#include "Render/Vulkan/VulkanPipeline.h"
 #include "Render/Converters.h"
 #include "Render/RenderPass.h"
 #include "Render/Shader.h"
+#include "Vulkan/VulkanImage.h"
+#include "Vulkan/VulkanDescriptors.h"
+#include "Vulkan/VulkanCommandBuffer.h"
 
 bool GraphicsPipelineKey::operator<(const GraphicsPipelineKey& k) const
 {
@@ -214,6 +216,9 @@ VulkanDescriptorSet* PipelineManager::FindOrCreateDescriptorSet(VulkanDevice& de
 			key.push_back((uint32_t)descriptors[i].GetDescriptorInfo().Type);
 			break;
 #endif
+		default:
+			ASSERT(false, "Not implemented!");
+			break;
 		}
 	}
 

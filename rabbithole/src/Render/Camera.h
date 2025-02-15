@@ -68,6 +68,7 @@ struct CameraState
 
 	Matrix44f ProjMatrixJittered{ 1.f };
 	Matrix44f ViewProjMatrix{ 1.f };
+	Matrix44f ViewProjJittered{ 1.f };
 	Matrix44f ViewProjInverseMatrix{ 1.f };
 	Vector3f CameraPosition{ 1.f };
 

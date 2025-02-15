@@ -1,4 +1,8 @@
-#include "precomp.h"
+#include "VulkanGPUProfiler.h"
+
+#include "VulkanDevice.h"
+#include "VulkanCommandBuffer.h"
+#include "Logger/Logger.h"
 
 void GPUTimeStamps::OnCreate(VulkanDevice* device, uint32_t numberOfBackBuffers)
 {
@@ -45,25 +49,20 @@ void GPUTimeStamps::OnBeginFrame(VulkanCommandBuffer& cmd_buf, std::vector<TimeS
 	pTimestamps->clear();
 	pTimestamps->reserve(cpuTimeStamps.size() + gpuLabels.size());
 
-	// copy CPU timestamps
-	//
 	for (uint32_t i = 0; i < cpuTimeStamps.size(); i++)
 	{
 		pTimestamps->push_back(cpuTimeStamps[i]);
 	}
 
-	// copy GPU timestamps
-	//
 	uint32_t offset = m_Frame * MaxValuesPerFrame;
 
 	uint32_t measurements = (uint32_t)gpuLabels.size();
 	if (measurements > 0)
 	{
-		// timestampPeriod is the number of nanoseconds per timestamp value increment
 		double microsecondsPerTick = (1e-3f * m_Device->GetPhysicalDeviceProperties().properties.limits.timestampPeriod);
 		{
-			UINT64 TimingsInTicks[256] = {};
-			VULKAN_API_CALL(vkGetQueryPoolResults(m_Device->GetGraphicDevice(), m_QueryPool, offset, measurements, measurements * sizeof(UINT64), &TimingsInTicks, sizeof(UINT64), VK_QUERY_RESULT_64_BIT));
+			uint64_t TimingsInTicks[256] = {};
+			VULKAN_API_CALL(vkGetQueryPoolResults(m_Device->GetGraphicDevice(), m_QueryPool, offset, measurements, measurements * sizeof(uint64_t), &TimingsInTicks, sizeof(uint64_t), VK_QUERY_RESULT_64_BIT));
 
 			for (uint32_t i = 1; i < measurements; i++)
 			{
@@ -71,7 +70,6 @@ void GPUTimeStamps::OnBeginFrame(VulkanCommandBuffer& cmd_buf, std::vector<TimeS
 				pTimestamps->push_back(ts);
 			}
 
-			// compute total
 			TimeStamp ts = { "Total GPU Time", float(microsecondsPerTick * (double)(TimingsInTicks[measurements - 1] - TimingsInTicks[0])) };
 			pTimestamps->push_back(ts);
 		}
@@ -79,7 +77,6 @@ void GPUTimeStamps::OnBeginFrame(VulkanCommandBuffer& cmd_buf, std::vector<TimeS
 
 	vkCmdResetQueryPool(GET_VK_HANDLE(cmd_buf), m_QueryPool, offset, MaxValuesPerFrame);
 
-	// we always need to clear these ones
 	cpuTimeStamps.clear();
 	gpuLabels.clear();
 

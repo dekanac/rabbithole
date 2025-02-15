@@ -62,17 +62,12 @@ void ImGuiManager::Init(Renderer& renderer)
 	init_info.DescriptorPool = GET_VK_HANDLE(descriptorPool);
 	init_info.MinImageCount = swapchain.GetImageCount();
 	init_info.ImageCount = swapchain.GetImageCount();
+	init_info.RenderPass = GET_VK_HANDLE(renderer.GetStateManager().GetRenderPass()->GetVulkanRenderPass());
 
-	ImGui_ImplVulkan_Init(&init_info, GET_VK_HANDLE(renderer.GetStateManager().GetRenderPass()->GetVulkanRenderPass()));
+	ImGui_ImplVulkan_Init(&init_info);
 
-	VulkanCommandBuffer tempCommandBuffer(device, "Temp Imgui Command Buffer");
-	tempCommandBuffer.BeginCommandBuffer(true);
-	io.Fonts->AddFontFromFileTTF((renderer.GetResFolderPath() + "\\fonts\\Cousine-Regular.ttf").c_str(), 14.f);
-	ImGui_ImplVulkan_CreateFontsTexture(GET_VK_HANDLE(tempCommandBuffer));
-	tempCommandBuffer.EndAndSubmitCommandBuffer();
-
-	//clear font textures from cpu data
-	ImGui_ImplVulkan_DestroyFontUploadObjects();
+	io.Fonts->AddFontFromFileTTF((renderer.GetResFolderPath() + "/fonts/Cousine-Regular.ttf").c_str(), 14.f);
+	ImGui_ImplVulkan_CreateFontsTexture();
 
 	ImGuiStyle& style = ImGui::GetStyle();
 	style.Colors[ImGuiCol_Text] = ImVec4(1.00f, 1.00f, 1.00f, 1.00f);

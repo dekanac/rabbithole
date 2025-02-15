@@ -2,7 +2,7 @@
 
 #include "Logger/Logger.h"
 #include "Render/Converters.h"
-#include "Utils/Utils.h"
+#include "Utils/utils.h"
 
 #include <stb_image/stb_image.h>
 #include <ddsloader/dds.h>

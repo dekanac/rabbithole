@@ -3,7 +3,7 @@
 Open Asset Import Library (assimp)
 ---------------------------------------------------------------------------
 
-Copyright (c) 2006-2022, assimp team
+Copyright (c) 2006-2024, assimp team
 
 All rights reserved.
 
@@ -136,9 +136,7 @@ AI_FORCE_INLINE aiReturn aiMaterial::Get(const char* pKey,unsigned int type,
 // Specialisation for a single bool.
 // Casts floating point and integer to bool
 template <>
-AI_FORCE_INLINE
-        aiReturn
-        aiMaterial::Get(const char *pKey, unsigned int type,
+AI_FORCE_INLINE aiReturn aiMaterial::Get(const char *pKey, unsigned int type,
                 unsigned int idx, bool &pOut) const {
     const aiMaterialProperty *prop;
     const aiReturn ret = ::aiGetMaterialProperty(this, pKey, type, idx,
@@ -193,7 +191,7 @@ AI_FORCE_INLINE aiReturn aiMaterial::Get(const char* pKey,unsigned int type,
 }
 // ---------------------------------------------------------------------------
 AI_FORCE_INLINE aiReturn aiMaterial::Get(const char* pKey,unsigned int type,
-        unsigned int idx,ai_real& pOut) const {
+        unsigned int idx, ai_real& pOut) const {
     return aiGetMaterialFloat(this,pKey,type,idx,&pOut);
 }
 // ---------------------------------------------------------------------------
@@ -211,7 +209,8 @@ AI_FORCE_INLINE aiReturn aiMaterial::Get(const char* pKey,unsigned int type,
         unsigned int idx,aiColor3D& pOut) const {
     aiColor4D c;
     const aiReturn ret = aiGetMaterialColor(this,pKey,type,idx,&c);
-    pOut = aiColor3D(c.r,c.g,c.b);
+    if (ret == aiReturn_SUCCESS)
+        pOut = aiColor3D(c.r,c.g,c.b);
     return ret;
 }
 // ---------------------------------------------------------------------------
@@ -310,7 +309,6 @@ AI_FORCE_INLINE aiReturn aiMaterial::AddProperty(const int* pInput,
         pNumValues * sizeof(int),
         pKey,type,index,aiPTI_Integer);
 }
-
 
 // ---------------------------------------------------------------------------
 // The template specializations below are for backwards compatibility.

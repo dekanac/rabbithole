@@ -37,7 +37,7 @@ DDSFile* dds_load(const char* path) {
 	unsigned int isDx10;
 	
 	FILE* f;
-	fopen_s(&f, path, "rb");
+	f = fopen(path, "rb");
 	if (!f)
 		return 0;
 	fseek(f, 0, SEEK_END);

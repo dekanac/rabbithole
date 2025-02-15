@@ -2,7 +2,6 @@
 #include "common.h"
 
 #include "Logger/Logger.h"
-#include "Render/BVH.h"
 #include "Render/Camera.h"
 #include "Render/ImGuiManager.h"
 #include "Render/Model/Model.h"
@@ -14,8 +13,12 @@
 #include "Render/RabbitPassManager.h"
 #include "Render/ShaderCompiler.h"
 #include "Render/SuperResolutionManager.h"
-#include "Render/Vulkan/Include/VulkanWrapper.h"
 #include "Render/Window.h"
+
+#include "Vulkan/VulkanStateManager.h"
+#include "Vulkan/VulkanGPUProfiler.h"
+#include "Vulkan/VulkanSwapchain.h"
+#include "Vulkan/VulkanDescriptors.h"
 
 #include <unordered_map>
 #include <string>
@@ -35,10 +38,10 @@ class RabbitPass;
 class Shader;
 class VulkanDevice;
 class VulkanStateManager;
+class VulkanImageView;
 struct CameraState;
 struct GLFWwindow;
 struct Vertex;
-typedef VkExtent2D Extent2D;
 
 struct UIState
 {
@@ -89,6 +92,7 @@ struct UniformBufferObject
 	Vector4f eyeZAxis;
 	Matrix44f projJittered;
 	Vector4f currentFrameInfo;
+	Matrix44f viewProjJittered;
 };
 
 struct IndexedIndirectBuffer
@@ -156,9 +160,6 @@ private:
 
 	void BindPushConstInternal();
 	template<class T = Pipeline> void BindPipeline();
-	template<> void BindPipeline<GraphicsPipeline>();
-	template<> void BindPipeline<ComputePipeline>();
-	template<> void BindPipeline<RayTracingPipeline>();
 	void BindCameraMatrices(Camera* camera);
 	void BindDescriptorSets();
 	void BindUBO();
@@ -173,7 +174,7 @@ public:
 	inline PipelineManager&					GetPipelineManager() { return m_PipelineManager; }
 
 	inline VulkanSwapchain*					GetSwapchain() const { return m_VulkanSwapchain.get(); }
-	inline VulkanImageView*					GetSwapchainImage() { return m_VulkanSwapchain->GetImageView(m_CurrentImageIndex); }
+	VulkanImageView*						GetSwapchainImage();
 	inline VulkanDescriptorPool&			GetDescriptorPool() { return *m_DescriptorPool; }
 	inline VulkanBuffer*					GetVertexUploadBuffer() { return m_VertexUploadBuffer; }
 	inline VulkanBuffer* GetMainConstBuffer() { return m_MainConstBuffer[m_CurrentImageIndex]; }
@@ -291,3 +292,13 @@ public:
 private:
 	void CalculateMatrices(VulkanglTFModel::Node* node, Vertex* vertexBufferCpu, uint32_t* indexBufferCpu, std::vector<bool>& verticesMultipliedWithMatrix);
 };
+
+template<>
+void Renderer::BindPipeline<GraphicsPipeline>();
+
+template<>
+void Renderer::BindPipeline<ComputePipeline>();
+
+template<>
+void Renderer::BindPipeline<RayTracingPipeline>();
+

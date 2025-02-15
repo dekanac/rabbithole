@@ -1,6 +1,6 @@
 #pragma once
 
-#include "VulkanTypes.h"
+#include <common.h>
 #include "Render/Resource.h"
 
 class VulkanBuffer : public AllocatedResource, public ManagableResource

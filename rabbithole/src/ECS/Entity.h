@@ -89,7 +89,7 @@ public:
 
         m_Components.erase(std::remove_if(begin(m_Components),
                                             end(m_Components),
-                                            [](const Component* component) { return component->GetType() == Component::GetComponentTypeID<TComponent>(); }));
+                                            [](Component* component) { return component->GetType() == Component::GetComponentTypeID<TComponent>(); }));
     }
 };
 

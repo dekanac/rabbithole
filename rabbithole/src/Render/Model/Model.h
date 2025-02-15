@@ -8,6 +8,7 @@
 #include <unordered_map>
 #include <glm/gtx/hash.hpp>
 
+class VulkanTexture;
 class VulkanDescriptorSet;
 class VulkanPipelineLayout;
 class VulkanBuffer;

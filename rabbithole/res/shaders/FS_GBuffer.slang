@@ -9,9 +9,10 @@ struct FS_INPUT
     float3 FragTBN1 : TEXCOORD6;
     float3 FragTBN2 : TEXCOORD7;
     float3 FragTBN3 : TEXCOORD8;
-    float2 FragVelocity : TEXCOORD9;
     float4 FragEmissive : TEXCOORD10;
     float4 FragFinalPosition : SV_POSITION;
+    float4 FragCurrentPos : TEXCOORD11;
+    float4 FragPrevPos : TEXCOORD12;
 };
 
 [[vk::binding(1)]] Sampler2D<float4> textureAlbedo;
@@ -63,7 +64,7 @@ PS_OUTPUT main(FS_INPUT fs_in)
     output.outWorldPosMetalness.xyz = fs_in.FragPos;
     output.outWorldPosMetalness.w = Push.useMetallicRoughnessMap ? metalness : 1.f;
 
-    output.outVelocity = fs_in.FragVelocity;
+    output.outVelocity = ((fs_in.FragCurrentPos.xy / fs_in.FragCurrentPos.w) - (fs_in.FragPrevPos.xy / fs_in.FragPrevPos.w)) * 0.5f;
     output.outEmissive = fs_in.FragEmissive;
 
 #ifdef USE_TOOLS

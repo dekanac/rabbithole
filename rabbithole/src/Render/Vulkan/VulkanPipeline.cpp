@@ -1,11 +1,9 @@
-#include "precomp.h"
+#include "VulkanPipeline.h"
 
-#include "Logger/Logger.h"
 #include "Render/Converters.h"
 #include "Render/Renderer.h"
 #include "Render/Shader.h"
 #include "Render/SuperResolutionManager.h"
-#include "Render/Raytracing.h"
 
 #include <cassert>
 #include <fstream>

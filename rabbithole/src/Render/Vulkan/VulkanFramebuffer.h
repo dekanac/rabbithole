@@ -1,8 +1,13 @@
 #pragma once
 
-#include "precomp.h"
+#include <common.h>
+
+#include <vector>
+#include <vulkan/vulkan.h>
 
 class VulkanDevice;
+class VulkanRenderPass;
+class VulkanImageView;
 
 struct VulkanFramebufferInfo
 {

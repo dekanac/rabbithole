@@ -2,7 +2,7 @@
 Open Asset Import Library (assimp)
 ----------------------------------------------------------------------
 
-Copyright (c) 2006-2022, assimp team
+Copyright (c) 2006-2024, assimp team
 
 All rights reserved.
 
@@ -84,7 +84,7 @@ protected:
 
 public:
     /** Destructor public to allow simple deletion to close the file. */
-    ~DefaultIOStream ();
+    ~DefaultIOStream () override;
 
     // -------------------------------------------------------------------
     /// Read from stream

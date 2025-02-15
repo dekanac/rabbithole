@@ -4,7 +4,7 @@
 #include "Logger/Logger.h"
 #include "Render/Window.h"
 
-#define GLM_ENABLE_EXPERIMENTAL
+#define GLM_FORCE_DEPTH_ZERO_TO_ONE
 #include <glm/gtx/quaternion.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/matrix_access.hpp>
@@ -40,7 +40,7 @@ bool Camera::Init()
 	mainCamera->AddComponent<InputComponent>();
 
 	auto moveComp = mainCamera->GetComponent<MoverComponent>();
-	moveComp->m_MoveSpeed = 6.f; //camera sensitivity 
+	moveComp->m_MoveSpeed = 2.f; //camera sensitivity 
 
 	auto inputComp = mainCamera->GetComponent<InputComponent>();
 	inputComp->inputActions.push_back({ "CameraUp" });

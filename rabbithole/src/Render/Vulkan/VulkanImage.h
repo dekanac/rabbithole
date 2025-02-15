@@ -1,6 +1,13 @@
 #pragma once
 
+#include <common.h>
+
+#include <vulkan/vulkan.h>
+
+#include <Render/Resource.h>
+
 class VulkanSwapchain;
+class VulkanDevice;
 
 struct ImageRegion
 {

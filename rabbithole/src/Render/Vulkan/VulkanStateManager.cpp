@@ -1,4 +1,4 @@
-#include "precomp.h"
+#include "VulkanStateManager.h"
 
 #include "Render/RenderPass.h"
 #include "Render/PipelineManager.h"

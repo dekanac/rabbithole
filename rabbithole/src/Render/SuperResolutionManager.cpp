@@ -8,9 +8,8 @@
 #include "Render/Vulkan/VulkanDevice.h"
 #include "Render/Window.h"
 #include "Utils/utils.h"
+#include "ffx_fsr2.h"
 
-#include <ffx_fsr2.h>
-#include <vk/ffx_fsr2_vk.h>
 #include <vulkan/vulkan.h>
 
 void SuperResolutionManager::Init(VulkanDevice* device)
@@ -18,7 +17,7 @@ void SuperResolutionManager::Init(VulkanDevice* device)
 	m_UpscaledResolutionWidth = Window::instance().GetExtent().width;
 	m_UpscaledResolutionHeight = Window::instance().GetExtent().height;
 
-	m_UpscaleFactor = 3.f/4.f;
+	m_UpscaleFactor = 0.75f; 
 	m_Sharpness = 0.666666f;
 
 	m_NativeResolutionWidth = static_cast<uint32_t>(m_UpscaledResolutionWidth * m_UpscaleFactor);
@@ -34,9 +33,13 @@ void SuperResolutionManager::Destroy()
 	DestroyFsrContext();
 }
 
+void Fsr2MessageHandler(FfxFsr2MsgType type, const wchar_t* message)
+{
+	wprintf(L"[FSR2] %ls\n", message);
+}
+
 void SuperResolutionManager::CreateFsrContext(VulkanDevice* device)
 {
-	// Setup VK interface.
 	auto physicalDevice = device->GetPhysicalDevice();
 	const size_t scratchBufferSize = ffxFsr2GetScratchMemorySizeVK(physicalDevice);
 	void* scratchBuffer = Utils::RabbitMalloc(scratchBufferSize);
@@ -48,7 +51,8 @@ void SuperResolutionManager::CreateFsrContext(VulkanDevice* device)
 	m_FsrContextDescription.maxRenderSize.height = m_NativeResolutionHeight;
 	m_FsrContextDescription.displaySize.width = m_UpscaledResolutionWidth;
 	m_FsrContextDescription.displaySize.height = m_UpscaledResolutionHeight;
-	m_FsrContextDescription.flags = 0;
+	m_FsrContextDescription.flags = FFX_FSR2_ENABLE_DEBUG_CHECKING;
+	m_FsrContextDescription.fpMessage = Fsr2MessageHandler;
 
 	if (m_Hdr) 
 	{
@@ -93,8 +97,8 @@ void SuperResolutionManager::Draw(VulkanCommandBuffer& commandBuffer, const FfxU
 	dispatchParameters.output = ffxGetTextureResourceVK(&m_FsrContext, GET_VK_HANDLE_PTR(cameraSetup.resolvedColorResource->GetResource()), GET_VK_HANDLE_PTR(cameraSetup.resolvedColorResource->GetView()), cameraSetup.resolvedColorResource->GetWidth(), cameraSetup.resolvedColorResource->GetHeight(), GetVkFormatFrom(cameraSetup.resolvedColorResource->GetFormat()), (wchar_t*)L"FSR2_OutputUpscaledColor", FFX_RESOURCE_STATE_UNORDERED_ACCESS);
 	dispatchParameters.jitterOffset.x = m_JitterX;
 	dispatchParameters.jitterOffset.y = m_JitterY;
-	dispatchParameters.motionVectorScale.x = pState->renderWidth;
-	dispatchParameters.motionVectorScale.y = pState->renderHeight;
+	dispatchParameters.motionVectorScale.x = -pState->renderWidth * 0.5f;
+	dispatchParameters.motionVectorScale.y = -pState->renderHeight * 0.5f;
 	dispatchParameters.reset = pState->reset;
 	dispatchParameters.enableSharpening = pState->useRcas;
 	dispatchParameters.sharpness = pState->sharpness;
@@ -105,7 +109,6 @@ void SuperResolutionManager::Draw(VulkanCommandBuffer& commandBuffer, const FfxU
 	dispatchParameters.cameraFar = pState->camera->GetFarPlane();
 	dispatchParameters.cameraNear = pState->camera->GetNearPlane();
 	dispatchParameters.cameraFovAngleVertical = pState->camera->GetFieldOfViewVerticalRad();
-	pState->reset = false;
 
 	FfxErrorCode errorCode = ffxFsr2ContextDispatch(&m_FsrContext, &dispatchParameters);
 	FFX_ASSERT(errorCode == FFX_OK);

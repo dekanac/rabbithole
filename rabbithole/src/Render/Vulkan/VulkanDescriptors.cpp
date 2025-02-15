@@ -1,8 +1,10 @@
-#include "precomp.h"
+#include "VulkanDescriptors.h"
 
+#include "VulkanImage.h"
+
+#include "Logger/Logger.h"
 #include "Render/Converters.h"
 #include "Render/Shader.h"
-
 
 VulkanDescriptor::VulkanDescriptor(const VulkanDescriptorInfo& info)
 	: m_Info(info)

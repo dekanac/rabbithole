@@ -1,14 +1,21 @@
-#include "precomp.h"
+#include "VulkanDevice.h"
 
+#include "VulkanCommandBuffer.h"
+#include "VulkanTexture.h"
+#include "VulkanBuffer.h"
+
+#include "Logger/Logger.h"
 #include "Render/Converters.h"
 #include "Render/Window.h"
 
-#include "vk_mem_alloc.h"
 // std headers
 #include <cstring>
 #include <iostream>
 #include <set>
 #include <unordered_set>
+
+#define VMA_IMPLEMENTATION
+#include <vma/vk_mem_alloc.h>
 
 std::vector<Vector4f> g_Colors = { YELLOW_COLOR, RED_COLOR, BLUE_COLOR, PUPRPLE_COLOR, GREEN_COLOR };
 
@@ -69,6 +76,7 @@ VulkanDevice::VulkanDevice()
 	CreateVmaAllocator();
 	CreateCommandPool();
 	InitializeFunctionsThroughProcAddr();
+	
 }
 
 VulkanDevice::~VulkanDevice() 
@@ -88,58 +96,61 @@ VulkanDevice::~VulkanDevice()
 
 void VulkanDevice::CreateInstance() 
 {
-	if (enableValidationLayers && !CheckValidationLayerSupport()) 
-	{
-		LOG_ERROR("validation layers requested, but not available!");
-	}
+    if (enableValidationLayers && !CheckValidationLayerSupport()) 
+    {
+        LOG_ERROR("Validation layers requested, but not available!");
+    }
 
-	VkApplicationInfo appInfo = {};
-	appInfo.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
-	appInfo.pApplicationName = "Rabbithole";
-	appInfo.applicationVersion = VK_MAKE_API_VERSION(0, 1, 3, 0);
-	appInfo.pEngineName = "Rabbithole Engine";
-	appInfo.engineVersion = 1;
-	appInfo.apiVersion = VK_API_VERSION_1_3;
+    // Application info setup
+    VkApplicationInfo appInfo = {};
+    appInfo.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
+    appInfo.pApplicationName = "Rabbithole";
+    appInfo.applicationVersion = VK_MAKE_API_VERSION(0, 1, 3, 0);
+    appInfo.pEngineName = "Rabbithole Engine";
+    appInfo.engineVersion = 1;
+    appInfo.apiVersion = VK_API_VERSION_1_3;
 
-	VkInstanceCreateInfo createInfo = {};
-	createInfo.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
-	createInfo.pApplicationInfo = &appInfo;
+    // Instance creation info
+    VkInstanceCreateInfo createInfo = {};
+    createInfo.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
+    createInfo.pApplicationInfo = &appInfo;
 
-	auto extensions = GetRequiredExtensions();
-	createInfo.enabledExtensionCount = static_cast<uint32_t>(extensions.size());
-	createInfo.ppEnabledExtensionNames = extensions.data();
+    // Get required extensions
+    auto extensions = GetRequiredExtensions();
+    createInfo.enabledExtensionCount = static_cast<uint32_t>(extensions.size());
+    createInfo.ppEnabledExtensionNames = extensions.data();
 
-	VkDebugUtilsMessengerCreateInfoEXT debugCreateInfo;
-	if (enableValidationLayers) 
-	{
-		VkValidationFeatureEnableEXT enabledValidationFeatures[1];
+    // Validation layers and extensions setup
+    VkDebugUtilsMessengerCreateInfoEXT debugCreateInfo = {};
+    VkValidationFeaturesEXT validationFeatures = {};
 
-		VkValidationFeaturesEXT validationFeatures = { VK_STRUCTURE_TYPE_VALIDATION_FEATURES_EXT };
-		validationFeatures.enabledValidationFeatureCount = ARRAYSIZE(enabledValidationFeatures);
-		validationFeatures.pEnabledValidationFeatures = enabledValidationFeatures;
-		
-		PopulateDebugMessengerCreateInfo(debugCreateInfo);
-		validationFeatures.pNext = (VkDebugUtilsMessengerCreateInfoEXT*)&debugCreateInfo;
+    if (enableValidationLayers) 
+    {
+        createInfo.enabledLayerCount = static_cast<uint32_t>(m_ValidationLayers.size());
+        createInfo.ppEnabledLayerNames = m_ValidationLayers.data();
 
-		createInfo.enabledLayerCount = static_cast<uint32_t>(m_ValidationLayers.size());
-		createInfo.ppEnabledLayerNames = m_ValidationLayers.data();
+        validationFeatures.sType = VK_STRUCTURE_TYPE_VALIDATION_FEATURES_EXT;
 
-		createInfo.pNext = &validationFeatures;
-	}
-	else 
-	{
-		createInfo.enabledLayerCount = 0;
-		createInfo.pNext = nullptr;
-	}
+        PopulateDebugMessengerCreateInfo(debugCreateInfo);
 
-	if (vkCreateInstance(&createInfo, nullptr, &m_Instance) != VK_SUCCESS) 
-	{
-		LOG_ERROR("failed to create instance!");
-	}
+        validationFeatures.pNext = &debugCreateInfo;
+        createInfo.pNext = &validationFeatures;
+    } 
+    else 
+    {
+        createInfo.enabledLayerCount = 0;
+        createInfo.pNext = nullptr;
+    }
 
-	HasGflwRequiredInstanceExtensions();
+    // Create Vulkan instance
+    if (vkCreateInstance(&createInfo, nullptr, &m_Instance) != VK_SUCCESS) 
+    {
+    	std::cout << "Drama" << std::endl;
+        LOG_ERROR("Failed to create Vulkan instance!");
+    }
+
+    HasGflwRequiredInstanceExtensions();
 }
-
 void VulkanDevice::PickPhysicalDevice() 
 {
 	uint32_t deviceCount = 0;
@@ -202,7 +213,7 @@ void VulkanDevice::CreateLogicalDevice()
 #ifdef VULKAN_HWRT
 	VkPhysicalDeviceAccelerationStructureFeaturesKHR asFeature{ VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ACCELERATION_STRUCTURE_FEATURES_KHR };
 	asFeature.accelerationStructure = VK_TRUE;
-	asFeature.accelerationStructureIndirectBuild = VK_TRUE;
+	//asFeature.accelerationStructureIndirectBuild = VK_TRUE;
 
 	VkPhysicalDeviceRayTracingPipelineFeaturesKHR rtPipelineFeature{ VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_FEATURES_KHR };
 	rtPipelineFeature.rayTracingPipeline = VK_TRUE;
@@ -236,6 +247,8 @@ void VulkanDevice::CreateLogicalDevice()
 	{
 		LOG_ERROR("failed to create logical device!");
 	}
+
+	LOG_INFO("vk device has been created");
 
 	vkGetDeviceQueue(m_Device, indices.graphicsFamily, 0, &m_GraphicsQueue);
 	vkGetDeviceQueue(m_Device, indices.presentFamily, 0, &m_PresentQueue);
@@ -397,6 +410,7 @@ void VulkanDevice::HasGflwRequiredInstanceExtensions()
 		if (available.find(required) == available.end()) 
 		{
 			LOG_ERROR("Missing required glfw extension");
+			std::cout << "drama bozija" << std::endl; 
 		}
 	}
 }

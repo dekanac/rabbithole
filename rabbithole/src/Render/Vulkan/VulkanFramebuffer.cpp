@@ -1,4 +1,6 @@
-#include "precomp.h"
+#include "VulkanFramebuffer.h"
+#include "VulkanRenderPass.h"
+#include "VulkanImage.h"
 
 VulkanFramebuffer::VulkanFramebuffer(const VulkanDevice* device,
 	const VulkanFramebufferInfo& info, 

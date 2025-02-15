@@ -31,7 +31,7 @@ void GBufferPass::DeclareResources()
 			.samplerType = SamplerType::Bilinear,
 			.addressMode = AddressMode::Repeat,
 			.mipCount = 1,
-			.clearValue = BLACK_COLOR
+			.clearValue = { BLACK_COLOR }
 		});
 
 	Normals = m_Renderer.GetResourceManager().CreateTexture(m_Renderer.GetVulkanDevice(), RWTextureCreateInfo{

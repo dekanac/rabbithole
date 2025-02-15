@@ -15,7 +15,7 @@ struct PS_OUT
 [[vk::binding(2)]] Sampler2D<float4> texturePosition;
 [[vk::binding(5)]] Sampler2D<float> textureSSAO;
 [[vk::binding(6)]] Sampler2DArray<float4> textureShadowMap;
-[[vk::binding(7)]] Sampler2D<float2> textureVelocity;
+//[[vk::binding(7)]] Sampler2D<float2> textureVelocity;
 [[vk::binding(8)]] Sampler2D<float> textureDepth;
 [[vk::binding(9)]] Sampler2DArray<float4> textureDenoisedShadow;
 [[vk::binding(10)]] Sampler2D<float4> textureEmissive;
@@ -206,7 +206,7 @@ PS_OUT main(PS_IN input)
     float4 normalRoughness = textureNormal.Sample(input.inUV);
     float4 positionMetallic = texturePosition.Sample(input.inUV);
     float3 albedo = pow(textureAlbedo.Sample(input.inUV).rgb, float3(2.2));
-    float2 velocity = textureVelocity.Sample(input.inUV).rg; 
+    //float2 velocity = textureVelocity.Sample(input.inUV).rg; 
     float ssao = textureSSAO.Sample(input.inUV).r;
 
     float depth = textureDepth.Sample(input.inUV).r;
