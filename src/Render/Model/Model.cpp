@@ -78,7 +78,7 @@ uint32_t VulkanglTFModel::ms_CurrentDrawId = 0;
 
 void VulkanglTFModel::LoadModelFromFile(std::string& filename)
 {
-    auto lastSlash = filename.find_last_of('\\');
+    auto lastSlash = filename.find_last_of('/');
     auto lastDot = filename.find_last_of('.');
 
     auto name = filename.substr(lastSlash + 1, lastDot - lastSlash - 1);
@@ -304,7 +304,7 @@ void VulkanglTFModel::LoadMaterials(const aiScene* input)
                 std::string textureExt =
                     texturePathStr.substr(texturePathStr.find_last_of('.') + 1);
                 std::string fullPath =
-                    m_Path.substr(0, m_Path.find_last_of('\\') + 1) + texturePathStr;
+                    m_Path.substr(0, m_Path.find_last_of('/') + 1) + texturePathStr;
 
                 // if DDS texture
                 TextureLoading::TextureData* textureData =
@@ -363,7 +363,7 @@ void VulkanglTFModel::LoadMaterials(const aiScene* input)
             {
                 std::string texturePathStr(texturePath.C_Str());
                 std::string fullPath =
-                    m_Path.substr(0, m_Path.find_last_of('\\') + 1) + texturePathStr;
+                    m_Path.substr(0, m_Path.find_last_of('/') + 1) + texturePathStr;
 
                 TextureLoading::TextureData* textureData =
                     TextureLoading::LoadTextureFromFile(fullPath);
@@ -424,7 +424,7 @@ void VulkanglTFModel::LoadMaterials(const aiScene* input)
                 std::string textureExt =
                     texturePathStr.substr(texturePathStr.find_last_of('.') + 1);
                 std::string fullPath =
-                    m_Path.substr(0, m_Path.find_last_of('\\') + 1) + texturePathStr;
+                    m_Path.substr(0, m_Path.find_last_of('/') + 1) + texturePathStr;
 
                 TextureLoading::TextureData* textureData =
                     TextureLoading::LoadTextureFromFile(fullPath);
@@ -614,7 +614,6 @@ void VulkanglTFModel::CreateDescriptorSet(uint32_t imageIndex)
     }
     else if (m_RenderingContext == RenderingContext::Clouds_Transparent)
     {
-
         VulkanDescriptorSetLayout descrSetLayout(&device,
                                                  {m_Renderer->GetShader("VS_VolumetricClouds"),
                                                   m_Renderer->GetShader("FS_VolumetricClouds")},

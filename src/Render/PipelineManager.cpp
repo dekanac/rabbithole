@@ -87,6 +87,12 @@ VulkanPipeline* PipelineManager::FindOrCreateGraphicsPipeline(VulkanDevice& devi
     memcpy(&key.blendAttachmentStates, &pipelineInfo.colorBlendAttachment,
            sizeof(VkPipelineColorBlendAttachmentState) * MaxRenderTargetCount);
 
+    key.colorAttachmentCount = pipelineInfo.colorAttachmentCount;
+    memcpy(&key.colorAttachmentFormats, &pipelineInfo.colorAttachmentFormats,
+           sizeof(VkFormat) * MaxRenderTargetCount);
+    key.depthAttachmentFormat = pipelineInfo.depthAttachmentFormat;
+    key.stencilAttachmentFormat = pipelineInfo.stencilAttachmentFormat;
+
     // fill the key, find the pipeline in the map
     // if it is not in the map, create and add to map
 

@@ -2,8 +2,6 @@
 
 #include <vector>
 
-#include "Render/Vulkan/VulkanFramebuffer.h"
-#include "Render/Vulkan/VulkanRenderPass.h"
 #include "Render/Vulkan/VulkanTypes.h"
 
 class VulkanDevice;
@@ -35,16 +33,12 @@ class RenderPass
     void BeginRenderPass(VulkanCommandBuffer& commandBuffer);
     void EndRenderPass(VulkanCommandBuffer& commandBuffer);
 
-    VulkanRenderPass& GetVulkanRenderPass() { return *m_RenderPass; }
-    VulkanFramebuffer& GetVulkanFramebuffer() { return *m_Framebuffer; }
-
   private:
     VulkanDevice& m_Device;
-    VulkanRenderPass* m_RenderPass;
-    VulkanFramebuffer* m_Framebuffer;
 
-    Extent2D m_Extent;
-    uint32_t m_RTCount = 0;
-    bool m_HasDepth = false;
-    std::vector<ClearValue> m_ClearValues;
+    std::vector<VulkanImageView*> m_RenderTargetViews;
+    const VulkanImageView* m_DepthStencilView;
+    RenderPassInfo m_Info;
+
+    VkExtent2D m_Extent;
 };

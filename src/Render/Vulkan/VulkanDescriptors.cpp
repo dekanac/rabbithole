@@ -142,6 +142,7 @@ VulkanDescriptorSetLayout::VulkanDescriptorSetLayout(const VulkanDevice* device,
     descriptorSetLayoutCreateInfo.bindingCount =
         static_cast<uint32_t>(descriptorSetLayoutBindings.size());
     descriptorSetLayoutCreateInfo.pBindings = descriptorSetLayoutBindings.data();
+    descriptorSetLayoutCreateInfo.flags = VK_DESCRIPTOR_SET_LAYOUT_CREATE_UPDATE_AFTER_BIND_POOL_BIT;
 
     VULKAN_API_CALL(vkCreateDescriptorSetLayout(
         m_Device->GetGraphicDevice(), &descriptorSetLayoutCreateInfo, nullptr, &m_Layout));

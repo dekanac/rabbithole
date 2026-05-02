@@ -46,7 +46,7 @@ Important points of note are
 
 If a path/name is *not* specified for NVRTC, Slang will attempt to load a shared library called `nvrtc`. For non Windows targets this should be enough to find and load the latest version.
 
-On Windows NVRTC dlls have a name the contains the version number, for example `nvrtc64_102_0.dll`. This will lead to the load of just `nvrtc` to fail. One approach to fix this is to place the NVRTC dll and associated files in the same directory as slang.dll, and rename the main dll to `nvrtc.dll`. Another approach is to specify directly on the command line the name including the version, as previously discussed. For example
+On Windows NVRTC dlls have a name the contains the version number, for example `nvrtc64_102_0.dll`. This will lead to the load of just `nvrtc` to fail. One approach to fix this is to place the NVRTC dll and associated files in the same directory as `slang-compiler.dll`, and rename the main dll to `nvrtc.dll`. Another approach is to specify directly on the command line the name including the version, as previously discussed. For example
 
 `-nvrtc-path nvrtc64_102_0`
 
@@ -54,7 +54,7 @@ will load NVRTC 10.2 assuming that version of the dll can be found via the norma
 
 On Windows if NVRTC is not loadable directly as 'nvrtc' Slang will attempt to search for the newest version of NVRTC on your system. The places searched are...
 
-* The instance directory (where the slang.dll and/or program exe is)
+* The instance directory (where the slang-compiler.dll and/or program exe is)
 * The CUDA_PATH enivonment variable (if set)
 * Directories in PATH that look like a CUDA installation.
 
@@ -292,14 +292,31 @@ Will require 3 times as many steps as the earlier scalar example just using a si
 
 ## WaveGetLaneIndex
 
-'WaveGetLaneIndex' defaults to `(threadIdx.x & SLANG_CUDA_WARP_MASK)`. Depending on how the kernel is launched this could be incorrect. There are other ways to get lane index, for example using inline assembly. This mechanism though is apparently slower than the simple method used here. There is support for using the asm mechanism in the CUDA prelude using the `SLANG_USE_ASM_LANE_ID` preprocessor define to enable the feature.
+`WaveGetLaneIndex` computes the lane index by linearizing the thread index across all dimensions and masking to the warp size:
 
-There is potential to calculate the lane id using the [numthreads] markup in Slang/HLSL, but that also requires some assumptions of how that maps to a lane index.
+```
+((threadIdx.z * blockDim.y + threadIdx.y) * blockDim.x + threadIdx.x) & SLANG_CUDA_WARP_MASK
+```
+
+This handles multi-dimensional thread blocks correctly as long as the linearized thread index maps to consecutive warp lanes, which is the standard CUDA thread-to-lane mapping.
+
+Alternatively, defining `SLANG_USE_ASM_LANE_ID` before including the CUDA prelude switches to an inline PTX assembly implementation (`mov.u32 %0, %laneid`). The assembly version is always correct regardless of launch configuration, but is slower than the arithmetic default.
 
 ## Unsupported Intrinsics
 
 * Intrinsics which only work in pixel shaders
   + QuadXXXX intrinsics
+
+OptiX Support
+=============
+
+Slang supports OptiX for raytracing. To compile raytracing programs, NVRTC must have access to the `optix.h` and dependent files that are typically distributed as part of the OptiX SDK. When Slang detects the use of raytracing in source, it will define `SLANG_CUDA_ENABLE_OPTIX` when `slang-cuda-prelude.h` is included. This will in turn try to include `optix.h`.
+
+Slang tries several mechanisms to locate `optix.h` when NVRTC is initiated. The first mechanism is to look in the include paths that are passed to Slang. If `optix.h` can be found in one of these paths, no more searching will be performed.
+
+If this fails, the default OptiX SDK install locations are searched. On Windows this is `%{PROGRAMDATA}\NVIDIA Corporation\OptiX SDK X.X.X\include`. On Linux this is `${HOME}/NVIDIA-OptiX-SDK-X.X.X-suffix`. 
+
+If OptiX headers cannot be found, compilation will fail.
 
 Limitations
 ===========

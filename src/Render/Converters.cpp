@@ -591,16 +591,17 @@ VkPipelineStageFlags GetVkPipelineStageFromResourceStageAndState(const ResourceS
         return isSrcStage ? VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT
                           : VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
 
+    if (state == ResourceState::RenderTarget)
+        return VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+
     switch (stage)
     {
     case ResourceStage::None:
-        return VK_PIPELINE_STAGE_NONE; // TODO: double check this
+        return isSrcStage ? VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT : VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
     case ResourceStage::Compute:
         return VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT;
     case ResourceStage::Graphics:
-        return VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT; // TODO: fix this, but
-                                                      // this should be ok for
-                                                      // now
+        return VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT;
     case ResourceStage::Transfer:
         return VK_PIPELINE_STAGE_TRANSFER_BIT;
     case ResourceStage::RayTracing:
@@ -622,7 +623,9 @@ VkAccessFlags GetVkAccessFlagsFromResourceState(const ResourceState state)
     case ResourceState::GenericRead:
         return VK_ACCESS_SHADER_READ_BIT;
     case ResourceState::RenderTarget:
-        return VK_ACCESS_SHADER_WRITE_BIT;
+        return VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+    case ResourceState::Present:
+        return VK_ACCESS_NONE_KHR;
     case ResourceState::GeneralComputeRead:
         return VK_ACCESS_SHADER_READ_BIT;
     case ResourceState::GeneralComputeWrite:

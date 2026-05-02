@@ -62,6 +62,8 @@ public enum SlangCompileTarget
     SLANG_OBJECT_CODE,           ///< Object code that can be used for later linking
     SLANG_HOST_CPP_SOURCE,       ///< C++ code for host library or executable.
     SLANG_HOST_HOST_CALLABLE,    ///<
+    SLANG_CPP_HEADER,            ///< C++ header for shader kernels.
+    SLANG_CUDA_HEADER,           ///< Cuda header
     SLANG_TARGET_COUNT_OF,
 };
 
@@ -275,6 +277,11 @@ public enum SlangScalarType
     UINT8,
     INT16,
     UINT16,
+    INTPTR,
+    UINTPTR,
+    BFLOAT16,
+    FLOAT_E4M3,
+    FLOAT_E5M2,
 };
 
 public struct TypeReflection

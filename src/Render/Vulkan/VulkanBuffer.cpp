@@ -3,6 +3,7 @@
 #include "Logger/Logger.h"
 #include "Render/Converters.h"
 #include "VulkanCommandBuffer.h"
+#include "Render/Raytracing.h"
 
 VulkanBuffer::VulkanBuffer(VulkanDevice& device, BufferCreateInfo createInfo)
     : ManagableResource(ResourceType::Buffer), m_Device(device), m_Info(createInfo)
@@ -94,6 +95,12 @@ void VulkanBuffer::CreateBufferResource()
     VmaAllocationCreateInfo allocationCreateInfo = {};
     allocationCreateInfo.usage = GetVmaMemoryUsageFrom(m_Info.memoryAccess);
 
-    vmaCreateBuffer(m_Device.GetVmaAllocator(), &bufferInfo, &allocationCreateInfo, &m_Buffer,
-                    &m_VmaAllocation, nullptr);
+    if (IsFlagSet(m_Info.flags & BufferUsageFlags::ShaderBindingTable))
+    {
+        const auto& rtProps = m_Device.GetRayTracingProperties();
+        bufferInfo.size = RayTracing::AlignedSize(m_Info.size, rtProps.shaderGroupBaseAlignment);
+    }
+
+    vmaCreateBuffer(m_Device.GetVmaAllocator(), &bufferInfo, &allocationCreateInfo,
+        &m_Buffer, &m_VmaAllocation, nullptr);
 }

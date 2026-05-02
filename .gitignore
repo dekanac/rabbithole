@@ -346,3 +346,13 @@ JSON/
 tags
 compile_commands.json
 
+# Slang binaries
+extern/slang/bin/
+extern/slang/include/
+extern/slang/lib/
+
+# Assimp binaries
+extern/assimp/bin/
+extern/assimp/include/
+extern/assimp/lib/
+

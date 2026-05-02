@@ -3,7 +3,6 @@ Copyright (c) 2021 Advanced Micro Devices, Inc. All rights reserved.
 RTShadowDenoiser - Filter Pass 0
 ********************************************************************/
 
-
 struct FFX_DNSR_Shadows_Data_Defn
 {
     float4x4 ProjectionInverse;

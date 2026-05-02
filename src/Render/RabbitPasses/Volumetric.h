@@ -5,7 +5,7 @@
 constexpr size_t g_VolumetricTexX = 160;
 constexpr size_t g_VolumetricTexY = 90;
 #if defined(VULKAN_HWRT)
-constexpr size_t g_VolumetricTexZ = 128;
+constexpr size_t g_VolumetricTexZ = 512;
 #else
 constexpr size_t g_VolumetricTexZ = 128;
 #endif

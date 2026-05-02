@@ -7,6 +7,7 @@
 
 #include "VulkanTypes.h"
 
+class VulkanImage;
 class VulkanTexture;
 class VulkanBuffer;
 class VulkanRenderPass;
@@ -83,6 +84,10 @@ class VulkanDevice
                            VulkanBuffer* buffer);
     void CopyImage(VulkanCommandBuffer& commandBuffer, VulkanTexture* src, VulkanTexture* dst);
     void ResourceBarrier(VulkanCommandBuffer& commandBuffer, VulkanTexture* texture,
+                         ResourceState oldLayout, ResourceState newLayout, ResourceStage srcStage,
+                         ResourceStage dstStage, uint32_t mipLevel = 0,
+                         uint32_t mipCount = UINT32_MAX);
+    void ResourceBarrier(VulkanCommandBuffer& commandBuffer, VulkanImage* image,
                          ResourceState oldLayout, ResourceState newLayout, ResourceStage srcStage,
                          ResourceStage dstStage, uint32_t mipLevel = 0,
                          uint32_t mipCount = UINT32_MAX);

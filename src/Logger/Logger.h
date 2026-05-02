@@ -20,20 +20,28 @@ class Logger
     NonCopyableAndMovable(Logger);
 };
 
+#ifdef _WIN32
+    #define LOG_BREAK() DebugBreak()
+#elif defined(__linux__) || defined(__unix__)
+    #define LOG_BREAK() raise(SIGTRAP)
+#else
+    #define LOG_BREAK()
+#endif
+
 #ifdef RABBITHOLE_DEBUG
 
 #define LOG_CRITICAL(...)                                                                          \
     do                                                                                             \
     {                                                                                              \
         ::Logger::GetLogger().critical(__VA_ARGS__);                                               \
-        raise(SIGTRAP);                                                                            \
+        LOG_BREAK();                                                                               \
     } while (0)
 
 #define LOG_ERROR(...)                                                                             \
     do                                                                                             \
     {                                                                                              \
         ::Logger::GetLogger().error(__VA_ARGS__);                                                  \
-        raise(SIGTRAP);                                                                            \
+        LOG_BREAK();                                                                               \
     } while (0)
 
 #define LOG_WARNING(...)                                                                           \
@@ -54,7 +62,7 @@ class Logger
         if (!(x))                                                                                  \
         {                                                                                          \
             ::Logger::GetLogger().critical(__VA_ARGS__);                                           \
-            raise(SIGTRAP);                                                                        \
+           LOG_BREAK();                                                                            \
         }                                                                                          \
     } while (0)
 

@@ -63,8 +63,13 @@ void ImGuiManager::Init(Renderer& renderer)
     init_info.DescriptorPool = GET_VK_HANDLE(descriptorPool);
     init_info.MinImageCount = swapchain.GetImageCount();
     init_info.ImageCount = swapchain.GetImageCount();
-    init_info.RenderPass =
-        GET_VK_HANDLE(renderer.GetStateManager().GetRenderPass()->GetVulkanRenderPass());
+    init_info.UseDynamicRendering = true;
+
+    VkFormat colorFormat = GetVkFormatFrom(swapchain.GetImageView(0)->GetFormat());
+    init_info.PipelineRenderingCreateInfo.sType =
+        VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO_KHR;
+    init_info.PipelineRenderingCreateInfo.colorAttachmentCount = 1;
+    init_info.PipelineRenderingCreateInfo.pColorAttachmentFormats = &colorFormat;
 
     ImGui_ImplVulkan_Init(&init_info);
 

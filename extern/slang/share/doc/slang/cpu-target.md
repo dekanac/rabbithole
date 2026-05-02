@@ -6,7 +6,7 @@ Slang has preliminary support for producing CPU source and binaries.
 # Features
 
 * Can compile C/C++/Slang source to binaries (executables, shared libraries or [directly executable](#host-callable))
-* Does *not* require a C/C++ be installed if [slang-llvm](#slang-llvm) is available (as distributed with slang binary distributions)
+* Does *not* require a C/C++ compiler to be installed if [slang-llvm](#slang-llvm) is available (as distributed with slang binary distributions)
 * Can compile Slang source into C++ source code
 * Supports compute style shaders 
 
@@ -47,6 +47,7 @@ In the API the `SlangCompileTarget`s are
 ```
 SLANG_C_SOURCE             ///< The C language
 SLANG_CPP_SOURCE           ///< The C++ language
+SLANG_CPP_HEADER           ///< The C++ language (header)
 SLANG_HOST_CPP_SOURCE,     ///< C++ code for `host` style 
 ```        
    
@@ -54,6 +55,7 @@ Using the `-target` command line option
 
 * `C_SOURCE`: c
 * `CPP_SOURCE`: cpp,c++,cxx
+* `CPP_HEADER`: hpp
 * `HOST_CPP_SOURCE`: host-cpp,host-c++,host-cxx
 
 Note! Output of C source is not currently supported.

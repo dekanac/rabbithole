@@ -10,7 +10,7 @@
 
 class VulkanImageView;
 class RenderPass;
-class RenderPassInfo;
+struct RenderPassInfo;
 
 struct ComputePipelineKey
 {
@@ -46,6 +46,10 @@ struct GraphicsPipelineKey
     uint32_t cullMode;
     uint32_t frontface;
     VkPipelineColorBlendAttachmentState blendAttachmentStates[MaxRenderTargetCount];
+    uint32_t colorAttachmentCount;
+    VkFormat colorAttachmentFormats[MaxRenderTargetCount];
+    VkFormat depthAttachmentFormat;
+    VkFormat stencilAttachmentFormat;
 
     bool operator<(const GraphicsPipelineKey& k) const;
     bool operator==(const GraphicsPipelineKey& k) const;

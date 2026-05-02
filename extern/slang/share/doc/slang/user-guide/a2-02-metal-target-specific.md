@@ -3,7 +3,7 @@ layout: user-guide
 permalink: /user-guide/metal-target-specific
 ---
 
-# Metal-specific functionalities
+# Metal-Specific Functionalities
 
 This chapter provides information for Metal-specific functionalities and
 behaviors in Slang.
@@ -17,6 +17,12 @@ Slang performs several transformations on entry point parameters when targeting 
 - System value semantics are translated to Metal attributes
 - Parameters without semantics are given automatic attribute indices
 
+### Limitation: `isParameterLocationUsed` for varying inputs
+
+Because Metal entry point varying inputs are packed into a single `[[stage_in]]` struct parameter during legalization, `IMetadata::isParameterLocationUsed` cannot distinguish between used and unused individual varying inputs. The metadata is recorded at the struct level, so if any varying input is used, all varying input locations covered by the struct will be reported as used. This differs from SPIR-V, where each varying input becomes a separate global parameter that can be individually tracked.
+
+This limitation does not affect non-varying resource types (e.g. descriptor table slots), which are tracked individually.
+
 ## System-Value semantics
 
 The system-value semantics are translated to the following Metal attributes:
@@ -29,17 +35,26 @@ The system-value semantics are translated to the following Metal attributes:
 | `SV_DepthGreaterEqual`      | `[[depth(greater)]]`                                 |
 | `SV_DepthLessEqual`         | `[[depth(less)]]`                                    |
 | `SV_DispatchThreadID`       | `[[thread_position_in_grid]]`                        |
+| `SV_FragInvocationCount`    | `(Not supported)`                                    |
+| `SV_FragSize`               | `(Not supported)`                                    |
 | `SV_GroupID`                | `[[threadgroup_position_in_grid]]`                   |
 | `SV_GroupThreadID`          | `[[thread_position_in_threadgroup]]`                 |
 | `SV_GroupIndex`             | Calculated from `SV_GroupThreadID` and group extents |
 | `SV_InstanceID`             | `[[instance_id]]`                                    |
 | `SV_IsFrontFace`            | `[[front_facing]]`                                   |
+| `SV_PointSize`              | `[[point_size]]`                                     |
+| `SV_PointCoord`             | `[[point_coord]]`                                    |
 | `SV_PrimitiveID`            | `[[primitive_id]]`                                   |
 | `SV_RenderTargetArrayIndex` | `[[render_target_array_index]]`                      |
 | `SV_SampleIndex`            | `[[sample_id]]`                                      |
 | `SV_Target<N>`              | `[[color(N)]]`                                       |
 | `SV_VertexID`               | `[[vertex_id]]`                                      |
 | `SV_ViewportArrayIndex`     | `[[viewport_array_index]]`                           |
+| `SV_StartVertexLocation`    | `[[base_vertex]]`                                    |
+| `SV_StartInstanceLocation`  | `[[base_instance]]`                                  |
+| `SV_VulkanInstanceID`       | `[[instance_id]]`                                    |
+| `SV_VulkanSamplePosition`   | `(Not supported)`                                    |
+| `SV_VulkanVertexID`         | `[[vertex_id]]`                                      |
 
 Custom semantics are mapped to user attributes:
 
@@ -103,7 +118,7 @@ Raster-ordered access resources receive the `[[raster_order_group(0)]]`
 attribute, for example `texture2d<float, access::read_write> tex
 [[raster_order_group(0)]]`.
 
-# Array Types
+## Array Types
 
 Array types in Metal are declared using the array template:
 
@@ -111,7 +126,7 @@ Array types in Metal are declared using the array template:
 | ------------------- | -------------------------- |
 | `ElementType[Size]` | `array<ElementType, Size>` |
 
-# Matrix Layout
+## Matrix Layout
 
 Metal exclusively uses column-major matrix layout. Slang automatically handles
 the translation of matrix operations to maintain correct semantics:
@@ -120,9 +135,9 @@ the translation of matrix operations to maintain correct semantics:
 - Matrix types are declared as `matrix<T, Columns, Rows>`, for example
   `float3x4` is represented as `matrix<float, 3, 4>`
 
-# Mesh Shader Support
+## Mesh Shader Support
 
-Mesh shaders can be targeted using the following types and syntax. The same as task/mesh shaders generally in Slang.
+Mesh shaders can be targeted using the following types and syntax, which is the same as for task/mesh shaders generally in Slang.
 
 ```slang
 [outputtopology("triangle")]
@@ -151,7 +166,7 @@ using namespace metal;
 ## Parameter blocks and Argument Buffers
 
 `ParameterBlock` values are translated into _Argument Buffers_ potentially
-containing nested resources. For example this Slang code...
+containing nested resources. For example, this Slang code...
 
 ```slang
 struct MyParameters
@@ -240,8 +255,8 @@ FragmentOutput main()
 Metal enforces strict type requirements for certain operations. Slang
 automatically performs the following conversions:
 
-- Vector size expansion (e.g., float2 to float4), for example when the user
-  specified `float2` but the semantic type in Metal is float4.
+- Vector size expansion (e.g., `float2` to `float4`), for example when the user
+  specified `float2` but the semantic type in Metal is `float4`.
 - Image store value expansion to 4-components
 
 For example:
@@ -272,9 +287,11 @@ Metal requires explicit address space qualifiers. Slang automatically assigns ap
 
 The HLSL `:register()` semantic is respected when emitting Metal code.
 
-Since metal does not differentiate a constant buffer, a shader resource (read-only) buffer and an unordered access buffer, Slang will map `register(tN)`, `register(uN)` and `register(bN)` to `[[buffer(N)]]` when such `register` semantic is declared on a buffer typed parameter.
+Since Metal does not differentiate between a constant buffer, a shader resource (read-only) buffer and an unordered access buffer, Slang will map `register(tN)`, `register(uN)` and `register(bN)` to `[[buffer(N)]]` when such `register` semantic is declared on a buffer-typed parameter.
 
 `spaceN` specifiers inside `register` semantics are ignored.
+
+The `[vk::location(N)]` attributes on stage input/output parameters are respected.
 
 ## Specialization Constants
 

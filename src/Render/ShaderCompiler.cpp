@@ -1,13 +1,10 @@
 #include "ShaderCompiler.h"
-
 #include "Logger/Logger.h"
 #include "Utils/utils.h"
 #include <atomic>
 #include <cstring>
-#include <sys/inotify.h>
-#include <thread>
-#include <unistd.h>
 #include <vector>
+#include <thread>
 
 static std::atomic<bool> g_QuitRequested = false;
 static std::atomic<bool> g_FileChanged = false;
@@ -18,7 +15,6 @@ ShaderCompiler::ShaderCompiler()
     m_ShadersDir = Utils::FindResFolder().string() + "/shaders/";
     m_Session = spCreateSession();
     m_FileChangeMonitor.Init(m_ShadersDir);
-    m_Session->setDefaultDownstreamCompiler(SLANG_SOURCE_LANGUAGE_HLSL, SLANG_PASS_THROUGH_DXC);
 }
 
 ShaderCompiler::~ShaderCompiler()
@@ -32,24 +28,251 @@ bool ShaderCompiler::Update(std::string& fileChanged)
     return m_FileChangeMonitor.CheckForChanges(fileChanged);
 }
 
+#ifdef __linux__
+void MonitorChangesThread(int inotifyFd, int watchDescriptor)
+{
+    char buffer[1024 * (sizeof(struct inotify_event) + 16)];
+
+    while (!g_QuitRequested)
+    {
+        int length = read(inotifyFd, buffer, sizeof(buffer));
+        if (length < 0 && !g_QuitRequested)
+        {
+            perror("read");
+            break;
+        }
+
+        int i = 0;
+        while (i < length)
+        {
+            struct inotify_event* event = (struct inotify_event*)&buffer[i];
+            if (event->len)
+            {
+                if (event->mask & IN_MODIFY || event->mask & IN_CREATE || event->mask & IN_DELETE)
+                {
+                    g_FileChanged = true;
+                    g_ChangedFilename = event->name;
+                    LOG_INFO("File changed: {}", g_ChangedFilename);
+                }
+            }
+            i += sizeof(struct inotify_event) + event->len;
+        }
+    }
+}
+#elif WIN32
+void FileChangeMonitor::MonitorChangesThread()
+{
+    const DWORD bufferSize = 1024 * (sizeof(FILE_NOTIFY_INFORMATION) + 16);
+    std::vector<BYTE> buffer(bufferSize);
+
+    while (!g_QuitRequested)
+    {
+        DWORD bytesReturned;
+        ZeroMemory(&m_Overlapped, sizeof(OVERLAPPED));
+        m_Overlapped.hEvent = CreateEvent(NULL, TRUE, FALSE, NULL);
+
+        BOOL success = ReadDirectoryChangesW(
+            m_DirectoryHandle,
+            buffer.data(),
+            bufferSize,
+            FALSE,  // Watch directory only (no subdirs)
+            FILE_NOTIFY_CHANGE_LAST_WRITE | FILE_NOTIFY_CHANGE_FILE_NAME,
+            &bytesReturned,
+            &m_Overlapped,
+            NULL
+        );
+
+        if (!success)
+        {
+            DWORD error = GetLastError();
+            if (error != ERROR_IO_PENDING)
+            {
+                LOG_ERROR("ReadDirectoryChangesW failed: {}", error);
+                CloseHandle(m_Overlapped.hEvent);
+                break;
+            }
+        }
+
+        HANDLE waitHandles[2] = { m_Overlapped.hEvent, m_ShutdownEvent };
+        DWORD waitResult = WaitForMultipleObjects(2, waitHandles, FALSE, INFINITE);
+
+        if (waitResult == WAIT_OBJECT_0)
+        {
+            DWORD bytesTransferred;
+            if (!GetOverlappedResult(m_DirectoryHandle, &m_Overlapped, &bytesTransferred, FALSE))
+            {
+                LOG_ERROR("GetOverlappedResult failed: {}", GetLastError());
+                CloseHandle(m_Overlapped.hEvent);
+                continue;
+            }
+
+            if (bytesTransferred > 0)
+            {
+                FILE_NOTIFY_INFORMATION* info =
+                    reinterpret_cast<FILE_NOTIFY_INFORMATION*>(buffer.data());
+
+                do
+                {
+                    std::wstring filenameW(info->FileName,
+                        info->FileNameLength / sizeof(WCHAR));
+                    std::string filename(filenameW.begin(), filenameW.end());
+
+                    switch (info->Action)
+                    {
+                    case FILE_ACTION_MODIFIED:
+                    case FILE_ACTION_ADDED:
+                    case FILE_ACTION_REMOVED:
+                        g_FileChanged = true;
+                        g_ChangedFilename = filename;
+                        LOG_INFO("File changed: {}", filename);
+                        break;
+                    }
+
+                    if (info->NextEntryOffset == 0) break;
+                    info = reinterpret_cast<FILE_NOTIFY_INFORMATION*>(
+                        reinterpret_cast<BYTE*>(info) + info->NextEntryOffset);
+                } while (true);
+            }
+        }
+        else if (waitResult == WAIT_OBJECT_0 + 1)
+        {
+            // Shutdown signaled
+            CloseHandle(m_Overlapped.hEvent);
+            break;
+        }
+
+        CloseHandle(m_Overlapped.hEvent);
+    }
+}
+#endif
+
+bool FileChangeMonitor::CheckForChanges(std::string& inputString)
+{
+    if (g_FileChanged)
+    {
+        g_FileChanged = false;
+        inputString = g_ChangedFilename;
+        return true;
+    }
+    return false;
+}
+
+bool FileChangeMonitor::Init(const std::string& shadersDir)
+{
+#ifdef __linux__
+    m_InotifyFd = inotify_init();
+    if (m_InotifyFd < 0)
+    {
+        perror("inotify_init");
+        return false;
+    }
+
+    m_WatchDescriptor =
+        inotify_add_watch(m_InotifyFd, shadersDir.c_str(), IN_MODIFY | IN_CREATE | IN_DELETE);
+    if (m_WatchDescriptor < 0)
+    {
+        perror("inotify_add_watch");
+        close(m_InotifyFd);
+        return false;
+    }
+
+    m_MonitorThread = new std::thread(MonitorChangesThread, m_InotifyFd, m_WatchDescriptor);
+    LOG_INFO("Monitoring changes to {}", shadersDir);
+    return true;
+#elif WIN32
+    m_DirectoryHandle = CreateFileA(
+        shadersDir.c_str(),
+        FILE_LIST_DIRECTORY,
+        FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
+        NULL,
+        OPEN_EXISTING,
+        FILE_FLAG_BACKUP_SEMANTICS | FILE_FLAG_OVERLAPPED,
+        NULL
+    );
+
+    if (m_DirectoryHandle == INVALID_HANDLE_VALUE)
+    {
+        LOG_ERROR("Failed to open directory: {}", GetLastError());
+        return false;
+    }
+
+    m_ShutdownEvent = CreateEventA(NULL, TRUE, FALSE, NULL);
+    if (!m_ShutdownEvent)
+    {
+        LOG_ERROR("Failed to create shutdown event: {}", GetLastError());
+        CloseHandle(m_DirectoryHandle);
+        return false;
+    }
+
+    m_MonitorThread = new std::thread(&FileChangeMonitor::MonitorChangesThread, this);
+    return true;
+
+#endif
+}
+
+bool FileChangeMonitor::Shutdown()
+{
+    g_QuitRequested = true;
+
+#ifdef __linux__
+    if (m_MonitorThread && m_MonitorThread->joinable())
+    {
+        m_MonitorThread->join();
+        delete m_MonitorThread;
+    }
+
+    if (m_WatchDescriptor >= 0)
+    {
+        inotify_rm_watch(m_InotifyFd, m_WatchDescriptor);
+    }
+
+    if (m_InotifyFd >= 0)
+    {
+        close(m_InotifyFd);
+    }
+#elif WIN32
+    if (m_ShutdownEvent)
+    {
+        SetEvent(m_ShutdownEvent);
+        CloseHandle(m_ShutdownEvent);
+        m_ShutdownEvent = NULL;
+    }
+
+    if (m_MonitorThread && m_MonitorThread->joinable())
+    {
+        m_MonitorThread->join();
+        delete m_MonitorThread;
+        m_MonitorThread = nullptr;
+    }
+
+    if (m_DirectoryHandle != INVALID_HANDLE_VALUE)
+    {
+        CloseHandle(m_DirectoryHandle);
+        m_DirectoryHandle = INVALID_HANDLE_VALUE;
+    }
+#endif
+
+    return true;
+}
+
 bool ShaderCompiler::CompileShader(const std::string& shaderName, const std::string& entryPoint,
-                                   void** outData, size_t* outDataSize,
-                                   std::vector<const char*> defines)
+    void** outData, size_t* outDataSize,
+    std::vector<const char*> defines)
 {
     SlangCompileRequest* request = spCreateCompileRequest(m_Session);
     std::string shaderPath = m_ShadersDir + shaderName;
     std::string shaderExt = shaderName.substr(shaderName.find_last_of('.') + 1);
     spSetMatrixLayoutMode(request, SLANG_MATRIX_LAYOUT_COLUMN_MAJOR);
+
     request->addCodeGenTarget(SLANG_SPIRV);
     request->addSearchPath(m_ShadersDir.c_str());
-    request->setDebugInfoLevel(SLANG_DEBUG_INFO_LEVEL_STANDARD);
 
     SlangSourceLanguage srcLanguage = SLANG_SOURCE_LANGUAGE_SLANG;
 
     auto translationUnitIdx = request->addTranslationUnit(srcLanguage, "");
     request->addTranslationUnitSourceFile(translationUnitIdx, shaderPath.c_str());
     auto entryPointIndex = request->addEntryPoint(translationUnitIdx, entryPoint.c_str(),
-                                                  GetStageFromShaderName(shaderName));
+        GetStageFromShaderName(shaderName));
 
     for (auto define : defines)
     {
@@ -60,8 +283,9 @@ bool ShaderCompiler::CompileShader(const std::string& shaderName, const std::str
     if (anyErrors)
     {
         auto diagnostics = request->getDiagnosticOutput();
+
         LOG_CRITICAL("Compilation of %s shader failed with: {}: {}", shaderName.c_str(),
-                     diagnostics);
+            diagnostics);
         return false;
     }
 
@@ -101,93 +325,4 @@ SlangStage ShaderCompiler::GetStageFromShaderName(const std::string& shaderName)
         LOG_ERROR("Unrecognized shader stage! Should be CS, VS, FS, HS, MS or RS");
         return SLANG_STAGE_NONE;
     }
-}
-
-void MonitorChangesThread(int inotifyFd, int watchDescriptor)
-{
-    char buffer[1024 * (sizeof(struct inotify_event) + 16)];
-
-    while (!g_QuitRequested)
-    {
-        int length = read(inotifyFd, buffer, sizeof(buffer));
-        if (length < 0 && !g_QuitRequested)
-        {
-            perror("read");
-            break;
-        }
-
-        int i = 0;
-        while (i < length)
-        {
-            struct inotify_event* event = (struct inotify_event*)&buffer[i];
-            if (event->len)
-            {
-                if (event->mask & IN_MODIFY || event->mask & IN_CREATE || event->mask & IN_DELETE)
-                {
-                    g_FileChanged = true;
-                    g_ChangedFilename = event->name;
-                    LOG_INFO("File changed: {}", g_ChangedFilename);
-                }
-            }
-            i += sizeof(struct inotify_event) + event->len;
-        }
-    }
-}
-
-bool FileChangeMonitor::CheckForChanges(std::string& inputString)
-{
-    if (g_FileChanged)
-    {
-        g_FileChanged = false;
-        inputString = g_ChangedFilename;
-        return true;
-    }
-    return false;
-}
-
-bool FileChangeMonitor::Init(const std::string& shadersDir)
-{
-    m_InotifyFd = inotify_init();
-    if (m_InotifyFd < 0)
-    {
-        perror("inotify_init");
-        return false;
-    }
-
-    m_WatchDescriptor =
-        inotify_add_watch(m_InotifyFd, shadersDir.c_str(), IN_MODIFY | IN_CREATE | IN_DELETE);
-    if (m_WatchDescriptor < 0)
-    {
-        perror("inotify_add_watch");
-        close(m_InotifyFd);
-        return false;
-    }
-
-    m_MonitorThread = new std::thread(MonitorChangesThread, m_InotifyFd, m_WatchDescriptor);
-    LOG_INFO("Monitoring changes to {}", shadersDir);
-
-    return true;
-}
-
-bool FileChangeMonitor::Shutdown()
-{
-    g_QuitRequested = true;
-
-    if (m_MonitorThread && m_MonitorThread->joinable())
-    {
-        m_MonitorThread->join();
-        delete m_MonitorThread;
-    }
-
-    if (m_WatchDescriptor >= 0)
-    {
-        inotify_rm_watch(m_InotifyFd, m_WatchDescriptor);
-    }
-
-    if (m_InotifyFd >= 0)
-    {
-        close(m_InotifyFd);
-    }
-
-    return true;
 }

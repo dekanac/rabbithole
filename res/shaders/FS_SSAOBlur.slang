@@ -12,20 +12,13 @@ struct VS_INPUT
     float2 inUV : VPOS;
 };
 
-struct PS_OUTPUT
+float main(VS_INPUT input) : SV_TARGET0
 {
-    float outColor : SV_TARGET0;
-};
-
-PS_OUTPUT main(VS_INPUT input)
-{
-    PS_OUTPUT output;
-
     const int blurRange = 2;
     int n = 0;
     float2 texelSize = 1.0 / float2(ssaoParams.resWidth, ssaoParams.resHeight);
 
-    float result = 0.0;
+    float result = 0.f;
     for (int x = -blurRange; x < blurRange; x++) 
     {
         for (int y = -blurRange; y < blurRange; y++) 
@@ -36,7 +29,5 @@ PS_OUTPUT main(VS_INPUT input)
         }
     }
 
-    output.outColor = result / float(n);
-
-    return output;
+    return result / (float)n;
 }

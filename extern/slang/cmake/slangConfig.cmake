@@ -32,7 +32,7 @@ endif()
 
 if(ON)
 
-  find_program(SLANGC_EXECUTABLE "slangc" HINTS ENV PATH "${PACKAGE_PREFIX_DIR}/bin")
+  find_program(SLANGC_EXECUTABLE "slangc" HINTS "${PACKAGE_PREFIX_DIR}/bin" ENV PATH)
 
   if (NOT SLANGC_EXECUTABLE)
       message(STATUS "slangc executable not found; ensure it is available in your PATH.")

@@ -240,7 +240,20 @@ void VulkanDevice::CreateLogicalDevice()
     float16Feature.pNext = &rtPipelineFeature;
 #endif
 
-    deviceFeatures2.pNext = &float16Feature;
+    VkPhysicalDeviceDescriptorIndexingFeatures indexingFeatures = {};
+    indexingFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_INDEXING_FEATURES;
+    indexingFeatures.descriptorBindingPartiallyBound = VK_TRUE;
+    indexingFeatures.runtimeDescriptorArray = VK_TRUE;
+    indexingFeatures.shaderSampledImageArrayNonUniformIndexing = VK_TRUE;
+
+    VkPhysicalDeviceDynamicRenderingFeatures dynamicRenderingFeature{
+        VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DYNAMIC_RENDERING_FEATURES};
+    dynamicRenderingFeature.dynamicRendering = VK_TRUE;
+
+    dynamicRenderingFeature.pNext = &float16Feature;
+    indexingFeatures.pNext = &dynamicRenderingFeature;
+
+    deviceFeatures2.pNext = &indexingFeatures;
 
     VkDeviceCreateInfo createInfo = {};
     createInfo.pNext = &deviceFeatures2;
@@ -266,7 +279,7 @@ void VulkanDevice::CreateLogicalDevice()
 void VulkanDevice::CreateVmaAllocator()
 {
     VmaAllocatorCreateInfo allocatorInfo = {};
-    allocatorInfo.vulkanApiVersion = VK_API_VERSION_1_0;
+    allocatorInfo.vulkanApiVersion = VK_API_VERSION_1_3;
     allocatorInfo.instance = m_Instance;
     allocatorInfo.physicalDevice = m_PhysicalDevice;
     allocatorInfo.device = m_Device;
@@ -748,20 +761,31 @@ void VulkanDevice::ResourceBarrier(VulkanCommandBuffer& commandBuffer, VulkanTex
                                    ResourceStage srcStage, ResourceStage dstStage,
                                    uint32_t mipLevel, uint32_t mipCount)
 {
+    ResourceBarrier(commandBuffer, texture->GetResource(), oldLayout, newLayout, srcStage, dstStage,
+                    mipLevel, mipCount);
+
+    texture->SetResourceState(newLayout);
+    texture->SetCurrentResourceStage(dstStage);
+}
+
+void VulkanDevice::ResourceBarrier(VulkanCommandBuffer& commandBuffer, VulkanImage* image,
+                                   ResourceState oldLayout, ResourceState newLayout,
+                                   ResourceStage srcStage, ResourceStage dstStage,
+                                   uint32_t mipLevel, uint32_t mipCount)
+{
     VkImageMemoryBarrier barrier{};
     barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
     barrier.oldLayout = GetVkImageLayoutFrom(oldLayout);
     barrier.newLayout = GetVkImageLayoutFrom(newLayout);
     barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
     barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-    barrier.image = GET_VK_HANDLE_PTR(texture->GetResource());
-    barrier.subresourceRange.aspectMask =
-        GetVkImageAspectFlagsFrom(GetVkFormatFrom(texture->GetFormat()));
+    barrier.image = image->GetVkHandle();
+    barrier.subresourceRange.aspectMask = GetVkImageAspectFlagsFrom(GetVkFormatFrom(image->GetInfo().Format));
     barrier.subresourceRange.baseMipLevel = mipLevel;
     barrier.subresourceRange.levelCount =
-        (mipCount == UINT32_MAX) ? texture->GetMipCount() : mipCount;
+        (mipCount == UINT32_MAX) ? image->GetInfo().MipLevels : mipCount;
     barrier.subresourceRange.baseArrayLayer = 0;
-    barrier.subresourceRange.layerCount = texture->GetResource()->GetInfo().ArraySize;
+    barrier.subresourceRange.layerCount = image->GetInfo().ArraySize;
 
     barrier.srcAccessMask = GetVkAccessFlagsFromResourceState(oldLayout);
     barrier.dstAccessMask = GetVkAccessFlagsFromResourceState(newLayout);
@@ -773,9 +797,6 @@ void VulkanDevice::ResourceBarrier(VulkanCommandBuffer& commandBuffer, VulkanTex
 
     vkCmdPipelineBarrier(GET_VK_HANDLE(commandBuffer), sourceStage, destinationStage, 0, 0, nullptr,
                          0, nullptr, 1, &barrier);
-
-    texture->SetResourceState(newLayout);
-    texture->SetCurrentResourceStage(dstStage);
 }
 
 void VulkanDevice::ResourceBarrier(VulkanCommandBuffer& commandBuffer, VulkanBuffer* buffer,

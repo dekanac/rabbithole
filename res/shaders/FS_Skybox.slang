@@ -6,16 +6,7 @@ struct VS_INPUT
     float3 TexCoords : TEXCOORD0;
 };
 
-struct PS_OUTPUT
+float4 main(VS_INPUT input) : SV_TARGET0
 {
-    float4 outColor : SV_TARGET0;
-};
-
-PS_OUTPUT main(VS_INPUT input)
-{
-    PS_OUTPUT output;
-
-    output.outColor = textureSkybox.Sample(input.TexCoords);
-
-    return output;
+    return textureSkybox.Sample(input.TexCoords);
 }

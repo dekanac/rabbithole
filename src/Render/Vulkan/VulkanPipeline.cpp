@@ -4,6 +4,7 @@
 #include "Render/Renderer.h"
 #include "Render/Shader.h"
 #include "Render/SuperResolutionManager.h"
+#include "VulkanImage.h"
 
 #include <cassert>
 #include <fstream>
@@ -11,8 +12,7 @@
 #include <stdexcept>
 
 VulkanPipeline::VulkanPipeline(VulkanDevice& device, PipelineInfo& pipelineInfo, PipelineType type)
-    : m_VulkanDevice{device}, m_PipelineInfo(pipelineInfo), m_RenderPass(pipelineInfo.renderPass),
-      m_Type(type)
+    : m_VulkanDevice{device}, m_PipelineInfo(pipelineInfo), m_Type(type)
 {
     if (m_Type == PipelineType::Graphics)
     {
@@ -303,8 +303,15 @@ void VulkanPipeline::CreateGraphicsPipeline()
     pipelineInfo.pDynamicState = &dynamicStateInfo;
 
     pipelineInfo.layout = GET_VK_HANDLE_PTR(m_PipelineLayout);
-    pipelineInfo.renderPass = GET_VK_HANDLE_PTR(m_RenderPass);
-    pipelineInfo.subpass = m_PipelineInfo.subpass;
+
+    VkPipelineRenderingCreateInfo renderingCreateInfo{
+        VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO};
+    renderingCreateInfo.colorAttachmentCount = m_PipelineInfo.colorAttachmentCount;
+    renderingCreateInfo.pColorAttachmentFormats = m_PipelineInfo.colorAttachmentFormats.data();
+    renderingCreateInfo.depthAttachmentFormat = m_PipelineInfo.depthAttachmentFormat;
+    renderingCreateInfo.stencilAttachmentFormat = m_PipelineInfo.stencilAttachmentFormat;
+
+    pipelineInfo.pNext = &renderingCreateInfo;
 
     pipelineInfo.basePipelineIndex = -1;
     pipelineInfo.basePipelineHandle = VK_NULL_HANDLE;
@@ -559,6 +566,25 @@ void PipelineInfo::SetAlphaBlendOperation(const uint32_t mrtIndex,
 
     colorBlendAttachment[mrtIndex].colorBlendOp = GetVkBlendOpFrom(colorOperation);
     colorBlendAttachment[mrtIndex].alphaBlendOp = GetVkBlendOpFrom(alphaOperation);
+}
+
+void PipelineInfo::SetFormats(const std::vector<VulkanImageView*>& colorAttachments,
+                              const VulkanImageView* depthStencil)
+{
+    colorAttachmentCount = static_cast<uint32_t>(colorAttachments.size());
+    for (uint32_t i = 0; i < colorAttachmentCount; ++i)
+    {
+        colorAttachmentFormats[i] = GetVkFormatFrom(colorAttachments[i]->GetFormat());
+    }
+
+    if (depthStencil)
+    {
+        depthAttachmentFormat = GetVkFormatFrom(depthStencil->GetFormat());
+    }
+    else
+    {
+        depthAttachmentFormat = VK_FORMAT_UNDEFINED;
+    }
 }
 
 VulkanPipelineLayout::VulkanPipelineLayout(

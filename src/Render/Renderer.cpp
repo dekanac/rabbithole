@@ -244,10 +244,10 @@ void Renderer::LoadModels()
     // "/meshes/separateObjects.gltf", RenderingContext::GBuffer_Opaque);
     // gltfModels.emplace_back(this,  m_ResFolder + "/meshes/cottage.gltf",
     // RenderingContext::GBuffer_Opaque);
-    gltfModels.emplace_back(this, m_ResFolder + "/meshes/sponza/sponza.gltf",
-                            RenderingContext::GBuffer_Opaque);
-    // gltfModels.emplace_back(this, m_ResFolder +
-    // "/meshes/sponzaNew/MainSponza.gltf", RenderingContext::GBuffer_Opaque);
+    //gltfModels.emplace_back(this, m_ResFolder + "/meshes/sponza/sponza.gltf",
+    //                        RenderingContext::GBuffer_Opaque);
+    gltfModels.emplace_back(this, m_ResFolder +
+    "/meshes/sponzaNew/MainSponza.gltf", RenderingContext::GBuffer_Opaque);
 
     // cloudMeshes.emplace_back(this, m_ResFolder +
     // "/meshes/simpleShapes/sphere.gltf",
@@ -288,7 +288,7 @@ void Renderer::DrawGeometryGLTF(std::vector<VulkanglTFModel>& bucket)
     // pipeline
     PipelineInfo* pipelineInfo = m_StateManager.GetPipelineInfo();
 
-    pipelineInfo->renderPass = &m_StateManager.GetRenderPass()->GetVulkanRenderPass();
+    pipelineInfo->SetFormats(attachments, depthStencil);
     VulkanPipeline* pipeline =
         m_StateManager.GetPipelineDirty()
             ? m_PipelineManager.FindOrCreateGraphicsPipeline(m_VulkanDevice, *pipelineInfo)
@@ -419,8 +419,8 @@ void Renderer::CopyToSwapChain()
 
 void Renderer::BindCameraMatrices(Camera* camera)
 {
-    auto projection = camera->Projection();
-    auto view = camera->View();
+    const auto& projection = camera->Projection();
+    const auto& view = camera->View();
 
     m_StateManager.UpdateUBOElement(UBOElement::PrevViewProjMatrix, 4,
                                     &m_CurrentCameraState.PrevViewProjMatrix);
@@ -1563,7 +1563,7 @@ template <> void Renderer::BindPipeline<GraphicsPipeline>()
     // pipeline
     PipelineInfo* pipelineInfo = m_StateManager.GetPipelineInfo();
 
-    pipelineInfo->renderPass = &m_StateManager.GetRenderPass()->GetVulkanRenderPass();
+    pipelineInfo->SetFormats(attachments, depthStencil);
     VulkanPipeline* pipeline =
         m_StateManager.GetPipelineDirty()
             ? m_PipelineManager.FindOrCreateGraphicsPipeline(m_VulkanDevice, *pipelineInfo)

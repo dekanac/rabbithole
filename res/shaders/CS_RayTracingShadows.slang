@@ -92,7 +92,9 @@ float CalculateShadowForLight(float3 positionOfOrigin, float3 normalOfOrigin, Li
     ray.t = pointToLightDistance;
 
     if (FindTriangleIntersection(ray))
+    {
         shadow = IN_SHADOW;
+    }
 
     return shadow;
 }

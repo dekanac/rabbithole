@@ -16,7 +16,7 @@
 const uint8_t MaxRenderTargetCount = 6;
 const uint8_t MaxRTShaders = 8;
 
-class VulkanRenderPass;
+class VulkanImageView;
 class VulkanDevice;
 class VulkanCommandBuffer;
 class VulkanDescriptorSetLayout;
@@ -75,6 +75,9 @@ class PipelineInfo
     void SetColorWriteMask(const uint32_t mrtIndex, const uint32_t mrtCount,
                            const ColorWriteMaskFlags masks[]);
 
+    void SetFormats(const std::vector<VulkanImageView*>& colorAttachments,
+                    const VulkanImageView* depthStencil);
+
     Shader* vertexShader = nullptr;
     std::string vsEntryPoint = "main";
     Shader* pixelShader = nullptr;
@@ -93,8 +96,10 @@ class PipelineInfo
     VkPipelineColorBlendStateCreateInfo colorBlendInfo{};
     VkPipelineDepthStencilStateCreateInfo depthStencilInfo{};
     VkPipelineLayout pipelineLayout = nullptr;
-    VulkanRenderPass* renderPass = nullptr;
-    uint32_t subpass = 0;
+    uint32_t colorAttachmentCount = 0;
+    std::array<VkFormat, MaxRenderTargetCount> colorAttachmentFormats = {VK_FORMAT_UNDEFINED};
+    VkFormat depthAttachmentFormat = VK_FORMAT_UNDEFINED;
+    VkFormat stencilAttachmentFormat = VK_FORMAT_UNDEFINED;
 };
 
 class VulkanPipeline
@@ -130,7 +135,6 @@ class VulkanPipeline
     PipelineInfo& m_PipelineInfo;
     VulkanPipelineLayout* m_PipelineLayout;
     VulkanDescriptorSetLayout* m_DescriptorSetLayout;
-    VulkanRenderPass* m_RenderPass;
     PipelineType m_Type;
 
 #if defined(VULKAN_HWRT)
