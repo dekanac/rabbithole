@@ -176,7 +176,7 @@ bool FileChangeMonitor::Init(const std::string& shadersDir)
         return false;
     }
 
-    m_MonitorThread = new std::thread(MonitorChangesThread, m_InotifyFd, m_WatchDescriptor);
+    m_MonitorThread = new std::thread(::MonitorChangesThread, m_InotifyFd, m_WatchDescriptor);
     LOG_INFO("Monitoring changes to {}", shadersDir);
     return true;
 #elif WIN32

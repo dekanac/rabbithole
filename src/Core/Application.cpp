@@ -12,6 +12,7 @@
 #include <optick/src/optick.config.h>
 #include <optick/src/optick.h>
 
+#include <iomanip>
 #include <iostream>
 
 void ErrorCallback(int, const char* err_str) { LOG_CRITICAL("GLFW error: {}", err_str); }

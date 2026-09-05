@@ -244,10 +244,8 @@ void Renderer::LoadModels()
     // "/meshes/separateObjects.gltf", RenderingContext::GBuffer_Opaque);
     // gltfModels.emplace_back(this,  m_ResFolder + "/meshes/cottage.gltf",
     // RenderingContext::GBuffer_Opaque);
-    //gltfModels.emplace_back(this, m_ResFolder + "/meshes/sponza/sponza.gltf",
-    //                        RenderingContext::GBuffer_Opaque);
-    gltfModels.emplace_back(this, m_ResFolder +
-    "/meshes/sponzaNew/MainSponza.gltf", RenderingContext::GBuffer_Opaque);
+    gltfModels.emplace_back(this, m_ResFolder + "/meshes/sponza/sponza.gltf",
+                            RenderingContext::GBuffer_Opaque);
 
     // cloudMeshes.emplace_back(this, m_ResFolder +
     // "/meshes/simpleShapes/sphere.gltf",

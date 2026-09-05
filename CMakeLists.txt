@@ -6,13 +6,16 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 list(APPEND CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/cmake")
 find_package(Vulkan REQUIRED)
-# Build submodules
 # GLFW
-option(GLFW_BUILD_EXAMPLES "Build GLFW examples" OFF)
-option(GLFW_BUILD_TESTS "Build GLFW tests" OFF)
-option(GLFW_BUILD_DOCS "Build GLFW docs" OFF)
-option(GLFW_INSTALL "Generate GLFW installation target" OFF)
-add_subdirectory(extern/glfw)
+find_package(glfw3 QUIET)
+if(NOT glfw3_FOUND)
+    find_package(PkgConfig REQUIRED)
+    pkg_check_modules(glfw3 REQUIRED IMPORTED_TARGET glfw3)
+    add_library(glfw ALIAS PkgConfig::glfw3)
+endif()
+if(NOT TARGET glfw AND TARGET glfw3::glfw)
+    add_library(glfw ALIAS glfw3::glfw)
+endif()
 
 # --- Slang Automation ---
 set(SLANG_VERSION "2026.7.1")
@@ -27,7 +30,13 @@ endif()
 set(SLANG_DIR "${CMAKE_SOURCE_DIR}/extern/slang")
 set(SLANG_URL "https://github.com/shader-slang/slang/releases/download/v${SLANG_VERSION}/slang-${SLANG_VERSION}-${SLANG_PLATFORM}.${SLANG_SUFFIX}")
 
-if(NOT EXISTS "${SLANG_DIR}/include/slang.h")
+if(WIN32)
+    set(SLANG_LIB_FILE "${SLANG_DIR}/lib/slang.lib")
+else()
+    set(SLANG_LIB_FILE "${SLANG_DIR}/lib/libslang.so")
+endif()
+
+if(NOT EXISTS "${SLANG_LIB_FILE}")
     message(STATUS "Slang binaries not found. Downloading from ${SLANG_URL}...")
     set(SLANG_TEMP_FILE "${CMAKE_BINARY_DIR}/slang_temp.${SLANG_SUFFIX}")
     file(DOWNLOAD "${SLANG_URL}" "${SLANG_TEMP_FILE}" SHOW_PROGRESS STATUS download_status)
@@ -48,6 +57,7 @@ set(ASSIMP_BUILD_TESTS OFF CACHE BOOL "" FORCE)
 set(ASSIMP_BUILD_ASSIMP_TOOLS OFF CACHE BOOL "" FORCE)
 set(ASSIMP_INSTALL OFF CACHE BOOL "" FORCE)
 set(ASSIMP_BUILD_ZLIB ON CACHE BOOL "" FORCE) # Ensure zlib is built if needed
+set(ASSIMP_WARNINGS_AS_ERRORS OFF CACHE BOOL "" FORCE)
 
 FetchContent_Declare(
     assimp
@@ -60,7 +70,6 @@ include_directories(
     ${CMAKE_SOURCE_DIR}/src
     ${CMAKE_SOURCE_DIR}/src/vendor
     ${CMAKE_SOURCE_DIR}/extern
-    ${CMAKE_SOURCE_DIR}/extern/glfw/include
     ${Vulkan_INCLUDE_DIRS}
     ${CMAKE_SOURCE_DIR}/extern/vma
     ${SLANG_DIR}/include/
@@ -103,12 +112,19 @@ endif()
 
 # Handle FSR libraries
 set(FSR_LIB_DIR "${CMAKE_SOURCE_DIR}/extern/fsr/lib")
-target_link_libraries(${PROJECT_NAME} PRIVATE
-    debug "${FSR_LIB_DIR}/ffx_fsr2_api_x64d.lib"
-    debug "${FSR_LIB_DIR}/ffx_fsr2_api_vk_x64d.lib"
-    optimized "${FSR_LIB_DIR}/ffx_fsr2_api_x64.lib"
-    optimized "${FSR_LIB_DIR}/ffx_fsr2_api_vk_x64.lib"
-)
+if(WIN32)
+    target_link_libraries(${PROJECT_NAME} PRIVATE
+        debug "${FSR_LIB_DIR}/ffx_fsr2_api_x64d.lib"
+        debug "${FSR_LIB_DIR}/ffx_fsr2_api_vk_x64d.lib"
+        optimized "${FSR_LIB_DIR}/ffx_fsr2_api_x64.lib"
+        optimized "${FSR_LIB_DIR}/ffx_fsr2_api_vk_x64.lib"
+    )
+else()
+    target_link_libraries(${PROJECT_NAME} PRIVATE
+        "${FSR_LIB_DIR}/libffx_fsr2_api_x86_64.a"
+        "${FSR_LIB_DIR}/libffx_fsr2_api_vk_x86_64.a"
+    )
+endif()
 
 # Compile options...
 target_compile_options(${PROJECT_NAME} PRIVATE
